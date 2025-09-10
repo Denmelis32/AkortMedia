@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'news_page.dart';
 import 'predictions_league_page.dart';
 import 'profile_page.dart';
+import 'articles_page.dart' hide NewsPage; // Импортируем существующую страницу статей
+import 'rooms_page.dart';   // Создайте этот файл для комнат
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -35,12 +37,22 @@ class _HomePageState extends State<HomePage> {
       NewsPage(
         userName: widget.userName,
         userEmail: widget.userEmail,
-        onLogout: widget.onLogout, // ← ДОБАВЛЯЕМ onLogout
+        onLogout: widget.onLogout,
+      ),
+      ArticlesPage( // Используем вашу существующую страницу статей
+        userName: widget.userName,
+        userEmail: widget.userEmail,
+        onLogout: widget.onLogout,
+      ),
+      RoomsPage( // Добавляем страницу комнат
+        userName: widget.userName,
+        userEmail: widget.userEmail,
+        onLogout: widget.onLogout,
       ),
       PredictionsLeaguePage(
-        userName: widget.userName,       // ← ДОБАВЛЯЕМ
-        userEmail: widget.userEmail,     // ← ДОБАВЛЯЕМ
-        onLogout: widget.onLogout, // ← ДОБАВЛЯЕМ onLogout и УБИРАЕМ const
+        userName: widget.userName,
+        userEmail: widget.userEmail,
+        onLogout: widget.onLogout,
       ),
       ProfilePage(
         userName: widget.userName,
@@ -60,58 +72,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    String appBarTitle;
-    switch (_currentIndex) {
-      case 0:
-        appBarTitle = 'Футбольные новости';
-        break;
-      case 1:
-        appBarTitle = 'Лига Прогнозов';
-        break;
-      case 2:
-        appBarTitle = 'Профиль';
-        break;
-      default:
-        appBarTitle = 'Футбольные новости';
-    }
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text(appBarTitle),
-        centerTitle: true,
-        backgroundColor: const Color(0xFFA31525),
-        foregroundColor: Colors.white,
-        actions: _currentIndex == 2
-            ? [] // Скрываем кнопку выхода на других вкладках
-            : [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Выход'),
-                  content: const Text('Вы уверены, что хотите выйти?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Отмена'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        widget.onLogout();
-                      },
-                      child: const Text('Выйти'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            tooltip: 'Выйти',
-          ),
-        ],
-      ),
+      appBar: null,
       body: IndexedStack(
         index: _currentIndex,
         children: _pages,
@@ -123,16 +85,25 @@ class _HomePageState extends State<HomePage> {
             _currentIndex = index;
           });
         },
-        selectedItemColor: const Color(0xFFA31525),
+        selectedItemColor: const Color(0xFF396AA3),
         unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.newspaper),
-            label: 'Новости',
+            label: 'Лента',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.article),
+            label: 'Статьи',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
+            label: 'Комнаты',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.sports_soccer),
-            label: 'Лига прогнозов',
+            label: 'Прогнозы',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

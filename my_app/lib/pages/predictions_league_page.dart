@@ -1,38 +1,23 @@
 import 'package:flutter/material.dart';
-
-class Prediction {
-  final String id;
-  final String userName;
-  final String match;
-  final String prediction;
-  final DateTime timestamp;
-  final int points;
-  final bool isCorrect;
-  final String userAvatar;
-  final String league;
-  final String matchTime;
-
-  Prediction({
-    required this.id,
-    required this.userName,
-    required this.match,
-    required this.prediction,
-    required this.timestamp,
-    this.points = 0,
-    this.isCorrect = false,
-    this.userAvatar = '',
-    required this.league,
-    required this.matchTime,
-  });
-}
+import 'package:collection/collection.dart';
+import '../models/prediction.dart';
+import '../models/match.dart';
+import '../models/user_stats.dart';
+import '../models/head_to_head_match.dart';
+import '../widgets/prediction_card.dart';
+import '../widgets/user_ranking.dart';
+import '../widgets/head_to_head_match_card.dart';
+import '../widgets/add_prediction_form.dart';
 
 class PredictionsLeaguePage extends StatefulWidget {
+  final String userId;
   final String userName;
   final String userEmail;
   final VoidCallback? onLogout;
 
   const PredictionsLeaguePage({
     super.key,
+    required this.userId,
     required this.userName,
     required this.userEmail,
     this.onLogout,
@@ -42,11 +27,16 @@ class PredictionsLeaguePage extends StatefulWidget {
   State<PredictionsLeaguePage> createState() => _PredictionsLeaguePageState();
 }
 
-class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
+class _PredictionsLeaguePageState extends State<PredictionsLeaguePage>
+    with SingleTickerProviderStateMixin {
   final List<Prediction> _predictions = [];
+  final List<Match> _matches = [];
+  final List<UserStats> _userStats = [];
+  final List<HeadToHeadMatch> _headToHeadMatches = [];
   final TextEditingController _predictionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _showAddForm = false;
+  late TabController _tabController;
 
   // Список лиг и матчей
   final List<Map<String, dynamic>> _leagues = [
@@ -78,26 +68,166 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
 
   String _selectedLeague = '';
   String _selectedMatch = '';
+  String _selectedMatchId = '';
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _selectedLeague = _leagues[0]['name'];
     _selectedMatch = _leagues[0]['matches'][0];
-    _addSamplePredictions();
+    _initializeData();
   }
 
   @override
   void dispose() {
     _predictionController.dispose();
+    _tabController.dispose();
     super.dispose();
+  }
+
+  void _initializeData() {
+    // Инициализация матчей
+    final now = DateTime.now();
+    _matches.addAll([
+      Match(
+        id: '1',
+        homeTeam: 'Барселона',
+        awayTeam: 'Реал Мадрид',
+        league: 'Ла Лига',
+        date: now.add(const Duration(days: 1)),
+        time: '20:00',
+        result: '2:1',
+        isFinished: true,
+      ),
+      Match(
+        id: '2',
+        homeTeam: 'Манчестер Сити',
+        awayTeam: 'Манчестер Юнайтед',
+        league: 'АПЛ',
+        date: now.add(const Duration(days: 2)),
+        time: '18:30',
+        result: '1:2',
+        isFinished: true,
+      ),
+      Match(
+        id: '3',
+        homeTeam: 'Интер',
+        awayTeam: 'Милан',
+        league: 'Серия А',
+        date: now.add(const Duration(days: 3)),
+        time: '21:45',
+        result: '0:0',
+        isFinished: true,
+      ),
+      Match(
+        id: '4',
+        homeTeam: 'Арсенал',
+        awayTeam: 'Форест',
+        league: 'АПЛ',
+        date: now.add(const Duration(days: 4)),
+        time: '16:00',
+      ),
+      Match(
+        id: '5',
+        homeTeam: 'Ливерпуль',
+        awayTeam: 'Челси',
+        league: 'АПЛ',
+        date: now.add(const Duration(days: 5)),
+        time: '15:00',
+      ),
+    ]);
+
+    _selectedMatchId = _matches[0].id;
+
+    // Инициализация пользователей
+    _userStats.addAll([
+      UserStats(
+        userId: '1',
+        userName: 'Алексей Футболов',
+        userAvatar: '⚽',
+        points: 15,
+        matchesPlayed: 3,
+        wins: 2,
+        draws: 0,
+        losses: 1,
+        correctPredictions: 2,
+      ),
+      UserStats(
+        userId: '2',
+        userName: 'Мария Скаут',
+        userAvatar: '👑',
+        points: 8,
+        matchesPlayed: 3,
+        wins: 1,
+        draws: 0,
+        losses: 2,
+        correctPredictions: 1,
+      ),
+      UserStats(
+        userId: '3',
+        userName: 'Иван Голкипер',
+        userAvatar: '🧤',
+        points: 12,
+        matchesPlayed: 3,
+        wins: 1,
+        draws: 1,
+        losses: 1,
+        correctPredictions: 2,
+      ),
+      UserStats(
+        userId: widget.userId,
+        userName: widget.userName,
+        userAvatar: _getRandomAvatar(),
+        points: 0,
+        matchesPlayed: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        correctPredictions: 0,
+      ),
+    ]);
+
+    // Инициализация прогнозов
+    _addSamplePredictions();
+
+    // Инициализация матчей 1 на 1
+    _headToHeadMatches.addAll([
+      HeadToHeadMatch(
+        id: '1',
+        user1Id: '1',
+        user1Name: 'Алексей Футболов',
+        user2Id: '2',
+        user2Name: 'Мария Скаут',
+        matchIds: ['1', '2', '3'],
+        createdDate: now.subtract(const Duration(days: 2)),
+        isCompleted: true,
+        user1Points: 15,
+        user2Points: 8,
+        winnerId: '1',
+      ),
+      HeadToHeadMatch(
+        id: '2',
+        user1Id: '1',
+        user1Name: 'Алексей Футболов',
+        user2Id: '3',
+        user2Name: 'Иван Голкипер',
+        matchIds: ['4', '5'],
+        createdDate: now.subtract(const Duration(days: 1)),
+        isCompleted: false,
+        user1Points: 0,
+        user2Points: 0,
+      ),
+    ]);
   }
 
   void _addSamplePredictions() {
     final samplePredictions = [
       Prediction(
         id: '1',
+        userId: '1',
         userName: 'Алексей Футболов',
+        matchId: '1',
         match: 'Барселона - Реал Мадрид',
         prediction: '2:1',
         timestamp: DateTime.now().subtract(const Duration(hours: 2)),
@@ -106,30 +236,37 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
         userAvatar: '⚽',
         league: 'Ла Лига',
         matchTime: '20:00',
+        matchDate: DateTime.now().add(const Duration(days: 1)),
       ),
       Prediction(
         id: '2',
+        userId: '2',
         userName: 'Мария Скаут',
-        match: 'Манчестер Сити - Манчестер Юнайтед',
+        matchId: '1',
+        match: 'Барселона - Реал Мадрид',
         prediction: '1:2',
         timestamp: DateTime.now().subtract(const Duration(hours: 4)),
-        points: 8,
+        points: 0,
         isCorrect: false,
         userAvatar: '👑',
-        league: 'АПЛ',
-        matchTime: '18:30',
+        league: 'Ла Лига',
+        matchTime: '20:00',
+        matchDate: DateTime.now().add(const Duration(days: 1)),
       ),
       Prediction(
         id: '3',
+        userId: '3',
         userName: 'Иван Голкипер',
-        match: 'Интер - Милан',
-        prediction: '0:0',
+        matchId: '1',
+        match: 'Барселона - Реал Мадрид',
+        prediction: '2:2',
         timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-        points: 12,
-        isCorrect: true,
+        points: 0,
+        isCorrect: false,
         userAvatar: '🧤',
-        league: 'Серия А',
-        matchTime: '21:45',
+        league: 'Ла Лига',
+        matchTime: '20:00',
+        matchDate: DateTime.now().add(const Duration(days: 1)),
       ),
     ];
 
@@ -140,15 +277,20 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
 
   void _addPrediction() {
     if (_formKey.currentState!.validate()) {
+      final selectedMatch = _matches.firstWhere((m) => m.id == _selectedMatchId);
+
       final newPrediction = Prediction(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: widget.userId,
         userName: widget.userName,
-        match: _selectedMatch,
+        matchId: _selectedMatchId,
+        match: selectedMatch.name,
         prediction: _predictionController.text,
         timestamp: DateTime.now(),
         userAvatar: _getRandomAvatar(),
         league: _selectedLeague,
-        matchTime: '20:00',
+        matchTime: selectedMatch.time,
+        matchDate: selectedMatch.date,
       );
 
       setState(() {
@@ -183,236 +325,6 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     return '${date.day}.${date.month}.${date.year}';
   }
 
-  Widget _buildUserRanking() {
-    // Сортируем пользователей по очкам
-    final userStats = _predictions.fold<Map<String, int>>({}, (map, prediction) {
-      map[prediction.userName] = (map[prediction.userName] ?? 0) + prediction.points;
-      return map;
-    });
-
-    final sortedUsers = userStats.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '🏆 ТОП ИГРОКОВ',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (sortedUsers.isEmpty)
-            const Text(
-              'Пока нет результатов',
-              style: TextStyle(color: Colors.grey),
-            )
-          else
-            ...sortedUsers.take(5).map((entry) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.blue[100],
-                    radius: 16,
-                    child: Text(
-                      entry.key[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      entry.key,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${entry.value} очков',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPredictionCard(Prediction prediction, int index) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Заголовок и автор
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: prediction.isCorrect ? Colors.green[100] : Colors.red[100],
-                    child: Text(
-                      prediction.userAvatar,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          prediction.userName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          _formatDate(prediction.timestamp),
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (prediction.userName == widget.userName)
-                    IconButton(
-                      icon: Icon(Icons.more_vert, color: Colors.grey[500]),
-                      onPressed: () => _showPredictionOptions(context, index),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Информация о матче
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.sports_soccer, color: Colors.blue[700], size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        prediction.match,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      prediction.league,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Прогноз и результат
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E88E5),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      prediction.prediction,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  if (prediction.points > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: prediction.isCorrect ? Colors.green[50] : Colors.red[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: prediction.isCorrect ? Colors.green : Colors.red,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            prediction.isCorrect ? Icons.check : Icons.close,
-                            size: 14,
-                            color: prediction.isCorrect ? Colors.green : Colors.red,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '+${prediction.points}',
-                            style: TextStyle(
-                              color: prediction.isCorrect ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showPredictionOptions(BuildContext context, int index) {
     showModalBottomSheet(
       context: context,
@@ -444,7 +356,6 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   }
 
   void _editPrediction(int index) {
-    // TODO: Реализовать редактирование прогноза
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Редактирование скоро будет доступно')),
     );
@@ -465,247 +376,202 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     });
   }
 
+  void _createHeadToHeadChallenge() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Функция создания матча скоро будет доступна')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: Stack(
+      appBar: AppBar(
+        title: const Text('Лига Прогнозов'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Прогнозы'),
+            Tab(text: 'Турнир'),
+            Tab(text: 'Матчи 1x1'),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.group_add),
+            onPressed: _createHeadToHeadChallenge,
+            tooltip: 'Создать матч 1 на 1',
+          ),
+        ],
+      ),
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          CustomScrollView(
-            slivers: [
-              // Список прогнозов
-              _predictions.isEmpty
-                  ? SliverToBoxAdapter(
-                child: Container(
-                  height: MediaQuery.of(context).size.height * 0.6,
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.sports_soccer,
-                        size: 64,
-                        color: Colors.grey[300],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Пока нет прогнозов',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Будьте первым, кто сделает прогноз!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-                  : SliverList(
-                delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                    if (index == 0) return _buildUserRanking();
-                    return _buildPredictionCard(_predictions[index - 1], index - 1);
-                  },
-                  childCount: _predictions.length + 1,
-                ),
-              ),
-            ],
-          ),
+          // Вкладка прогнозов
+          _buildPredictionsTab(),
 
-          // Плавающая кнопка
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: FloatingActionButton(
-              onPressed: _toggleAddForm,
-              backgroundColor: const Color(0xFF1E88E5),
-              child: Icon(
-                _showAddForm ? Icons.close : Icons.add,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-          ),
+          // Вкладка турнирной таблицы
+          _buildTournamentTab(),
 
-          // Модальное окно для добавления прогноза
-          if (_showAddForm)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black54,
-                child: Center(
-                  child: SingleChildScrollView(
-                    child: Container(
-                      margin: const EdgeInsets.all(20),
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            blurRadius: 20,
-                            color: Colors.black.withOpacity(0.1),
-                          ),
-                        ],
-                      ),
-                      child: _buildAddPredictionForm(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          // Вкладка матчей 1 на 1
+          _buildHeadToHeadTab(),
         ],
       ),
     );
   }
 
-  Widget _buildAddPredictionForm() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildPredictionsTab() {
+    return Stack(
       children: [
-        Text(
-          'Новый прогноз',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
-          ),
-        ),
-        const SizedBox(height: 20),
-        Form(
-          key: _formKey,
+        _predictions.isEmpty
+            ? Center(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              DropdownButtonFormField<String>(
-                value: _selectedLeague,
-                decoration: InputDecoration(
-                  labelText: 'Лига',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                ),
-                items: _leagues.map((league) {
-                  return DropdownMenuItem<String>(
-                    value: league['name'],
-                    child: Text(league['name']),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedLeague = newValue!;
-                    _selectedMatch = _leagues
-                        .firstWhere((l) => l['name'] == newValue)['matches'][0];
-                  });
-                },
+              Icon(
+                Icons.sports_soccer,
+                size: 64,
+                color: Colors.grey[300],
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedMatch,
-                decoration: InputDecoration(
-                  labelText: 'Матч',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
+              const SizedBox(height: 20),
+              Text(
+                'Пока нет прогнозов',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[600],
                 ),
-                items: _leagues
-                    .firstWhere((l) => l['name'] == _selectedLeague)['matches']
-                    .map<DropdownMenuItem<String>>((match) {
-                  return DropdownMenuItem<String>(
-                    value: match,
-                    child: Text(match),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedMatch = newValue!;
-                  });
-                },
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _predictionController,
-                decoration: InputDecoration(
-                  labelText: 'Прогноз (например: 2:1)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
+              const SizedBox(height: 10),
+              Text(
+                'Будьте первым, кто сделает прогноз!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[500],
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Введите прогноз';
-                  }
-                  if (!RegExp(r'^\d+:\d+$').hasMatch(value)) {
-                    return 'Формат: число:число (например: 2:1)';
-                  }
-                  return null;
-                },
               ),
             ],
           ),
+        )
+            : ListView.builder(
+          padding: const EdgeInsets.only(bottom: 80),
+          itemCount: _predictions.length,
+          itemBuilder: (context, index) {
+            return PredictionCard(
+              prediction: _predictions[index],
+              match: _matches.firstWhereOrNull((m) => m.id == _predictions[index].matchId),
+              onOptionsPressed: () => _showPredictionOptions(context, index),
+              formatDate: _formatDate,
+            );
+          },
         ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _toggleAddForm,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: Colors.grey[300]!),
-                ),
-                child: Text(
-                  'Отмена',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 16,
+
+        // Плавающая кнопка
+        Positioned(
+          bottom: 20,
+          right: 20,
+          child: FloatingActionButton(
+            onPressed: _toggleAddForm,
+            backgroundColor: const Color(0xFF1E88E5),
+            child: Icon(
+              _showAddForm ? Icons.close : Icons.add,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+        ),
+
+        // Модальное окно для добавления прогноза
+        if (_showAddForm)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black54,
+              child: Center(
+                child: SingleChildScrollView(
+                  child: Container(
+                    margin: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          blurRadius: 20,
+                          color: Colors.black.withOpacity(0.1),
+                        ),
+                      ],
+                    ),
+                    child: AddPredictionForm(
+                      formKey: _formKey,
+                      leagues: _leagues,
+                      matches: _matches,
+                      selectedLeague: _selectedLeague,
+                      selectedMatchId: _selectedMatchId,
+                      predictionController: _predictionController,
+                      onLeagueChanged: (newValue) {
+                        setState(() {
+                          _selectedLeague = newValue!;
+                        });
+                      },
+                      onMatchChanged: (newValue) {
+                        setState(() {
+                          _selectedMatchId = newValue!;
+                          final selectedMatch = _matches.firstWhere((m) => m.id == newValue);
+                          _selectedMatch = selectedMatch.name;
+                          _selectedLeague = selectedMatch.league;
+                        });
+                      },
+                      onCancel: _toggleAddForm,
+                      onSubmit: _addPrediction,
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _addPrediction,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Добавить',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
       ],
+    );
+  }
+
+  Widget _buildTournamentTab() {
+    return ListView(
+      children: [
+        UserRanking(
+          userStats: _userStats,
+          currentUserId: widget.userId,
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Последние прогнозы',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
+        ..._predictions.take(3).map((prediction) => PredictionCard(
+          prediction: prediction,
+          match: _matches.firstWhereOrNull((m) => m.id == prediction.matchId),
+          onOptionsPressed: () => _showPredictionOptions(
+              context, _predictions.indexOf(prediction)),
+          formatDate: _formatDate,
+        )),
+      ],
+    );
+  }
+
+  Widget _buildHeadToHeadTab() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _headToHeadMatches.length,
+      itemBuilder: (context, index) {
+        final match = _headToHeadMatches[index];
+        return HeadToHeadMatchCard(match: match);
+      },
     );
   }
 }

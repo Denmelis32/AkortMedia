@@ -48,8 +48,14 @@ class _HomePageState extends State<HomePage> {
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
+        userPermissions: UserPermissions( // Добавляем этот параметр
+          isSeniorDeveloper: true, // или false, в зависимости от пользователя
+          isLongTermFan: false, // или true
+          joinDate: DateTime.now().subtract(Duration(days: 45)), // пример даты регистрации
+        ),
       ),
       PredictionsLeaguePage(
+        userId: 'temp_user_${DateTime.now().millisecondsSinceEpoch}',
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,

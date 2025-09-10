@@ -400,7 +400,6 @@ class _NewsPageState extends State<NewsPage> {
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
                       child: Text(
@@ -885,32 +884,33 @@ class _NewsCardState extends State<_NewsCard> {
 
               // Title (only show if not empty)
               if (widget.news['title'] != null && widget.news['title'].toString().isNotEmpty)
-                Column(
-                  children: [
-                    Text(
-                      widget.news['title'],
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        height: 1.4,
-                        color: widget.textColor,
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0), // Отступ для заголовка
+                  child: Text(
+                    widget.news['title'],
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      height: 1.4,
+                      color: widget.textColor,
                     ),
-                    const SizedBox(height: 12),
-                  ],
+                  ),
                 ),
 
-              // Description
-              Text(
-                widget.news['description'],
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 1.6,
-                  color: widget.textColor,
+              // Description with increased left padding
+              Padding(
+                padding: const EdgeInsets.only(left: 12.0, top: 8.0), // Больший отступ для текста
+                child: Text(
+                  widget.news['description'],
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.6,
+                    color: widget.textColor,
+                  ),
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12), // Уменьшенное расстояние между текстом и хештегами
 
               // Hashtags at the bottom right
               if (hashtags.isNotEmpty)
@@ -941,7 +941,7 @@ class _NewsCardState extends State<_NewsCard> {
                   ),
                 ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12), // Уменьшенное расстояние между хештегами и кнопками
 
               // Stats and actions
               Row(

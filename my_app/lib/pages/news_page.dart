@@ -187,7 +187,7 @@ class _NewsPageState extends State<NewsPage> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Заголовок',
+                  'Заголовок (необязательно)',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -199,7 +199,7 @@ class _NewsPageState extends State<NewsPage> {
                   controller: titleController,
                   style: TextStyle(color: _textColor),
                   decoration: InputDecoration(
-                    hintText: 'Введите заголовок новости',
+                    hintText: 'Введите заголовок новости (необязательно)',
                     hintStyle: TextStyle(color: _secondaryTextColor),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -217,7 +217,7 @@ class _NewsPageState extends State<NewsPage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Текст новости',
+                  'Текст новости (максимум 140 символов)',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -229,7 +229,7 @@ class _NewsPageState extends State<NewsPage> {
                   controller: descriptionController,
                   style: TextStyle(color: _textColor),
                   decoration: InputDecoration(
-                    hintText: 'Введите текст новости',
+                    hintText: 'Введите текст новости (максимум 140 символов)',
                     hintStyle: TextStyle(color: _secondaryTextColor),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -242,8 +242,13 @@ class _NewsPageState extends State<NewsPage> {
                     filled: true,
                     fillColor: _backgroundColor,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    counterText: '${descriptionController.text.length}/140',
                   ),
                   maxLines: 4,
+                  maxLength: 140,
+                  onChanged: (value) {
+                    setState(() {});
+                  },
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -305,8 +310,8 @@ class _NewsPageState extends State<NewsPage> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         onPressed: () {
-                          if (titleController.text.isNotEmpty &&
-                              descriptionController.text.isNotEmpty) {
+                          if (descriptionController.text.isNotEmpty &&
+                              descriptionController.text.length <= 140) {
                             _editNews(
                               index,
                               titleController.text,
@@ -381,180 +386,195 @@ class _NewsPageState extends State<NewsPage> {
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 8,
-        child: Container(
-          decoration: BoxDecoration(
-            color: _cardColor,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Text(
-                    'Создать новость',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: _primaryColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Заголовок',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: _textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: titleController,
-                  style: TextStyle(color: _textColor),
-                  decoration: InputDecoration(
-                    hintText: 'Введите заголовок новости',
-                    hintStyle: TextStyle(color: _secondaryTextColor),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: _primaryColor, width: 2),
-                    ),
-                    filled: true,
-                    fillColor: _backgroundColor,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Текст новости',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: _textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descriptionController,
-                  style: TextStyle(color: _textColor),
-                  decoration: InputDecoration(
-                    hintText: 'Введите текст новости',
-                    hintStyle: TextStyle(color: _secondaryTextColor),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: _primaryColor, width: 2),
-                    ),
-                    filled: true,
-                    fillColor: _backgroundColor,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  ),
-                  maxLines: 4,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Хештеги (через запятую, максимум 4)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: _textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: hashtagsController,
-                  style: TextStyle(color: _textColor),
-                  decoration: InputDecoration(
-                    hintText: '#новость, #событие, #факт',
-                    hintStyle: TextStyle(color: _secondaryTextColor),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: _primaryColor, width: 2),
-                    ),
-                    filled: true,
-                    fillColor: _backgroundColor,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            elevation: 8,
+            child: Container(
+              decoration: BoxDecoration(
+                color: _cardColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _primaryColor,
-                          side: BorderSide(color: _primaryColor),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                    Center(
+                      child: Text(
+                        'Создать новость',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryColor,
                         ),
-                        child: const Text('Отмена'),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        onPressed: () {
-                          if (titleController.text.isNotEmpty &&
-                              descriptionController.text.isNotEmpty) {
-                            _addNews(
-                              titleController.text,
-                              descriptionController.text,
-                              hashtagsController.text,
-                            );
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Новость успешно добавлена!'),
-                                backgroundColor: _primaryColor,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                margin: const EdgeInsets.all(16),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text('Опубликовать'),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Заголовок (необязательно)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _textColor,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: titleController,
+                      style: TextStyle(color: _textColor),
+                      decoration: InputDecoration(
+                        hintText: 'Введите заголовок новости (необязательно)',
+                        hintStyle: TextStyle(color: _secondaryTextColor),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: _primaryColor, width: 2),
+                        ),
+                        filled: true,
+                        fillColor: _backgroundColor,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Текст новости (максимум 140 символов)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: descriptionController,
+                      style: TextStyle(color: _textColor),
+                      decoration: InputDecoration(
+                        hintText: 'Введите текст новости (максимум 140 символов)',
+                        hintStyle: TextStyle(color: _secondaryTextColor),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: _primaryColor, width: 2),
+                        ),
+                        filled: true,
+                        fillColor: _backgroundColor,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        counterText: '${descriptionController.text.length}/140',
+                        errorText: descriptionController.text.length > 140
+                            ? 'Превышено максимальное количество символов'
+                            : null,
+                      ),
+                      maxLines: 4,
+                      maxLength: 140,
+                      onChanged: (value) {
+                        setState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Хештеги (через запятую, максимум 4)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: hashtagsController,
+                      style: TextStyle(color: _textColor),
+                      decoration: InputDecoration(
+                        hintText: '#новость, #событие, #факт',
+                        hintStyle: TextStyle(color: _secondaryTextColor),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: _primaryColor, width: 2),
+                        ),
+                        filled: true,
+                        fillColor: _backgroundColor,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _primaryColor,
+                              side: BorderSide(color: _primaryColor),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: const Text('Отмена'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: descriptionController.text.isNotEmpty &&
+                                  descriptionController.text.length <= 140
+                                  ? _primaryColor
+                                  : Colors.grey,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            onPressed: () {
+                              if (descriptionController.text.isNotEmpty &&
+                                  descriptionController.text.length <= 140) {
+                                _addNews(
+                                  titleController.text,
+                                  descriptionController.text,
+                                  hashtagsController.text,
+                                );
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Новость успешно добавлена!'),
+                                    backgroundColor: _primaryColor,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    margin: const EdgeInsets.all(16),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Опубликовать'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -863,18 +883,22 @@ class _NewsCardState extends State<_NewsCard> {
 
               const SizedBox(height: 16),
 
-              // Title
-              Text(
-                widget.news['title'],
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  height: 1.4,
-                  color: widget.textColor,
+              // Title (only show if not empty)
+              if (widget.news['title'] != null && widget.news['title'].toString().isNotEmpty)
+                Column(
+                  children: [
+                    Text(
+                      widget.news['title'],
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        height: 1.4,
+                        color: widget.textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ),
-              ),
-
-              const SizedBox(height: 12),
 
               // Description
               Text(

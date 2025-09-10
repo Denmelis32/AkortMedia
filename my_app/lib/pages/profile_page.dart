@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 class ProfilePage extends StatelessWidget {
   final String userName;
   final String userEmail;
-  final VoidCallback onLogout; // ← ДОБАВЛЯЕМ onLogout
+  final VoidCallback onLogout;
 
   const ProfilePage({
     super.key,
     required this.userName,
     required this.userEmail,
-    required this.onLogout, // ← ДОБАВЛЯЕМ required
+    required this.onLogout,
   });
 
   @override
@@ -19,7 +19,7 @@ class ProfilePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Профиль'),
         centerTitle: true,
-        backgroundColor: const Color(0xFFA31525),
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -30,7 +30,7 @@ class ProfilePage extends StatelessWidget {
             // Аватар пользователя
             CircleAvatar(
               radius: 50,
-              backgroundColor: const Color(0xFFA31525),
+              backgroundColor: Colors.blue,
               child: Text(
                 userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
                 style: const TextStyle(
@@ -63,14 +63,20 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
-            // Статистика
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem('23', 'Постов'),
-                _buildStatItem('156', 'Лайков'),
-                _buildStatItem('42', 'Комментариев'),
-              ],
+            // Статистика в карточках
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem('23', 'Тем'),
+                    _buildStatItem('156', 'Сообщений'),
+                    _buildStatItem('42', 'Лайков'),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 30),
 
@@ -92,11 +98,16 @@ class ProfilePage extends StatelessWidget {
                   text: 'Настройки',
                   onPressed: () {},
                 ),
-                _buildProfileButton(
-                  icon: Icons.exit_to_app,
-                  text: 'Выйти',
-                  onPressed: onLogout, // ← ИСПРАВЛЯЕМ на onLogout
-                  color: Colors.red,
+                const SizedBox(height: 20),
+                Card(
+                  elevation: 2,
+                  color: Colors.red[50],
+                  child: _buildProfileButton(
+                    icon: Icons.exit_to_app,
+                    text: 'Выйти из аккаунта',
+                    onPressed: onLogout,
+                    color: Colors.red,
+                  ),
                 ),
               ],
             ),
@@ -116,7 +127,7 @@ class ProfilePage extends StatelessWidget {
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFA31525),
+            color: Colors.blue,
           ),
         ),
         const SizedBox(height: 4),
@@ -139,31 +150,36 @@ class ProfilePage extends StatelessWidget {
   }) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ElevatedButton(
+      margin: const EdgeInsets.only(bottom: 1),
+      child: TextButton(
         onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: color ?? const Color(0xFFA31525),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        style: TextButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: color ?? Colors.blue,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(8),
           ),
-          elevation: 0,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 12),
+            Icon(icon, size: 22),
+            const SizedBox(width: 16),
             Expanded(
               child: Text(
                 text,
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: color ?? Colors.black87,
+                ),
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 14),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: color ?? Colors.grey[400],
+            ),
           ],
         ),
       ),

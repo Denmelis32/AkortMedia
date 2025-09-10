@@ -1,7 +1,5 @@
-// lib/pages/news_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/news_provider.dart';
 import '../services/api_service.dart';
 
@@ -23,8 +21,12 @@ class NewsPage extends StatefulWidget {
 
 class _NewsPageState extends State<NewsPage> {
   final TextEditingController _commentController = TextEditingController();
-  final Map<String, TextEditingController> _commentControllers = {};
-  bool _showAddNewsForm = false;
+  final ScrollController _scrollController = ScrollController();
+  final Color _primaryColor = const Color(0xFF2196F3);
+  final Color _backgroundColor = const Color(0xFFF5F9FF);
+  final Color _cardColor = Colors.white;
+  final Color _textColor = const Color(0xFF333333);
+  final Color _secondaryTextColor = const Color(0xFF666666);
 
   @override
   void initState() {
@@ -37,36 +39,24 @@ class _NewsPageState extends State<NewsPage> {
   Future<void> _likeNews(int index) async {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = newsProvider.news[index];
-
     try {
-      // Безопасное преобразование ID
-      final newsId = news['id'] is int ? news['id'].toString() : news['id'] as String;
-      await ApiService.likeNews(newsId);
-
-      // Безопасное обновление лайков
-      final currentLikes = news['likes'] is int ? news['likes'] : int.tryParse(news['likes'].toString()) ?? 0;
-      newsProvider.updateNewsLikes(index, currentLikes + 1);
+      await ApiService.likeNews(news['id'].toString());
+      newsProvider.updateNewsLikes(index, news['likes'] + 1);
     } catch (e) {
       print('Error liking news: $e');
-      final currentLikes = news['likes'] is int ? news['likes'] : int.tryParse(news['likes'].toString()) ?? 0;
-      newsProvider.updateNewsLikes(index, currentLikes + 1);
+      newsProvider.updateNewsLikes(index, (news['likes'] ?? 0) + 1);
     }
   }
 
   Future<void> _addComment(int index, String commentText) async {
     if (commentText.trim().isEmpty) return;
-
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = newsProvider.news[index];
-
     try {
-      // Безопасное преобразование ID
-      final newsId = news['id'] is int ? news['id'].toString() : news['id'] as String;
-      await ApiService.addComment(newsId, {
+      await ApiService.addComment(news['id'].toString(), {
         'text': commentText.trim(),
         'author': widget.userName,
       });
-
       newsProvider.addCommentToNews(
         index,
         {
@@ -76,11 +66,9 @@ class _NewsPageState extends State<NewsPage> {
           'time': 'Только что',
         },
       );
-
-      _commentControllers[newsId]?.clear();
+      _commentController.clear();
     } catch (e) {
       print('Error adding comment: $e');
-      final newsId = news['id'] is int ? news['id'].toString() : news['id'] as String;
       newsProvider.addCommentToNews(
         index,
         {
@@ -90,30 +78,29 @@ class _NewsPageState extends State<NewsPage> {
           'time': 'Только что',
         },
       );
-      _commentControllers[newsId]?.clear();
+      _commentController.clear();
     }
   }
 
-  Future<void> _addNews(String title, String description) async {
+  Future<void> _addNews(String title, String description, String hashtags) async {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-
     try {
       final newNews = await ApiService.createNews({
         'title': title,
         'description': description,
+        'hashtags': hashtags,
       });
-
       newsProvider.addNews({
         ...newNews,
         'comments': [],
       });
-
     } catch (e) {
       print('Error creating news: $e');
       newsProvider.addNews({
         "id": "local-${DateTime.now().millisecondsSinceEpoch}",
         "title": title,
         "description": description,
+        "hashtags": hashtags,
         "likes": 0,
         "author_name": widget.userName,
         "created_at": DateTime.now().toIso8601String(),
@@ -122,13 +109,466 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  void _toggleAddNewsForm() {
-    setState(() {
-      _showAddNewsForm = !_showAddNewsForm;
-    });
+  Future<void> _editNews(int index, String title, String description, String hashtags) async {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final news = newsProvider.news[index];
+    try {
+      await ApiService.updateNews(news['id'].toString(), {
+        'title': title,
+        'description': description,
+        'hashtags': hashtags,
+      });
+      newsProvider.updateNews(
+        index,
+        {
+          ...news,
+          'title': title,
+          'description': description,
+          'hashtags': hashtags,
+        },
+      );
+    } catch (e) {
+      print('Error updating news: $e');
+      newsProvider.updateNews(
+        index,
+        {
+          ...news,
+          'title': title,
+          'description': description,
+          'hashtags': hashtags,
+        },
+      );
+    }
+  }
+
+  Future<void> _deleteNews(int index) async {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final news = newsProvider.news[index];
+    try {
+      await ApiService.deleteNews(news['id'].toString());
+      newsProvider.removeNews(index);
+    } catch (e) {
+      print('Error deleting news: $e');
+      newsProvider.removeNews(index);
+    }
+  }
+
+  void _showEditNewsDialog(int index) {
+    final news = Provider.of<NewsProvider>(context, listen: false).news[index];
+    final titleController = TextEditingController(text: news['title']);
+    final descriptionController = TextEditingController(text: news['description']);
+    final hashtagsController = TextEditingController(text: news['hashtags']);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 8,
+        child: Container(
+          decoration: BoxDecoration(
+            color: _cardColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    'Редактировать новость',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: _primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Заголовок',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: titleController,
+                  style: TextStyle(color: _textColor),
+                  decoration: InputDecoration(
+                    hintText: 'Введите заголовок новости',
+                    hintStyle: TextStyle(color: _secondaryTextColor),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: _backgroundColor,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Текст новости',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: descriptionController,
+                  style: TextStyle(color: _textColor),
+                  decoration: InputDecoration(
+                    hintText: 'Введите текст новости',
+                    hintStyle: TextStyle(color: _secondaryTextColor),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: _backgroundColor,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Хештеги (через запятую, максимум 4)',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: hashtagsController,
+                  style: TextStyle(color: _textColor),
+                  decoration: InputDecoration(
+                    hintText: '#новость, #событие, #факт',
+                    hintStyle: TextStyle(color: _secondaryTextColor),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: _backgroundColor,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _primaryColor,
+                          side: BorderSide(color: _primaryColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Отмена'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        onPressed: () {
+                          if (titleController.text.isNotEmpty &&
+                              descriptionController.text.isNotEmpty) {
+                            _editNews(
+                              index,
+                              titleController.text,
+                              descriptionController.text,
+                              hashtagsController.text,
+                            );
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Новость успешно обновлена!'),
+                                backgroundColor: _primaryColor,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.all(16),
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('Сохранить'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmationDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить новость?'),
+        content: const Text('Вы уверены, что хотите удалить эту новость? Это действие нельзя отменить.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              _deleteNews(index);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Новость удалена!'),
+                  backgroundColor: _primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  margin: const EdgeInsets.all(16),
+                ),
+              );
+            },
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddNewsDialog() {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final hashtagsController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 8,
+        child: Container(
+          decoration: BoxDecoration(
+            color: _cardColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    'Создать новость',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: _primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Заголовок',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: titleController,
+                  style: TextStyle(color: _textColor),
+                  decoration: InputDecoration(
+                    hintText: 'Введите заголовок новости',
+                    hintStyle: TextStyle(color: _secondaryTextColor),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: _backgroundColor,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Текст новости',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: descriptionController,
+                  style: TextStyle(color: _textColor),
+                  decoration: InputDecoration(
+                    hintText: 'Введите текст новости',
+                    hintStyle: TextStyle(color: _secondaryTextColor),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: _backgroundColor,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Хештеги (через запятую, максимум 4)',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: hashtagsController,
+                  style: TextStyle(color: _textColor),
+                  decoration: InputDecoration(
+                    hintText: '#новость, #событие, #факт',
+                    hintStyle: TextStyle(color: _secondaryTextColor),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryColor, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: _backgroundColor,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _primaryColor,
+                          side: BorderSide(color: _primaryColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Отмена'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        onPressed: () {
+                          if (titleController.text.isNotEmpty &&
+                              descriptionController.text.isNotEmpty) {
+                            _addNews(
+                              titleController.text,
+                              descriptionController.text,
+                              hashtagsController.text,
+                            );
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Новость успешно добавлена!'),
+                                backgroundColor: _primaryColor,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.all(16),
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('Опубликовать'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return '${date.day}.${date.month}.${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  String _getTimeAgo(String dateString) {
     try {
       final date = DateTime.parse(dateString);
       final now = DateTime.now();
@@ -137,37 +577,227 @@ class _NewsPageState extends State<NewsPage> {
       if (difference.inMinutes < 1) return 'только что';
       if (difference.inMinutes < 60) return '${difference.inMinutes} мин назад';
       if (difference.inHours < 24) return '${difference.inHours} ч назад';
-      if (difference.inDays < 7) return '${difference.inDays} д назад';
+      if (difference.inDays < 7) return '${difference.inDays} дн назад';
 
-      return DateFormat('dd.MM.yyyy').format(date);
+      return '${date.day}.${date.month}.${date.year}';
     } catch (e) {
       return dateString;
     }
   }
 
-  Widget _buildNewsCard(Map<String, dynamic> news, int index, BuildContext context) {
-    final isLiked = false;
-    final comments = news['comments'] ?? [];
+  @override
+  Widget build(BuildContext context) {
+    final newsProvider = Provider.of<NewsProvider>(context);
+
+    return Scaffold(
+      backgroundColor: _backgroundColor,
+      appBar: AppBar(
+        title: Text(
+          'Новости',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+            color: _textColor,
+          ),
+        ),
+        backgroundColor: _cardColor,
+        elevation: 1,
+        centerTitle: false,
+        iconTheme: IconThemeData(color: _primaryColor),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: CircleAvatar(
+              backgroundColor: _primaryColor.withOpacity(0.1),
+              child: Text(
+                widget.userName[0].toUpperCase(),
+                style: TextStyle(
+                  color: _primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.logout, color: _primaryColor),
+            onPressed: widget.onLogout,
+            tooltip: 'Выйти',
+          ),
+        ],
+      ),
+      body: newsProvider.isLoading
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation(_primaryColor),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Загрузка новостей...',
+              style: TextStyle(
+                color: _secondaryTextColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      )
+          : RefreshIndicator(
+        onRefresh: () => newsProvider.loadNews(),
+        color: _primaryColor,
+        backgroundColor: _cardColor,
+        child: newsProvider.news.isEmpty
+            ? Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.article,
+                size: 64,
+                color: _primaryColor.withOpacity(0.3),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Новостей пока нет',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: _secondaryTextColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Будьте первым, кто поделится новостью!',
+                style: TextStyle(
+                  color: _secondaryTextColor,
+                ),
+              ),
+            ],
+          ),
+        )
+            : ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(16),
+          itemCount: newsProvider.news.length,
+          itemBuilder: (context, index) {
+            final news = newsProvider.news[index];
+            return _NewsCard(
+              news: news,
+              userName: widget.userName,
+              onLike: () => _likeNews(index),
+              onComment: (comment) => _addComment(index, comment),
+              onEdit: () => _showEditNewsDialog(index),
+              onDelete: () => _showDeleteConfirmationDialog(index),
+              formatDate: _formatDate,
+              getTimeAgo: _getTimeAgo,
+              primaryColor: _primaryColor,
+              backgroundColor: _backgroundColor,
+              cardColor: _cardColor,
+              textColor: _textColor,
+              secondaryTextColor: _secondaryTextColor,
+            );
+          },
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddNewsDialog,
+        backgroundColor: _primaryColor,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.add, size: 28),
+        elevation: 4,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+}
+
+class _NewsCard extends StatefulWidget {
+  final Map<String, dynamic> news;
+  final String userName;
+  final VoidCallback onLike;
+  final Function(String) onComment;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final String Function(String) formatDate;
+  final String Function(String) getTimeAgo;
+  final Color primaryColor;
+  final Color backgroundColor;
+  final Color cardColor;
+  final Color textColor;
+  final Color secondaryTextColor;
+
+  const _NewsCard({
+    required this.news,
+    required this.userName,
+    required this.onLike,
+    required this.onComment,
+    required this.onEdit,
+    required this.onDelete,
+    required this.formatDate,
+    required this.getTimeAgo,
+    required this.primaryColor,
+    required this.backgroundColor,
+    required this.cardColor,
+    required this.textColor,
+    required this.secondaryTextColor,
+  });
+
+  @override
+  State<_NewsCard> createState() => _NewsCardState();
+}
+
+class _NewsCardState extends State<_NewsCard> {
+  final TextEditingController _commentController = TextEditingController();
+  bool _isExpanded = false;
+  bool _isLiked = false;
+  bool _showMenu = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final comments = widget.news['comments'] ?? [];
+    final hashtags = widget.news['hashtags']?.toString().split(',') ?? [];
+    final isAuthor = widget.news['author_name'] == widget.userName;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Card(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        color: widget.cardColor,
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Заголовок и автор
+              // Header with author and time
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: Colors.blue[100],
+                    backgroundColor: widget.primaryColor.withOpacity(0.1),
                     child: Text(
-                      (news['author_name'] ?? 'Н')[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.blue,
+                      widget.news['author_name']?[0]?.toUpperCase() ?? '?',
+                      style: TextStyle(
+                        color: widget.primaryColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -178,501 +808,294 @@ class _NewsPageState extends State<NewsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          news['author_name'] ?? 'Неизвестный автор',
-                          style: const TextStyle(
+                          widget.news['author_name'] ?? 'Неизвестно',
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: Colors.black87,
+                            color: widget.textColor,
                           ),
                         ),
                         Text(
-                          _formatDate(news['created_at']),
+                          widget.getTimeAgo(widget.news['created_at']),
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: widget.secondaryTextColor,
                             fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (news['author_name'] == widget.userName)
-                    IconButton(
-                      icon: Icon(Icons.more_vert, color: Colors.grey[500]),
-                      onPressed: () => _showNewsOptions(context, index),
+                  if (isAuthor)
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_vert, color: widget.secondaryTextColor),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          widget.onEdit();
+                        } else if (value == 'delete') {
+                          widget.onDelete();
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 20, color: widget.primaryColor),
+                              const SizedBox(width: 8),
+                              const Text('Редактировать'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 20, color: Colors.red),
+                              const SizedBox(width: 8),
+                              const Text('Удалить'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                 ],
               ),
+
               const SizedBox(height: 16),
 
-              // Заголовок новости
+              // Title
               Text(
-                news['title'],
-                style: const TextStyle(
-                  fontSize: 18,
+                widget.news['title'],
+                style: TextStyle(
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  height: 1.4,
+                  color: widget.textColor,
                 ),
               ),
+
               const SizedBox(height: 12),
 
-              // Описание новости
+              // Description
               Text(
-                news['description'],
-                style: const TextStyle(
+                widget.news['description'],
+                style: TextStyle(
                   fontSize: 16,
-                  height: 1.4,
-                  color: Colors.black87,
+                  height: 1.6,
+                  color: widget.textColor,
                 ),
               ),
-              const SizedBox(height: 20),
 
-              // Статистика и действия
+              const SizedBox(height: 16),
+
+              // Hashtags at the bottom right
+              if (hashtags.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      for (final tag in hashtags.take(4))
+                        if (tag.trim().isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: widget.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '#${tag.trim()}',
+                              style: TextStyle(
+                                color: widget.primaryColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 16),
+
+              // Stats and actions
               Row(
                 children: [
-                  // Лайки
-                  _buildActionButton(
-                    icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                    count: news['likes'] is int ? news['likes'] : int.tryParse(news['likes'].toString()) ?? 0,
-                    color: isLiked ? Colors.red : Colors.grey[600]!,
-                    onPressed: () => _likeNews(index),
+                  // Like button
+                  IconButton(
+                    icon: Icon(
+                      _isLiked ? Icons.favorite : Icons.favorite_border,
+                      color: _isLiked ? widget.primaryColor : widget.secondaryTextColor,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isLiked = !_isLiked;
+                      });
+                      widget.onLike();
+                    },
                   ),
-                  const SizedBox(width: 16),
+                  Text(
+                    '${widget.news['likes'] ?? 0}',
+                    style: TextStyle(
+                      color: widget.secondaryTextColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 20),
 
-                  // Комментарии
-                  _buildActionButton(
-                    icon: Icons.chat_bubble_outline,
-                    count: comments.length,
-                    color: Colors.grey[600]!,
-                    onPressed: () => _toggleComments(news['id'].toString()),
+                  // Comment button
+                  IconButton(
+                    icon: Icon(
+                      _isExpanded ? Icons.chat : Icons.chat_bubble_outline,
+                      color: _isExpanded ? widget.primaryColor : widget.secondaryTextColor,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                      });
+                    },
+                  ),
+                  Text(
+                    '${comments.length}',
+                    style: TextStyle(
+                      color: widget.secondaryTextColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
 
                   const Spacer(),
-
-                  // Тег
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '#новости',
-                      style: TextStyle(
-                        color: Colors.blue[700],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
                 ],
               ),
 
-              // Комментарии
-              if (comments.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 12),
-                ...comments.map((comment) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              // Comments section
+              if (_isExpanded) ...[
+                const Divider(height: 24),
+                if (comments.isNotEmpty)
+                  Column(
                     children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.green[100],
-                        child: Text(
-                          comment['author'][0].toUpperCase(),
-                          style: TextStyle(
-                            color: Colors.green[700],
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
+                      ...comments.map((comment) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              comment['author'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: widget.primaryColor.withOpacity(0.1),
+                              child: Text(
+                                comment['author']?[0]?.toUpperCase() ?? '?',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: widget.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                            Text(
-                              comment['text'],
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            Text(
-                              comment['time'],
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 11,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: widget.backgroundColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      comment['author'] ?? 'Неизвестно',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: widget.textColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      comment['text'],
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: widget.textColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      comment['time'] ?? '',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: widget.secondaryTextColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
+                      )),
+                      const SizedBox(height: 16),
                     ],
                   ),
-                )).toList(),
-              ],
 
-              // Поле для комментария
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: Colors.blue[100],
-                    child: Text(
-                      widget.userName[0].toUpperCase(),
-                      style: TextStyle(
-                        color: Colors.blue[700],
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                // Add comment input
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: widget.backgroundColor,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _commentControllers[news['id'].toString()] ??= TextEditingController(),
-                      decoration: InputDecoration(
-                        hintText: 'Напишите комментарий...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[100],
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: Color(0xFF1E88E5)),
-                    onPressed: () => _addComment(
-                      index,
-                      _commentControllers[news['id'].toString()]?.text ?? '',
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
-    int count = 0,
-  }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: color),
-          if (count > 0) ...[
-            const SizedBox(width: 4),
-            Text(
-              count.toString(),
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _showNewsOptions(BuildContext context, int index) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit, color: Colors.blue),
-              title: const Text('Редактировать'),
-              onTap: () {
-                Navigator.pop(context);
-                _editNews(index);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Удалить'),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteNews(index);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _editNews(int index) {
-    // Редактирование новости
-    // TODO: реализовать редактирование
-  }
-
-  void _deleteNews(int index) {
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    newsProvider.removeNews(index);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Новость удалена')),
-    );
-  }
-
-  void _toggleComments(String newsId) {
-    // Логика показа/скрытия комментариев
-    // TODO: реализовать переключение комментариев
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final newsProvider = Provider.of<NewsProvider>(context);
-
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: Stack(
-        children: [
-          CustomScrollView(
-            slivers: [
-              // Список новостей
-              newsProvider.isLoading
-                  ? SliverToBoxAdapter(
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.6,
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation(Color(0xFF1E88E5)),
-                    ),
-                  ),
-                ),
-              )
-                  : newsProvider.news.isEmpty
-                  ? SliverToBoxAdapter(
-                child: Container(
-                  height: MediaQuery.of(context).size.height * 0.6,
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Row(
                     children: [
-                      Icon(
-                        Icons.newspaper,
-                        size: 64,
-                        color: Colors.grey[300],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Пока нет новостей',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[600],
+                      Expanded(
+                        child: TextField(
+                          controller: _commentController,
+                          style: TextStyle(color: widget.textColor),
+                          decoration: InputDecoration(
+                            hintText: 'Написать комментарий...',
+                            hintStyle: TextStyle(color: widget.secondaryTextColor),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty) {
+                              widget.onComment(value);
+                              _commentController.clear();
+                            }
+                          },
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Будьте первым, кто поделится\nфутбольными новостями!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[500],
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: widget.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.send, size: 20, color: Colors.white),
+                          onPressed: () {
+                            if (_commentController.text.trim().isNotEmpty) {
+                              widget.onComment(_commentController.text);
+                              _commentController.clear();
+                            }
+                          },
                         ),
                       ),
                     ],
                   ),
                 ),
-              )
-                  : SliverList(
-                delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                    final news = newsProvider.news[index];
-                    return _buildNewsCard(news, index, context);
-                  },
-                  childCount: newsProvider.news.length,
-                ),
-              ),
+              ],
             ],
           ),
-
-          // Плавающая кнопка
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: FloatingActionButton(
-              onPressed: _toggleAddNewsForm,
-              backgroundColor: const Color(0xFF1E88E5),
-              child: Icon(
-                _showAddNewsForm ? Icons.close : Icons.add,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-          ),
-
-          // Модальное окно для добавления новости
-          if (_showAddNewsForm)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black54,
-                child: Center(
-                  child: SingleChildScrollView(
-                    child: Container(
-                      margin: const EdgeInsets.all(20),
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            blurRadius: 20,
-                            color: Colors.black.withOpacity(0.1),
-                          ),
-                        ],
-                      ),
-                      child: _buildAddNewsForm(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildAddNewsForm() {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Создать новость',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
-          ),
-        ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: titleController,
-          maxLines: 2,
-          decoration: InputDecoration(
-            labelText: 'Заголовок новости',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            filled: true,
-            fillColor: Colors.grey[50],
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: descriptionController,
-          maxLines: 4,
-          decoration: InputDecoration(
-            labelText: 'Текст новости',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            filled: true,
-            fillColor: Colors.grey[50],
-          ),
-        ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _toggleAddNewsForm,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: Colors.grey[300]!),
-                ),
-                child: Text(
-                  'Отмена',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () {
-                  if (titleController.text.isNotEmpty &&
-                      descriptionController.text.isNotEmpty) {
-                    _addNews(
-                      titleController.text,
-                      descriptionController.text,
-                    );
-                    _toggleAddNewsForm();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Новость добавлена! 🎉')),
-                    );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Опубликовать',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
   @override
   void dispose() {
     _commentController.dispose();
-    for (final controller in _commentControllers.values) {
-      controller.dispose();
-    }
     super.dispose();
   }
 }

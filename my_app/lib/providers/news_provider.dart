@@ -24,7 +24,7 @@ class NewsProvider with ChangeNotifier {
       // Fallback: пробуем загрузить из кэша
       _news = await StorageService.loadNews();
 
-      // Если в кэше пусто, используем mock данные
+      // Если в кэше пусто, используем mock данные с хештегами
       if (_news.isEmpty) {
         _news = [
           {
@@ -35,7 +35,8 @@ class NewsProvider with ChangeNotifier {
             "likes": 45,
             "author_name": "Администратор",
             "created_at": "2025-09-09T16:33:18.417Z",
-            "comments": []
+            "comments": [],
+            "hashtags": ["#футбол", "#лигачемпионов"]
           }
         ];
       }
@@ -46,10 +47,52 @@ class NewsProvider with ChangeNotifier {
   }
 
   void addNews(Map<String, dynamic> newsItem) {
+    // Убедимся, что хештеги есть в новом посте
+    if (!newsItem.containsKey('hashtags')) {
+      newsItem['hashtags'] = [];
+    }
+
     _news.insert(0, newsItem);
     notifyListeners();
     // Сохраняем в кэш при добавлении
     StorageService.saveNews(_news);
+  }
+
+  // НОВЫЙ МЕТОД ДЛЯ ОБНОВЛЕНИЯ НОВОСТИ
+  void updateNews(int index, Map<String, dynamic> updatedNews) {
+    if (index >= 0 && index < _news.length) {
+      // Сохраняем комментарии из старой новости, если они есть
+      if (_news[index]['comments'] != null) {
+        updatedNews['comments'] = _news[index]['comments'];
+      }
+
+      // Сохраняем лайки из старой новости, если они есть
+      if (_news[index]['likes'] != null) {
+        updatedNews['likes'] = _news[index]['likes'];
+      }
+
+      // Сохраняем ID из старой новости
+      if (_news[index]['id'] != null) {
+        updatedNews['id'] = _news[index]['id'];
+      }
+
+      // Сохраняем автора из старой новости
+      if (_news[index]['author_name'] != null) {
+        updatedNews['author_name'] = _news[index]['author_name'];
+      }
+
+      // Сохраняем дату создания из старой новости
+      if (_news[index]['created_at'] != null) {
+        updatedNews['created_at'] = _news[index]['created_at'];
+      }
+
+      // Обновляем новость
+      _news[index] = updatedNews;
+      notifyListeners();
+
+      // Сохраняем в кэш
+      StorageService.saveNews(_news);
+    }
   }
 
   void updateNewsLikes(int index, int newLikes) {
@@ -67,7 +110,6 @@ class NewsProvider with ChangeNotifier {
     StorageService.saveNews(_news);
   }
 
-  // ДОБАВЬТЕ ЭТОТ МЕТОД ДЛЯ УДАЛЕНИЯ НОВОСТИ
   void removeNews(int index) async {
     if (index >= 0 && index < _news.length) {
       final news = _news[index];
@@ -83,6 +125,14 @@ class NewsProvider with ChangeNotifier {
       _news.removeAt(index);
       notifyListeners();
       // Сохраняем изменения в кэш
+      StorageService.saveNews(_news);
+    }
+  }
+
+  void updateNewsHashtags(int index, List<String> hashtags) {
+    if (index >= 0 && index < _news.length) {
+      _news[index]['hashtags'] = hashtags;
+      notifyListeners();
       StorageService.saveNews(_news);
     }
   }

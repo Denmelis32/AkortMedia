@@ -30,7 +30,14 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final newsList = json.decode(response.body);
+        // Убедимся, что у всех новостей есть поле hashtags
+        for (var news in newsList) {
+          if (!news.containsKey('hashtags')) {
+            news['hashtags'] = [];
+          }
+        }
+        return newsList;
       } else if (response.statusCode == 401) {
         throw Exception('Необходима авторизация');
       } else {
@@ -46,6 +53,12 @@ class ApiService {
   static Future<dynamic> createNews(Map<String, dynamic> newsData) async {
     try {
       final headers = await _getHeaders();
+
+      // Убедимся, что хештеги есть в данных
+      if (!newsData.containsKey('hashtags')) {
+        newsData['hashtags'] = [];
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/news'),
         headers: headers,
@@ -53,7 +66,12 @@ class ApiService {
       );
 
       if (response.statusCode == 201) {
-        return json.decode(response.body);
+        final newNews = json.decode(response.body);
+        // Убедимся, что в ответе есть хештеги
+        if (!newNews.containsKey('hashtags')) {
+          newNews['hashtags'] = newsData['hashtags'] ?? [];
+        }
+        return newNews;
       } else if (response.statusCode == 401) {
         throw Exception('Необходима авторизация для создания новостей');
       } else {
@@ -124,6 +142,12 @@ class ApiService {
   static Future<dynamic> updateNews(String newsId, Map<String, dynamic> newsData) async {
     try {
       final headers = await _getHeaders();
+
+      // Убедимся, что хештеги есть в данных
+      if (!newsData.containsKey('hashtags')) {
+        newsData['hashtags'] = [];
+      }
+
       final response = await http.put(
         Uri.parse('$baseUrl/news/$newsId'),
         headers: headers,
@@ -131,7 +155,12 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final updatedNews = json.decode(response.body);
+        // Убедимся, что в ответе есть хештеги
+        if (!updatedNews.containsKey('hashtags')) {
+          updatedNews['hashtags'] = newsData['hashtags'] ?? [];
+        }
+        return updatedNews;
       } else if (response.statusCode == 401) {
         throw Exception('Необходима авторизация для редактирования новостей');
       } else {
@@ -195,6 +224,35 @@ class ApiService {
         return json.decode(response.body);
       } else {
         throw Exception('Failed to update profile: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('API Error: $e');
+      rethrow;
+    }
+  }
+
+  // Дополнительный метод для получения новостей по хештегу
+  static Future<List<dynamic>> getNewsByHashtag(String hashtag) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/news?hashtag=${Uri.encodeComponent(hashtag)}'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final newsList = json.decode(response.body);
+        // Убедимся, что у всех новостей есть поле hashtags
+        for (var news in newsList) {
+          if (!news.containsKey('hashtags')) {
+            news['hashtags'] = [];
+          }
+        }
+        return newsList;
+      } else if (response.statusCode == 401) {
+        throw Exception('Необходима авторизация');
+      } else {
+        throw Exception('Failed to load news by hashtag: ${response.statusCode}');
       }
     } catch (e) {
       print('API Error: $e');

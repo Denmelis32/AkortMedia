@@ -18,6 +18,10 @@ class ArticlesPage extends StatefulWidget {
 }
 
 class _ArticlesPageState extends State<ArticlesPage> {
+
+  static const Color primaryColor = Color(0xFF1E88E5); // Синий цвет
+  static const Color backgroundColor = Color(0xFFF5F5F5);
+
   final List<Article> _articles = [
     Article(
       id: '1',

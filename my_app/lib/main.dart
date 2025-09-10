@@ -3,12 +3,49 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/news_provider.dart';
 import 'pages/home_page.dart';
+import 'pages/login_page.dart';
+import 'services/auth_service.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Проверяем авторизацию при запуске
+  final isLoggedIn = await AuthService.isLoggedIn();
+
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
+  final bool isLoggedIn;
+
+  const MyApp({super.key, required this.isLoggedIn});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLoggedIn = widget.isLoggedIn;
+  }
+
+  void _handleLoginSuccess() async {
+    setState(() {
+      _isLoggedIn = true;
+    });
+  }
+
+  void _handleLogout() async {
+    await AuthService.logout();
+    setState(() {
+      _isLoggedIn = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -16,15 +53,30 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NewsProvider()),
       ],
       child: MaterialApp(
-        title: 'My App',
+        title: 'Football App',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           useMaterial3: true,
         ),
-        home: HomePage(
-          userName: 'Гость',
-          userEmail: 'guest@example.com',
-        ),
+        home: _isLoggedIn
+            ? FutureBuilder(
+          future: AuthService.getUser(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final user = snapshot.data;
+            return HomePage(
+              userName: user?['name'] ?? 'Пользователь',
+              userEmail: user?['email'] ?? '',
+              onLogout: _handleLogout,
+            );
+          },
+        )
+            : LoginPage(onLoginSuccess: _handleLoginSuccess),
         debugShowCheckedModeBanner: false,
       ),
     );

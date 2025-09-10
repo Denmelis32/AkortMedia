@@ -1,13 +1,16 @@
+// lib/pages/profile_page.dart
 import 'package:flutter/material.dart';
 
 class ProfilePage extends StatelessWidget {
   final String userName;
   final String userEmail;
+  final VoidCallback onLogout; // ← ДОБАВЛЯЕМ onLogout
 
   const ProfilePage({
     super.key,
     required this.userName,
     required this.userEmail,
+    required this.onLogout, // ← ДОБАВЛЯЕМ required
   });
 
   @override
@@ -19,7 +22,7 @@ class ProfilePage extends StatelessWidget {
         backgroundColor: const Color(0xFFA31525),
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView( // Добавляем прокрутку
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -92,15 +95,12 @@ class ProfilePage extends StatelessWidget {
                 _buildProfileButton(
                   icon: Icons.exit_to_app,
                   text: 'Выйти',
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: onLogout, // ← ИСПРАВЛЯЕМ на onLogout
                   color: Colors.red,
                 ),
               ],
             ),
 
-            // Добавляем дополнительное пространство внизу
             const SizedBox(height: 20),
           ],
         ),
@@ -119,7 +119,7 @@ class ProfilePage extends StatelessWidget {
             color: Color(0xFFA31525),
           ),
         ),
-        const SizedBox(height: 4), // Добавляем отступ
+        const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
@@ -139,31 +139,31 @@ class ProfilePage extends StatelessWidget {
   }) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8), // Уменьшаем отступ
+      margin: const EdgeInsets.only(bottom: 8),
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: color ?? const Color(0xFFA31525),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16), // Уменьшаем padding
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10), // Уменьшаем скругление
+            borderRadius: BorderRadius.circular(10),
             side: BorderSide(color: Colors.grey[300]!),
           ),
           elevation: 0,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min, // Изменяем на min
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20), // Уменьшаем размер иконки
+            Icon(icon, size: 20),
             const SizedBox(width: 12),
-            Expanded( // Добавляем Expanded для текста
+            Expanded(
               child: Text(
                 text,
-                style: const TextStyle(fontSize: 14), // Уменьшаем размер текста
+                style: const TextStyle(fontSize: 14),
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 14), // Уменьшаем стрелку
+            const Icon(Icons.arrow_forward_ios, size: 14),
           ],
         ),
       ),

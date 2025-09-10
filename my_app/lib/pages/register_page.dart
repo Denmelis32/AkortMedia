@@ -154,6 +154,12 @@ class _RegisterPageState extends State<RegisterPage> {
           builder: (context) => HomePage(
             userName: _nameController.text,
             userEmail: _emailController.text,
+            onLogout: () {
+              // Логика выхода - возврат на страницу регистрации/входа
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const RegisterPage()),
+              );
+            },
           ),
         ),
       );

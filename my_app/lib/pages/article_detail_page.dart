@@ -3,6 +3,8 @@ import '../models/article.dart';
 import 'home_page.dart';
 
 class ArticleDetailPage extends StatelessWidget {
+  static const Color primaryColor = Color(0xFF1E88E5); // Синий цвет
+  static const Color backgroundColor = Color(0xFFF5F5F5);
   final Article article;
   final String userEmail;
   final Function() onLike;

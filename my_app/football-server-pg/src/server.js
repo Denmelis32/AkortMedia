@@ -3,22 +3,24 @@ const cors = require('cors');
 require('dotenv').config();
 const pool = require('./config/database');
 
-// Импорты роутов
+// Импорты роутов и middleware
+const authRoutes = require('./routes/auth');
 const newsRoutes = require('./routes/news');
+const auth = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Middleware
-// app.use(cors({
-//   origin: /http:\/\/localhost:\d+$/,
-//   credentials: true
-// }));
-app.use(cors());
-app.use(express.json());
+// Middleware ДОЛЖНЫ быть в правильном порядке!
+app.use(cors({
+  origin: true, // Разрешаем все origin для разработки
+  credentials: true
+}));
+app.use(express.json()); // Важно: ДО роутов!
 
 // Подключение роутов
-app.use('/api/news', newsRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/news', newsRoutes); // Пока без auth
 
 // Basic route
 app.get('/', (req, res) => {
@@ -27,6 +29,9 @@ app.get('/', (req, res) => {
     status: 'success',
     timestamp: new Date().toISOString(),
     endpoints: [
+      '/api/auth/register',
+      '/api/auth/login',
+      '/api/auth/me',
       '/api/news',
       '/api/news/:id',
       '/api/test',
@@ -75,14 +80,11 @@ app.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
   console.log(`🌐 API URL: http://localhost:${PORT}`);
   console.log(`📋 Available endpoints:`);
-  console.log(`   - GET /`);
+  console.log(`   - POST /api/auth/register`);
+  console.log(`   - POST /api/auth/login`);
+  console.log(`   - GET /api/auth/me`);
   console.log(`   - GET /api/news`);
-  console.log(`   - GET /api/news/:id`);
   console.log(`   - POST /api/news`);
-  console.log(`   - PUT /api/news/:id`);
-  console.log(`   - DELETE /api/news/:id`);
-  console.log(`   - POST /api/news/:id/like`);
-  console.log(`   - POST /api/news/:id/unlike`);
   console.log(`   - GET /api/test`);
   console.log(`   - GET /api/health`);
   console.log(`   - GET /api/status`);

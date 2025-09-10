@@ -4,14 +4,19 @@ import 'package:provider/provider.dart';
 import '../providers/news_provider.dart';
 import '../services/api_service.dart';
 
+
+
+
 class NewsPage extends StatefulWidget {
   final String userName;
   final String userEmail;
+  final VoidCallback onLogout;
 
   const NewsPage({
     super.key,
     required this.userName,
     required this.userEmail,
+    required this.onLogout,
   });
 
   @override

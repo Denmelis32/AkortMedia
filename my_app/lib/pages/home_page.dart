@@ -1,21 +1,19 @@
+// lib/pages/home_page.dart
 import 'package:flutter/material.dart';
-import 'package:my_app/pages/profile_page.dart';
-import 'articles_page.dart';
 import 'news_page.dart';
-import 'predictions_league_page.dart'; // ДОБАВЬТЕ ЭТОТ ИМПОРТ
-
-const primaryColor = Color(0xFFA31525);
-const secondaryColor = Colors.grey;
-const backgroundColor = Color(0xFFFAEBD7);
+import 'predictions_league_page.dart';
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userName;
   final String userEmail;
+  final VoidCallback onLogout;
 
   const HomePage({
     super.key,
     required this.userName,
     required this.userEmail,
+    required this.onLogout,
   });
 
   @override
@@ -24,7 +22,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
-  late final List<Widget> _pages;
+  late List<Widget> _pages;
 
   @override
   void initState() {
@@ -34,59 +32,85 @@ class _HomePageState extends State<HomePage> {
 
   void _initializePages() {
     _pages = [
-      NewsPage(userName: widget.userName, userEmail: widget.userEmail),
-      ArticlesPage(userName: widget.userName, userEmail: widget.userEmail),
-      // ЗАМЕНИТЕ заглушку на настоящую страницу:
-      PredictionLeaguePage(userName: widget.userName, userEmail: widget.userEmail),
-      ProfilePage(userName: widget.userName, userEmail: widget.userEmail),
+      NewsPage(
+        userName: widget.userName,
+        userEmail: widget.userEmail,
+        onLogout: widget.onLogout, // ← ДОБАВЛЯЕМ onLogout
+      ),
+      PredictionsLeaguePage(
+        userName: widget.userName,       // ← ДОБАВЛЯЕМ
+        userEmail: widget.userEmail,     // ← ДОБАВЛЯЕМ
+        onLogout: widget.onLogout, // ← ДОБАВЛЯЕМ onLogout и УБИРАЕМ const
+      ),
+      ProfilePage(
+        userName: widget.userName,
+        userEmail: widget.userEmail,
+        onLogout: widget.onLogout,
+      ),
     ];
   }
 
-  // Этот метод больше не нужен, но можно оставить для других случаев
-  Widget _buildPlaceholderPage(String title, IconData icon) {
-    return Container(
-      color: backgroundColor,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              'Раздел "$title" в разработке',
-              style: const TextStyle(fontSize: 18, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getAppBarTitle(int index) {
-    switch (index) {
-      case 0:
-        return 'Футбольные новости';
-      case 1:
-        return 'Статьи';
-      case 2:
-        return 'Лига Прогнозов';
-      case 3:
-        return 'Профиль';
-      default:
-        return 'Футбольные новости';
+  @override
+  void didUpdateWidget(HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userName != widget.userName || oldWidget.userEmail != widget.userEmail) {
+      _initializePages();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    String appBarTitle;
+    switch (_currentIndex) {
+      case 0:
+        appBarTitle = 'Футбольные новости';
+        break;
+      case 1:
+        appBarTitle = 'Лига Прогнозов';
+        break;
+      case 2:
+        appBarTitle = 'Профиль';
+        break;
+      default:
+        appBarTitle = 'Футбольные новости';
+    }
+
     return Scaffold(
-      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(_getAppBarTitle(_currentIndex)),
+        title: Text(appBarTitle),
         centerTitle: true,
-        backgroundColor: primaryColor,
+        backgroundColor: const Color(0xFFA31525),
         foregroundColor: Colors.white,
+        actions: _currentIndex == 2
+            ? [] // Скрываем кнопку выхода на других вкладках
+            : [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Выход'),
+                  content: const Text('Вы уверены, что хотите выйти?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Отмена'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        widget.onLogout();
+                      },
+                      child: const Text('Выйти'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            tooltip: 'Выйти',
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _currentIndex,
@@ -99,22 +123,16 @@ class _HomePageState extends State<HomePage> {
             _currentIndex = index;
           });
         },
-        selectedItemColor: primaryColor,
-        unselectedItemColor: secondaryColor,
-        backgroundColor: Colors.white,
-        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFFA31525),
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.newspaper),
             label: 'Новости',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.article),
-            label: 'Статьи',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.sports_soccer),
-            label: 'Лига',
+            label: 'Лига прогнозов',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

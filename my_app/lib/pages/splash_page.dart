@@ -1,6 +1,8 @@
+// lib/pages/splash_page.dart
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'register_page.dart';
+
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -16,14 +18,18 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   void _checkAuthStatus() {
-    // Здесь можно проверить, авторизован ли пользователь
-    // Например, через SharedPreferences или другую систему хранения
     Future.delayed(const Duration(seconds: 2), () {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => HomePage(
             userName: 'Имя пользователя', // Получить из хранилища
             userEmail: 'user@example.com', // Получить из хранилища
+            onLogout: () {
+              // Логика выхода - возврат на сплеш скрин
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const SplashPage()),
+              );
+            },
           ),
         ),
       );

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 class Prediction {
   final String id;
   final String userName;
@@ -26,21 +25,23 @@ class Prediction {
   });
 }
 
-class PredictionLeaguePage extends StatefulWidget {
+class PredictionsLeaguePage extends StatefulWidget {
   final String userName;
   final String userEmail;
+  final VoidCallback? onLogout;
 
-  const PredictionLeaguePage({
+  const PredictionsLeaguePage({
     super.key,
     required this.userName,
     required this.userEmail,
+    this.onLogout,
   });
 
   @override
-  State<PredictionLeaguePage> createState() => _PredictionLeaguePageState();
+  State<PredictionsLeaguePage> createState() => _PredictionsLeaguePageState(); // ← ИСПРАВЛЕНО
 }
 
-class _PredictionLeaguePageState extends State<PredictionLeaguePage> {
+class _PredictionsLeaguePageState extends State<PredictionsLeaguePage>{
   final List<Prediction> _predictions = [];
   final TextEditingController _predictionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();

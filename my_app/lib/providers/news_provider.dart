@@ -1,7 +1,7 @@
 // lib/providers/news_provider.dart
 import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
-import '../services/storage_service.dart'; // ← Добавьте импорт
+import '../services/storage_service.dart';
 
 class NewsProvider with ChangeNotifier {
   List<dynamic> _news = [];
@@ -65,5 +65,25 @@ class NewsProvider with ChangeNotifier {
     _news[index]['comments'].add(comment);
     notifyListeners();
     StorageService.saveNews(_news);
+  }
+
+  // ДОБАВЬТЕ ЭТОТ МЕТОД ДЛЯ УДАЛЕНИЯ НОВОСТИ
+  void removeNews(int index) async {
+    if (index >= 0 && index < _news.length) {
+      final news = _news[index];
+
+      try {
+        // Убеждаемся, что ID преобразован в строку
+        await ApiService.deleteNews(news['id'].toString());
+      } catch (e) {
+        print('API delete error: $e');
+        // Продолжаем даже если API запрос не удался
+      }
+
+      _news.removeAt(index);
+      notifyListeners();
+      // Сохраняем изменения в кэш
+      StorageService.saveNews(_news);
+    }
   }
 }

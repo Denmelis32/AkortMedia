@@ -1,288 +1,473 @@
+// lib/pages/news_page.dart
 import 'package:flutter/material.dart';
-import '../models/article.dart';
-import 'home_page.dart';
-import 'article_detail_page.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../providers/news_provider.dart';
+import '../services/api_service.dart';
 
-class ArticlesPage extends StatefulWidget {
+class NewsPage extends StatefulWidget {
   final String userName;
   final String userEmail;
+  final VoidCallback onLogout;
 
-  const ArticlesPage({
+  const NewsPage({
     super.key,
     required this.userName,
     required this.userEmail,
+    required this.onLogout,
   });
 
   @override
-  State<ArticlesPage> createState() => _ArticlesPageState();
+  State<NewsPage> createState() => _NewsPageState();
 }
 
-class _ArticlesPageState extends State<ArticlesPage> {
+class _NewsPageState extends State<NewsPage> {
+  final TextEditingController _commentController = TextEditingController();
+  final Map<String, TextEditingController> _commentControllers = {};
+  bool _showAddNewsForm = false;
 
-  static const Color primaryColor = Color(0xFF1E88E5); // Синий цвет
-  static const Color backgroundColor = Color(0xFFF5F5F5);
-
-  final List<Article> _articles = [
-    Article(
-      id: '1',
-      title: 'Тактика чемпионов: анализ игры топ-клубов',
-      content: 'Подробный разбор тактических схем ведущих футбольных клубов Европы в текущем сезоне. Узнайте, какие стратегии приносят победы и как команды адаптируются к разным соперникам.',
-      author: 'Алексей Футболов',
-      publishDate: DateTime.now().subtract(const Duration(days: 2)),
-      category: 'Тактика',
-      imageUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&h=400&q=80',
-      readTime: 8,
-      views: 1245,
-      likes: 89,
-    ),
-    Article(
-      id: '2',
-      title: 'Молодые таланты 2024: на кого стоит обратить внимание',
-      content: 'Обзор самых перспективных молодых игроков, которые могут взорвать трансферный рынок. Откройте для себя будущих звезд мирового футбола.',
-      author: 'Мария Скаут',
-      publishDate: DateTime.now().subtract(const Duration(days: 5)),
-      category: 'Аналитика',
-      imageUrl: 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&h=400&q=80',
-      readTime: 6,
-      views: 987,
-      likes: 67,
-    ),
-    Article(
-      id: '3',
-      title: 'История легендарных дерби: от Эль-Класико до Олд-Фирм',
-      content: 'Погружение в историю самых принципиальных противостояний в мировом футболе. Узнайте о страстях, традициях и самых запоминающихся матчах.',
-      author: 'Иван Историк',
-      publishDate: DateTime.now().subtract(const Duration(days: 7)),
-      category: 'История',
-      imageUrl: 'https://images.unsplash.com/photo-1599669454699-248893623464?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&h=400&q=80',
-      readTime: 12,
-      views: 1567,
-      likes: 112,
-    ),
-    Article(
-      id: '4',
-      title: 'Питание футболиста: секреты профессионалов',
-      content: 'Как питаются лучшие футболисты мира? Раскрываем секреты диет, которые помогают показывать最高ые результаты на поле.',
-      author: 'Ольга Диетолог',
-      publishDate: DateTime.now().subtract(const Duration(days: 1)),
-      category: 'Здоровье',
-      imageUrl: 'https://images.unsplash.com/photo-1550461716-dbf266b2a8a5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&h=400&q=80',
-      readTime: 7,
-      views: 876,
-      likes: 54,
-    ),
-  ];
-
-  // Функция для открытия диалога создания статьи
-  void _openAddArticleDialog() {
-    final TextEditingController titleController = TextEditingController();
-    final TextEditingController contentController = TextEditingController();
-    final TextEditingController categoryController = TextEditingController();
-    final TextEditingController imageUrlController = TextEditingController();
-    final TextEditingController readTimeController = TextEditingController();
-
-    String? selectedCategory;
-    final List<String> categories = [
-      'Тактика', 'Аналитика', 'История', 'Здоровье', 'Тренировки', 'Трансферы'
-    ];
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Добавить новую статью'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Заголовок статьи',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: contentController,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Содержание статьи',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Категория',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: categories.map((String category) {
-                    return DropdownMenuItem<String>(
-                      value: category,
-                      child: Text(category),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    selectedCategory = newValue;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: imageUrlController,
-                  decoration: const InputDecoration(
-                    labelText: 'URL изображения (необязательно)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: readTimeController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Время чтения (в минутах)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (titleController.text.isNotEmpty &&
-                    contentController.text.isNotEmpty &&
-                    selectedCategory != null) {
-                  _addNewArticle(
-                    titleController.text,
-                    contentController.text,
-                    selectedCategory!,
-                    imageUrlController.text,
-                    int.tryParse(readTimeController.text) ?? 5,
-                  );
-                  Navigator.of(context).pop();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Заполните все обязательные поля'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Добавить'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Функция для добавления новой статьи
-  void _addNewArticle(String title, String content, String category,
-      String imageUrl, int readTime) {
-    final newArticle = Article(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title,
-      content: content,
-      author: widget.userName,
-      publishDate: DateTime.now(),
-      category: category,
-      imageUrl: imageUrl.isNotEmpty ? imageUrl : 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&h=400&q=80',
-      readTime: readTime,
-      views: 0,
-      likes: 0,
-    );
-
-    setState(() {
-      _articles.insert(0, newArticle);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Статья успешно добавлена!'),
-      ),
-    );
-  }
-
-  void _likeArticle(int index) {
-    setState(() {
-      final article = _articles[index];
-      if (article.likedBy.contains(widget.userEmail)) {
-        _articles[index] = article.copyWith(
-          likes: article.likes - 1,
-          likedBy: List.from(article.likedBy)..remove(widget.userEmail),
-        );
-      } else {
-        _articles[index] = article.copyWith(
-          likes: article.likes + 1,
-          likedBy: List.from(article.likedBy)..add(widget.userEmail),
-        );
-      }
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<NewsProvider>(context, listen: false).loadNews();
     });
   }
 
-  void _viewArticle(int index) {
-    setState(() {
-      _articles[index] = _articles[index].copyWith(
-        views: _articles[index].views + 1,
+  Future<void> _likeNews(int index) async {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final news = newsProvider.news[index];
+
+    try {
+      await ApiService.likeNews(news['id'].toString());
+      newsProvider.updateNewsLikes(index, news['likes'] + 1);
+    } catch (e) {
+      print('Error liking news: $e');
+      newsProvider.updateNewsLikes(index, (news['likes'] ?? 0) + 1);
+    }
+  }
+
+  Future<void> _addComment(int index, String commentText) async {
+    if (commentText.trim().isEmpty) return;
+
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final news = newsProvider.news[index];
+
+    try {
+      await ApiService.addComment(news['id'].toString(), {
+        'text': commentText.trim(),
+        'author': widget.userName,
+      });
+
+      newsProvider.addCommentToNews(
+        index,
+        {
+          'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
+          'author': widget.userName,
+          'text': commentText.trim(),
+          'time': 'Только что',
+        },
       );
+
+      _commentControllers[news['id'].toString()]?.clear();
+    } catch (e) {
+      print('Error adding comment: $e');
+      newsProvider.addCommentToNews(
+        index,
+        {
+          'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
+          'author': widget.userName,
+          'text': commentText.trim(),
+          'time': 'Только что',
+        },
+      );
+      _commentControllers[news['id'].toString()]?.clear();
+    }
+  }
+
+  Future<void> _addNews(String title, String description, String image) async {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+
+    try {
+      final newNews = await ApiService.createNews({
+        'title': title,
+        'description': description,
+        'image': image,
+      });
+
+      newsProvider.addNews({
+        ...newNews,
+        'comments': [],
+      });
+
+    } catch (e) {
+      print('Error creating news: $e');
+      newsProvider.addNews({
+        "id": "local-${DateTime.now().millisecondsSinceEpoch}",
+        "title": title,
+        "description": description,
+        "image": image,
+        "likes": 0,
+        "author_name": widget.userName,
+        "created_at": DateTime.now().toIso8601String(),
+        "comments": []
+      });
+    }
+  }
+
+  void _toggleAddNewsForm() {
+    setState(() {
+      _showAddNewsForm = !_showAddNewsForm;
     });
   }
 
-  // НОВЫЙ МЕТОД: Открытие полной статьи
-  void _openArticleDetail(int index) {
-    _viewArticle(index); // Увеличиваем счетчик просмотров
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ArticleDetailPage(
-          article: _articles[index],
-          userEmail: widget.userEmail,
-          onLike: () => _likeArticle(index),
-          onView: () => _viewArticle(index),
+      if (difference.inMinutes < 1) return 'только что';
+      if (difference.inMinutes < 60) return '${difference.inMinutes} мин назад';
+      if (difference.inHours < 24) return '${difference.inHours} ч назад';
+      if (difference.inDays < 7) return '${difference.inDays} д назад';
+
+      return DateFormat('dd.MM.yyyy').format(date);
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  Widget _buildNewsCard(Map<String, dynamic> news, int index, BuildContext context) {
+    final isLiked = false; // Можно добавить логику проверки лайков
+    final comments = news['comments'] ?? [];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Card(
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Заголовок и автор
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.blue[100],
+                    child: Text(
+                      (news['author_name'] ?? 'Н')[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          news['author_name'] ?? 'Неизвестный автор',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          _formatDate(news['created_at']),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (news['author_name'] == widget.userName)
+                    IconButton(
+                      icon: Icon(Icons.more_vert, color: Colors.grey[500]),
+                      onPressed: () => _showNewsOptions(context, index),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Заголовок новости
+              Text(
+                news['title'],
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Эмодзи-изображение
+              Center(
+                child: Text(
+                  news['image'],
+                  style: const TextStyle(fontSize: 40),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Описание новости
+              Text(
+                news['description'],
+                style: const TextStyle(
+                  fontSize: 16,
+                  height: 1.4,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Статистика и действия
+              Row(
+                children: [
+                  // Лайки
+                  _buildActionButton(
+                    icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                    count: news['likes'] ?? 0,
+                    color: isLiked ? Colors.red : Colors.grey[600]!,
+                    onPressed: () => _likeNews(index),
+                  ),
+                  const SizedBox(width: 16),
+
+                  // Комментарии
+                  _buildActionButton(
+                    icon: Icons.chat_bubble_outline,
+                    count: comments.length,
+                    color: Colors.grey[600]!,
+                    onPressed: () => _toggleComments(news['id'].toString()),
+                  ),
+
+                  const Spacer(),
+
+                  // Тег
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '#новости',
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Комментарии
+              if (comments.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
+                ...comments.map((comment) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.green[100],
+                        child: Text(
+                          comment['author'][0].toUpperCase(),
+                          style: TextStyle(
+                            color: Colors.green[700],
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              comment['author'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              comment['text'],
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            Text(
+                              comment['time'],
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )).toList(),
+              ],
+
+              // Поле для комментария
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.blue[100],
+                    child: Text(
+                      widget.userName[0].toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _commentControllers[news['id'].toString()] ??= TextEditingController(),
+                      decoration: InputDecoration(
+                        hintText: 'Напишите комментарий...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Color(0xFF1E88E5)),
+                    onPressed: () => _addComment(
+                      index,
+                      _commentControllers[news['id'].toString()]?.text ?? '',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) return 'только что';
-    if (difference.inMinutes < 60) return '${difference.inMinutes} мин назад';
-    if (difference.inHours < 24) return '${difference.inHours} ч назад';
-    if (difference.inDays < 7) return '${difference.inDays} д назад';
-
-    return '${dateTime.day}.${dateTime.month}.${dateTime.year}';
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    int count = 0,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          if (count > 0) ...[
+            const SizedBox(width: 4),
+            Text(
+              count.toString(),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
-  // Метод для создания красивого плейсхолдера вместо ошибки
-  Widget _buildImagePlaceholder() {
-    return Container(
-      height: 150,
-      color: Colors.grey[200],
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.photo_camera,
-            size: 40,
-            color: Colors.grey[400],
+  void _showNewsOptions(BuildContext context, int index) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.blue),
+              title: const Text('Редактировать'),
+              onTap: () {
+                Navigator.pop(context);
+                _editNews(index);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Удалить'),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteNews(index);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _editNews(int index) {
+    // Редактирование новости
+  }
+
+  void _deleteNews(int index) {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final news = newsProvider.news[index];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить новость?'),
+        content: const Text('Вы уверены, что хотите удалить эту новость?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Футбольное фото',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
+          TextButton(
+            onPressed: () async {
+              try {
+                await ApiService.deleteNews(news['id'].toString());
+              } catch (e) {
+                print('API delete error: $e');
+                // Продолжаем даже если API запрос не удался
+              }
+
+              newsProvider.removeNews(index);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Новость удалена')),
+              );
+            },
+            child: const Text(
+              'Удалить',
+              style: TextStyle(color: Colors.red),
             ),
           ),
         ],
@@ -290,296 +475,277 @@ class _ArticlesPageState extends State<ArticlesPage> {
     );
   }
 
+  void _toggleComments(String newsId) {
+    // Логика показа/скрытия комментариев
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final newsProvider = Provider.of<NewsProvider>(context);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAddArticleDialog,
-        backgroundColor: primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      body: Container(
-        color: backgroundColor,
-        child: _articles.isEmpty
-            ? Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.article,
-                size: 64,
-                color: Colors.grey[300],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Пока нет статей',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
+      backgroundColor: Colors.grey[50],
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              // Заголовок
+              SliverAppBar(
+                title: const Text(
+                  'Футбольные новости',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                    color: Colors.white,
+                  ),
+                ),
+                centerTitle: true,
+                backgroundColor: const Color(0xFF1E88E5),
+                expandedHeight: 120,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF1E88E5), Color(0xFF1976D2)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Нажмите + чтобы добавить первую статью!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
+
+              // Список новостей
+              newsProvider.isLoading
+                  ? SliverToBoxAdapter(
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(Color(0xFF1E88E5)),
+                    ),
+                  ),
+                ),
+              )
+                  : newsProvider.news.isEmpty
+                  ? SliverToBoxAdapter(
+                child: Container(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.newspaper,
+                        size: 64,
+                        color: Colors.grey[300],
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Пока нет новостей',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Будьте первым, кто поделится\nфутбольными новостями!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+                  : SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                    final news = newsProvider.news[index];
+                    return _buildNewsCard(news, index, context);
+                  },
+                  childCount: newsProvider.news.length,
                 ),
               ),
             ],
           ),
-        )
-            : ListView.builder(
-          padding: EdgeInsets.all(screenWidth * 0.04),
-          itemCount: _articles.length,
-          itemBuilder: (context, index) {
-            final article = _articles[index];
-            final isLiked = article.likedBy.contains(widget.userEmail);
 
-            return GestureDetector(
-              onTap: () => _openArticleDetail(index), // ИЗМЕНЕНО: открываем полную статью
-              child: Card(
-                margin: EdgeInsets.only(bottom: screenWidth * 0.04),
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Изображение статьи
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
-                      ),
-                      child: Image.network(
-                        article.imageUrl,
-                        width: double.infinity,
-                        height: 180,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            height: 180,
-                            color: Colors.grey[200],
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                    : null,
-                                color: primaryColor,
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildImagePlaceholder(),
-                      ),
-                    ),
+          // Плавающая кнопка
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: FloatingActionButton(
+              onPressed: _toggleAddNewsForm,
+              backgroundColor: const Color(0xFF1E88E5),
+              child: Icon(
+                _showAddNewsForm ? Icons.close : Icons.add,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
 
-                    Padding(
-                      padding: EdgeInsets.all(screenWidth * 0.04),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Категория и время чтения
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: primaryColor.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  article.category,
-                                  style: TextStyle(
-                                    color: primaryColor,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.timer,
-                                    size: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${article.readTime} мин',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // Заголовок
-                          Text(
-                            article.title,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              height: 1.3,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          // Контент
-                          Text(
-                            article.content,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[700],
-                              height: 1.4,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Футер статьи
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: primaryColor,
-                                radius: 14,
-                                child: Text(
-                                  article.author[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      article.author,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      _formatDateTime(article.publishDate),
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Статистика
-                          Row(
-                            children: [
-                              // Кнопка лайка
-                              IconButton(
-                                icon: Icon(
-                                  isLiked ? Icons.favorite : Icons.favorite_border,
-                                  color: isLiked ? Colors.red : Colors.grey,
-                                  size: 22,
-                                ),
-                                onPressed: () => _likeArticle(index),
-                              ),
-                              Text(
-                                _formatNumber(article.likes),
-                                style: TextStyle(
-                                  color: isLiked ? Colors.red : Colors.grey,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-
-                              // Просмотры
-                              Icon(
-                                Icons.visibility,
-                                color: Colors.grey[600],
-                                size: 20,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _formatNumber(article.views),
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const Spacer(),
-
-                              // Кнопка поделиться
-                              IconButton(
-                                icon: Icon(
-                                  Icons.share,
-                                  color: Colors.grey[600],
-                                  size: 22,
-                                ),
-                                onPressed: () {
-                                  // Функция поделиться
-                                },
-                              ),
-                            ],
+          // Модальное окно для добавления новости
+          if (_showAddNewsForm)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black54,
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: Container(
+                      margin: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            blurRadius: 20,
+                            color: Colors.black.withOpacity(0.1),
                           ),
                         ],
                       ),
+                      child: _buildAddNewsForm(),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+        ],
       ),
     );
   }
 
-  // Метод для форматирования чисел (1K, 1M)
-  String _formatNumber(int number) {
-    if (number >= 1000000) {
-      return '${(number / 1000000).toStringAsFixed(1)}M';
-    } else if (number >= 1000) {
-      return '${(number / 1000).toStringAsFixed(1)}K';
+  Widget _buildAddNewsForm() {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final imageController = TextEditingController();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Создать новость',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 20),
+        TextField(
+          controller: titleController,
+          maxLines: 2,
+          decoration: InputDecoration(
+            labelText: 'Заголовок новости',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: descriptionController,
+          maxLines: 4,
+          decoration: InputDecoration(
+            labelText: 'Описание новости',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: imageController,
+          decoration: InputDecoration(
+            labelText: 'Эмодзи (например: ⚽, 🏆)',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _toggleAddNewsForm,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(color: Colors.grey[300]!),
+                ),
+                child: Text(
+                  'Отмена',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  if (titleController.text.isNotEmpty &&
+                      descriptionController.text.isNotEmpty &&
+                      imageController.text.isNotEmpty) {
+                    _addNews(
+                      titleController.text,
+                      descriptionController.text,
+                      imageController.text,
+                    );
+                    _toggleAddNewsForm();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Новость добавлена! 🎉')),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E88E5),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Опубликовать',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    for (final controller in _commentControllers.values) {
+      controller.dispose();
     }
-    return number.toString();
+    super.dispose();
   }
 }

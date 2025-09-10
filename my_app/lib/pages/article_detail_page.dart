@@ -1,6 +1,5 @@
 // lib/pages/article_detail_page.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'articles_page.dart';
 
 class ArticleDetailPage extends StatelessWidget {
@@ -10,15 +9,11 @@ class ArticleDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // Аппбар с изображением
           SliverAppBar(
-            expandedHeight: 250.0,
+            expandedHeight: 300.0,
             floating: false,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
@@ -26,303 +21,229 @@ class ArticleDetailPage extends StatelessWidget {
                 article.title,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 18.0,
+                  fontWeight: FontWeight.w600,
                   shadows: [
                     Shadow(
-                      blurRadius: 10.0,
-                      color: Colors.black.withOpacity(0.7),
-                      offset: Offset(1.0, 1.0),
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
                     ),
                   ],
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      colorScheme.primary.withOpacity(0.8),
-                      colorScheme.primaryContainer.withOpacity(0.6),
-                    ],
+              background: Stack(
+                children: [
+                  Image.network(
+                    article.imageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
                   ),
-                ),
-                child: Center(
-                  child: Text(
-                    article.emoji,
-                    style: TextStyle(fontSize: 80),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.5),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-            actions: [
-              IconButton(
-                icon: Icon(Icons.share, color: Colors.white),
-                onPressed: () => _shareArticle(context), // Передаем context
-              ),
-              IconButton(
-                icon: Icon(Icons.bookmark_border, color: Colors.white),
-                onPressed: () => _bookmarkArticle(context), // Передаем context
-              ),
-            ],
           ),
-
-          // Основной контент
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Заголовок и метаданные
-                  _buildArticleHeader(),
+                  // Категория и эмодзи
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          article.category,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          article.emoji,
+                          style: TextStyle(fontSize: 24),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
 
-                  const SizedBox(height: 24),
+                  // Заголовок
+                  Text(
+                    article.title,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  SizedBox(height: 16),
 
-                  // Контент статьи
-                  _buildArticleContent(),
+                  // Описание
+                  Text(
+                    article.description,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      height: 1.4,
+                    ),
+                  ),
+                  SizedBox(height: 24),
 
-                  const SizedBox(height: 32),
+                  // Рейтинг звездами
+                  Row(
+                    children: [
+                      Text(
+                        'Рейтинг: ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Spacer(),
+                      SizedBox(width: 2),
+                      Row(
+                        children: List.generate(5, (index) => Icon(
+                          Icons.star,
+                          size: 20,
+                          color: index < 4 ? Colors.amber : Colors.grey[300],
+                        )),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        '4.0/5.0',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 24),
 
-                  // Статистика и действия
-                  _buildArticleStats(),
+                  // Автор и дата
+                  Row(
 
-                  const SizedBox(height: 24),
+                    children: [
 
-                  // Кнопки действий
-                  _buildActionButtons(context), // Передаем context
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        child: Text(
+                          article.author[0],
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              article.author,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              article.formattedDate,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 24),
 
-                  const SizedBox(height: 40),
+                  // Статистика
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem(Icons.remove_red_eye_outlined, 'Просмотры', article.views.toString()),
+                      _buildStatItem(Icons.favorite_outline_rounded, 'Лайки', article.likes.toString()),
+                      _buildStatItem(Icons.chat_bubble_outline_rounded, 'Комментарии', '12'),
+                    ],
+                  ),
+                  SizedBox(height: 32),
 
-                  // Информация об авторе
-                  _buildAuthorInfo(),
+                  // Содержание статьи
+                  Text(
+                    article.content,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.6,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ],
       ),
-
-      // Нижняя панель с быстрыми действиями
-      bottomNavigationBar: _buildBottomAppBar(context), // Передаем context
     );
   }
 
-  Widget _buildArticleHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Категория
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.blue.withOpacity(0.3)),
-          ),
-          child: Text(
-            article.category,
-            style: TextStyle(
-              color: Colors.blue[800],
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Заголовок
-        Text(
-          article.title,
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            height: 1.3,
-            color: Colors.grey[900],
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Описание
-        Text(
-          article.description,
-          style: TextStyle(
-            fontSize: 18,
-            color: Colors.grey[700],
-            fontStyle: FontStyle.italic,
-            height: 1.4,
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Метаданные
-        Row(
-          children: [
-            // Автор
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.blue[100],
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      article.author[0].toUpperCase(),
-                      style: TextStyle(
-                        color: Colors.blue[800],
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      article.author,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                    Text(
-                      'Автор статьи',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            const Spacer(),
-
-            // Дата публикации
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  article.formattedDate,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                Text(
-                  'Опубликовано',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildArticleContent() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: MarkdownBody(
-        data: article.content,
-        styleSheet: MarkdownStyleSheet(
-          h1: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[900],
-            height: 1.5,
-          ),
-          h2: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[800],
-            height: 1.4,
-          ),
-          p: TextStyle(
-            fontSize: 16,
-            height: 1.6,
-            color: Colors.grey[800],
-          ),
-          strong: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[700],
-          ),
-          blockquote: TextStyle(
-            fontStyle: FontStyle.italic,
-            color: Colors.grey[700],
-            backgroundColor: Colors.blue[50],
-          ),
-          blockquoteDecoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border(left: BorderSide(color: Colors.blue[300]!, width: 4)),
-          ),
-          listBullet: TextStyle(color: Colors.blue[600]),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildArticleStats() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem(Icons.visibility, '${article.views}', 'Просмотров'),
-          _buildStatItem(Icons.favorite, '${article.likes}', 'Лайков'),
-          _buildStatItem(Icons.comment, '24', 'Комментариев'),
-          _buildStatItem(Icons.access_time, '5', 'мин чтения'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(IconData icon, String value, String label) {
+  Widget _buildStatItem(IconData icon, String label, String value) {
     return Column(
       children: [
-        Icon(icon, size: 20, color: Colors.blue[600]),
-        const SizedBox(height: 4),
+        Icon(
+          icon,
+          size: 24,
+          color: Colors.grey[600],
+        ),
+        SizedBox(height: 8),
         Text(
           value,
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
           ),
         ),
+        SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
@@ -332,201 +253,5 @@ class ArticleDetailPage extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Widget _buildActionButtons(BuildContext context) { // Принимаем context
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () => _likeArticle(),
-            icon: Icon(Icons.favorite_border, size: 20),
-            label: Text('Нравится'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pink[50],
-              foregroundColor: Colors.pink[700],
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => _commentArticle(),
-            icon: Icon(Icons.comment, size: 20),
-            label: Text('Комментировать'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAuthorInfo() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.blue[200],
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                article.author[0].toUpperCase(),
-                style: TextStyle(
-                  color: Colors.blue[900],
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  article.author,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Colors.blue[900],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Автор футбольных аналитических материалов',
-                  style: TextStyle(
-                    color: Colors.blue[700],
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Эксперт в области футбольной тактики и анализа матчей',
-                  style: TextStyle(
-                    color: Colors.blue[600],
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomAppBar(BuildContext context) { // Принимаем context
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            IconButton(
-              icon: Icon(Icons.arrow_back, color: Colors.blue[700]),
-              onPressed: () => Navigator.pop(context), // Теперь context доступен
-            ),
-            const Spacer(),
-            IconButton(
-              icon: Icon(Icons.bookmark_border, color: Colors.blue[700]),
-              onPressed: () => _bookmarkArticle(context), // Передаем context
-            ),
-            IconButton(
-              icon: Icon(Icons.share, color: Colors.blue[700]),
-              onPressed: () => _shareArticle(context), // Передаем context
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: () => _subscribeToAuthor(),
-              child: Text('Подписаться'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[700],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Методы действий
-  void _likeArticle() {
-    // Логика лайка
-  }
-
-  void _commentArticle() {
-    // Логика комментария
-  }
-
-  void _shareArticle(BuildContext context) { // Принимаем context
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Поделиться статьей'),
-        content: Text('Выберите способ поделиться статьей "${article.title}"'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Ссылка скопирована в буфер обмена!'),
-                ),
-              );
-            },
-            child: Text('Копировать ссылку'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _bookmarkArticle(BuildContext context) { // Принимаем context
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Статья добавлена в закладки!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _subscribeToAuthor() {
-    // Логика подписки на автора
   }
 }

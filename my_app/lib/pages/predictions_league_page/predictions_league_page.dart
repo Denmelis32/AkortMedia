@@ -3,7 +3,9 @@ import './models/tournament_model.dart';
 import './widgets/tournament_list.dart';
 import './widgets/confirmation_dialog.dart';
 import './widgets/payment_dialog.dart';
+import './widgets/create_tournament_dialog.dart';
 import './tournament_details_page.dart';
+import './tournament_creation_page.dart';
 
 class PredictionsLeaguePage extends StatefulWidget {
   final String userId;
@@ -35,6 +37,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       startDate: DateTime.now().add(const Duration(days: 2)),
       endDate: DateTime.now().add(const Duration(days: 30)),
       isFree: true,
+      creatorId: 'system',
     ),
     Tournament(
       id: '2',
@@ -46,6 +49,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       startDate: DateTime.now().add(const Duration(days: 5)),
       endDate: DateTime.now().add(const Duration(days: 45)),
       isFree: false,
+      creatorId: 'system',
     ),
     Tournament(
       id: '3',
@@ -57,6 +61,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       startDate: DateTime.now().add(const Duration(days: 1)),
       endDate: DateTime.now().add(const Duration(days: 25)),
       isFree: true,
+      creatorId: 'system',
     ),
     Tournament(
       id: '4',
@@ -68,6 +73,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       startDate: DateTime.now().add(const Duration(days: 7)),
       endDate: DateTime.now().add(const Duration(days: 60)),
       isFree: false,
+      creatorId: 'system',
     ),
   ];
 
@@ -75,6 +81,9 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
 
   @override
   Widget build(BuildContext context) {
+    final userCreatedTournaments = tournaments.where((t) => t.creatorId == widget.userId).toList();
+    final systemTournaments = tournaments.where((t) => t.creatorId != widget.userId).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -89,6 +98,12 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
         foregroundColor: Colors.white,
         elevation: 8,
         actions: [
+          // Кнопка создания турнира в AppBar
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _showCreateTournamentDialog,
+            tooltip: 'Создать турнир',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: widget.onLogout,
@@ -108,13 +123,126 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
               ],
             ),
           ),
-          child: TournamentList(
-            tournaments: tournaments,
-            joinedTournaments: _joinedTournaments,
-            onJoinTournament: _joinTournament,
-            onOpenTournamentDetails: _openTournamentDetails,
+          child: DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
+                // Табы для переключения между типами турниров
+                Container(
+                  color: Colors.deepPurple,
+                  child: const TabBar(
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white70,
+                    indicatorColor: Colors.white,
+                    tabs: [
+                      Tab(text: 'Все турниры'),
+                      Tab(text: 'Мои турниры'),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      // Все турниры
+                      TournamentList(
+                        tournaments: tournaments,
+                        joinedTournaments: _joinedTournaments,
+                        onJoinTournament: _joinTournament,
+                        onOpenTournamentDetails: _openTournamentDetails,
+                        onEditTournament: _editTournament,
+                        userId: widget.userId,
+                      ),
+
+                      // Только созданные пользователем турниры
+                      userCreatedTournaments.isEmpty
+                          ? _buildEmptyState()
+                          : TournamentList(
+                        tournaments: userCreatedTournaments,
+                        joinedTournaments: _joinedTournaments,
+                        onJoinTournament: _joinTournament,
+                        onOpenTournamentDetails: _openTournamentDetails,
+                        onEditTournament: _editTournament,
+                        userId: widget.userId,
+                        showEditOptions: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+      // Floating Action Button для быстрого создания турнира
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showCreateTournamentDialog,
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+        tooltip: 'Создать турнир',
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.emoji_events,
+            size: 64,
+            color: Colors.grey,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'У вас пока нет своих турниров',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Создайте первый турнир и пригласите друзей!',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _showCreateTournamentDialog,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Создать турнир'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateTournamentDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => CreateTournamentDialog(
+        onCreateTournament: _addNewTournament,
+        userId: widget.userId, // Добавляем userId
+      ),
+    );
+  }
+
+  void _addNewTournament(Tournament tournament) {
+    setState(() {
+      tournaments.add(tournament);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Турнир "${tournament.name}" создан!'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -179,7 +307,40 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
         builder: (context) => TournamentDetailsPage(
           tournament: tournament,
           userName: widget.userName,
+          userId: widget.userId,
         ),
+      ),
+    );
+  }
+
+  void _editTournament(Tournament tournament) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TournamentCreationPage(
+          tournament: tournament,
+          onSaveTournament: (updatedTournament, matches) {
+            _updateTournament(updatedTournament);
+          },
+          userId: widget.userId,
+        ),
+      ),
+    );
+  }
+
+  void _updateTournament(Tournament updatedTournament) {
+    setState(() {
+      final index = tournaments.indexWhere((t) => t.id == updatedTournament.id);
+      if (index != -1) {
+        tournaments[index] = updatedTournament;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Турнир "${updatedTournament.name}" обновлен!'),
+        backgroundColor: Colors.blue,
+        duration: const Duration(seconds: 2),
       ),
     );
   }

@@ -4,15 +4,21 @@ import '../models/tournament_model.dart';
 class TournamentCard extends StatelessWidget {
   final Tournament tournament;
   final bool isJoined;
+  final bool isCreator;
+  final bool showEditOptions;
   final VoidCallback onJoin;
   final VoidCallback onOpenDetails;
+  final VoidCallback? onEdit;
 
   const TournamentCard({
     super.key,
     required this.tournament,
     required this.isJoined,
+    required this.isCreator,
+    required this.showEditOptions,
     required this.onJoin,
     required this.onOpenDetails,
+    this.onEdit,
   });
 
   @override
@@ -33,6 +39,8 @@ class TournamentCard extends StatelessWidget {
           ],
           border: isJoined
               ? Border.all(color: Colors.green, width: 2)
+              : isCreator
+              ? Border.all(color: Colors.blue, width: 2)
               : null,
         ),
         child: Padding(
@@ -40,15 +48,72 @@ class TournamentCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBadge(),
+              // Заголовок с бейджем создателя
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      _buildBadge(),
+                      if (isCreator) ...[
+                        const SizedBox(width: 8),
+                        _buildCreatorBadge(),
+                      ],
+                    ],
+                  ),
+                  if (isJoined)
+                    const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                ],
+              ),
+
               const SizedBox(height: 16),
-              _buildTitle(),
+
+              // Название турнира
+              Text(
+                tournament.name,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
               const SizedBox(height: 8),
-              _buildDescription(),
+
+              // Описание
+              Text(
+                tournament.description,
+                style: TextStyle(
+                  color: Colors.grey.shade700,
+                  fontSize: 14,
+                ),
+              ),
+
               const SizedBox(height: 16),
-              _buildInfoRow(),
+
+              // Информация о турнире
+              Row(
+                children: [
+                  _buildInfoItem(
+                    Icons.people,
+                    '${tournament.participants}',
+                  ),
+                  const SizedBox(width: 16),
+                  _buildInfoItem(
+                    Icons.attach_money,
+                    '${tournament.prizePool.toStringAsFixed(0)} ₽',
+                  ),
+                  const SizedBox(width: 16),
+                  _buildInfoItem(
+                    Icons.calendar_today,
+                    tournament.formattedStartDate,
+                  ),
+                ],
+              ),
+
               const SizedBox(height: 16),
-              _buildActionButton(),
+
+              // Кнопки действий
+              _buildActionButtons(),
             ],
           ),
         ),
@@ -57,61 +122,40 @@ class TournamentCard extends StatelessWidget {
   }
 
   Widget _buildBadge() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: tournament.isFree
-                ? Colors.green.shade400
-                : Colors.amber.shade700,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            tournament.isFree ? 'БЕСПЛАТНО' : 'ПРЕМИУМ',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: tournament.isFree
+            ? Colors.green.shade400
+            : Colors.amber.shade700,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        tournament.isFree ? 'БЕСПЛАТНО' : 'ПРЕМИУМ',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
         ),
-        if (isJoined)
-          const Icon(Icons.check_circle, color: Colors.green, size: 24),
-      ],
-    );
-  }
-
-  Widget _buildTitle() {
-    return Text(
-      tournament.name,
-      style: const TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
       ),
     );
   }
 
-  Widget _buildDescription() {
-    return Text(
-      tournament.description,
-      style: TextStyle(
-        color: Colors.grey.shade700,
-        fontSize: 14,
+  Widget _buildCreatorBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade400,
+        borderRadius: BorderRadius.circular(20),
       ),
-    );
-  }
-
-  Widget _buildInfoRow() {
-    return Row(
-      children: [
-        _buildInfoItem(Icons.people, '${tournament.participants}'),
-        const SizedBox(width: 16),
-        _buildInfoItem(Icons.attach_money, '${tournament.prizePool.toStringAsFixed(0)} ₽'),
-        const SizedBox(width: 16),
-        _buildInfoItem(Icons.calendar_today, tournament.formattedStartDate),
-      ],
+      child: const Text(
+        'МОЙ',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
@@ -131,7 +175,35 @@ class TournamentCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton() {
+  Widget _buildActionButtons() {
+    if (showEditOptions && onEdit != null) {
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: onEdit,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.blue,
+                side: const BorderSide(color: Colors.blue),
+              ),
+              child: const Text('РЕДАКТИРОВАТЬ'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: onOpenDetails,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('ПРОСМОТР'),
+            ),
+          ),
+        ],
+      );
+    }
+
     return SizedBox(
       width: double.infinity,
       child: isJoined

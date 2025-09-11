@@ -10,6 +10,7 @@ class Tournament {
   final DateTime startDate;
   final DateTime endDate;
   final bool isFree;
+  final String creatorId; // Добавляем поле создателя
 
   Tournament({
     required this.id,
@@ -21,6 +22,7 @@ class Tournament {
     required this.startDate,
     required this.endDate,
     required this.isFree,
+    required this.creatorId, // Обязательное поле
   });
 
   String get formattedStartDate => DateFormat('dd.MM').format(startDate);

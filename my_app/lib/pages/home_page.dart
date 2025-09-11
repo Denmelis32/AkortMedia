@@ -1,7 +1,7 @@
 // lib/pages/home_page.dart
 import 'package:flutter/material.dart';
 import 'news_page//news_page.dart';
-import 'predictions_league_page.dart';
+import 'predictions_league_page/predictions_league_page.dart';
 import 'profile_page.dart' hide NewsPage;
 import 'articles_pages/articles_page.dart'; // Импортируем существующую страницу статей
 import 'rooms_pages/rooms_page.dart';

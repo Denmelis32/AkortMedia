@@ -1,6 +1,5 @@
-// lib/pages/article_detail_page.dart
 import 'package:flutter/material.dart';
-import 'articles_page.dart';
+import 'articles_pages/models/article.dart'; // Обновите импорт
 
 class ArticleDetailPage extends StatelessWidget {
   final Article article;
@@ -62,7 +61,7 @@ class ArticleDetailPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Container(
               constraints: BoxConstraints(
-                maxWidth: 680, // Ограничиваем ширину для лучшего чтения
+                maxWidth: 680,
               ),
               margin: EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -221,7 +220,7 @@ class ArticleDetailPage extends StatelessWidget {
               fontSize: 17,
               height: 1.7,
               color: Theme.of(context).colorScheme.onSurface,
-              fontFamily: 'Georgia', // Более читаемый шрифт
+              fontFamily: 'Georgia',
             ),
             textAlign: TextAlign.justify,
           ),

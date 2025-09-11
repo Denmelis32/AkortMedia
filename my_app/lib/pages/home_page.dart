@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'news_page//news_page.dart';
 import 'predictions_league_page.dart';
 import 'profile_page.dart' hide NewsPage;
-import 'articles_page.dart' hide NewsPage; // Импортируем существующую страницу статей
+import 'articles_pages/articles_page.dart'; // Импортируем существующую страницу статей
 import 'rooms_pages/rooms_page.dart';
 import 'rooms_pages/models_room/user_permissions.dart';// Создайте этот файл для комнат
 

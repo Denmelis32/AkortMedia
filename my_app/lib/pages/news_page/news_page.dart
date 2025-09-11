@@ -6,7 +6,6 @@ import 'news_card.dart';
 import 'dialogs.dart';
 import 'utils.dart';
 
-
 class NewsPage extends StatefulWidget {
   final String userName;
   final String userEmail;
@@ -139,6 +138,18 @@ class _NewsPageState extends State<NewsPage> {
           'hashtags': hashtags,
         },
       );
+    }
+  }
+
+  // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ РЕДАКТИРОВАНИЯ ТЕГА
+  void _editUserTag(int newsIndex, String tagId, String newTagName, Color color) {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+
+    try {
+      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color);
+    } catch (e) {
+      print('Error editing user tag: $e');
+      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color);
     }
   }
 
@@ -294,6 +305,7 @@ class _NewsPageState extends State<NewsPage> {
               onComment: (comment) => _addComment(index, comment),
               onEdit: () => _showEditNewsDialog(index),
               onDelete: () => _showDeleteConfirmationDialog(index),
+              onTagEdit: (tagId, newTagName, color) => _editUserTag(index, tagId, newTagName, color),
               formatDate: formatDate,
               getTimeAgo: getTimeAgo,
               primaryColor: _primaryColor,

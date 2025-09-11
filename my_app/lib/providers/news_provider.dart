@@ -1,4 +1,6 @@
 // lib/providers/news_provider.dart
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import '../../../services/api_service.dart';
 import '../services/storage_service.dart';
@@ -8,6 +10,7 @@ class NewsProvider with ChangeNotifier {
   bool _isLoading = true;
 
   List<dynamic> get news => _news;
+
   bool get isLoading => _isLoading;
 
   Future<void> loadNews() async {
@@ -24,7 +27,7 @@ class NewsProvider with ChangeNotifier {
       // Fallback: пробуем загрузить из кэша
       _news = await StorageService.loadNews();
 
-      // Если в кэше пусто, используем mock данные с хештегами
+      // Если в кэше пусто, используем mock данные с хештегами и user_tags
       if (_news.isEmpty) {
         _news = [
           {
@@ -36,7 +39,9 @@ class NewsProvider with ChangeNotifier {
             "author_name": "Администратор",
             "created_at": "2025-09-09T16:33:18.417Z",
             "comments": [],
-            "hashtags": ["#футбол", "#лигачемпионов"]
+            "hashtags": ["#футбол", "#лигачемпионов"],
+            "user_tags": {"tag1": "Фанат Манчестера"}
+            // Добавляем user_tags по умолчанию
           }
         ];
       }
@@ -52,13 +57,17 @@ class NewsProvider with ChangeNotifier {
       newsItem['hashtags'] = [];
     }
 
+    // Убедимся, что user_tags есть в новом посте
+    if (!newsItem.containsKey('user_tags')) {
+      newsItem['user_tags'] = {"tag1": "Фанат Манчестера"};
+    }
+
     _news.insert(0, newsItem);
     notifyListeners();
     // Сохраняем в кэш при добавлении
     StorageService.saveNews(_news);
   }
 
-  // НОВЫЙ МЕТОД ДЛЯ ОБНОВЛЕНИЯ НОВОСТИ
   void updateNews(int index, Map<String, dynamic> updatedNews) {
     if (index >= 0 && index < _news.length) {
       // Сохраняем комментарии из старой новости, если они есть
@@ -84,6 +93,11 @@ class NewsProvider with ChangeNotifier {
       // Сохраняем дату создания из старой новости
       if (_news[index]['created_at'] != null) {
         updatedNews['created_at'] = _news[index]['created_at'];
+      }
+
+      // Сохраняем user_tags из старой новости, если они есть
+      if (_news[index]['user_tags'] != null) {
+        updatedNews['user_tags'] = _news[index]['user_tags'];
       }
 
       // Обновляем новость
@@ -134,6 +148,38 @@ class NewsProvider with ChangeNotifier {
       _news[index]['hashtags'] = hashtags;
       notifyListeners();
       StorageService.saveNews(_news);
+    }
+  }
+
+  void updateNewsUserTag(int index, String tagId, String newTagName,
+      Color color) {
+    if (index >= 0 && index < _news.length) {
+      if (_news[index]['user_tags'] == null) {
+        _news[index]['user_tags'] = {};
+      }
+
+      _news[index]['user_tags'][tagId] = newTagName;
+      _news[index]['tag_color'] = color.value; // Сохраняем цвет как int
+
+      notifyListeners();
+      StorageService.saveNews(_news);
+    }
+
+    // НОВЫЙ МЕТОД ДЛЯ ОБНОВЛЕНИЯ ПОЛЬЗОВАТЕЛЬСКИХ ТЕГОВ
+    void updateNewsUserTag(int index, String tagId, String newTagName) {
+      if (index >= 0 && index < _news.length) {
+        // Убедимся, что user_tags существует
+        if (_news[index]['user_tags'] == null) {
+          _news[index]['user_tags'] = {};
+        }
+
+        // Обновляем тег
+        _news[index]['user_tags'][tagId] = newTagName;
+        notifyListeners();
+
+        // Сохраняем в кэш
+        StorageService.saveNews(_news);
+      }
     }
   }
 }

@@ -45,14 +45,19 @@ class _HomePageState extends State<HomePage> {
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
       ),
-      RoomsPage( // Добавляем страницу комнат
+      RoomsPage(
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
-        userPermissions: UserPermissions( // Добавляем этот параметр
+        userPermissions: UserPermissions(
           isSeniorDeveloper: true, // или false, в зависимости от пользователя
           isLongTermFan: false, // или true
           joinDate: DateTime.now().subtract(Duration(days: 45)), // пример даты регистрации
+          avatarUrl: 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(widget.userName)}&background=007AFF&color=fff', // URL аватара
+          messagesCount: 0, // начальное количество сообщений
+          topicsCreated: 0, // начальное количество созданных тем
+          participatedCategories: {}, // пустой набор для категорий
+          achievements: {}, // пустой Map для достижений
         ),
       ),
       PredictionsLeaguePage(

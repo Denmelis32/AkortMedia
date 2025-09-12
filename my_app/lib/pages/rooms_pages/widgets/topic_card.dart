@@ -7,12 +7,14 @@ class TopicCard extends StatelessWidget {
   final DiscussionTopic topic;
   final Color textColor;
   final VoidCallback onTap;
+  final VoidCallback? onFavoriteToggle;
 
   const TopicCard({
     super.key,
     required this.topic,
     required this.textColor,
     required this.onTap,
+    this.onFavoriteToggle,
   });
 
   @override
@@ -59,6 +61,33 @@ class TopicCard extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Кнопка избранного
+              if (onFavoriteToggle != null)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: GestureDetector(
+                    onTap: () {
+                      if (onFavoriteToggle != null) {
+                        onFavoriteToggle!();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        topic.isFavorite ? Icons.favorite : Icons.favorite_border,
+                        size: 18,
+                        color: topic.isFavorite ? Colors.red : textColor.withOpacity(0.8),
+                      ),
+                    ),
+                  ),
+                ),
+
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(

@@ -7,9 +7,11 @@ class Channel {
   final String ownerAvatarUrl;
   final String categoryId;
   final DateTime createdAt;
-  final int subscribersCount;
+  int subscribersCount; // Изменяем на не-final для обновления
   final List<String> tags;
   final List<String> recentTopicIds;
+  final String? bannerImageUrl;
+  final bool isVerified;
 
   Channel({
     required this.id,
@@ -23,6 +25,8 @@ class Channel {
     this.subscribersCount = 0,
     this.tags = const [],
     this.recentTopicIds = const [],
+    this.bannerImageUrl,
+    this.isVerified = false,
   });
 
   Channel copyWith({
@@ -37,6 +41,8 @@ class Channel {
     int? subscribersCount,
     List<String>? tags,
     List<String>? recentTopicIds,
+    String? bannerImageUrl,
+    bool? isVerified,
   }) {
     return Channel(
       id: id ?? this.id,
@@ -50,6 +56,8 @@ class Channel {
       subscribersCount: subscribersCount ?? this.subscribersCount,
       tags: tags ?? this.tags,
       recentTopicIds: recentTopicIds ?? this.recentTopicIds,
+      bannerImageUrl: bannerImageUrl ?? this.bannerImageUrl,
+      isVerified: isVerified ?? this.isVerified,
     );
   }
 }

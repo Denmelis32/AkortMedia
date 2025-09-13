@@ -1,218 +1,258 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/services/channel_service.dart'; // ← Используем только ChannelService
 import '../models_room/channel.dart';
 
-class ChannelCard extends StatelessWidget {
+class ChannelCard extends StatefulWidget {
   final Channel channel;
-  final Function(Channel) onTap;
-  final bool compact;
-  final int maxPreviewTopics;
+  final String userId;
+  final VoidCallback onTap;
+  final VoidCallback? onSubscriptionChanged;
+  final bool showAsGrid;
 
   const ChannelCard({
     super.key,
     required this.channel,
+    required this.userId,
     required this.onTap,
-    this.compact = false,
-    this.maxPreviewTopics = 3,
+    this.onSubscriptionChanged,
+    this.showAsGrid = false,
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (compact) {
-      return _buildCompactCard(context);
-    } else {
-      return _buildFullCard(context);
-    }
+  State<ChannelCard> createState() => _ChannelCardState();
+}
+
+class _ChannelCardState extends State<ChannelCard> {
+  bool _isSubscribed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isSubscribed = ChannelService.isUserSubscribed(widget.channel, widget.userId); // ← Изменено
   }
 
-  Widget _buildCompactCard(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: NetworkImage(channel.ownerAvatarUrl),
-          radius: 20,
-        ),
-        title: Text(
-          channel.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          channel.description,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Text(
-          '${channel.subscribersCount} подписчиков',
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-        onTap: () => onTap(channel),
+  void _toggleSubscription() {
+    setState(() {
+      ChannelService.toggleSubscription(widget.channel, widget.userId); // ← Изменено
+      _isSubscribed = ChannelService.isUserSubscribed(widget.channel, widget.userId); // ← Изменено
+    });
+    widget.onSubscriptionChanged?.call();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isSubscribed ? 'Подписались на канал' : 'Отписались от канала'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  Widget _buildFullCard(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
+    return widget.showAsGrid ? _buildGridCard() : _buildListCard();
+  }
+
+  Widget _buildListCard() {
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.all(0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(12),
-        onTap: () => onTap(channel),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min, // Важно добавить это
             children: [
-              // Заголовок канала
+              // Заголовок с аватаркой
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundImage: NetworkImage(channel.ownerAvatarUrl),
-                    radius: 24,
+                    backgroundImage: NetworkImage(widget.channel.ownerAvatarUrl),
+                    radius: 20,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          channel.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Text(
+                              widget.channel.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (widget.channel.isVerified) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.verified, color: Colors.blue, size: 16),
+                            ],
+                          ],
                         ),
                         Text(
-                          channel.ownerName,
+                          widget.channel.ownerName,
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
+                  _buildSubscribeButton(),
                 ],
               ),
               const SizedBox(height: 12),
-
-              // Описание канала
+              // Описание
               Text(
-                channel.description,
-                style: const TextStyle(fontSize: 14),
-                maxLines: 3, // Увеличим до 3 строк
+                widget.channel.description,
+                style: TextStyle(color: Colors.grey[700]),
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 16),
-
-              // Статистика
-              Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.people, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${channel.subscribersCount} подписчиков',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.video_library, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${channel.recentTopicIds.length} обсуждений',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Теги
-              if (channel.tags.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              // Метки
+              if (widget.channel.tags.isNotEmpty) ...[
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
-                  children: channel.tags.take(3).map((tag) {
-                    return Chip(
-                      label: Text(
-                        tag,
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      backgroundColor: Colors.blue[50],
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    );
-                  }).toList(),
+                  children: widget.channel.tags.take(3).map((tag) => Chip(
+                    label: Text(
+                      tag,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    backgroundColor: Colors.blue[50],
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  )).toList(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
               ],
-
-              // Заголовок последних обсуждений
-              if (channel.recentTopicIds.isNotEmpty) ...[
-                const Text(
-                  'Последние обсуждения:',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+              // Статистика
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${widget.channel.subscribersCount} подписчиков',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
-                ),
-                const SizedBox(height: 8),
-
-                // Упрощенное отображение вместо TopicPreviewCard
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (var i = 0; i < channel.recentTopicIds.length && i < maxPreviewTopics; i++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Icon(Icons.chat_bubble_outline, size: 14, color: Colors.grey[600]),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Обсуждение #${channel.recentTopicIds[i]}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ] else ...[
-                Text(
-                  'Пока нет обсуждений',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                    fontStyle: FontStyle.italic,
+                  Text(
+                    '${widget.channel.recentTopicIds.length} активных тем',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
-                ),
-              ],
+                ],
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildGridCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Баннер (если есть) или заглушка
+              Container(
+                height: 100,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey[200],
+                  image: widget.channel.bannerImageUrl != null
+                      ? DecorationImage(
+                    image: NetworkImage(widget.channel.bannerImageUrl!),
+                    fit: BoxFit.cover,
+                  )
+                      : null,
+                ),
+                child: widget.channel.bannerImageUrl == null
+                    ? const Icon(Icons.people, size: 40, color: Colors.grey)
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              // Название и верификация
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.channel.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  if (widget.channel.isVerified)
+                    const Icon(Icons.verified, color: Colors.blue, size: 16),
+                ],
+              ),
+              const SizedBox(height: 4),
+              // Владелец
+              Text(
+                widget.channel.ownerName,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              // Кнопка подписки
+              SizedBox(
+                width: double.infinity,
+                child: _buildSubscribeButton(),
+              ),
+              const SizedBox(height: 8),
+              // Статистика
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${widget.channel.subscribersCount}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '${widget.channel.recentTopicIds.length} тем',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubscribeButton() {
+    return OutlinedButton(
+      onPressed: _toggleSubscription,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: _isSubscribed ? Colors.grey[100] : Colors.blue,
+        foregroundColor: _isSubscribed ? Colors.grey[700] : Colors.white,
+        side: BorderSide(
+          color: _isSubscribed ? Colors.grey[300]! : Colors.blue,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      child: Text(
+        _isSubscribed ? 'Вы подписаны' : 'Подписаться',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       ),
     );
   }

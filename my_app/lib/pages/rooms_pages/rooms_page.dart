@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:my_app/pages/rooms_pages/widgets/channel_creation_dialog.dart';
 import 'package:my_app/pages/rooms_pages/widgets/channels_list.dart';
 import '../../services/achievement_service.dart';
 import '../../services/channel_service.dart';
+import '../../services/subscription_service.dart';
 import 'models_room/room_category.dart';
 import 'models_room/discussion_topic.dart';
 import 'models_room/message.dart';
@@ -931,6 +933,37 @@ class _RoomsPageState extends State<RoomsPage>
     });
   }
 
+  void _createNewChannel(Channel newChannel) {
+    setState(() {
+      ChannelService.addChannel(_allChannels, newChannel);
+      _updateCategoryChannels();
+
+      // Автоматически подписываем пользователя
+      ChannelService.subscribe(newChannel, widget.userPermissions.userId);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Канал "${newChannel.name}" создан!'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showCreateChannelDialog() {
+    if (_selectedCategory == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => ChannelCreationDialog(
+        categoryId: _selectedCategory!.id,
+        userId: widget.userPermissions.userId,
+        userName: widget.userName,
+        onChannelCreated: _createNewChannel,
+      ),
+    );
+  }
+
   void _changeAccessLevel(AccessLevel level) {
     setState(() {
       _selectedAccessLevel = level;
@@ -1129,10 +1162,11 @@ class _RoomsPageState extends State<RoomsPage>
             ),
           if (_selectedCategory != null &&
               _selectedTopic == null &&
-              !_showTopicCreation)
+              !_showTopicCreation &&
+              _showChannelsView)
             IconButton(
               icon: const Icon(Icons.add, color: Colors.blue),
-              onPressed: () => setState(() => _showTopicCreation = true),
+              onPressed: _showCreateChannelDialog,
               tooltip: 'Создать комнату',
             ),
           if (_selectedCategory == null && _selectedTopic == null)
@@ -1149,10 +1183,13 @@ class _RoomsPageState extends State<RoomsPage>
               _selectedTopic == null &&
               !_showTopicCreation
           ? FloatingActionButton(
-              onPressed: () => setState(() => _showTopicCreation = true),
+              onPressed: _showChannelsView
+                  ? _showCreateChannelDialog // ← Для каналов
+                  : () => setState(() => _showTopicCreation = true),
+              // ← Для тем
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
-              child: const Icon(Icons.add),
+              child: Icon(_showChannelsView ? Icons.add : Icons.forum),
               elevation: 2,
             )
           : null,
@@ -1247,6 +1284,10 @@ class _RoomsPageState extends State<RoomsPage>
                 ? ChannelsList(
                     channels: filteredChannels,
                     onChannelTap: _onChannelTap,
+                    userId: widget.userPermissions.userId,
+                    // ДОБАВЬТЕ: передаем ID пользователя
+                    onSubscriptionChanged: () => setState(() {}),
+                    // ДОБАВЬТЕ: обновляем состояние
                     showAsGrid: true,
                   )
                 : _searchQuery.isNotEmpty
@@ -1633,13 +1674,13 @@ class _RoomsPageState extends State<RoomsPage>
             ),
             const SizedBox(height: 12),
             Text(
-              'Каналы появятся здесь, когда пользователи начнут их создавать',
+              'Создайте первый канал и станьте его основателем!',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, color: Colors.grey[500]),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: _showChannelCreation,
+              onPressed: _showCreateChannelDialog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _selectedCategory?.color ?? Colors.blue,
                 foregroundColor: Colors.white,

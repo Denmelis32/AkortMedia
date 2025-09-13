@@ -50,6 +50,7 @@ class _HomePageState extends State<HomePage> {
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
         userPermissions: UserPermissions(
+          userId: 'user123',
           isSeniorDeveloper: true, // или false, в зависимости от пользователя
           isLongTermFan: false, // или true
           joinDate: DateTime.now().subtract(Duration(days: 45)), // пример даты регистрации

@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:my_app/pages/rooms_pages/widgets/channels_list.dart';
 import '../../services/achievement_service.dart';
+import '../../services/channel_service.dart';
 import 'models_room/room_category.dart';
 import 'models_room/discussion_topic.dart';
 import 'models_room/message.dart';
 import 'models_room/access_level.dart';
 import 'models_room/user_permissions.dart';
-import 'models_room/achievement.dart'; // Добавляем импорт achievement
+import 'models_room/achievement.dart';
+import 'models_room/channel.dart';
 import 'widgets/category_card.dart';
 import 'widgets/topic_card.dart';
-import 'widgets/topic_creation_card.dart';
 import 'widgets/chat_room.dart';
-import 'widgets/achievements_screen.dart'; // Добавляем экран достижений
+import 'widgets/achievements_screen.dart';
+import 'widgets/topic_creation_card.dart';
+import 'widgets/channel_card.dart';
 
 class RoomsPage extends StatefulWidget {
   final String userName;
@@ -35,22 +39,27 @@ class RoomsPage extends StatefulWidget {
 class _RoomsPageState extends State<RoomsPage>
     with SingleTickerProviderStateMixin {
   final List<RoomCategory> _categories = [];
+  final List<Channel> _allChannels = [];
   final _topicTitleController = TextEditingController();
   final _topicDescriptionController = TextEditingController();
   final _messageController = TextEditingController();
   final _searchController = TextEditingController();
+  final Map<String, bool> _categoryViewState =
+      {}; // Состояние просмотра для каждой категории
 
   RoomCategory? _selectedCategory;
   DiscussionTopic? _selectedTopic;
+  Channel? _selectedChannel;
   bool _showTopicCreation = false;
+  bool _showChannelsView = false;
   AccessLevel _selectedAccessLevel = AccessLevel.everyone;
   final List<String> _selectedTags = [];
   int _currentTabIndex = 0;
   String _searchQuery = '';
   SortType _currentSort = SortType.newest;
   TabController? _tabController;
-  DateTime? _lastMessageTime; // Для отслеживания времени последнего сообщения
-  Map<AchievementType, DateTime> _userAchievements = {}; // Локальные достижения
+  DateTime? _lastMessageTime;
+  Map<AchievementType, DateTime> _userAchievements = {};
 
   final List<String> _availableTags = [
     'Футбол',
@@ -81,7 +90,6 @@ class _RoomsPageState extends State<RoomsPage>
     'Медитация',
   ];
 
-  // Градиенты в стиле Apple для разных комнат
   final List<LinearGradient> _appleGradients = [
     LinearGradient(
       colors: [const Color(0xFF007AFF), const Color(0xFF0055D4)],
@@ -133,35 +141,9 @@ class _RoomsPageState extends State<RoomsPage>
   @override
   void initState() {
     super.initState();
-    _initializeCategories();
+    _initializeChannels(); // Сначала инициализируем каналы
+    _initializeCategories(); // Затем категории
     _userAchievements = Map.from(widget.userPermissions.achievements);
-
-    // TabController будет создан после инициализации категорий
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_categories.isNotEmpty) {
-        setState(() {
-          _tabController = TabController(
-            length: _categories.length,
-            vsync: this,
-            initialIndex: 0,
-          );
-
-          _tabController!.addListener(() {
-            if (_tabController!.indexIsChanging) {
-              setState(() {
-                _currentTabIndex = _tabController!.index;
-                _selectedCategory = _categories[_tabController!.index];
-              });
-            }
-          });
-
-          // Устанавливаем первую категорию как выбранную
-          if (_selectedCategory == null) {
-            _selectedCategory = _categories[0];
-          }
-        });
-      }
-    });
   }
 
   @override
@@ -174,8 +156,146 @@ class _RoomsPageState extends State<RoomsPage>
     super.dispose();
   }
 
+  void _initializeChannels() {
+    final youtubeChannels = [
+      Channel(
+        id: 'yt_tech',
+        name: 'Tech Reviews',
+        description: 'Обзоры новейших технологий и гаджетов',
+        ownerId: 'user1',
+        ownerName: 'Иван Техноблогер',
+        ownerAvatarUrl: 'https://ui-avatars.com/api/?name=IT&background=007AFF',
+        categoryId: 'youtube',
+        createdAt: DateTime.now().subtract(const Duration(days: 30)),
+        subscribersCount: 1250,
+        tags: ['Технологии', 'Обзоры', 'Гаджеты'],
+        recentTopicIds: ['1', '2'],
+      ),
+      Channel(
+        id: 'yt_gaming',
+        name: 'Game Streams',
+        description: 'Лучшие игровые стримы и летсплеи',
+        ownerId: 'user2',
+        ownerName: 'Алексей Геймер',
+        ownerAvatarUrl: 'https://ui-avatars.com/api/?name=AG&background=FF2D55',
+        categoryId: 'youtube',
+        createdAt: DateTime.now().subtract(const Duration(days: 45)),
+        subscribersCount: 890,
+        tags: ['Игры', 'Стримы', 'Гейминг'],
+        recentTopicIds: ['2'],
+      ),
+    ];
+
+    final sportChannels = [
+      Channel(
+        id: 'sport_football',
+        name: 'Футбольные новости',
+        description: 'Все о футболе: матчи, трансферы, аналитика',
+        ownerId: 'user3',
+        ownerName: 'Сергей Спортивный',
+        ownerAvatarUrl: 'https://ui-avatars.com/api/?name=SS&background=34C759',
+        categoryId: 'sport',
+        createdAt: DateTime.now().subtract(const Duration(days: 60)),
+        subscribersCount: 2100,
+        tags: ['Футбол', 'Новости', 'Аналитика'],
+        recentTopicIds: ['3'],
+      ),
+    ];
+
+    final gamesChannels = [
+      Channel(
+        id: 'games_news',
+        name: 'Игровые новости',
+        description: 'Свежие новости из мира видеоигр',
+        ownerId: 'user4',
+        ownerName: 'Дмитрий Геймдизайнер',
+        ownerAvatarUrl: 'https://ui-avatars.com/api/?name=DG&background=FF9500',
+        categoryId: 'games',
+        createdAt: DateTime.now().subtract(const Duration(days: 25)),
+        subscribersCount: 1560,
+        tags: ['Игры', 'Новости', 'Релизы'],
+        recentTopicIds: ['4'],
+      ),
+    ];
+
+    final programmingChannels = [
+      Channel(
+        id: 'prog_flutter',
+        name: 'Flutter Developers',
+        description: 'Сообщество Flutter разработчиков',
+        ownerId: 'user5',
+        ownerName: 'Мария Разработчик',
+        ownerAvatarUrl: 'https://ui-avatars.com/api/?name=MR&background=007AFF',
+        categoryId: 'programming',
+        createdAt: DateTime.now().subtract(const Duration(days: 90)),
+        subscribersCount: 3450,
+        tags: ['Flutter', 'Dart', 'Мобильная разработка'],
+        recentTopicIds: ['6'],
+      ),
+    ];
+
+    final businessChannels = [
+      Channel(
+        id: 'business_startups',
+        name: 'Стартапы и Инвестиции',
+        description: 'Все о стартапах и привлечении инвестиций',
+        ownerId: 'user6',
+        ownerName: 'Ольга Инвестор',
+        ownerAvatarUrl: 'https://ui-avatars.com/api/?name=OI&background=FF9500',
+        categoryId: 'business',
+        createdAt: DateTime.now().subtract(const Duration(days: 75)),
+        subscribersCount: 1890,
+        tags: ['Стартапы', 'Инвестиции', 'Бизнес'],
+        recentTopicIds: ['7'],
+      ),
+    ];
+
+    setState(() {
+      _allChannels.addAll([
+        ...youtubeChannels,
+        ...sportChannels,
+        ...gamesChannels,
+        ...programmingChannels,
+        ...businessChannels,
+      ]);
+
+      // Обновляем каналы в категориях после их инициализации
+      _updateCategoryChannels(); // ДОБАВЛЕНО: обновление каналов после инициализации
+    });
+  }
+
+  void _updateCategoryChannels() {
+    setState(() {
+      for (var i = 0; i < _categories.length; i++) {
+        final category = _categories[i];
+        final updatedChannels = _allChannels
+            .where((channel) => channel.categoryId == category.id)
+            .toList();
+
+        _categories[i] = RoomCategory(
+          id: category.id,
+          title: category.title,
+          description: category.description,
+          icon: category.icon,
+          color: category.color,
+          topics: category.topics,
+          channels: updatedChannels, // Обновляем каналы
+        );
+      }
+    });
+  }
+
+  void _addNewChannel(Channel newChannel) {
+    setState(() {
+      ChannelService.addChannel(_allChannels, newChannel);
+      _updateCategoryChannels();
+
+      print('Добавлен новый канал: ${newChannel.name}');
+      print('Всего каналов: ${_allChannels.length}');
+    });
+  }
+
   void _initializeCategories() {
-    // Категория YouTube
     final youtubeCategory = RoomCategory(
       id: 'youtube',
       title: 'YouTube',
@@ -199,6 +319,7 @@ class _RoomsPageState extends State<RoomsPage>
             end: Alignment.bottomRight,
           ),
           categoryId: 'youtube',
+          channelId: 'yt_tech',
           messages: [
             Message(
               id: '1-1',
@@ -228,11 +349,14 @@ class _RoomsPageState extends State<RoomsPage>
             end: Alignment.bottomRight,
           ),
           categoryId: 'youtube',
+          channelId: 'yt_gaming',
         ),
       ],
+      channels: _allChannels
+          .where((channel) => channel.categoryId == 'youtube')
+          .toList(),
     );
 
-    // Категория Спорт
     final sportCategory = RoomCategory(
       id: 'sport',
       title: 'Спорт',
@@ -256,6 +380,7 @@ class _RoomsPageState extends State<RoomsPage>
             end: Alignment.bottomRight,
           ),
           categoryId: 'sport',
+          channelId: 'sport_football',
           messages: [
             Message(
               id: '3-1',
@@ -270,9 +395,11 @@ class _RoomsPageState extends State<RoomsPage>
           ],
         ),
       ],
+      channels: _allChannels
+          .where((channel) => channel.categoryId == 'sport')
+          .toList(),
     );
 
-    // Категория Игры
     final gamesCategory = RoomCategory(
       id: 'games',
       title: 'Игры',
@@ -295,6 +422,7 @@ class _RoomsPageState extends State<RoomsPage>
             end: Alignment.bottomRight,
           ),
           categoryId: 'games',
+          channelId: 'games_news',
         ),
         DiscussionTopic(
           id: '5',
@@ -314,9 +442,10 @@ class _RoomsPageState extends State<RoomsPage>
           categoryId: 'games',
         ),
       ],
+      channels: _allChannels
+          .where((channel) => channel.categoryId == 'games')
+          .toList(),
     );
-
-    // Категория Программирование
     final programmingCategory = RoomCategory(
       id: 'programming',
       title: 'Программирование',
@@ -341,6 +470,7 @@ class _RoomsPageState extends State<RoomsPage>
             end: Alignment.bottomRight,
           ),
           categoryId: 'programming',
+          channelId: 'prog_flutter',
           messages: [
             Message(
               id: '6-1',
@@ -354,9 +484,11 @@ class _RoomsPageState extends State<RoomsPage>
           ],
         ),
       ],
+      channels: _allChannels
+          .where((channel) => channel.categoryId == 'programming')
+          .toList(),
     );
 
-    // Категория Бизнес
     final businessCategory = RoomCategory(
       id: 'business',
       title: 'Бизнес',
@@ -379,6 +511,7 @@ class _RoomsPageState extends State<RoomsPage>
             end: Alignment.bottomRight,
           ),
           categoryId: 'business',
+          channelId: 'business_startups',
           messages: [
             Message(
               id: '7-1',
@@ -408,9 +541,11 @@ class _RoomsPageState extends State<RoomsPage>
           categoryId: 'business',
         ),
       ],
+      channels: _allChannels
+          .where((channel) => channel.categoryId == 'business')
+          .toList(),
     );
 
-    // Категория Общение
     final communicationCategory = RoomCategory(
       id: 'communication',
       title: 'Общение',
@@ -462,9 +597,38 @@ class _RoomsPageState extends State<RoomsPage>
           categoryId: 'communication',
         ),
       ],
+      channels: [
+        Channel(
+          id: 'comm_psychology',
+          name: 'Психология общения',
+          description: 'Изучаем психологию межличностных отношений',
+          ownerId: 'user7',
+          ownerName: 'Анна Психолог',
+          ownerAvatarUrl:
+              'https://ui-avatars.com/api/?name=AP&background=FF2D55',
+          categoryId: 'communication',
+          createdAt: DateTime.now().subtract(const Duration(days: 20)),
+          subscribersCount: 980,
+          tags: ['Психология', 'Общение', 'Отношения'],
+          recentTopicIds: ['9'],
+        ),
+        Channel(
+          id: 'comm_social',
+          name: 'Социальные науки',
+          description: 'Обсуждение социологии и общественных процессов',
+          ownerId: 'user8',
+          ownerName: 'Михаил Социолог',
+          ownerAvatarUrl:
+              'https://ui-avatars.com/api/?name=MS&background=AF52DE',
+          categoryId: 'communication',
+          createdAt: DateTime.now().subtract(const Duration(days: 35)),
+          subscribersCount: 670,
+          tags: ['Социология', 'Общество', 'Наука'],
+          recentTopicIds: ['10'],
+        ),
+      ],
     );
 
-    // Категория Саморазвитие
     final selfDevelopmentCategory = RoomCategory(
       id: 'self_development',
       title: 'Саморазвитие',
@@ -516,6 +680,36 @@ class _RoomsPageState extends State<RoomsPage>
           categoryId: 'self_development',
         ),
       ],
+      channels: [
+        Channel(
+          id: 'self_books',
+          name: 'Книги для роста',
+          description: 'Лучшие книги для личностного развития',
+          ownerId: 'user9',
+          ownerName: 'Елена Читатель',
+          ownerAvatarUrl:
+              'https://ui-avatars.com/api/?name=EC&background=34C759',
+          categoryId: 'self_development',
+          createdAt: DateTime.now().subtract(const Duration(days: 50)),
+          subscribersCount: 1230,
+          tags: ['Книги', 'Саморазвитие', 'Образование'],
+          recentTopicIds: ['11'],
+        ),
+        Channel(
+          id: 'self_health',
+          name: 'Здоровье и спорт',
+          description: 'Все о здоровом образе жизни и фитнесе',
+          ownerId: 'user10',
+          ownerName: 'Денис Тренер',
+          ownerAvatarUrl:
+              'https://ui-avatars.com/api/?name=DT&background=30B0C7',
+          categoryId: 'self_development',
+          createdAt: DateTime.now().subtract(const Duration(days: 28)),
+          subscribersCount: 890,
+          tags: ['Здоровье', 'Спорт', 'Питание'],
+          recentTopicIds: ['12'],
+        ),
+      ],
     );
 
     setState(() {
@@ -529,15 +723,46 @@ class _RoomsPageState extends State<RoomsPage>
         selfDevelopmentCategory,
       ]);
 
-      // Устанавливаем первую категорию как выбранную
-      if (_categories.isNotEmpty && _selectedCategory == null) {
-        _selectedCategory = _categories[0];
+      // Инициализация состояния просмотра для всех категорий
+      for (var category in _categories) {
+        _categoryViewState[category.id] = false;
       }
+
+      // Инициализация TabController после загрузки категорий
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_categories.isNotEmpty && _tabController == null) {
+          setState(() {
+            _tabController = TabController(
+              length: _categories.length,
+              vsync: this,
+              initialIndex: 0,
+            );
+
+            _tabController!.addListener(() {
+              if (_tabController!.indexIsChanging) {
+                setState(() {
+                  _currentTabIndex = _tabController!.index;
+                  _selectedCategory = _categories[_tabController!.index];
+                  // Восстанавливаем состояние просмотра для этой категории
+                  _showChannelsView =
+                      _categoryViewState[_selectedCategory!.id] ?? false;
+                });
+              }
+            });
+
+            if (_selectedCategory == null) {
+              _selectedCategory = _categories[0];
+            }
+          });
+        }
+      });
     });
   }
 
   bool _hasAccessToTopic(DiscussionTopic topic) {
-    switch (topic.accessLevel) {
+    if (topic.accessLevel == null) return true;
+
+    switch (topic.accessLevel!) {
       case AccessLevel.everyone:
         return true;
       case AccessLevel.seniorOnly:
@@ -571,6 +796,25 @@ class _RoomsPageState extends State<RoomsPage>
       isFavorite: false,
     );
 
+    final updatedUserPermissions = widget.userPermissions.copyWith(
+      topicsCreated: widget.userPermissions.topicsCreated + 1,
+    );
+
+    final newAchievements = AchievementService.checkAchievements(
+      userPermissions: updatedUserPermissions,
+      currentCategoryId: _selectedCategory!.id,
+      messageTime: DateTime.now(),
+    );
+
+    if (newAchievements.isNotEmpty) {
+      _showAchievements(newAchievements);
+      setState(() {
+        for (final achievement in newAchievements) {
+          _userAchievements[achievement.type] = achievement.earnedAt;
+        }
+      });
+    }
+
     setState(() {
       final categoryIndex = _categories.indexWhere(
         (c) => c.id == _selectedCategory!.id,
@@ -583,6 +827,7 @@ class _RoomsPageState extends State<RoomsPage>
           icon: _categories[categoryIndex].icon,
           color: _categories[categoryIndex].color,
           topics: [..._categories[categoryIndex].topics, newTopic],
+          channels: _categories[categoryIndex].channels,
         );
         _selectedTopic = newTopic;
       }
@@ -606,7 +851,6 @@ class _RoomsPageState extends State<RoomsPage>
       avatarUrl: widget.userPermissions.avatarUrl,
     );
 
-    // Обновляем статистику пользователя
     final updatedUserPermissions = widget.userPermissions.copyWith(
       messagesCount: widget.userPermissions.messagesCount + 1,
       participatedCategories: {
@@ -615,7 +859,6 @@ class _RoomsPageState extends State<RoomsPage>
       },
     );
 
-    // Проверяем достижения
     final newAchievements = AchievementService.checkAchievements(
       userPermissions: updatedUserPermissions,
       currentCategoryId: _selectedCategory!.id,
@@ -624,10 +867,8 @@ class _RoomsPageState extends State<RoomsPage>
       currentTopicMessageCount: _selectedTopic!.messages.length + 1,
     );
 
-    // Показываем полученные достижения
     if (newAchievements.isNotEmpty) {
       _showAchievements(newAchievements);
-      // Обновляем локальные достижения
       setState(() {
         for (final achievement in newAchievements) {
           _userAchievements[achievement.type] = achievement.earnedAt;
@@ -636,7 +877,6 @@ class _RoomsPageState extends State<RoomsPage>
     }
 
     setState(() {
-      // Обновляем время последнего сообщения
       _lastMessageTime = DateTime.now();
 
       for (var i = 0; i < _categories.length; i++) {
@@ -659,6 +899,7 @@ class _RoomsPageState extends State<RoomsPage>
             icon: category.icon,
             color: category.color,
             topics: updatedTopics,
+            channels: category.channels,
           );
 
           _selectedTopic = updatedTopic;
@@ -814,6 +1055,16 @@ class _RoomsPageState extends State<RoomsPage>
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
+                        onTap: (index) {
+                          setState(() {
+                            _currentTabIndex = index;
+                            _selectedCategory = _categories[index];
+                            // Восстанавливаем состояние просмотра для этой категории
+                            _showChannelsView =
+                                _categoryViewState[_selectedCategory!.id] ??
+                                false;
+                          });
+                        },
                         tabs: _categories.map((category) {
                           final index = _categories.indexOf(category);
                           return Tab(
@@ -858,6 +1109,28 @@ class _RoomsPageState extends State<RoomsPage>
               _selectedTopic == null &&
               !_showTopicCreation)
             IconButton(
+              icon: Icon(
+                _showChannelsView ? Icons.forum : Icons.people,
+                color: Colors.blue,
+              ),
+              onPressed: () {
+                setState(() {
+                  _showChannelsView = !_showChannelsView;
+                  // Сохраняем состояние просмотра для текущей категории
+                  if (_selectedCategory != null) {
+                    _categoryViewState[_selectedCategory!.id] =
+                        _showChannelsView;
+                  }
+                });
+              },
+              tooltip: _showChannelsView
+                  ? 'Показать обсуждения'
+                  : 'Показать каналы',
+            ),
+          if (_selectedCategory != null &&
+              _selectedTopic == null &&
+              !_showTopicCreation)
+            IconButton(
               icon: const Icon(Icons.add, color: Colors.blue),
               onPressed: () => setState(() => _showTopicCreation = true),
               tooltip: 'Создать комнату',
@@ -890,19 +1163,109 @@ class _RoomsPageState extends State<RoomsPage>
     if (_selectedTopic != null) {
       return _buildChatRoom();
     } else if (_selectedCategory != null) {
-      return _buildRoomsList();
+      return _showChannelsView ? _buildChannelsList() : _buildRoomsList();
     } else {
       return _buildCategoriesList();
     }
   }
 
+  Widget _buildChannelsList() {
+    if (_selectedCategory == null) {
+      return const Center(child: Text('Категория не выбрана'));
+    }
+
+    final category = _selectedCategory!;
+
+    // Получаем каналы из категории или фильтруем из всех каналов
+    final channels =
+        category.channels ??
+        _allChannels
+            .where((channel) => channel.categoryId == category.id)
+            .toList();
+
+    final filteredChannels = _searchQuery.isEmpty
+        ? channels
+        : channels.where((channel) {
+            final matches =
+                channel.name.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
+                ) ||
+                channel.description.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
+                ) ||
+                channel.tags.any(
+                  (tag) =>
+                      tag.toLowerCase().contains(_searchQuery.toLowerCase()),
+                ) ||
+                channel.ownerName.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
+                );
+            return matches;
+          }).toList();
+
+    return Column(
+      children: [
+        // Заголовок и описание категории
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(category.icon, color: category.color, size: 32),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Каналы ${category.title}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Сообщества и авторы в категории "${category.title}"',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+
+              _buildSearchField(),
+            ],
+          ),
+        ),
+
+        // Список каналов или пустое состояние
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: filteredChannels.isNotEmpty
+                ? ChannelsList(
+                    channels: filteredChannels,
+                    onChannelTap: _onChannelTap,
+                    showAsGrid: true,
+                  )
+                : _searchQuery.isNotEmpty
+                ? _buildNoSearchResults()
+                : _buildEmptyChannelsState(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Добавьте этот метод (он должен быть в классе _RoomsPageState)
   Widget _buildCategoriesList() {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Категории комнат',
             style: TextStyle(
               fontSize: 28,
@@ -922,7 +1285,7 @@ class _RoomsPageState extends State<RoomsPage>
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 1.2,
+                childAspectRatio: 0.8,
               ),
               itemCount: _categories.length,
               itemBuilder: (context, index) {
@@ -938,6 +1301,9 @@ class _RoomsPageState extends State<RoomsPage>
                         _tabController!.animateTo(categoryIndex);
                         _selectedCategory = category;
                         _currentTabIndex = categoryIndex;
+                        // Восстанавливаем состояние просмотра для выбранной категории
+                        _showChannelsView =
+                            _categoryViewState[category.id] ?? false;
                       });
                     }
                   },
@@ -950,13 +1316,20 @@ class _RoomsPageState extends State<RoomsPage>
     );
   }
 
+  // Добавьте этот метод для обработки нажатия на канал
+  void _onChannelTap(Channel channel) {
+    print('Нажат канал: ${channel.name}');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Переход к каналу: ${channel.name}')),
+    );
+  }
+
   Widget _buildRoomsList() {
     final category = _selectedCategory!;
     final accessibleTopics = category.topics
         .where((topic) => _hasAccessToTopic(topic))
         .toList();
 
-    // Применяем поиск если нужно
     final filteredTopics = _searchQuery.isEmpty
         ? accessibleTopics
         : accessibleTopics
@@ -976,7 +1349,6 @@ class _RoomsPageState extends State<RoomsPage>
               )
               .toList();
 
-    // Сортируем topics
     final sortedTopics = _sortTopics(filteredTopics);
 
     return SingleChildScrollView(
@@ -998,7 +1370,6 @@ class _RoomsPageState extends State<RoomsPage>
               categoryTitle: category.title,
             ),
           if (!_showTopicCreation) ...[
-            // Заголовок категории
             Row(
               children: [
                 Icon(category.icon, color: category.color, size: 32),
@@ -1022,24 +1393,21 @@ class _RoomsPageState extends State<RoomsPage>
             ),
             const SizedBox(height: 16),
 
-            // Поисковая строка
             _buildSearchField(),
 
-            // Сортировка
             const SizedBox(height: 16),
             _buildSortButtons(),
 
             const SizedBox(height: 24),
-
             if (sortedTopics.isNotEmpty)
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.85,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.85, // Уменьшите это значение
                 ),
                 itemCount: sortedTopics.length,
                 itemBuilder: (context, index) {
@@ -1047,11 +1415,16 @@ class _RoomsPageState extends State<RoomsPage>
                   final textColor = _getTextColorForBackground(
                     topic.gradient.colors.first,
                   );
-                  return TopicCard(
-                    topic: topic,
-                    textColor: textColor,
-                    onTap: () => setState(() => _selectedTopic = topic),
-                    onFavoriteToggle: () => _toggleFavorite(topic),
+                  return Container(
+                    constraints: const BoxConstraints(
+                      maxHeight: 200, // Ограничиваем максимальную высоту
+                    ),
+                    child: TopicCard(
+                      topic: topic,
+                      textColor: textColor,
+                      onTap: () => setState(() => _selectedTopic = topic),
+                      onFavoriteToggle: () => _toggleFavorite(topic),
+                    ),
                   );
                 },
               )
@@ -1069,7 +1442,7 @@ class _RoomsPageState extends State<RoomsPage>
     return TextField(
       controller: _searchController,
       decoration: InputDecoration(
-        hintText: 'Поиск комнат...',
+        hintText: _showChannelsView ? 'Поиск каналов...' : 'Поиск комнат...',
         prefixIcon: const Icon(Icons.search, size: 20),
         suffixIcon: _searchQuery.isNotEmpty
             ? IconButton(
@@ -1240,6 +1613,52 @@ class _RoomsPageState extends State<RoomsPage>
     );
   }
 
+  Widget _buildEmptyChannelsState() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 20),
+            Text(
+              'Пока нет каналов в "${_selectedCategory?.title}"',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Каналы появятся здесь, когда пользователи начнут их создавать',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _showChannelCreation,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _selectedCategory?.color ?? Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text('Создать первый канал'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _toggleFavorite(DiscussionTopic topic) {
     setState(() {
       for (var i = 0; i < _categories.length; i++) {
@@ -1260,9 +1679,9 @@ class _RoomsPageState extends State<RoomsPage>
             icon: category.icon,
             color: category.color,
             topics: updatedTopics,
+            channels: category.channels,
           );
 
-          // Обновляем selectedTopic если это текущая тема
           if (_selectedTopic?.id == topic.id) {
             _selectedTopic = updatedTopic;
           }
@@ -1271,17 +1690,30 @@ class _RoomsPageState extends State<RoomsPage>
       }
     });
 
-    // Показываем snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           topic.isFavorite ? 'Убрано из избранного' : 'Добавлено в избранное',
         ),
-        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _showChannelCreation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Создать канал в ${_selectedCategory?.title}'),
+        content: const Text('Функция создания канала будет реализована позже'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
 }
 
-// Добавляем enum для сортировки
 enum SortType { newest, popular, alphabetical }

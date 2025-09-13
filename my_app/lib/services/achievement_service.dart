@@ -1,5 +1,3 @@
-// services/achievement_service.dart
-
 import '../pages/rooms_pages/models_room/achievement.dart';
 import '../pages/rooms_pages/models_room/user_permissions.dart';
 
@@ -139,7 +137,7 @@ class AchievementService {
   }) {
     switch (type) {
       case AchievementType.firstMessage:
-        return user.messagesCount == 1; // Исправлено с 0 на 1
+        return user.messagesCount == 1;
 
       case AchievementType.topicCreator:
         return user.topicsCreated == 1;

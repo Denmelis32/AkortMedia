@@ -14,26 +14,27 @@ class DiscussionTopic {
   final String iconAsset;
   final LinearGradient gradient;
   final String categoryId;
+  final String? channelId;
+  final bool isFavorite;
   final List<Message> messages;
-  final bool isFavorite; // ← ДОБАВИТЬ
 
-  DiscussionTopic({
+  const DiscussionTopic({
     required this.id,
     required this.title,
     required this.description,
     required this.author,
     required this.createdAt,
-    required this.tags,
+    this.tags = const [],
     this.accessLevel = AccessLevel.everyone,
     required this.cardColor,
     required this.iconAsset,
     required this.gradient,
     required this.categoryId,
+    this.channelId,
+    this.isFavorite = false,
     this.messages = const [],
-    this.isFavorite = false, // ← ДОБАВИТЬ
   });
 
-  // Добавить copyWith метод
   DiscussionTopic copyWith({
     String? id,
     String? title,
@@ -46,8 +47,9 @@ class DiscussionTopic {
     String? iconAsset,
     LinearGradient? gradient,
     String? categoryId,
+    String? channelId,
+    bool? isFavorite,
     List<Message>? messages,
-    bool? isFavorite, // ← ДОБАВИТЬ
   }) {
     return DiscussionTopic(
       id: id ?? this.id,
@@ -61,8 +63,9 @@ class DiscussionTopic {
       iconAsset: iconAsset ?? this.iconAsset,
       gradient: gradient ?? this.gradient,
       categoryId: categoryId ?? this.categoryId,
+      channelId: channelId ?? this.channelId,
+      isFavorite: isFavorite ?? this.isFavorite,
       messages: messages ?? this.messages,
-      isFavorite: isFavorite ?? this.isFavorite, // ← ДОБАВИТЬ
     );
   }
 }

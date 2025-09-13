@@ -1,15 +1,14 @@
-// models_room/achievement.dart
 enum AchievementType {
-  firstMessage,      // Первое сообщение
-  topicCreator,      // Создал первую тему
-  activeUser,        // 10+ сообщений
-  popularTopic,      // Тема с 10+ сообщениями
-  categoryExplorer,  // Участвовал в 3+ категориях
-  nightOwl,          // Сообщение ночью (22-6)
-  quickReplier,      // Ответ в течение 5 минут
-  conversationStarter, // Создал 5+ тем
-  socialButterfly,   // 50+ сообщений
-  expert             // 100+ сообщений
+  firstMessage,
+  topicCreator,
+  activeUser,
+  popularTopic,
+  categoryExplorer,
+  nightOwl,
+  quickReplier,
+  conversationStarter,
+  socialButterfly,
+  expert,
 }
 
 class Achievement {
@@ -21,7 +20,7 @@ class Achievement {
   final DateTime earnedAt;
   final bool isUnlocked;
 
-  Achievement({
+  const Achievement({
     required this.id,
     required this.type,
     required this.title,
@@ -32,15 +31,20 @@ class Achievement {
   });
 
   Achievement copyWith({
-    bool? isUnlocked,
+    String? id,
+    AchievementType? type,
+    String? title,
+    String? description,
+    String? icon,
     DateTime? earnedAt,
+    bool? isUnlocked,
   }) {
     return Achievement(
-      id: id,
-      type: type,
-      title: title,
-      description: description,
-      icon: icon,
+      id: id ?? this.id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      icon: icon ?? this.icon,
       earnedAt: earnedAt ?? this.earnedAt,
       isUnlocked: isUnlocked ?? this.isUnlocked,
     );

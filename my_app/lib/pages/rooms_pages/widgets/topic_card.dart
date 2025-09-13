@@ -37,6 +37,7 @@ class TopicCard extends StatelessWidget {
           ),
           child: Stack(
             children: [
+              // Декоративные круги
               Positioned(
                 top: -20,
                 right: -20,
@@ -68,11 +69,7 @@ class TopicCard extends StatelessWidget {
                   top: 12,
                   right: 12,
                   child: GestureDetector(
-                    onTap: () {
-                      if (onFavoriteToggle != null) {
-                        onFavoriteToggle!();
-                      }
-                    },
+                    onTap: onFavoriteToggle,
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -88,91 +85,109 @@ class TopicCard extends StatelessWidget {
                   ),
                 ),
 
+              // Основной контент
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16), // Уменьшил отступы
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min, // Важно!
                   children: [
+                    // Верхняя строка с иконками
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(8), // Уменьшил отступы
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             Icons.chat_bubble_outline,
                             color: textColor,
-                            size: 24,
+                            size: 20, // Уменьшил размер иконки
                           ),
                         ),
                         if (topic.accessLevel != AccessLevel.everyone)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Icon(
                               topic.accessLevel.icon,
-                              size: 16,
+                              size: 14, // Уменьшил размер иконки
                               color: textColor,
                             ),
                           ),
                       ],
                     ),
-                    const Spacer(),
+
+                    const SizedBox(height: 12), // Уменьшил отступ
+
+                    // Заголовок
                     Text(
                       topic.title,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15, // Уменьшил размер шрифта
                         fontWeight: FontWeight.w600,
                         color: textColor,
-                        height: 1.3,
+                        height: 1.2, // Уменьшил высоту строки
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      topic.description.isNotEmpty ? topic.description : 'Без описания',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: textColor.withOpacity(0.9),
-                        height: 1.4,
+
+                    const SizedBox(height: 6), // Уменьшил отступ
+
+                    // Описание
+                    Expanded( // Добавил Expanded для гибкости
+                      child: Text(
+                        topic.description.isNotEmpty ? topic.description : 'Без описания',
+                        style: TextStyle(
+                          fontSize: 11, // Уменьшил размер шрифта
+                          color: textColor.withOpacity(0.9),
+                          height: 1.3, // Уменьшил высоту строки
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(),
+
+                    const SizedBox(height: 8), // Уменьшил отступ
+
+                    // Теги
                     Wrap(
-                      spacing: 6,
+                      spacing: 4, // Уменьшил отступ между тегами
+                      runSpacing: 4,
                       children: topic.tags.take(2).map((tag) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: textColor.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           tag,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 9, // Уменьшил размер шрифта
                             color: textColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       )).toList(),
                     ),
-                    const SizedBox(height: 12),
+
+                    const SizedBox(height: 8), // Уменьшил отступ
+
+                    // Нижняя строка с информацией
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           '${topic.messages.length} сообщ.',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10, // Уменьшил размер шрифта
                             color: textColor.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
                           ),
@@ -180,7 +195,7 @@ class TopicCard extends StatelessWidget {
                         Text(
                           DateFormat('dd.MM').format(topic.createdAt),
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10, // Уменьшил размер шрифта
                             color: textColor.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
                           ),

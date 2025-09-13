@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:my_app/pages/rooms_pages/widgets/channel_creation_dialog.dart';
+import 'package:my_app/pages/rooms_pages/widgets/channel_detail_page.dart';
 import 'package:my_app/pages/rooms_pages/widgets/channels_list.dart';
 import '../../services/achievement_service.dart';
 import '../../services/channel_service.dart';
@@ -1359,9 +1360,15 @@ class _RoomsPageState extends State<RoomsPage>
 
   // Добавьте этот метод для обработки нажатия на канал
   void _onChannelTap(Channel channel) {
-    print('Нажат канал: ${channel.name}');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Переход к каналу: ${channel.name}')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChannelDetailPage(
+          channel: channel,
+          userId: widget.userPermissions.userId,
+          userPermissions: widget.userPermissions,
+        ),
+      ),
     );
   }
 

@@ -59,6 +59,7 @@ class _HomePageState extends State<HomePage> {
           topicsCreated: 0, // начальное количество созданных тем
           participatedCategories: {}, // пустой набор для категорий
           achievements: {}, // пустой Map для достижений
+          subscribedChannels: [], // пустой список для подписанных каналов
         ),
       ),
       PredictionsLeaguePage(

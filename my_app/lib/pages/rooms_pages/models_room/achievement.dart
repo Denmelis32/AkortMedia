@@ -9,6 +9,11 @@ enum AchievementType {
   conversationStarter,
   socialButterfly,
   expert,
+  firstSubscription,
+  subscriber,
+  channelExplorer,
+  superFan,
+  verifiedLover,
 }
 
 class Achievement {

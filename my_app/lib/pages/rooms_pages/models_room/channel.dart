@@ -12,6 +12,7 @@ class Channel {
   final List<String> recentTopicIds;
   final String? bannerImageUrl;
   final bool isVerified;
+  final List<String> subscriberIds;
 
   Channel({
     required this.id,
@@ -27,6 +28,7 @@ class Channel {
     this.recentTopicIds = const [],
     this.bannerImageUrl,
     this.isVerified = false,
+    this.subscriberIds = const [],
   });
 
   Channel copyWith({
@@ -43,6 +45,7 @@ class Channel {
     List<String>? recentTopicIds,
     String? bannerImageUrl,
     bool? isVerified,
+    List<String>? subscriberIds,
   }) {
     return Channel(
       id: id ?? this.id,
@@ -58,6 +61,45 @@ class Channel {
       recentTopicIds: recentTopicIds ?? this.recentTopicIds,
       bannerImageUrl: bannerImageUrl ?? this.bannerImageUrl,
       isVerified: isVerified ?? this.isVerified,
+      subscriberIds: subscriberIds ?? this.subscriberIds,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'ownerId': ownerId,
+      'ownerName': ownerName,
+      'ownerAvatarUrl': ownerAvatarUrl,
+      'categoryId': categoryId,
+      'createdAt': createdAt.toIso8601String(),
+      'subscribersCount': subscribersCount,
+      'tags': tags,
+      'recentTopicIds': recentTopicIds,
+      'subscriberIds': subscriberIds,
+    };
+  }
+
+  factory Channel.fromMap(Map<String, dynamic> map) {
+    return Channel(
+      id: map['id'],
+      name: map['name'],
+      description: map['description'],
+      ownerId: map['ownerId'],
+      ownerName: map['ownerName'],
+      ownerAvatarUrl: map['ownerAvatarUrl'],
+      categoryId: map['categoryId'],
+      createdAt: DateTime.parse(map['createdAt']),
+      subscribersCount: map['subscribersCount'],
+      tags: List<String>.from(map['tags']),
+      recentTopicIds: List<String>.from(map['recentTopicIds']),
+      subscriberIds: List<String>.from(map['subscriberIds'] ?? []),
     );
   }
 }
+
+
+
+

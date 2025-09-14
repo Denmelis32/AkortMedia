@@ -41,7 +41,6 @@ class NewsProvider with ChangeNotifier {
             "comments": [],
             "hashtags": ["#футбол", "#лигачемпионов"],
             "user_tags": {"tag1": "Фанат Манчестера"}
-            // Добавляем user_tags по умолчанию
           }
         ];
       }
@@ -110,18 +109,22 @@ class NewsProvider with ChangeNotifier {
   }
 
   void updateNewsLikes(int index, int newLikes) {
-    _news[index]['likes'] = newLikes;
-    notifyListeners();
-    StorageService.saveNews(_news);
+    if (index >= 0 && index < _news.length) {
+      _news[index]['likes'] = newLikes;
+      notifyListeners();
+      StorageService.saveNews(_news);
+    }
   }
 
   void addCommentToNews(int index, Map<String, dynamic> comment) {
-    if (_news[index]['comments'] == null) {
-      _news[index]['comments'] = [];
+    if (index >= 0 && index < _news.length) {
+      if (_news[index]['comments'] == null) {
+        _news[index]['comments'] = [];
+      }
+      _news[index]['comments'].add(comment);
+      notifyListeners();
+      StorageService.saveNews(_news);
     }
-    _news[index]['comments'].add(comment);
-    notifyListeners();
-    StorageService.saveNews(_news);
   }
 
   void removeNews(int index) async {
@@ -151,35 +154,24 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  void updateNewsUserTag(int index, String tagId, String newTagName,
-      Color color) {
+  // УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ОБНОВЛЕНИЯ ПОЛЬЗОВАТЕЛЬСКИХ ТЕГОВ
+  void updateNewsUserTag(int index, String tagId, String newTagName, {Color? color}) {
     if (index >= 0 && index < _news.length) {
+      // Убедимся, что user_tags существует
       if (_news[index]['user_tags'] == null) {
         _news[index]['user_tags'] = {};
       }
 
+      // Обновляем тег
       _news[index]['user_tags'][tagId] = newTagName;
-      _news[index]['tag_color'] = color.value; // Сохраняем цвет как int
+
+      // Сохраняем цвет, если он передан
+      if (color != null) {
+        _news[index]['tag_color'] = color.value;
+      }
 
       notifyListeners();
       StorageService.saveNews(_news);
-    }
-
-    // НОВЫЙ МЕТОД ДЛЯ ОБНОВЛЕНИЯ ПОЛЬЗОВАТЕЛЬСКИХ ТЕГОВ
-    void updateNewsUserTag(int index, String tagId, String newTagName) {
-      if (index >= 0 && index < _news.length) {
-        // Убедимся, что user_tags существует
-        if (_news[index]['user_tags'] == null) {
-          _news[index]['user_tags'] = {};
-        }
-
-        // Обновляем тег
-        _news[index]['user_tags'][tagId] = newTagName;
-        notifyListeners();
-
-        // Сохраняем в кэш
-        StorageService.saveNews(_news);
-      }
     }
   }
 }

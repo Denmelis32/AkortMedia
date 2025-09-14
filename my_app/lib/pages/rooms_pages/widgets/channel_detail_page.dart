@@ -12,6 +12,11 @@ import '../widgets/channel_topics_list.dart';
 import '../widgets/channel_members_section.dart';
 import '../widgets/channel_about_section.dart';
 
+// ДОБАВЛЯЕМ ИМПОРТ ДЛЯ НОВОСТЕЙ
+import 'package:provider/provider.dart';
+import '../../../providers/news_provider.dart';
+import '../../../services/api_service.dart';
+
 class ChannelDetailPage extends StatefulWidget {
   final Channel channel;
   final String userId;
@@ -56,12 +61,8 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
 
   Future<void> _loadChannelTopics() async {
     setState(() => _isLoading = true);
-
-    // Имитация загрузки данных из базы/API
     await Future.delayed(const Duration(milliseconds: 500));
-
     final topics = await _getTopicsForChannel(widget.channel.id);
-
     setState(() {
       _topics = topics;
       _isLoading = false;
@@ -69,7 +70,6 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
   }
 
   Future<List<DiscussionTopic>> _getTopicsForChannel(String channelId) async {
-    // В реальном приложении здесь будет запрос к API/базе данных
     return [
       DiscussionTopic(
         id: '${channelId}_1',
@@ -90,7 +90,8 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
         messages: [
           Message(
             id: '${channelId}_1-1',
-            text: 'Добро пожаловать в наш канал! Здесь мы обсуждаем интересные темы, связанные с ${widget.channel.tags.join(', ')}.',
+            text:
+                'Добро пожаловать в наш канал! Здесь мы обсуждаем интересные темы, связанные с ${widget.channel.tags.join(', ')}.',
             author: widget.channel.ownerName,
             timestamp: widget.channel.createdAt,
             avatarUrl: widget.channel.ownerAvatarUrl,
@@ -120,7 +121,8 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
               text: 'Что вы думаете о последних событиях в нашей теме?',
               author: 'Модератор',
               timestamp: DateTime.now().subtract(const Duration(days: 3)),
-              avatarUrl: 'https://ui-avatars.com/api/?name=Mod&background=00AA00',
+              avatarUrl:
+                  'https://ui-avatars.com/api/?name=Mod&background=00AA00',
             ),
           ],
         ),
@@ -133,18 +135,18 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
     }
   }
 
-  bool get _isSubscribed => ChannelService.isUserSubscribed(widget.channel, widget.userId);
+  bool get _isSubscribed =>
+      ChannelService.isUserSubscribed(widget.channel, widget.userId);
 
   void _toggleSubscription() {
     setState(() {
       ChannelService.toggleSubscription(widget.channel, widget.userId);
     });
 
-    // Проверка достижений, связанных с подписками
     final newAchievements = AchievementService.checkSubscriptionAchievements(
       userPermissions: widget.userPermissions,
       channel: widget.channel,
-      isSubscribing: !_isSubscribed, // Передаем было ли это подпиской или отпиской
+      isSubscribing: !_isSubscribed,
     );
 
     if (newAchievements.isNotEmpty) {
@@ -153,7 +155,9 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isSubscribed ? 'Подписались на канал' : 'Отписались от канала'),
+        content: Text(
+          _isSubscribed ? 'Подписались на канал' : 'Отписались от канала',
+        ),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -185,25 +189,29 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: achievements.map((achievement) => Column(
-            children: [
-              Text(
-                achievement.title,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+          children: achievements
+              .map(
+                (achievement) => Column(
+                  children: [
+                    Text(
+                      achievement.title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      achievement.description,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                achievement.description,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-              ),
-              const SizedBox(height: 16),
-            ],
-          )).toList(),
+              )
+              .toList(),
         ),
         actions: [
           TextButton(
@@ -221,18 +229,256 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
     );
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ СОЗДАНИЯ ТЕМЫ
   void _createNewTopic() {
-    // Навигация к созданию темы
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _buildCreateOptionsSheet(),
+    ).then((_) {
+      // Этот код выполнится после закрытия bottom sheet
+    });
+  }
+
+  Widget _buildCreateOptionsSheet() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Создать в канале "${widget.channel.name}"',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _createDiscussionTopic();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.forum, color: Colors.white),
+                SizedBox(width: 10),
+                Text('Обсуждение', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _createNewsPost();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.article, color: Colors.white),
+                SizedBox(width: 10),
+                Text('Новость', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // МЕТОД ДЛЯ СОЗДАНИЯ ОБСУЖДЕНИЯ
+  void _createDiscussionTopic() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => Scaffold( // Заглушка для создания темы
+        builder: (context) => Scaffold(
           appBar: AppBar(title: const Text('Создание новой темы')),
           body: Center(
             child: Text('Создание темы для канала: ${widget.channel.name}'),
           ),
         ),
       ),
+    );
+  }
+
+  // НОВЫЙ МЕТОД ДЛЯ СОЗДАНИЯ НОВОСТИ
+  void _createNewsPost() {
+    // Закрываем bottom sheet перед открытием диалога
+    Navigator.pop(context);
+
+    // Добавляем небольшую задержку для анимации
+    Future.delayed(const Duration(milliseconds: 300), () {
+      showDialog(
+        context: context,
+        builder: (context) => _buildNewsCreationDialog(),
+      );
+    });
+  }
+
+  Widget _buildNewsCreationDialog() {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final hashtagsController = TextEditingController();
+    bool _isLoading = false;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: Text('Новость в канале ${widget.channel.name}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: CircularProgressIndicator(),
+                  ),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Заголовок новости*',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLength: 100,
+                  enabled: !_isLoading,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Текст новости*',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 4,
+                  maxLength: 500,
+                  enabled: !_isLoading,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: hashtagsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Теги (через запятую)',
+                    border: OutlineInputBorder(),
+                  ),
+                  enabled: !_isLoading,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (!_isLoading)
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Отмена'),
+              ),
+            ElevatedButton(
+              onPressed: _isLoading
+                  ? null
+                  : () async {
+                      if (titleController.text.isEmpty ||
+                          descriptionController.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Заполните обязательные поля'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                        return;
+                      }
+
+                      setState(() => _isLoading = true);
+
+                      try {
+                        final newsProvider = Provider.of<NewsProvider>(
+                          context,
+                          listen: false,
+                        );
+
+                        // Используем await для асинхронной операции
+                        final newNews =
+                            await ApiService.createNews({
+                              'title': titleController.text,
+                              'description': descriptionController.text,
+                              'hashtags': hashtagsController.text,
+                              'channel_id': widget.channel.id,
+                              'channel_name': widget.channel.name,
+                            }).timeout(
+                              const Duration(seconds: 10),
+                            ); // Таймаут 10 секунд
+
+                        newsProvider.addNews({
+                          ...newNews,
+                          'comments': [],
+                          'channel_name': widget.channel.name,
+                        });
+
+                        Navigator.pop(context);
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Новость "${titleController.text}" создана!',
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      } catch (e) {
+                        print('Error creating news: $e');
+
+                        // Fallback на локальное сохранение
+                        final newsProvider = Provider.of<NewsProvider>(
+                          context,
+                          listen: false,
+                        );
+                        newsProvider.addNews({
+                          "id":
+                              "local-${DateTime.now().millisecondsSinceEpoch}",
+                          "title": titleController.text,
+                          "description": descriptionController.text,
+                          "hashtags": hashtagsController.text,
+                          "channel_id": widget.channel.id,
+                          "channel_name": widget.channel.name,
+                          "likes": 0,
+                          "author_name": widget.userPermissions.userName,
+                          "created_at": DateTime.now().toIso8601String(),
+                          "comments": [],
+                        });
+
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Новость создана (офлайн)'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Опубликовать'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -251,7 +497,9 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
                 const SizedBox(height: 16),
                 Text('• Подписчиков: ${widget.channel.subscribersCount}'),
                 Text('• Тем: ${_topics.length}'),
-                Text('• Создан: ${DateFormat.yMd().format(widget.channel.createdAt)}'),
+                Text(
+                  '• Создан: ${DateFormat.yMd().format(widget.channel.createdAt)}',
+                ),
               ],
             ),
           ),
@@ -276,16 +524,14 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
   }
 
   void _shareChannel() {
-    // В реальном приложении используйте package:share_plus
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Ссылка на канал "${widget.channel.name}" скопирована в буфер обмена'),
+        content: Text(
+          'Ссылка на канал "${widget.channel.name}" скопирована в буфер обмена',
+        ),
         duration: const Duration(seconds: 2),
       ),
     );
-
-    // Имитация копирования ссылки
-    // Clipboard.setData(ClipboardData(text: 'https://app.com/channel/${widget.channel.id}'));
   }
 
   @override
@@ -325,14 +571,11 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       ),
       body: Column(
         children: [
-          // Шапка канала
           ChannelHeader(
             channel: widget.channel,
             isSubscribed: _isSubscribed,
             onSubscribe: _toggleSubscription,
           ),
-
-          // Поле поиска
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
@@ -342,13 +585,13 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    setState(() => _searchQuery = '');
-                    _searchController.clear();
-                    FocusScope.of(context).unfocus();
-                  },
-                )
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() => _searchQuery = '');
+                          _searchController.clear();
+                          FocusScope.of(context).unfocus();
+                        },
+                      )
                     : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -357,30 +600,23 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
               onChanged: (value) => setState(() => _searchQuery = value),
             ),
           ),
-
-          // Контент вкладок
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Вкладка обсуждений
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : ChannelTopicsList(
-                  topics: _topics,
-                  searchQuery: _searchQuery,
-                  onCreateTopic: _createNewTopic,
-                  channel: widget.channel,
-                  userPermissions: widget.userPermissions,
-                ),
-
-                // Вкладка участников
+                        topics: _topics,
+                        searchQuery: _searchQuery,
+                        onCreateTopic: _createNewTopic,
+                        channel: widget.channel,
+                        userPermissions: widget.userPermissions,
+                      ),
                 ChannelMembersSection(
                   channel: widget.channel,
                   userPermissions: widget.userPermissions,
                 ),
-
-                // Вкладка о канале
                 ChannelAboutSection(
                   channel: widget.channel,
                   onSubscribe: _toggleSubscription,
@@ -393,10 +629,10 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       ),
       floatingActionButton: _currentTabIndex == 0 && !_isLoading
           ? FloatingActionButton(
-        onPressed: _createNewTopic,
-        backgroundColor: Theme.of(context).primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
-      )
+              onPressed: _createNewTopic,
+              backgroundColor: Theme.of(context).primaryColor,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
           : null,
     );
   }

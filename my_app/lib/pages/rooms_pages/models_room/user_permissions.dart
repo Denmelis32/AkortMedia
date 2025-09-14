@@ -1,6 +1,4 @@
 import 'achievement.dart';
-import 'access_level.dart';
-import 'channel.dart'; // Импортируем модель канала
 
 class UserPermissions {
   final bool isSeniorDeveloper;
@@ -10,9 +8,10 @@ class UserPermissions {
   final int messagesCount;
   final int topicsCreated;
   final String userId;
+  final String userName; // ДОБАВЛЯЕМ ЭТУ СТРОКУ
   final Set<String> participatedCategories;
   final Map<AchievementType, DateTime> achievements;
-  final List<String> subscribedChannels; // Добавляем список подписанных каналов
+  final List<String> subscribedChannels;
 
   const UserPermissions({
     required this.isSeniorDeveloper,
@@ -22,9 +21,10 @@ class UserPermissions {
     required this.messagesCount,
     required this.topicsCreated,
     required this.userId,
+    required this.userName, // ДОБАВЛЯЕМ В КОНСТРУКТОР
     required this.participatedCategories,
     required this.achievements,
-    required this.subscribedChannels, // Добавляем в конструктор
+    required this.subscribedChannels,
   });
 
   UserPermissions copyWith({
@@ -35,9 +35,10 @@ class UserPermissions {
     int? messagesCount,
     int? topicsCreated,
     String? userId,
+    String? userName, // ДОБАВЛЯЕМ В copyWith
     Set<String>? participatedCategories,
     Map<AchievementType, DateTime>? achievements,
-    List<String>? subscribedChannels, // Добавляем в copyWith
+    List<String>? subscribedChannels,
   }) {
     return UserPermissions(
       isSeniorDeveloper: isSeniorDeveloper ?? this.isSeniorDeveloper,
@@ -47,9 +48,10 @@ class UserPermissions {
       messagesCount: messagesCount ?? this.messagesCount,
       topicsCreated: topicsCreated ?? this.topicsCreated,
       userId: userId ?? this.userId,
+      userName: userName ?? this.userName, // ДОБАВЛЯЕМ
       participatedCategories: participatedCategories ?? this.participatedCategories,
       achievements: achievements ?? this.achievements,
-      subscribedChannels: subscribedChannels ?? this.subscribedChannels, // Добавляем
+      subscribedChannels: subscribedChannels ?? this.subscribedChannels,
     );
   }
 }

@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'news_page//news_page.dart';
 import 'predictions_league_page/predictions_league_page.dart';
 import 'profile_page.dart' hide NewsPage;
-import 'articles_pages/articles_page.dart'; // Импортируем существующую страницу статей
+import 'articles_pages/articles_page.dart';
 import 'rooms_pages/rooms_page.dart';
-import 'rooms_pages/models_room/user_permissions.dart';// Создайте этот файл для комнат
+import 'rooms_pages/models_room/user_permissions.dart';
+import 'cards_page/cards_page.dart'; // Импортируем новую страницу карточек
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -34,13 +35,29 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _initializePages() {
+    final userPermissions = UserPermissions(
+      isSeniorDeveloper: true,
+      isLongTermFan: false,
+      joinDate: DateTime.now().subtract(const Duration(days: 45)),
+      avatarUrl: 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(widget.userName)}&background=007AFF&color=fff',
+      messagesCount: 0,
+      topicsCreated: 0,
+      participatedCategories: {},
+      achievements: {},
+    );
+
     _pages = [
       NewsPage(
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
       ),
-      ArticlesPage( // Используем вашу существующую страницу статей
+      ArticlesPage(
+        userName: widget.userName,
+        userEmail: widget.userEmail,
+        onLogout: widget.onLogout,
+      ),
+      CardsPage( // Новая страница карточек
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
@@ -49,16 +66,7 @@ class _HomePageState extends State<HomePage> {
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
-        userPermissions: UserPermissions(
-          isSeniorDeveloper: true, // или false, в зависимости от пользователя
-          isLongTermFan: false, // или true
-          joinDate: DateTime.now().subtract(Duration(days: 45)), // пример даты регистрации
-          avatarUrl: 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(widget.userName)}&background=007AFF&color=fff', // URL аватара
-          messagesCount: 0, // начальное количество сообщений
-          topicsCreated: 0, // начальное количество созданных тем
-          participatedCategories: {}, // пустой набор для категорий
-          achievements: {}, // пустой Map для достижений
-        ),
+        userPermissions: userPermissions,
       ),
       PredictionsLeaguePage(
         userId: 'temp_user_${DateTime.now().millisecondsSinceEpoch}',
@@ -110,8 +118,12 @@ class _HomePageState extends State<HomePage> {
             label: 'Статьи',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.video_library), // Или Icons.play_circle_fill
+            label: 'Каналы',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.chat),
-            label: 'Комнаты',
+            label: 'Обсуждение',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.sports_soccer),

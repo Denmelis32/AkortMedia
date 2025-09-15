@@ -146,10 +146,11 @@ class _NewsPageState extends State<NewsPage> {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
 
     try {
-      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color);
+      // ПЕРЕДАЕМ color КАК ИМЕНОВАННЫЙ ПАРАМЕТР
+      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
     } catch (e) {
       print('Error editing user tag: $e');
-      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color);
+      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
     }
   }
 

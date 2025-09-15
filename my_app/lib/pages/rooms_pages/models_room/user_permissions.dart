@@ -1,3 +1,4 @@
+
 import 'achievement.dart';
 
 class UserPermissions {
@@ -7,11 +8,11 @@ class UserPermissions {
   final String avatarUrl;
   final int messagesCount;
   final int topicsCreated;
-  final String userId;
-  final String userName; // ДОБАВЛЯЕМ ЭТУ СТРОКУ
+  final String userId; // Добавляемое поле 1
+  final String userName; // Добавляемое поле 2
   final Set<String> participatedCategories;
   final Map<AchievementType, DateTime> achievements;
-  final List<String> subscribedChannels;
+  final List<String> subscribedChannels; // Добавляемое поле 3
 
   const UserPermissions({
     required this.isSeniorDeveloper,
@@ -20,11 +21,11 @@ class UserPermissions {
     required this.avatarUrl,
     required this.messagesCount,
     required this.topicsCreated,
-    required this.userId,
-    required this.userName, // ДОБАВЛЯЕМ В КОНСТРУКТОР
+    required this.userId, // Добавляем в конструктор
+    required this.userName, // Добавляем в конструктор
     required this.participatedCategories,
     required this.achievements,
-    required this.subscribedChannels,
+    required this.subscribedChannels, // Добавляем в конструктор
   });
 
   UserPermissions copyWith({
@@ -34,11 +35,11 @@ class UserPermissions {
     String? avatarUrl,
     int? messagesCount,
     int? topicsCreated,
-    String? userId,
-    String? userName, // ДОБАВЛЯЕМ В copyWith
+    String? userId, // Добавляем в copyWith
+    String? userName, // Добавляем в copyWith
     Set<String>? participatedCategories,
     Map<AchievementType, DateTime>? achievements,
-    List<String>? subscribedChannels,
+    List<String>? subscribedChannels, // Добавляем в copyWith
   }) {
     return UserPermissions(
       isSeniorDeveloper: isSeniorDeveloper ?? this.isSeniorDeveloper,
@@ -48,10 +49,14 @@ class UserPermissions {
       messagesCount: messagesCount ?? this.messagesCount,
       topicsCreated: topicsCreated ?? this.topicsCreated,
       userId: userId ?? this.userId,
-      userName: userName ?? this.userName, // ДОБАВЛЯЕМ
-      participatedCategories: participatedCategories ?? this.participatedCategories,
+      // Копируем
+      userName: userName ?? this.userName,
+      // Копируем
+      participatedCategories: participatedCategories ??
+          this.participatedCategories,
       achievements: achievements ?? this.achievements,
-      subscribedChannels: subscribedChannels ?? this.subscribedChannels,
+      subscribedChannels: subscribedChannels ??
+          this.subscribedChannels, // Копируем
     );
   }
 }

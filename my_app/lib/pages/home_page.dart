@@ -42,9 +42,13 @@ class _HomePageState extends State<HomePage> {
       avatarUrl: 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(widget.userName)}&background=007AFF&color=fff',
       messagesCount: 0,
       topicsCreated: 0,
+      userId: 'user_123456', // Заполняем userId
+      userName: widget.userName, // Заполняем userName
       participatedCategories: {},
       achievements: {},
+      subscribedChannels: ['channel_tech', 'channel_news'], // Заполняем subscribedChannels
     );
+
 
     _pages = [
       NewsPage(

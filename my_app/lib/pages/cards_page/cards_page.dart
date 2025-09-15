@@ -148,25 +148,50 @@ class _CardsPageState extends State<CardsPage> {
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final ScrollController _tabScrollController = ScrollController();
   int _currentTabIndex = 0;
   String _selectedCategoryId = 'all';
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _searchController.dispose();
     _tabScrollController.dispose();
     super.dispose();
   }
 
   List<Channel> get _filteredChannels {
-    if (_selectedCategoryId == 'all') {
-      return _channels;
+    List<Channel> filtered = _channels;
+
+    // Фильтрация по категории
+    if (_selectedCategoryId != 'all') {
+      filtered = filtered
+          .where((channel) => channel.categoryId == _selectedCategoryId)
+          .toList();
     }
-    return _channels
-        .where((channel) => channel.categoryId == _selectedCategoryId)
-        .toList();
+
+    // Фильтрация по поисковому запросу
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((channel) {
+        return channel.title.toLowerCase().contains(_searchQuery) ||
+            channel.description.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
+
+    return filtered;
   }
 
   void _createNewChannel() {
@@ -282,6 +307,7 @@ class _CardsPageState extends State<CardsPage> {
         setState(() {
           _currentTabIndex = index;
           _selectedCategoryId = category.id;
+          _searchController.clear(); // Очищаем поиск при смене категории
         });
       },
       child: Container(
@@ -330,51 +356,20 @@ class _CardsPageState extends State<CardsPage> {
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              expandedHeight: 180.0,
+              expandedHeight: 60.0, // Уменьшил высоту
               floating: false,
               pinned: true,
+              backgroundColor: Colors.white, // Белый фон вместо градиента
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(
                   'Каналы',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Colors.black, // Черный текст
                     fontSize: 20.0,
                     fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
                   ),
                 ),
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF007AFF),
-                        Color(0xFF5856D6),
-                      ],
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 24, bottom: 20),
-                    child: Align(
-                      alignment: Alignment.bottomLeft,
-                      child: Text(
-                        'Привет, ${widget.userName}!',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                centerTitle: true,
               ),
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(48),
@@ -395,19 +390,68 @@ class _CardsPageState extends State<CardsPage> {
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.exit_to_app_rounded),
-                  onPressed: widget.onLogout,
-                  tooltip: 'Выйти',
+                  icon: const Icon(Icons.filter_list, color: Colors.black),
+                  onPressed: () {
+                    // Функция фильтра
+                    _showFilterDialog();
+                  },
                 ),
               ],
             ),
           ];
         },
         body: _buildCategoryContent(),
+      ),
+    );
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Фильтры'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _categories.length,
+            itemBuilder: (context, index) {
+              final category = _categories[index];
+              return ListTile(
+                leading: Icon(category.icon, color: category.color),
+                title: Text(category.title),
+                trailing: _selectedCategoryId == category.id
+                    ? const Icon(Icons.check, color: Colors.green)
+                    : null,
+                onTap: () {
+                  setState(() {
+                    _currentTabIndex = index;
+                    _selectedCategoryId = category.id;
+                  });
+                  Navigator.pop(context);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Закрыть'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onSearchSelected(Channel channel) {
+    // Навигация к выбранному каналу
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChannelDetailPage(channel: channel),
       ),
     );
   }
@@ -421,6 +465,35 @@ class _CardsPageState extends State<CardsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Строка поиска
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Поиск каналов...',
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.grey),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                )
+                    : null,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Заголовок категории (только для конкретных категорий, не для "Все")
           if (_currentTabIndex != 0) ...[
             Row(
@@ -447,6 +520,19 @@ class _CardsPageState extends State<CardsPage> {
             const SizedBox(height: 24),
           ],
 
+          // Результаты поиска
+          if (_searchQuery.isNotEmpty) ...[
+            Text(
+              'Результаты поиска: ${categoryChannels.length}',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Сетка каналов
           if (categoryChannels.isNotEmpty)
             Expanded(
@@ -470,10 +556,14 @@ class _CardsPageState extends State<CardsPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(category.icon, size: 64, color: Colors.grey[300]),
+                    Icon(
+                      _searchQuery.isNotEmpty ? Icons.search_off : category.icon,
+                      size: 64,
+                      color: Colors.grey[300],
+                    ),
                     const SizedBox(height: 20),
                     Text(
-                      'Пока нет каналов',
+                      _searchQuery.isNotEmpty ? 'Ничего не найдено' : 'Пока нет каналов',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -482,7 +572,9 @@ class _CardsPageState extends State<CardsPage> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _currentTabIndex == 0
+                      _searchQuery.isNotEmpty
+                          ? 'Попробуйте изменить поисковый запрос'
+                          : _currentTabIndex == 0
                           ? 'Каналы появятся после создания'
                           : 'Создайте первый канал в этой категории!',
                       textAlign: TextAlign.center,

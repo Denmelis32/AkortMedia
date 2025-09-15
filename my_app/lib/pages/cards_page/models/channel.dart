@@ -1,5 +1,5 @@
-// lib/models/channel.dart
-import 'package:flutter/material.dart';
+// models/channel.dart
+import 'dart:ui' show Color;
 
 class Channel {
   final int id;
@@ -10,6 +10,7 @@ class Channel {
   final int videos;
   final bool isSubscribed;
   final Color cardColor;
+  final String categoryId; // Добавьте это поле
 
   Channel({
     required this.id,
@@ -18,11 +19,11 @@ class Channel {
     required this.imageUrl,
     required this.subscribers,
     required this.videos,
-    this.isSubscribed = false,
+    required this.isSubscribed,
     required this.cardColor,
+    required this.categoryId,
   });
 
-  // Метод для копирования с изменениями
   Channel copyWith({
     int? id,
     String? title,
@@ -32,6 +33,7 @@ class Channel {
     int? videos,
     bool? isSubscribed,
     Color? cardColor,
+    String? categoryId,
   }) {
     return Channel(
       id: id ?? this.id,
@@ -42,6 +44,7 @@ class Channel {
       videos: videos ?? this.videos,
       isSubscribed: isSubscribed ?? this.isSubscribed,
       cardColor: cardColor ?? this.cardColor,
+      categoryId: categoryId ?? this.categoryId,
     );
   }
 }

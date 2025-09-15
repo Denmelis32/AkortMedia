@@ -26,20 +26,24 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _imageUrlController = TextEditingController();
 
-  String _selectedCategory = 'Тактика';
+  String _selectedCategory = 'YouTube'; // Установим значение по умолчанию
   String _selectedEmoji = '📊';
   int _charCount = 0;
 
   @override
   void initState() {
     super.initState();
+    // Устанавливаем первую категорию из списка как выбранную по умолчанию
+    if (widget.categories.isNotEmpty) {
+      _selectedCategory = widget.categories[0];
+    }
     _imageUrlController.text = 'https://images.unsplash.com/photo-1552667466-07770ae110d0?w=500&h=300&fit=crop';
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      insetPadding: EdgeInsets.all(20),
+      insetPadding: const EdgeInsets.all(20),
       backgroundColor: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
@@ -49,12 +53,12 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
             BoxShadow(
               color: Colors.black.withOpacity(0.2),
               blurRadius: 30,
-              offset: Offset(0, 10),
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -72,7 +76,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     'Новая статья',
                     style: TextStyle(
@@ -81,13 +85,13 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // Эмодзи и категория
                   Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.grey.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(16),
@@ -97,7 +101,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                           items: widget.emojis.map((emoji) {
                             return DropdownMenuItem(
                               value: emoji,
-                              child: Text(emoji, style: TextStyle(fontSize: 24)),
+                              child: Text(emoji, style: const TextStyle(fontSize: 24)),
                             );
                           }).toList(),
                           onChanged: (value) {
@@ -106,10 +110,10 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                             });
                           },
                           underline: Container(),
-                          icon: Icon(Icons.arrow_drop_down_rounded),
+                          icon: const Icon(Icons.arrow_drop_down_rounded),
                         ),
                       ),
-                      SizedBox(width: 16),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
@@ -120,15 +124,15 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                             ),
                           ),
                           child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: DropdownButtonFormField<String>(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: DropdownButton<String>(
                               value: _selectedCategory,
                               items: widget.categories.map((category) {
                                 return DropdownMenuItem(
                                   value: category,
                                   child: Text(
                                     category,
-                                    style: TextStyle(fontSize: 16),
+                                    style: const TextStyle(fontSize: 16),
                                   ),
                                 );
                               }).toList(),
@@ -137,18 +141,16 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                                   _selectedCategory = value!;
                                 });
                               },
-                              decoration: InputDecoration(
-                                border: InputBorder.none,
-                                labelText: 'Категория',
-                              ),
-                              style: TextStyle(fontSize: 16),
+                              isExpanded: true,
+                              underline: Container(),
+                              icon: const Icon(Icons.arrow_drop_down_rounded),
                             ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // URL изображения
                   TextFormField(
@@ -162,9 +164,9 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                           width: 1,
                         ),
                       ),
-                      contentPadding: EdgeInsets.all(16),
+                      contentPadding: const EdgeInsets.all(16),
                     ),
-                    style: TextStyle(fontSize: 16),
+                    style: const TextStyle(fontSize: 16),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Введите URL изображения';
@@ -172,7 +174,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                       return null;
                     },
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // Заголовок
                   TextFormField(
@@ -186,9 +188,9 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                           width: 1,
                         ),
                       ),
-                      contentPadding: EdgeInsets.all(16),
+                      contentPadding: const EdgeInsets.all(16),
                     ),
-                    style: TextStyle(fontSize: 16),
+                    style: const TextStyle(fontSize: 16),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Введите заголовок статьи';
@@ -199,7 +201,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                       return null;
                     },
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // Описание
                   TextFormField(
@@ -213,10 +215,10 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                           width: 1,
                         ),
                       ),
-                      contentPadding: EdgeInsets.all(16),
+                      contentPadding: const EdgeInsets.all(16),
                     ),
                     maxLines: 2,
-                    style: TextStyle(fontSize: 16),
+                    style: const TextStyle(fontSize: 16),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Введите описание статьи';
@@ -227,7 +229,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                       return null;
                     },
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // Контент
                   Column(
@@ -244,10 +246,10 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                               width: 1,
                             ),
                           ),
-                          contentPadding: EdgeInsets.all(16),
+                          contentPadding: const EdgeInsets.all(16),
                         ),
                         maxLines: 6,
-                        style: TextStyle(fontSize: 16),
+                        style: const TextStyle(fontSize: 16),
                         onChanged: (value) {
                           setState(() {
                             _charCount = value.length;
@@ -263,7 +265,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                           return null;
                         },
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
@@ -274,7 +276,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Text(
                             '$_charCount/560',
                             style: TextStyle(
@@ -286,7 +288,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
                   // Кнопки
                   Row(
@@ -295,11 +297,11 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                       TextButton(
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         ),
-                        child: Text('Отмена'),
+                        child: const Text('Отмена'),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       ElevatedButton(
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
@@ -322,7 +324,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
 
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Статья успешно добавлена!'),
+                                content: const Text('Статья успешно добавлена!'),
                                 backgroundColor: Colors.green,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
@@ -335,12 +337,12 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).colorScheme.primary,
                           foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text('Опубликовать'),
+                        child: const Text('Опубликовать'),
                       ),
                     ],
                   ),

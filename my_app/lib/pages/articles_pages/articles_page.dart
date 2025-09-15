@@ -335,53 +335,21 @@ class _ArticlesPageState extends State<ArticlesPage> {
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
+            // Заголовок "Статьи" вверху - исправленная версия
             SliverAppBar(
-              expandedHeight: 180.0,
+              expandedHeight: 100.0,
               floating: false,
               pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(
-                  'Статьи',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF007AFF),
-                        Color(0xFF5856D6),
-                      ],
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 24, bottom: 20),
-                    child: Align(
-                      alignment: Alignment.bottomLeft,
-                      child: Text(
-                        'Привет, ${widget.userName}!',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
+              backgroundColor: Colors.white,
+              title: Text(
+                'Статьи',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 20.0,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              centerTitle: false,
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(48),
                 child: ColoredBox(
@@ -401,14 +369,11 @@ class _ArticlesPageState extends State<ArticlesPage> {
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.filter_list_rounded, size: 24),
+                  icon: Icon(Icons.filter_list_rounded,
+                      size: 24,
+                      color: Colors.grey[700]),
                   onPressed: _showFilterBottomSheet,
                   tooltip: 'Фильтры',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.exit_to_app_rounded, size: 24),
-                  onPressed: widget.onLogout,
-                  tooltip: 'Выйти',
                 ),
               ],
             ),
@@ -588,7 +553,7 @@ class _CategoryContentBuilder extends StatelessWidget {
   Widget build(BuildContext context) {
     // Показываем контент только для активной вкладки
     if (tabIndex != currentTabIndex) {
-      return Container(); // Пустой контейнер для неактивных вкладок
+      return Container(); // Пустой контейнер для неактивных вкладки
     }
 
     final filteredArticles = getFilteredArticles(tabIndex);

@@ -355,22 +355,21 @@ class _CardsPageState extends State<CardsPage> {
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
+            // Исправленный заголовок "Каналы" вверху
             SliverAppBar(
-              expandedHeight: 60.0, // Уменьшил высоту
+              expandedHeight: 100.0,
               floating: false,
               pinned: true,
-              backgroundColor: Colors.white, // Белый фон вместо градиента
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(
-                  'Каналы',
-                  style: TextStyle(
-                    color: Colors.black, // Черный текст
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.w600,
-                  ),
+              backgroundColor: Colors.white,
+              title: Text(
+                'Каналы',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 20.0,
+                  fontWeight: FontWeight.w600,
                 ),
-                centerTitle: true,
               ),
+              centerTitle: false,
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(48),
                 child: ColoredBox(
@@ -390,13 +389,156 @@ class _CardsPageState extends State<CardsPage> {
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.filter_list, color: Colors.black),
-                  onPressed: () {
-                    // Функция фильтра
-                    _showFilterDialog();
-                  },
+                  icon: Icon(Icons.filter_list_rounded,
+                      size: 24,
+                      color: Colors.grey[700]),
+                  onPressed: _showFilterBottomSheet,
+                  tooltip: 'Фильтры',
                 ),
               ],
+            ),
+
+            SliverPadding(
+              padding: const EdgeInsets.all(20),
+              sliver: SliverToBoxAdapter(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Поиск каналов...',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 22),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 22),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                          : null,
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (_currentTabIndex != 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Категория: ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Text(
+                              _categories[_currentTabIndex].title,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _currentTabIndex = 0;
+                                });
+                              },
+                              child: const Icon(Icons.close_rounded, size: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_searchQuery.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.green.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Поиск: ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Text(
+                              '"$_searchQuery"',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green[700],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                });
+                              },
+                              child: const Icon(Icons.close_rounded, size: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ];
         },
@@ -405,53 +547,82 @@ class _CardsPageState extends State<CardsPage> {
     );
   }
 
-  void _showFilterDialog() {
-    showDialog(
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Фильтры'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: _categories.length,
-            itemBuilder: (context, index) {
-              final category = _categories[index];
-              return ListTile(
-                leading: Icon(category.icon, color: category.color),
-                title: Text(category.title),
-                trailing: _selectedCategoryId == category.id
-                    ? const Icon(Icons.check, color: Colors.green)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _currentTabIndex = index;
-                    _selectedCategoryId = category.id;
-                  });
-                  Navigator.pop(context);
-                },
-              );
-            },
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('Закрыть'),
-          ),
-        ],
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Фильтр по категориям',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _categories.map((category) => _buildCategoryChip(category)).toList(),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
 
-  void _onSearchSelected(Channel channel) {
-    // Навигация к выбранному каналу
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChannelDetailPage(channel: channel),
+  Widget _buildCategoryChip(RoomCategory category) {
+    final isSelected = _currentTabIndex == _categories.indexOf(category);
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentTabIndex = _categories.indexOf(category);
+        });
+        Navigator.pop(context);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey[300]!,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          category.title,
+          style: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
@@ -460,132 +631,44 @@ class _CardsPageState extends State<CardsPage> {
     final category = _categories[_currentTabIndex];
     final categoryChannels = _filteredChannels;
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return categoryChannels.isEmpty
+        ? Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Строка поиска
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Поиск каналов...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.grey),
-                  onPressed: () {
-                    _searchController.clear();
-                  },
-                )
-                    : null,
-              ),
+          Icon(Icons.video_library_rounded, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 20),
+          Text(
+            'Каналы не найдены',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Заголовок категории (только для конкретных категорий, не для "Все")
-          if (_currentTabIndex != 0) ...[
-            Row(
-              children: [
-                Icon(category.icon, color: category.color, size: 32),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    category.title,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 8),
+          Text(
+            'Попробуйте изменить параметры поиска',
+            style: TextStyle(
+              color: Colors.grey[500],
             ),
-            const SizedBox(height: 8),
-            Text(
-              category.description ?? '',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 24),
-          ],
-
-          // Результаты поиска
-          if (_searchQuery.isNotEmpty) ...[
-            Text(
-              'Результаты поиска: ${categoryChannels.length}',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Сетка каналов
-          if (categoryChannels.isNotEmpty)
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.8,
-                ),
-                itemCount: categoryChannels.length,
-                itemBuilder: (context, index) {
-                  final channel = categoryChannels[index];
-                  return _buildChannelCard(channel, index);
-                },
-              ),
-            )
-          else
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _searchQuery.isNotEmpty ? Icons.search_off : category.icon,
-                      size: 64,
-                      color: Colors.grey[300],
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      _searchQuery.isNotEmpty ? 'Ничего не найдено' : 'Пока нет каналов',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _searchQuery.isNotEmpty
-                          ? 'Попробуйте изменить поисковый запрос'
-                          : _currentTabIndex == 0
-                          ? 'Каналы появятся после создания'
-                          : 'Создайте первый канал в этой категории!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.grey[500]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          ),
         ],
       ),
+    )
+        : GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: categoryChannels.length,
+      itemBuilder: (context, index) {
+        final channel = categoryChannels[index];
+        return _buildChannelCard(channel, index);
+      },
     );
   }
 

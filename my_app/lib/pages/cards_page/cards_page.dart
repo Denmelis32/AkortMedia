@@ -22,7 +22,7 @@ class CardsPage extends StatefulWidget {
 class _CardsPageState extends State<CardsPage> {
   final List<Channel> _channels = [
     Channel(
-      id: '1',
+      id: 1,
       title: 'Технологии будущего',
       description: 'Обсуждаем новейшие технологии и инновации',
       imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400',
@@ -31,53 +31,18 @@ class _CardsPageState extends State<CardsPage> {
       isSubscribed: true,
       cardColor: Colors.blue.shade800,
     ),
-    Channel(
-      id: '2',
-      title: 'Искусственный интеллект',
-      description: 'Все о машинном обучении и нейросетях',
-      imageUrl: 'https://images.unsplash.com/photo-1677442135135-416f8aa26a5b?w=400',
-      subscribers: 8920,
-      videos: 67,
-      cardColor: Colors.purple.shade700,
-    ),
-    Channel(
-      id: '3',
-      title: 'Киберспорт',
-      description: 'Турниры, стратегии и новости киберспорта',
-      imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400',
-      subscribers: 15680,
-      videos: 112,
-      isSubscribed: true,
-      cardColor: Colors.red.shade800,
-    ),
-    Channel(
-      id: '4',
-      title: 'Дизайн интерфейсов',
-      description: 'UI/UX дизайн и лучшие практики',
-      imageUrl: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400',
-      subscribers: 7430,
-      videos: 54,
-      cardColor: Colors.teal.shade700,
-    ),
-    Channel(
-      id: '5',
-      title: 'Мобильная разработка',
-      description: 'Flutter, React Native и нативные технологии',
-      imageUrl: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400',
-      subscribers: 10320,
-      videos: 78,
-      cardColor: Colors.orange.shade800,
-    ),
-    Channel(
-      id: '6',
-      title: 'Игровая индустрия',
-      description: 'Новости игр и разработка геймдева',
-      imageUrl: 'https://images.unsplash.com/photo-1542751110-97427bbecf20?w=400',
-      subscribers: 18900,
-      videos: 95,
-      cardColor: Colors.green.shade800,
-    ),
+    // ... остальные каналы
   ];
+
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
 
   void _createNewChannel() {
     showDialog(
@@ -88,6 +53,7 @@ class _CardsPageState extends State<CardsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              controller: _titleController,
               decoration: const InputDecoration(
                 labelText: 'Название канала',
                 border: OutlineInputBorder(),
@@ -95,6 +61,7 @@ class _CardsPageState extends State<CardsPage> {
             ),
             const SizedBox(height: 16),
             TextField(
+              controller: _descriptionController,
               decoration: const InputDecoration(
                 labelText: 'Описание',
                 border: OutlineInputBorder(),
@@ -105,21 +72,63 @@ class _CardsPageState extends State<CardsPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              _titleController.clear();
+              _descriptionController.clear();
+              Navigator.pop(context);
+            },
             child: const Text('Отмена'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Канал создан!')),
-              );
+              if (_titleController.text.isNotEmpty) {
+                _addNewChannel(
+                  _titleController.text,
+                  _descriptionController.text,
+                );
+                _titleController.clear();
+                _descriptionController.clear();
+                Navigator.pop(context);
+              }
             },
             child: const Text('Создать'),
           ),
         ],
       ),
     );
+  }
+
+  void _addNewChannel(String title, String description) {
+    final newChannel = Channel(
+      id: _channels.length + 1,
+      title: title,
+      description: description,
+      imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400', // дефолтное изображение
+      subscribers: 0,
+      videos: 0,
+      isSubscribed: false,
+      cardColor: _getRandomColor(),
+    );
+
+    setState(() {
+      _channels.add(newChannel);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Канал создан!')),
+    );
+  }
+
+  Color _getRandomColor() {
+    final colors = [
+      Colors.blue.shade800,
+      Colors.purple.shade700,
+      Colors.red.shade800,
+      Colors.teal.shade700,
+      Colors.orange.shade800,
+      Colors.green.shade800,
+    ];
+    return colors[_channels.length % colors.length];
   }
 
   void _toggleSubscription(int index) {

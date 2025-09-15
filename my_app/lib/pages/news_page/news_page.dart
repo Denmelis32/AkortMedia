@@ -59,39 +59,47 @@ class _NewsPageState extends State<NewsPage> {
         'text': commentText.trim(),
         'author': widget.userName,
       });
-      newsProvider.addCommentToNews(
-        index,
-        {
-          'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
-          'author': widget.userName,
-          'text': commentText.trim(),
-          'time': 'Только что',
-        },
-      );
+      newsProvider.addCommentToNews(index, {
+        'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
+        'author': widget.userName,
+        'text': commentText.trim(),
+        'time': 'Только что',
+      });
     } catch (e) {
       print('Error adding comment: $e');
-      newsProvider.addCommentToNews(
-        index,
-        {
-          'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
-          'author': widget.userName,
-          'text': commentText.trim(),
-          'time': 'Только что',
-        },
-      );
+      newsProvider.addCommentToNews(index, {
+        'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
+        'author': widget.userName,
+        'text': commentText.trim(),
+        'time': 'Только что',
+      });
     }
   }
 
-  Future<void> _addNews(String title, String description, String hashtags) async {
+  Future<void> _addNews(
+    String title,
+    String description,
+    String hashtags,
+  ) async {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+
+    // Преобразуем хештеги из строки в массив для API (как в ChannelDetailPage)
+    final hashtagsArray = hashtags
+        .split(' ')
+        .where((tag) => tag.isNotEmpty)
+        .toList();
+
     try {
       final newNews = await ApiService.createNews({
         'title': title,
         'description': description,
-        'hashtags': hashtags,
+        'hashtags': hashtagsArray, // отправляем как массив
       });
+
+      // Гарантируем правильный формат хештегов
       newsProvider.addNews({
         ...newNews,
+        'hashtags': hashtagsArray, // сохраняем как массив
         'comments': [],
       });
     } catch (e) {
@@ -100,57 +108,79 @@ class _NewsPageState extends State<NewsPage> {
         "id": "local-${DateTime.now().millisecondsSinceEpoch}",
         "title": title,
         "description": description,
-        "hashtags": hashtags,
+        "hashtags": hashtagsArray, // сохраняем как массив
         "likes": 0,
         "author_name": widget.userName,
         "created_at": DateTime.now().toIso8601String(),
-        "comments": []
+        "comments": [],
       });
     }
   }
 
-  Future<void> _editNews(int index, String title, String description, String hashtags) async {
+  Future<void> _editNews(
+    int index,
+    String title,
+    String description,
+    String hashtags,
+  ) async {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = newsProvider.news[index];
+
+    // Преобразуем хештеги из строки в массив
+    final hashtagsArray = hashtags
+        .split(' ')
+        .where((tag) => tag.isNotEmpty)
+        .toList();
+
     try {
       await ApiService.updateNews(news['id'].toString(), {
         'title': title,
         'description': description,
-        'hashtags': hashtags,
+        'hashtags': hashtagsArray, // отправляем как массив
       });
-      newsProvider.updateNews(
-        index,
-        {
-          ...news,
-          'title': title,
-          'description': description,
-          'hashtags': hashtags,
-        },
-      );
+
+      newsProvider.updateNews(index, {
+        ...news,
+        'title': title,
+        'description': description,
+        'hashtags': hashtagsArray, // сохраняем как массив
+      });
     } catch (e) {
       print('Error updating news: $e');
-      newsProvider.updateNews(
-        index,
-        {
-          ...news,
-          'title': title,
-          'description': description,
-          'hashtags': hashtags,
-        },
-      );
+      newsProvider.updateNews(index, {
+        ...news,
+        'title': title,
+        'description': description,
+        'hashtags': hashtagsArray, // сохраняем как массив
+      });
     }
   }
 
   // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ РЕДАКТИРОВАНИЯ ТЕГА
-  void _editUserTag(int newsIndex, String tagId, String newTagName, Color color) {
+  void _editUserTag(
+    int newsIndex,
+    String tagId,
+    String newTagName,
+    Color color,
+  ) {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
 
     try {
       // ПЕРЕДАЕМ color КАК ИМЕНОВАННЫЙ ПАРАМЕТР
-      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
+      newsProvider.updateNewsUserTag(
+        newsIndex,
+        tagId,
+        newTagName,
+        color: color,
+      );
     } catch (e) {
       print('Error editing user tag: $e');
-      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
+      newsProvider.updateNewsUserTag(
+        newsIndex,
+        tagId,
+        newTagName,
+        color: color,
+      );
     }
   }
 
@@ -171,7 +201,8 @@ class _NewsPageState extends State<NewsPage> {
     showEditNewsDialog(
       context: context,
       news: news,
-      onEdit: (title, description, hashtags) => _editNews(index, title, description, hashtags),
+      onEdit: (title, description, hashtags) =>
+          _editNews(index, title, description, hashtags),
       primaryColor: _primaryColor,
       cardColor: _cardColor,
       textColor: _textColor,
@@ -243,81 +274,77 @@ class _NewsPageState extends State<NewsPage> {
       ),
       body: newsProvider.isLoading
           ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(_primaryColor),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Загрузка новостей...',
-              style: TextStyle(
-                color: _secondaryTextColor,
-                fontSize: 16,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation(_primaryColor),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Загрузка новостей...',
+                    style: TextStyle(color: _secondaryTextColor, fontSize: 16),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-      )
+            )
           : RefreshIndicator(
-        onRefresh: () => newsProvider.loadNews(),
-        color: _primaryColor,
-        backgroundColor: _cardColor,
-        child: newsProvider.news.isEmpty
-            ? Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.article,
-                size: 64,
-                color: _primaryColor.withOpacity(0.3),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Новостей пока нет',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: _secondaryTextColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Будьте первым, кто поделится новостью!',
-                style: TextStyle(
-                  color: _secondaryTextColor,
-                ),
-              ),
-            ],
-          ),
-        )
-            : ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(16),
-          itemCount: newsProvider.news.length,
-          itemBuilder: (context, index) {
-            final news = newsProvider.news[index];
-            return NewsCard(
-              news: news,
-              userName: widget.userName,
-              onLike: () => _likeNews(index),
-              onComment: (comment) => _addComment(index, comment),
-              onEdit: () => _showEditNewsDialog(index),
-              onDelete: () => _showDeleteConfirmationDialog(index),
-              onTagEdit: (tagId, newTagName, color) => _editUserTag(index, tagId, newTagName, color),
-              formatDate: formatDate,
-              getTimeAgo: getTimeAgo,
-              primaryColor: _primaryColor,
-              backgroundColor: _backgroundColor,
-              cardColor: _cardColor,
-              textColor: _textColor,
-              secondaryTextColor: _secondaryTextColor,
-            );
-          },
-        ),
-      ),
+              onRefresh: () => newsProvider.loadNews(),
+              color: _primaryColor,
+              backgroundColor: _cardColor,
+              child: newsProvider.news.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.article,
+                            size: 64,
+                            color: _primaryColor.withOpacity(0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Новостей пока нет',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: _secondaryTextColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Будьте первым, кто поделится новостью!',
+                            style: TextStyle(color: _secondaryTextColor),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: newsProvider.news.length,
+                      itemBuilder: (context, index) {
+                        final news = newsProvider.news[index];
+                        return NewsCard(
+                          news: news,
+                          userName: widget.userName,
+                          onLike: () => _likeNews(index),
+                          onComment: (comment) => _addComment(index, comment),
+                          onEdit: () => _showEditNewsDialog(index),
+                          onDelete: () => _showDeleteConfirmationDialog(index),
+                          onTagEdit: (tagId, newTagName, color) =>
+                              _editUserTag(index, tagId, newTagName, color),
+                          formatDate: formatDate,
+                          getTimeAgo: getTimeAgo,
+                          primaryColor: _primaryColor,
+                          backgroundColor: _backgroundColor,
+                          cardColor: _cardColor,
+                          textColor: _textColor,
+                          secondaryTextColor: _secondaryTextColor,
+                        );
+                      },
+                    ),
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddNewsDialog,
         backgroundColor: _primaryColor,

@@ -259,4 +259,78 @@ class ApiService {
       rethrow;
     }
   }
+
+  // Получение постов канала
+  static Future<List<Map<String, dynamic>>> getChannelPosts(String channelId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/channels/$channelId/posts'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> postsList = json.decode(response.body);
+        // Преобразуем в List<Map<String, dynamic>> и убедимся, что есть все необходимые поля
+        return postsList.map((post) {
+          return {
+            'id': post['id'] ?? 'unknown-id',
+            'title': post['title'] ?? '',
+            'description': post['description'] ?? '',
+            'hashtags': post['hashtags'] is List ? post['hashtags'] : [],
+            'likes': post['likes'] ?? 0,
+            'author_name': post['author_name'] ?? 'Неизвестный автор',
+            'created_at': post['created_at'] ?? DateTime.now().toIso8601String(),
+            'channel_id': post['channel_id'] ?? channelId,
+          };
+        }).toList();
+      } else if (response.statusCode == 401) {
+        throw Exception('Необходима авторизация для просмотра постов канала');
+      } else {
+        throw Exception('Failed to load channel posts: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('API Error: $e');
+      rethrow;
+    }
+  }
+
+  // Создание поста канала
+  static Future<Map<String, dynamic>> createChannelPost(Map<String, dynamic> postData) async {
+    try {
+      final headers = await _getHeaders();
+
+      // Убедимся, что хештеги есть в данных
+      if (!postData.containsKey('hashtags')) {
+        postData['hashtags'] = [];
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/channels/${postData['channel_id']}/posts'),
+        headers: headers,
+        body: json.encode(postData),
+      );
+
+      if (response.statusCode == 201) {
+        final newPost = json.decode(response.body);
+        return {
+          "id": newPost['id'] ?? "channel-post-${DateTime.now().millisecondsSinceEpoch}",
+          "title": newPost['title'] ?? postData['title'],
+          "description": newPost['description'] ?? postData['description'],
+          "hashtags": newPost['hashtags'] is List ? newPost['hashtags'] : (postData['hashtags'] ?? []),
+          "likes": newPost['likes'] ?? 0,
+          "author_name": newPost['author_name'] ?? "Администратор канала",
+          "created_at": newPost['created_at'] ?? DateTime.now().toIso8601String(),
+          "channel_id": newPost['channel_id'] ?? postData['channel_id'],
+        };
+      } else if (response.statusCode == 401) {
+        throw Exception('Необходима авторизация для создания постов канала');
+      } else {
+        throw Exception('Failed to create channel post: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('API Error: $e');
+      rethrow;
+    }
+  }
 }

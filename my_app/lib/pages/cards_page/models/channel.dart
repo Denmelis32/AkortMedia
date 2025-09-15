@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 class Channel {
-  final String id;
+  final int id;
   final String title;
   final String description;
   final String imageUrl;
@@ -24,7 +24,7 @@ class Channel {
 
   // Метод для копирования с изменениями
   Channel copyWith({
-    String? id,
+    int? id,
     String? title,
     String? description,
     String? imageUrl,

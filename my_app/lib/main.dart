@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/news_provider.dart';
+import 'providers/channel_posts_provider.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
@@ -41,6 +42,11 @@ class _MyAppState extends State<MyApp> {
 
   void _handleLogout() async {
     await AuthService.logout();
+
+    // Очищаем данные провайдеров при выходе
+    final channelPostsProvider = Provider.of<ChannelPostsProvider>(context as BuildContext, listen: false);
+    channelPostsProvider.clearAll();
+
     setState(() {
       _isLoggedIn = false;
     });
@@ -51,6 +57,7 @@ class _MyAppState extends State<MyApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => NewsProvider()),
+        ChangeNotifierProvider(create: (_) => ChannelPostsProvider()),
       ],
       child: MaterialApp(
         title: 'Football App',

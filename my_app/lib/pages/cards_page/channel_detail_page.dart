@@ -1,111 +1,137 @@
 // lib/pages/cards_page/channel_detail_page.dart
 import 'package:flutter/material.dart';
+import 'package:my_app/pages/news_page/dialogs.dart';
+import 'package:provider/provider.dart';
 import 'models/channel.dart';
+import '../../../providers/news_provider.dart';
+import '../../../providers/channel_posts_provider.dart';
+import '../../../services/api_service.dart';
+// Импортируем диалоги из news_page
 
-class Video {
-  final String id;
-  final String title;
-  final String thumbnailUrl;
-  final String channelName;
-  final int views;
-  final Duration duration;
-  final DateTime publishedAt;
-
-  Video({
-    required this.id,
-    required this.title,
-    required this.thumbnailUrl,
-    required this.channelName,
-    required this.views,
-    required this.duration,
-    required this.publishedAt,
-  });
-}
-
-class ChannelDetailPage extends StatelessWidget {
+class ChannelDetailPage extends StatefulWidget {
   final Channel channel;
 
   const ChannelDetailPage({super.key, required this.channel});
 
-  String _formatViews(int views) {
-    if (views >= 1000000) {
-      return '${(views / 1000000).toStringAsFixed(1)}M';
-    } else if (views >= 1000) {
-      return '${(views / 1000).toStringAsFixed(1)}K';
-    }
-    return views.toString();
+  @override
+  State<ChannelDetailPage> createState() => _ChannelDetailPageState();
+}
+
+class _ChannelDetailPageState extends State<ChannelDetailPage> {
+  final Color _primaryColor = const Color(0xFF2196F3);
+  final Color _backgroundColor = const Color(0xFFF5F9FF);
+  final Color _cardColor = Colors.white;
+  final Color _textColor = const Color(0xFF333333);
+  final Color _secondaryTextColor = const Color(0xFF666666);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadChannelPosts();
+    });
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-
-    if (duration.inHours > 0) {
-      return "$hours:$minutes:$seconds";
+  Future<void> _loadChannelPosts() async {
+    try {
+      final posts = await ApiService.getChannelPosts(widget.channel.id.toString());
+      // Загружаем посты ТОЛЬКО для этого канала
+      Provider.of<ChannelPostsProvider>(context, listen: false)
+          .loadPostsForChannel(widget.channel.id, posts);
+    } catch (e) {
+      print('Error loading channel posts: $e');
     }
-    return "$minutes:$seconds";
   }
 
-  String _timeAgo(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
+  Future<void> _addPost(String title, String description, String hashtags) async {
+    final channelPostsProvider = Provider.of<ChannelPostsProvider>(context, listen: false);
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
 
-    if (difference.inDays > 365) {
-      return '${(difference.inDays / 365).floor()} лет назад';
-    } else if (difference.inDays > 30) {
-      return '${(difference.inDays / 30).floor()} месяцев назад';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} дней назад';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} часов назад';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} минут назад';
+    // Преобразуем хештеги из строки в массив для API
+    final hashtagsArray = hashtags.split(' ').where((tag) => tag.isNotEmpty).toList();
+
+    try {
+      // Создаем пост через API
+      final newPost = await ApiService.createChannelPost({
+        'title': title,
+        'description': description,
+        'hashtags': hashtagsArray,
+        'channel_id': widget.channel.id,
+      });
+
+      // Явно добавляем хештеги в правильном формате для канала
+      final channelPost = {
+        ...newPost,
+        'hashtags': hashtagsArray, // гарантируем правильный формат
+        'comments': [],
+        'is_channel_post': true,
+        'channel_name': widget.channel.title,
+      };
+
+      // Добавляем пост ТОЛЬКО в этот конкретный канал
+      channelPostsProvider.addPostToChannel(widget.channel.id, channelPost);
+
+      // Также добавляем в общие новости с правильными хештегами
+      final newsPost = {
+        ...newPost,
+        'hashtags': hashtagsArray, // гарантируем правильный формат
+        'comments': [],
+        'is_channel_post': true,
+        'channel_name': widget.channel.title,
+      };
+      newsProvider.addNews(newsPost);
+
+    } catch (e) {
+      print('Error creating post: $e');
+
+      // Локальное добавление в случае ошибки сети
+      final newPost = {
+        "id": "channel-${DateTime.now().millisecondsSinceEpoch}",
+        "title": title,
+        "description": description,
+        "hashtags": hashtagsArray, // используем массив и для локального хранения
+        "likes": 0,
+        "author_name": "Администратор канала",
+        "created_at": DateTime.now().toIso8601String(),
+        "comments": [],
+        "is_channel_post": true,
+        "channel_name": widget.channel.title,
+      };
+
+      // Добавляем ТОЛЬКО в этот канал
+      channelPostsProvider.addPostToChannel(widget.channel.id, newPost);
+
+      // Также добавляем в общие новости
+      newsProvider.addNews(newPost);
     }
-    return 'Только что';
+  }
+
+
+  List<String> _parseHashtags(dynamic hashtags) {
+    if (hashtags is String) {
+      return hashtags.split(' ').where((tag) => tag.isNotEmpty).toList();
+    } else if (hashtags is List) {
+      return hashtags.map((tag) => tag.toString()).where((tag) => tag.isNotEmpty).toList();
+    }
+    return [];
+  }
+
+  void _showAddPostDialog() {
+    showAddNewsDialog(
+      context: context,
+      onAdd: _addPost,
+      primaryColor: widget.channel.cardColor,
+      // Используем цвет канала
+      cardColor: _cardColor,
+      textColor: _textColor,
+      secondaryTextColor: _secondaryTextColor,
+      backgroundColor: _backgroundColor,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<Video> videos = [
-      Video(
-        id: '1',
-        title: 'Новейшие технологии 2024: что нас ждет?',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400',
-        channelName: channel.title,
-        views: 125000,
-        duration: const Duration(minutes: 15, seconds: 30),
-        publishedAt: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-      Video(
-        id: '2',
-        title: 'Обзор нового iPhone 15 Pro Max',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400',
-        channelName: channel.title,
-        views: 89000,
-        duration: const Duration(minutes: 22, seconds: 45),
-        publishedAt: DateTime.now().subtract(const Duration(days: 5)),
-      ),
-      Video(
-        id: '3',
-        title: 'Искусственный интеллект в повседневной жизни',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1677442135135-416f8aa26a5b?w=400',
-        channelName: channel.title,
-        views: 156000,
-        duration: const Duration(minutes: 18, seconds: 20),
-        publishedAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-      Video(
-        id: '4',
-        title: 'Будущее VR технологий - что ожидать?',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1593118247619-e2d6f056869e?w=400',
-        channelName: channel.title,
-        views: 78000,
-        duration: const Duration(minutes: 25, seconds: 10),
-        publishedAt: DateTime.now().subtract(const Duration(days: 7)),
-      ),
-    ];
+    final channelPostsProvider = Provider.of<ChannelPostsProvider>(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -124,8 +150,8 @@ class ChannelDetailPage extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      channel.cardColor.withOpacity(0.9),
-                      channel.cardColor.withOpacity(0.7),
+                      widget.channel.cardColor.withOpacity(0.9),
+                      widget.channel.cardColor.withOpacity(0.7),
                       Colors.black.withOpacity(0.3),
                     ],
                   ),
@@ -135,7 +161,7 @@ class ChannelDetailPage extends StatelessWidget {
                     // Фоновое изображение с размытием
                     Positioned.fill(
                       child: Image.network(
-                        channel.imageUrl,
+                        widget.channel.imageUrl,
                         fit: BoxFit.cover,
                         color: Colors.black.withOpacity(0.2),
                         colorBlendMode: BlendMode.darken,
@@ -157,7 +183,8 @@ class ChannelDetailPage extends StatelessWidget {
                     ),
                     // Контент заголовка
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 16),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.end,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -182,7 +209,7 @@ class ChannelDetailPage extends StatelessWidget {
                             ),
                             child: ClipOval(
                               child: Image.network(
-                                channel.imageUrl,
+                                widget.channel.imageUrl,
                                 fit: BoxFit.cover,
                               ),
                             ),
@@ -190,7 +217,7 @@ class ChannelDetailPage extends StatelessWidget {
                           const SizedBox(height: 16),
                           // Название канала
                           Text(
-                            channel.title,
+                            widget.channel.title,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 28,
@@ -212,13 +239,13 @@ class ChannelDetailPage extends StatelessWidget {
                             children: [
                               _buildStatItem(
                                 icon: Icons.people_outline,
-                                value: '${channel.subscribers}',
+                                value: '${widget.channel.subscribers}',
                                 label: 'подписчиков',
                               ),
                               const SizedBox(width: 20),
                               _buildStatItem(
                                 icon: Icons.video_library_outlined,
-                                value: '${channel.videos}',
+                                value: '${widget.channel.videos}',
                                 label: 'видео',
                               ),
                               const SizedBox(width: 20),
@@ -257,29 +284,28 @@ class ChannelDetailPage extends StatelessWidget {
                   _buildTabSection(),
                   const SizedBox(height: 24),
 
-                  // Заголовок видео
-                  _buildVideoHeader(),
+                  // Контент сообщества (теперь показываем посты)
+                  _buildPostsContent(channelPostsProvider.getPostsForChannel(widget.channel.id)),
                 ],
               ),
             ),
           ),
-
-          // Список видео
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                final video = videos[index];
-                return _buildVideoItem(video, context);
-              },
-              childCount: videos.length,
-            ),
-          ),
         ],
+      ),
+      // Кнопка добавления поста
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddPostDialog,
+        backgroundColor: widget.channel.cardColor,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.add, size: 28),
+        elevation: 4,
       ),
     );
   }
 
-  Widget _buildStatItem({required IconData icon, required String value, required String label}) {
+  Widget _buildStatItem(
+      {required IconData icon, required String value, required String label}) {
     return Column(
       children: [
         Icon(icon, color: Colors.white.withOpacity(0.9), size: 20),
@@ -345,7 +371,7 @@ class ChannelDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            channel.description,
+            widget.channel.description,
             style: const TextStyle(
               fontSize: 15,
               height: 1.6,
@@ -388,14 +414,14 @@ class ChannelDetailPage extends StatelessWidget {
           child: ElevatedButton(
             onPressed: () {},
             style: ElevatedButton.styleFrom(
-              backgroundColor: channel.cardColor,
+              backgroundColor: widget.channel.cardColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               elevation: 2,
-              shadowColor: channel.cardColor.withOpacity(0.3),
+              shadowColor: widget.channel.cardColor.withOpacity(0.3),
             ),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -481,16 +507,7 @@ class ChannelDetailPage extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _buildTabButton('Видео', true),
-          ),
-          Expanded(
-            child: _buildTabButton('Сообщества', false),
-          ),
-          Expanded(
-            child: _buildTabButton('Плейлисты', false),
-          ),
-          Expanded(
-            child: _buildTabButton('Информация', false),
+            child: _buildTabButton('Сообщество', true),
           ),
         ],
       ),
@@ -502,7 +519,7 @@ class ChannelDetailPage extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: isActive ? channel.cardColor : Colors.transparent,
+            color: isActive ? widget.channel.cardColor : Colors.transparent,
             width: 3,
           ),
         ),
@@ -512,7 +529,7 @@ class ChannelDetailPage extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
-            color: isActive ? channel.cardColor : Colors.grey[600],
+            color: isActive ? widget.channel.cardColor : Colors.grey[600],
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             fontSize: 14,
           ),
@@ -521,177 +538,175 @@ class ChannelDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildVideoHeader() {
-    return const Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'ПОСЛЕДНИЕ ВИДЕО',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            letterSpacing: 0.5,
-          ),
+  Widget _buildPostsContent(List<Map<String, dynamic>> posts) {
+    if (posts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        Text(
-          'Смотреть все',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.blue,
-            fontWeight: FontWeight.w500,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.article_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Посты канала',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Пока нет постов. Будьте первым, кто поделится новостью!',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-      ],
-    );
-  }
+      );
+    }
 
-  Widget _buildVideoItem(Video video, BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Превью видео
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-                child: Image.network(
-                  video.thumbnailUrl,
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              // Длительность видео
-              Positioned(
-                bottom: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _formatDuration(video.duration),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              // Индикатор просмотра
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: channel.cardColor,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'НОВОЕ',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+    return Column(
+      children: posts.map((post) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-
-          // Информация о видео
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Заголовок видео
-                Text(
-                  video.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
-                    color: Colors.black87,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: widget.channel.cardColor.withOpacity(0.1),
+                    backgroundImage: NetworkImage(widget.channel.imageUrl),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 12),
-
-                // Статистика видео
-                Row(
-                  children: [
-                    // Просмотры
-                    _buildVideoStat(Icons.visibility_outlined, '${_formatViews(video.views)} просмотров'),
-                    const SizedBox(width: 16),
-                    // Дата публикации
-                    _buildVideoStat(Icons.calendar_today, _timeAgo(video.publishedAt)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Прогресс-бар (имитация)
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: 0.7, // 70% просмотрено
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: channel.cardColor,
-                        borderRadius: BorderRadius.circular(2),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.channel.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
+                      Text(
+                        formatDate(DateTime.parse(post['created_at'])),
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                post['title'],
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                post['description'],
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              if (post['hashtags'] != null && post['hashtags'].isNotEmpty)
+                Wrap(
+                  children: _parseHashtags(post['hashtags']).map((tag) {
+                    return Container(
+                      margin: const EdgeInsets.only(right: 8, bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: widget.channel.cardColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        '#$tag',
+                        style: TextStyle(
+                          color: widget.channel.cardColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.thumb_up_outlined, size: 20,
+                        color: Colors.grey[600]),
+                    onPressed: () {},
+                  ),
+                  Text('${post['likes'] ?? 0}'),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    icon: Icon(Icons.comment_outlined, size: 20,
+                        color: Colors.grey[600]),
+                    onPressed: () {},
+                  ),
+                  Text('${post['comments']?.length ?? 0}'),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
+}
 
-  Widget _buildVideoStat(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: Colors.grey[600]),
-        const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
-    );
+// Добавляем вспомогательные функции для форматирования даты
+String formatDate(DateTime date) {
+  return '${date.day}.${date.month}.${date.year}';
+}
+
+String getTimeAgo(DateTime date) {
+  final now = DateTime.now();
+  final difference = now.difference(date);
+
+  if (difference.inDays > 0) {
+    return '${difference.inDays}д назад';
+  } else if (difference.inHours > 0) {
+    return '${difference.inHours}ч назад';
+  } else if (difference.inMinutes > 0) {
+    return '${difference.inMinutes}м назад';
+  } else {
+    return 'Только что';
   }
 }

@@ -5,7 +5,6 @@ import 'predictions_league_page/predictions_league_page.dart';
 import 'profile_page.dart' hide NewsPage;
 import 'articles_pages/articles_page.dart';
 import 'rooms_pages/rooms_page.dart';
-import 'rooms_pages/models_room/user_permissions.dart';
 import 'cards_page/cards_page.dart'; // Импортируем новую страницу карточек
 
 class HomePage extends StatefulWidget {
@@ -35,19 +34,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _initializePages() {
-    final userPermissions = UserPermissions(
-      isSeniorDeveloper: true,
-      isLongTermFan: false,
-      joinDate: DateTime.now().subtract(const Duration(days: 45)),
-      avatarUrl: 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(widget.userName)}&background=007AFF&color=fff',
-      messagesCount: 0,
-      topicsCreated: 0,
-      userId: 'user_123456', // Заполняем userId
-      userName: widget.userName, // Заполняем userName
-      participatedCategories: {},
-      achievements: {},
-      subscribedChannels: ['channel_tech', 'channel_news'], // Заполняем subscribedChannels
-    );
 
 
     _pages = [
@@ -70,7 +56,6 @@ class _HomePageState extends State<HomePage> {
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
-        userPermissions: userPermissions,
       ),
       PredictionsLeaguePage(
         userId: 'temp_user_${DateTime.now().millisecondsSinceEpoch}',

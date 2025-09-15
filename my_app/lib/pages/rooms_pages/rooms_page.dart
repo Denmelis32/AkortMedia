@@ -1,7 +1,7 @@
 // lib/pages/rooms_page/rooms_page.dart
 import 'package:flutter/material.dart';
 import 'models/room.dart';
-import 'chat_dialog.dart';
+import 'chat_page.dart'; // Изменяем импорт
 
 class RoomsPage extends StatefulWidget {
   final String userName;
@@ -351,12 +351,14 @@ class _RoomsPageState extends State<RoomsPage> {
     );
   }
 
-  void _openChatDialog(Room room) {
-    showDialog(
-      context: context,
-      builder: (context) => ChatDialog(
-        room: room,
-        userName: widget.userName,
+  void _openChatPage(Room room) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatPage(
+          room: room,
+          userName: widget.userName,
+        ),
       ),
     );
   }
@@ -689,7 +691,7 @@ class _RoomsPageState extends State<RoomsPage> {
 
   Widget _buildRoomCard(Room room, int index) {
     return GestureDetector(
-      onTap: () => _openChatDialog(room),
+      onTap: () => _openChatPage(room),
       child: Card(
         elevation: 8,
         shape: RoundedRectangleBorder(

@@ -192,7 +192,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (context, setStateDialog) {
+          builder: (context, setState) {
             return AlertDialog(
               title: const Text('Создать новую лигу'),
               content: SingleChildScrollView(
@@ -241,7 +241,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                         ),
                       ],
                       onChanged: (value) {
-                        setStateDialog(() {
+                        setState(() {
                           selectedCategory = value!;
                         });
                       },
@@ -267,7 +267,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                           icon: const Icon(Icons.add, color: Colors.blue),
                           onPressed: () => _showAddMatchDialog(
                             context,
-                            setStateDialog,
+                            setState,
                             newMatches,
                             matchCounter,
                           ),
@@ -284,7 +284,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                         ),
                       )
                     else
-                      ...newMatches.map((match) => _buildMatchPreview(match, setStateDialog, newMatches)).toList(),
+                      ...newMatches.map((match) => _buildMatchPreview(match)).toList(),
                   ],
                 ),
               ),
@@ -300,19 +300,18 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                         newMatches.isNotEmpty) {
 
                       final newLeague = League(
-                        id: _leagues.isNotEmpty ? _leagues.last.id + 1 : 1,
+                        id: _leagues.length + 1,
                         title: titleController.text,
                         description: descriptionController.text,
                         imageUrl: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400',
                         participants: 1,
-                        matches: List.from(newMatches),
+                        matches: newMatches,
                         isJoined: true,
                         colorValue: _getRandomColor().value,
                         categoryId: selectedCategory,
                         creatorId: widget.userEmail,
                       );
 
-                      // Используем setState основного виджета, а не диалога
                       setState(() {
                         _leagues.add(newLeague);
                       });
@@ -335,7 +334,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
-  void _showAddMatchDialog(BuildContext context, StateSetter setStateDialog,
+  void _showAddMatchDialog(BuildContext context, StateSetter setState,
       List<Match> matches, int matchCounter) {
 
     final TextEditingController homeController = TextEditingController();
@@ -389,7 +388,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                             lastDate: DateTime.now().add(const Duration(days: 365)),
                           );
                           if (pickedDate != null) {
-                            setStateDialog(() {
+                            setState(() {
                               selectedDate = pickedDate;
                             });
                           }
@@ -408,7 +407,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                             initialTime: selectedTime,
                           );
                           if (pickedTime != null) {
-                            setStateDialog(() {
+                            setState(() {
                               selectedTime = pickedTime;
                             });
                           }
@@ -454,7 +453,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                     status: MatchStatus.upcoming,
                   );
 
-                  setStateDialog(() {
+                  setState(() {
                     matches.add(newMatch);
                   });
 
@@ -469,7 +468,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
-  Widget _buildMatchPreview(Match match, StateSetter setStateDialog, List<Match> matches) {
+  Widget _buildMatchPreview(Match match) {
     return ListTile(
       leading: const Icon(Icons.sports),
       title: Text('${match.teamHome} - ${match.teamAway}'),
@@ -477,9 +476,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       trailing: IconButton(
         icon: const Icon(Icons.delete, color: Colors.red),
         onPressed: () {
-          setStateDialog(() {
-            matches.remove(match);
-          });
+          // Удаление матча из списка
         },
       ),
     );

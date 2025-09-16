@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../article_detail_page.dart';
 import 'models/article.dart';
 import 'widgets/article_card.dart';
 import 'widgets/add_article_dialog.dart';
+import '../../providers/articles_provider.dart';
 
 class ArticlesPage extends StatefulWidget {
   final String userName;
@@ -22,77 +24,6 @@ class ArticlesPage extends StatefulWidget {
 }
 
 class _ArticlesPageState extends State<ArticlesPage> {
-  final List<Article> _articles = [
-    Article(
-      id: '1',
-      title: 'Тактика игры Манчестер Сити',
-      description: 'Анализ тактических схем Пеп Гвардиолы в сезоне 2024/2025',
-      emoji: '📊',
-      content: '''
-# Тактика Манчестер Сити под руководством Пеп Гвардиолы
-
-## Введение
-Манчестер Сити продолжает доминировать в английском футболе благодаря новаторским тактическим решениям Пеп Гвардиолы. В сезоне 2024/2025 команда представила несколько новых элементов.
-
-## Основная схема
-Гвардиола чаще всего использует гибкую схему 4-3-3, которая трансформируется в 3-2-4-1 при атаке. Задние защитники перемещаются в центр, позволяя крайним защитникам подниматься высоко по флангам.
-
-## Ключевые innovations
-- **Инвертированные латерали**: Камвин и Уокер часто перемещаются в центр поля
-- **Ложная девятка**: Холаннд оттягивается на позицию плеймейкера
-- **Высокий прессинг**: Команда начинает давить сразу после потери мяча
-
-## Заключение
-Тактическая гибкость остается главным козырем Манчестер Сити в борьбе за титулы.
-''',
-      views: 1250,
-      likes: 345,
-      publishDate: DateTime.now().subtract(const Duration(days: 2)),
-      category: 'YouTube',
-      author: 'Алексей Петров',
-      imageUrl: 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
-    ),
-    Article(
-      id: '2',
-      title: 'Лучшие бомбардиры Лиги Чемпионов',
-      description: 'Рейтинг самых результативных игроков сезона 2024/2025',
-      emoji: '⚽',
-      content: 'Содержание статьи о лучших бомбардирах...',
-      views: 890,
-      likes: 210,
-      publishDate: DateTime.now().subtract(const Duration(days: 5)),
-      category: 'Бизнес',
-      author: 'Иван Сидоров',
-      imageUrl: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=500&h=300&fit=crop',
-    ),
-    Article(
-      id: '3',
-      title: 'Новые технологии в футболе',
-      description: 'Как технологии меняют современный футбол',
-      emoji: '🚀',
-      content: 'Содержание статьи о технологиях...',
-      views: 1560,
-      likes: 420,
-      publishDate: DateTime.now().subtract(const Duration(days: 3)),
-      category: 'Программирование',
-      author: 'Мария Иванова',
-      imageUrl: 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=500&h=300&fit=crop',
-    ),
-    Article(
-      id: '4',
-      title: 'Психология победителей',
-      description: 'Ментальная подготовка футболистов',
-      emoji: '🧠',
-      content: 'Содержание статьи о психологии...',
-      views: 980,
-      likes: 230,
-      publishDate: DateTime.now().subtract(const Duration(days: 7)),
-      category: 'Общение',
-      author: 'Петр Смирнов',
-      imageUrl: 'https://images.unsplash.com/photo-1545239351-ef35f43d514b?w=500&h=300&fit=crop',
-    ),
-  ];
-
   final List<ArticleCategory> _categories = [
     ArticleCategory(
       id: 'all',
@@ -158,7 +89,29 @@ class _ArticlesPageState extends State<ArticlesPage> {
     super.dispose();
   }
 
-  void _openArticleDetail(Article article) {
+  // Метод для получения статей из провайдера
+  List<Map<String, dynamic>> _getArticlesFromProvider() {
+    final articlesProvider = Provider.of<ArticlesProvider>(context, listen: true);
+    return articlesProvider.articles;
+  }
+
+  void _openArticleDetail(Map<String, dynamic> articleData) {
+    final article = Article(
+      id: articleData['id']?.toString() ?? '',
+      title: articleData['title'] ?? '',
+      description: articleData['description'] ?? '',
+      emoji: articleData['emoji'] ?? '📝',
+      content: articleData['content'] ?? '',
+      views: (articleData['views'] as int?) ?? 0,
+      likes: (articleData['likes'] as int?) ?? 0,
+      publishDate: articleData['publish_date'] != null
+          ? DateTime.parse(articleData['publish_date'])
+          : DateTime.now(),
+      category: articleData['category'] ?? 'Общее',
+      author: articleData['author'] ?? 'Неизвестный автор',
+      imageUrl: articleData['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+    );
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ArticleDetailPage(article: article),
@@ -173,25 +126,40 @@ class _ArticlesPageState extends State<ArticlesPage> {
         categories: _categories.where((cat) => cat.id != 'all').map((cat) => cat.title).toList(),
         emojis: _emojis,
         onArticleAdded: (newArticle) {
-          setState(() {
-            _articles.insert(0, newArticle);
-          });
+          final articlesProvider = Provider.of<ArticlesProvider>(context, listen: false);
+
+          final articleData = {
+            "id": "article-${DateTime.now().millisecondsSinceEpoch}",
+            "title": newArticle.title,
+            "description": newArticle.description,
+            "content": newArticle.content,
+            "emoji": newArticle.emoji,
+            "category": newArticle.category,
+            "views": 0,
+            "likes": 0,
+            "author": widget.userName,
+            "publish_date": DateTime.now().toIso8601String(),
+            "image_url": 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+          };
+
+          articlesProvider.addArticle(articleData);
         },
         userName: widget.userName,
       ),
     );
   }
 
-  List<Article> _getFilteredArticles(int tabIndex) {
+  List<Map<String, dynamic>> _getFilteredArticles(int tabIndex) {
+    final articles = _getArticlesFromProvider();
     final selectedCategory = _categories[tabIndex];
 
-    return _articles.where((article) {
+    return articles.where((article) {
       final matchesSearch = _searchQuery.isEmpty ||
-          article.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          article.description.toLowerCase().contains(_searchQuery.toLowerCase());
+          (article['title']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (article['description']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
 
       final matchesCategory = selectedCategory.id == 'all' ||
-          article.category.toLowerCase() == selectedCategory.title.toLowerCase();
+          (article['category']?.toString() ?? '').toLowerCase() == selectedCategory.title.toLowerCase();
 
       return matchesSearch && matchesCategory;
     }).toList();
@@ -335,7 +303,6 @@ class _ArticlesPageState extends State<ArticlesPage> {
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
-            // Заголовок "Статьи" вверху - исправленная версия
             SliverAppBar(
               expandedHeight: 100.0,
               floating: false,
@@ -522,16 +489,10 @@ class _ArticlesPageState extends State<ArticlesPage> {
             ),
           ];
         },
-        body: IndexedStack(
-          index: _currentTabIndex,
-          children: _categories.asMap().entries.map((entry) {
-            final index = entry.key;
-            return _CategoryContentBuilder(
-              tabIndex: index,
-              currentTabIndex: _currentTabIndex,
-              getFilteredArticles: _getFilteredArticles,
-            );
-          }).toList(),
+        body: _CategoryContentBuilder(
+          tabIndex: _currentTabIndex,
+          getFilteredArticles: _getFilteredArticles,
+          onArticleTap: _openArticleDetail,
         ),
       ),
     );
@@ -540,22 +501,17 @@ class _ArticlesPageState extends State<ArticlesPage> {
 
 class _CategoryContentBuilder extends StatelessWidget {
   final int tabIndex;
-  final int currentTabIndex;
-  final List<Article> Function(int) getFilteredArticles;
+  final List<Map<String, dynamic>> Function(int) getFilteredArticles;
+  final Function(Map<String, dynamic>) onArticleTap;
 
   const _CategoryContentBuilder({
     required this.tabIndex,
-    required this.currentTabIndex,
     required this.getFilteredArticles,
+    required this.onArticleTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Показываем контент только для активной вкладки
-    if (tabIndex != currentTabIndex) {
-      return Container(); // Пустой контейнер для неактивных вкладки
-    }
-
     final filteredArticles = getFilteredArticles(tabIndex);
 
     return filteredArticles.isEmpty
@@ -593,23 +549,33 @@ class _CategoryContentBuilder extends StatelessWidget {
       ),
       itemCount: filteredArticles.length,
       itemBuilder: (context, index) {
-        final article = filteredArticles[index];
+        final articleData = filteredArticles[index];
+
+        final article = Article(
+          id: articleData['id']?.toString() ?? '',
+          title: articleData['title'] ?? '',
+          description: articleData['description'] ?? '',
+          emoji: articleData['emoji'] ?? '📝',
+          content: articleData['content'] ?? '',
+          views: (articleData['views'] as int?) ?? 0,
+          likes: (articleData['likes'] as int?) ?? 0,
+          publishDate: articleData['publish_date'] != null
+              ? DateTime.parse(articleData['publish_date'])
+              : DateTime.now(),
+          category: articleData['category'] ?? 'Общее',
+          author: articleData['author'] ?? 'Неизвестный автор',
+          imageUrl: articleData['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+        );
+
         return ArticleCard(
           article: article,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => ArticleDetailPage(article: article),
-              ),
-            );
-          },
+          onTap: () => onArticleTap(articleData),
         );
       },
     );
   }
 }
 
-// Модель категории статей с обновленными полями
 class ArticleCategory {
   final String id;
   final String title;

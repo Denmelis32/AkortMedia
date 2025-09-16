@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/news_provider.dart';
 import 'providers/channel_posts_provider.dart';
+import 'providers/articles_provider.dart'; // Добавьте этот импорт
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
@@ -47,6 +48,10 @@ class _MyAppState extends State<MyApp> {
     final channelPostsProvider = Provider.of<ChannelPostsProvider>(context as BuildContext, listen: false);
     channelPostsProvider.clearAll();
 
+    // Также очищаем ArticlesProvider
+    final articlesProvider = Provider.of<ArticlesProvider>(context as BuildContext, listen: false);
+    articlesProvider.clearAll();
+
     setState(() {
       _isLoggedIn = false;
     });
@@ -58,6 +63,7 @@ class _MyAppState extends State<MyApp> {
       providers: [
         ChangeNotifierProvider(create: (_) => NewsProvider()),
         ChangeNotifierProvider(create: (_) => ChannelPostsProvider()),
+        ChangeNotifierProvider(create: (_) => ArticlesProvider()), // Добавьте эту строку
       ],
       child: MaterialApp(
         title: 'Football App',

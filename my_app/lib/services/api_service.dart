@@ -333,4 +333,83 @@ class ApiService {
       rethrow;
     }
   }
+
+  // Получение статей канала
+  static Future<List<Map<String, dynamic>>> getChannelArticles(String channelId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/channels/$channelId/articles'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> articlesList = json.decode(response.body);
+        // Преобразуем в List<Map<String, dynamic>> и убедимся, что есть все необходимые поля
+        return articlesList.map((article) {
+          return {
+            'id': article['id'] ?? 'unknown-id',
+            'title': article['title'] ?? '',
+            'description': article['description'] ?? '',
+            'content': article['content'] ?? '',
+            'emoji': article['emoji'] ?? '📝',
+            'category': article['category'] ?? 'Общая',
+            'views': article['views'] ?? 0,
+            'likes': article['likes'] ?? 0,
+            'author': article['author'] ?? 'Неизвестный автор',
+            'publish_date': article['publish_date'] ?? DateTime.now().toIso8601String(),
+            'image_url': article['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+            'channel_id': article['channel_id'] ?? channelId,
+            'channel_name': article['channel_name'] ?? 'Неизвестный канал',
+          };
+        }).toList();
+      } else if (response.statusCode == 401) {
+        throw Exception('Необходима авторизация для просмотра статей канала');
+      } else {
+        throw Exception('Failed to load channel articles: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('API Error: $e');
+      rethrow;
+    }
+  }
+
+  // Создание статьи канала
+  static Future<Map<String, dynamic>> createChannelArticle(Map<String, dynamic> data) async {
+    try {
+      final headers = await _getHeaders();
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/channels/${data['channel_id']}/articles'),
+        headers: headers,
+        body: json.encode(data),
+      );
+
+      if (response.statusCode == 201) {
+        final newArticle = json.decode(response.body);
+        return {
+          'id': newArticle['id'] ?? 'article-${DateTime.now().millisecondsSinceEpoch}',
+          'title': newArticle['title'] ?? data['title'],
+          'description': newArticle['description'] ?? data['description'],
+          'content': newArticle['content'] ?? data['content'],
+          'emoji': newArticle['emoji'] ?? data['emoji'] ?? '📝',
+          'category': newArticle['category'] ?? data['category'] ?? 'Общая',
+          'views': newArticle['views'] ?? 0,
+          'likes': newArticle['likes'] ?? 0,
+          'author': newArticle['author'] ?? 'Администратор канала',
+          'publish_date': newArticle['publish_date'] ?? DateTime.now().toIso8601String(),
+          'image_url': newArticle['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+          'channel_id': newArticle['channel_id'] ?? data['channel_id'],
+          'channel_name': newArticle['channel_name'] ?? 'Название канала',
+        };
+      } else if (response.statusCode == 401) {
+        throw Exception('Необходима авторизация для создания статей канала');
+      } else {
+        throw Exception('Failed to create channel article: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('API Error: $e');
+      rethrow;
+    }
+  }
 }

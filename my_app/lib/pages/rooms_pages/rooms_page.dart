@@ -1,7 +1,7 @@
 // lib/pages/rooms_page/rooms_page.dart
 import 'package:flutter/material.dart';
 import 'models/room.dart';
-import 'chat_page.dart'; // Изменяем импорт
+import 'chat_page.dart';
 
 class RoomsPage extends StatefulWidget {
   final String userName;
@@ -182,14 +182,12 @@ class _RoomsPageState extends State<RoomsPage> {
   List<Room> get _filteredRooms {
     List<Room> filtered = _rooms;
 
-    // Фильтрация по категории
     if (_selectedCategoryId != 'all') {
       filtered = filtered
           .where((room) => room.categoryId == _selectedCategoryId)
           .toList();
     }
 
-    // Фильтрация по поисковому запросу
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((room) {
         return room.title.toLowerCase().contains(_searchQuery) ||
@@ -286,6 +284,9 @@ class _RoomsPageState extends State<RoomsPage> {
       Colors.teal.shade700,
       Colors.orange.shade800,
       Colors.green.shade800,
+      Colors.indigo.shade700,
+      Colors.pink.shade700,
+      Colors.cyan.shade700,
     ];
     return colors[_rooms.length % colors.length];
   }
@@ -679,7 +680,7 @@ class _RoomsPageState extends State<RoomsPage> {
         crossAxisCount: 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 0.8,
+        childAspectRatio: 0.75,
       ),
       itemCount: categoryRooms.length,
       itemBuilder: (context, index) {
@@ -692,140 +693,282 @@ class _RoomsPageState extends State<RoomsPage> {
   Widget _buildRoomCard(Room room, int index) {
     return GestureDetector(
       onTap: () => _openChatPage(room),
-      child: Card(
-        elevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                room.cardColor,
-                room.cardColor.withOpacity(0.8),
-              ],
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 200),
+          tween: Tween<double>(begin: 0.95, end: 1.0),
+          builder: (context, scale, child) {
+            return Transform.scale(
+              scale: scale,
+              child: child,
+            );
+          },
+          child: Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(16),
-                      bottomLeft: Radius.circular(16),
-                    ),
-                  ),
-                  child: Text(
-                    '${room.participants} участников',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundImage: NetworkImage(room.imageUrl),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      room.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      room.description,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 12,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          color: Colors.white.withOpacity(0.8),
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${room.messages} сообщений',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time,
-                          color: Colors.white.withOpacity(0.8),
-                          size: 12,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          room.lastActivity,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () => _toggleJoin(index),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: room.isJoined
-                            ? Colors.white.withOpacity(0.2)
-                            : Colors.white,
-                        foregroundColor: room.isJoined
-                            ? Colors.white
-                            : const Color(0xFF396AA3),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        minimumSize: const Size(double.infinity, 36),
-                      ),
-                      child: Text(
-                        room.isJoined ? 'Выйти' : 'Присоединиться',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    room.cardColor.withOpacity(0.9),
+                    room.cardColor.withOpacity(0.7),
+                    room.cardColor.withOpacity(0.9),
                   ],
+                  stops: const [0.0, 0.5, 1.0],
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: room.cardColor.withOpacity(0.3),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-            ],
+              child: Stack(
+                children: [
+                  // Декоративные элементы
+                  Positioned(
+                    top: -10,
+                    right: -10,
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.1),
+                      ),
+                    ),
+                  ),
+
+                  Positioned(
+                    bottom: -20,
+                    left: -20,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.05),
+                      ),
+                    ),
+                  ),
+
+                  // Основной контент
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Аватарка с бейджем участников
+                        Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: Image.network(
+                                  room.imageUrl,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+
+                            // Бейдж участников
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                '${room.participants.formatCount()}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Заголовок
+                        Text(
+                          room.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // Описание
+                        Text(
+                          room.description,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        const Spacer(),
+
+                        // Статистика
+                        Row(
+                          children: [
+                            // Сообщения
+                            _buildStatItem(
+                              Icons.chat_bubble_outline_rounded,
+                              '${room.messages.formatCount()}',
+                              Colors.white.withOpacity(0.8),
+                            ),
+
+                            const SizedBox(width: 16),
+
+                            // Активность
+                            _buildStatItem(
+                              Icons.access_time_rounded,
+                              room.lastActivity,
+                              Colors.white.withOpacity(0.8),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Кнопка присоединения
+                        ElevatedButton(
+                          onPressed: () => _toggleJoin(index),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: room.isJoined
+                                ? Colors.white.withOpacity(0.15)
+                                : Colors.white,
+                            foregroundColor: room.isJoined
+                                ? Colors.white
+                                : room.cardColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            minimumSize: const Size(double.infinity, 44),
+                            elevation: 2,
+                            shadowColor: Colors.black.withOpacity(0.3),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                room.isJoined ? Icons.check_circle_rounded : Icons.add_rounded,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                room.isJoined ? 'Вы участвуете' : 'Присоединиться',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Индикатор новой активности
+                  if (room.lastActivity.contains('минут') || room.lastActivity.contains('только что'))
+                    Positioned(
+                      top: 15,
+                      right: 15,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String text, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color: color,
+          size: 12,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -845,4 +988,16 @@ class RoomCategory {
     required this.icon,
     required this.color,
   });
+}
+
+// Расширение для форматирования чисел
+extension NumberFormatting on int {
+  String formatCount() {
+    if (this >= 1000000) {
+      return '${(this / 1000000).toStringAsFixed(1)}M';
+    } else if (this >= 1000) {
+      return '${(this / 1000).toStringAsFixed(1)}K';
+    }
+    return toString();
+  }
 }

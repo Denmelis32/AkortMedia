@@ -58,7 +58,6 @@ class _HomePageState extends State<HomePage> {
         onLogout: widget.onLogout,
       ),
       PredictionsLeaguePage(
-        userId: 'temp_user_${DateTime.now().millisecondsSinceEpoch}',
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,

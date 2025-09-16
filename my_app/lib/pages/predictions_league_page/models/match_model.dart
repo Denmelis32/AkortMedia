@@ -1,4 +1,4 @@
-enum MatchStatus { upcoming, live, finished }
+enum MatchStatus { upcoming, live, completed, finished }
 
 class Match {
   final int id;
@@ -11,7 +11,7 @@ class Match {
   final String userPrediction;
   final String actualScore;
   final MatchStatus status;
-  final int points; // Добавляем поле для очков
+  final int points;
 
   Match({
     required this.id,
@@ -24,7 +24,7 @@ class Match {
     required this.userPrediction,
     required this.actualScore,
     required this.status,
-    this.points = 0, // По умолчанию 0 очков
+    this.points = 0,
   });
 
   Match copyWith({
@@ -55,7 +55,7 @@ class Match {
     );
   }
 
-  // Метод для расчета очков за прогноз
+  // Новая система подсчета очков
   static int calculatePoints(String prediction, String actualScore) {
     if (prediction.isEmpty || actualScore.isEmpty) return 0;
 
@@ -73,31 +73,40 @@ class Match {
       final actualHome = int.parse(actualParts[0].trim());
       final actualAway = int.parse(actualParts[1].trim());
 
-      // Точное попадание - 3 очка
+      // 1. Точное попадание счета и победителя - 4 очка
       if (predHome == actualHome && predAway == actualAway) {
-        return 3;
+        return 4;
       }
 
-      // Правильный исход (победа/ничья/поражение) - 1 очко
+      // 2. Угадан победитель, но не счет - 2 очка
       final predOutcome = _getMatchOutcome(predHome, predAway);
       final actualOutcome = _getMatchOutcome(actualHome, actualAway);
 
       if (predOutcome == actualOutcome) {
+        return 2;
+      }
+
+      // 3. Угадана только ничья (но не точный счет) - 1 очко
+      if (predOutcome == 'draw' && actualOutcome == 'draw') {
         return 1;
       }
 
+      // 4. Не угадал победителя и счет - 0 очков
       return 0;
+
     } catch (e) {
       print('Ошибка расчета очков: $e');
       return 0;
     }
   }
 
+  // Вспомогательный метод для определения исхода матча
   static String _getMatchOutcome(int home, int away) {
     if (home > away) return 'home_win';
     if (home < away) return 'away_win';
     return 'draw';
   }
+
   static bool isValidPredictionFormat(String prediction) {
     if (prediction.isEmpty || !prediction.contains(':')) return false;
 
@@ -113,10 +122,42 @@ class Match {
     }
   }
 
-  // Проверка валидности формата результата
   static bool isValidScoreFormat(String score) {
     return isValidPredictionFormat(score);
   }
 
+  // Дополнительный метод для получения текстового описания исхода
+  String get matchOutcome {
+    if (actualScore.isEmpty) return 'Матч не завершен';
 
+    try {
+      final parts = actualScore.split(':');
+      final home = int.parse(parts[0].trim());
+      final away = int.parse(parts[1].trim());
+
+      if (home > away) return 'Победа $teamHome';
+      if (away > home) return 'Победа $teamAway';
+      return 'Ничья';
+    } catch (e) {
+      return 'Неверный формат счета';
+    }
+  }
+
+  // Метод для проверки, завершен ли матч
+  bool get isCompleted => actualScore.isNotEmpty &&
+      (status == MatchStatus.completed || status == MatchStatus.finished);
+
+  // Метод для получения разницы голов
+  String get goalDifference {
+    if (actualScore.isEmpty) return '-';
+
+    try {
+      final parts = actualScore.split(':');
+      final home = int.parse(parts[0].trim());
+      final away = int.parse(parts[1].trim());
+      return '${home - away}';
+    } catch (e) {
+      return '-';
+    }
+  }
 }

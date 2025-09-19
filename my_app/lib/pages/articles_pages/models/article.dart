@@ -1,3 +1,5 @@
+import '../widgets/article_card.dart';
+
 class Article {
   final String id;
   final String title;
@@ -10,6 +12,7 @@ class Article {
   final String category;
   final String author;
   final String imageUrl;
+  final AuthorLevel authorLevel;
 
   Article({
     required this.id,
@@ -23,6 +26,7 @@ class Article {
     required this.category,
     required this.author,
     required this.imageUrl,
+    required this.authorLevel,
   });
 
   String get formattedDate {

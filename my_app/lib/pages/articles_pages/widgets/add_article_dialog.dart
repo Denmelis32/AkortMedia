@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/article.dart';
+import 'article_card.dart';
 
 class AddArticleDialog extends StatefulWidget {
   final List<String> categories;
@@ -26,18 +27,42 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _imageUrlController = TextEditingController();
 
-  String _selectedCategory = 'YouTube'; // Установим значение по умолчанию
+  String _selectedCategory = 'Тактика';
   String _selectedEmoji = '📊';
+  AuthorLevel _selectedAuthorLevel = AuthorLevel.beginner; // Добавлен выбор уровня
   int _charCount = 0;
 
   @override
   void initState() {
     super.initState();
-    // Устанавливаем первую категорию из списка как выбранную по умолчанию
-    if (widget.categories.isNotEmpty) {
-      _selectedCategory = widget.categories[0];
-    }
+    // Установим значение по умолчанию для изображения
     _imageUrlController.text = 'https://images.unsplash.com/photo-1552667466-07770ae110d0?w=500&h=300&fit=crop';
+
+    // Установим первую категорию из списка как выбранную по умолчанию
+    if (widget.categories.isNotEmpty) {
+      _selectedCategory = widget.categories.first;
+    }
+  }
+
+  // Цвета для уровней авторов
+  Color _getLevelColor(AuthorLevel level) {
+    return level == AuthorLevel.expert
+        ? const Color(0xFF4FC3F7) // Бриллиантовый синий
+        : const Color(0xFFB0BEC5); // Серебрянный
+  }
+
+  // Иконка уровня автора
+  IconData _getLevelIcon(AuthorLevel level) {
+    return level == AuthorLevel.expert
+        ? Icons.diamond_rounded
+        : Icons.auto_awesome_rounded;
+  }
+
+  // Текст уровня автора
+  String _getLevelText(AuthorLevel level) {
+    return level == AuthorLevel.expert
+        ? 'ЭКСПЕРТ'
+        : 'НОВИЧОК';
   }
 
   @override
@@ -45,23 +70,23 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
       backgroundColor: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
+      child: SingleChildScrollView(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,6 +109,111 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                       fontWeight: FontWeight.w700,
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Уровень автора (новый выбор)
+                  Text(
+                    'Уровень автора',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      // Кнопка "Новичок"
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedAuthorLevel = AuthorLevel.beginner;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _selectedAuthorLevel == AuthorLevel.beginner
+                                  ? _getLevelColor(AuthorLevel.beginner).withOpacity(0.2)
+                                  : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _selectedAuthorLevel == AuthorLevel.beginner
+                                    ? _getLevelColor(AuthorLevel.beginner)
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _getLevelIcon(AuthorLevel.beginner),
+                                  size: 18,
+                                  color: _getLevelColor(AuthorLevel.beginner),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _getLevelText(AuthorLevel.beginner),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: _getLevelColor(AuthorLevel.beginner),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Кнопка "Эксперт"
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedAuthorLevel = AuthorLevel.expert;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _selectedAuthorLevel == AuthorLevel.expert
+                                  ? _getLevelColor(AuthorLevel.expert).withOpacity(0.2)
+                                  : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _selectedAuthorLevel == AuthorLevel.expert
+                                    ? _getLevelColor(AuthorLevel.expert)
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _getLevelIcon(AuthorLevel.expert),
+                                  size: 18,
+                                  color: _getLevelColor(AuthorLevel.expert),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _getLevelText(AuthorLevel.expert),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: _getLevelColor(AuthorLevel.expert),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
 
@@ -125,7 +255,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: DropdownButton<String>(
+                            child: DropdownButtonFormField<String>(
                               value: _selectedCategory,
                               items: widget.categories.map((category) {
                                 return DropdownMenuItem(
@@ -141,9 +271,11 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                                   _selectedCategory = value!;
                                 });
                               },
-                              isExpanded: true,
-                              underline: Container(),
-                              icon: const Icon(Icons.arrow_drop_down_rounded),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                labelText: 'Категория',
+                              ),
+                              style: const TextStyle(fontSize: 16),
                             ),
                           ),
                         ),
@@ -170,6 +302,9 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Введите URL изображения';
+                      }
+                      if (!value.startsWith('http')) {
+                        return 'Введите корректный URL';
                       }
                       return null;
                     },
@@ -259,8 +394,8 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                           if (value == null || value.isEmpty) {
                             return 'Введите содержание статьи';
                           }
-                          if (value.length < 560) {
-                            return 'Статья должна содержать минимум 560 символов';
+                          if (value.length < 100) {
+                            return 'Статья должна содержать минимум 100 символов';
                           }
                           return null;
                         },
@@ -270,21 +405,31 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                         children: [
                           Expanded(
                             child: LinearProgressIndicator(
-                              value: _charCount / 560,
+                              value: _charCount / 100,
                               backgroundColor: Colors.grey[300],
-                              color: _charCount >= 560 ? Colors.green : Theme.of(context).colorScheme.primary,
+                              color: _charCount >= 100
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.primary,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            '$_charCount/560',
+                            '$_charCount/100',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Минимум 100 символов',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ),
@@ -317,6 +462,7 @@ class _AddArticleDialogState extends State<AddArticleDialog> {
                               category: _selectedCategory,
                               author: widget.userName,
                               imageUrl: _imageUrlController.text,
+                              authorLevel: _selectedAuthorLevel,  // Добавлен уровень автора
                             );
 
                             widget.onArticleAdded(newArticle);

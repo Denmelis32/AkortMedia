@@ -89,6 +89,19 @@ class _ArticlesPageState extends State<ArticlesPage> {
     super.dispose();
   }
 
+  // Вспомогательная функция для преобразования строки в AuthorLevel
+  AuthorLevel _parseAuthorLevel(dynamic authorLevelData) {
+    if (authorLevelData == null) return AuthorLevel.beginner;
+
+    if (authorLevelData is String) {
+      return authorLevelData.toLowerCase() == 'expert'
+          ? AuthorLevel.expert
+          : AuthorLevel.beginner;
+    }
+
+    return AuthorLevel.beginner;
+  }
+
   // Метод для получения статей из провайдера
   List<Map<String, dynamic>> _getArticlesFromProvider() {
     final articlesProvider = Provider.of<ArticlesProvider>(context, listen: true);
@@ -110,6 +123,7 @@ class _ArticlesPageState extends State<ArticlesPage> {
       category: articleData['category'] ?? 'Общее',
       author: articleData['author'] ?? 'Неизвестный автор',
       imageUrl: articleData['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+      authorLevel: _parseAuthorLevel(articleData['author_level']),
     );
 
     Navigator.of(context).push(
@@ -139,7 +153,8 @@ class _ArticlesPageState extends State<ArticlesPage> {
             "likes": 0,
             "author": widget.userName,
             "publish_date": DateTime.now().toIso8601String(),
-            "image_url": 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+            "image_url": newArticle.imageUrl,
+            "author_level": newArticle.authorLevel == AuthorLevel.expert ? 'expert' : 'beginner',
           };
 
           articlesProvider.addArticle(articleData);
@@ -493,6 +508,7 @@ class _ArticlesPageState extends State<ArticlesPage> {
           tabIndex: _currentTabIndex,
           getFilteredArticles: _getFilteredArticles,
           onArticleTap: _openArticleDetail,
+          parseAuthorLevel: _parseAuthorLevel,
         ),
       ),
     );
@@ -503,11 +519,13 @@ class _CategoryContentBuilder extends StatelessWidget {
   final int tabIndex;
   final List<Map<String, dynamic>> Function(int) getFilteredArticles;
   final Function(Map<String, dynamic>) onArticleTap;
+  final AuthorLevel Function(dynamic) parseAuthorLevel;
 
   const _CategoryContentBuilder({
     required this.tabIndex,
     required this.getFilteredArticles,
     required this.onArticleTap,
+    required this.parseAuthorLevel,
   });
 
   @override
@@ -565,6 +583,7 @@ class _CategoryContentBuilder extends StatelessWidget {
           category: articleData['category'] ?? 'Общее',
           author: articleData['author'] ?? 'Неизвестный автор',
           imageUrl: articleData['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+          authorLevel: parseAuthorLevel(articleData['author_level']),
         );
 
         return ArticleCard(

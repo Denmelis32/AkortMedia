@@ -24,6 +24,16 @@ class ArticlesPage extends StatefulWidget {
 }
 
 class _ArticlesPageState extends State<ArticlesPage> {
+  // Константы
+  static const defaultImageUrl = 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop';
+  static const gridPadding = EdgeInsets.all(16);
+  static const gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 2,
+    crossAxisSpacing: 16,
+    mainAxisSpacing: 16,
+    childAspectRatio: 0.7,
+  );
+
   final List<ArticleCategory> _categories = [
     ArticleCategory(
       id: 'all',
@@ -102,12 +112,6 @@ class _ArticlesPageState extends State<ArticlesPage> {
     return AuthorLevel.beginner;
   }
 
-  // Метод для получения статей из провайдера
-  List<Map<String, dynamic>> _getArticlesFromProvider() {
-    final articlesProvider = Provider.of<ArticlesProvider>(context, listen: true);
-    return articlesProvider.articles;
-  }
-
   void _openArticleDetail(Map<String, dynamic> articleData) {
     final article = Article(
       id: articleData['id']?.toString() ?? '',
@@ -117,12 +121,10 @@ class _ArticlesPageState extends State<ArticlesPage> {
       content: articleData['content'] ?? '',
       views: (articleData['views'] as int?) ?? 0,
       likes: (articleData['likes'] as int?) ?? 0,
-      publishDate: articleData['publish_date'] != null
-          ? DateTime.parse(articleData['publish_date'])
-          : DateTime.now(),
+      publishDate: _parseDate(articleData['publish_date']),
       category: articleData['category'] ?? 'Общее',
       author: articleData['author'] ?? 'Неизвестный автор',
-      imageUrl: articleData['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+      imageUrl: articleData['image_url'] ?? defaultImageUrl,
       authorLevel: _parseAuthorLevel(articleData['author_level']),
     );
 
@@ -131,6 +133,23 @@ class _ArticlesPageState extends State<ArticlesPage> {
         builder: (context) => ArticleDetailPage(article: article),
       ),
     );
+  }
+
+  // Безопасный парсинг даты с try-catch
+  DateTime _parseDate(dynamic dateData) {
+    if (dateData == null) return DateTime.now();
+
+    try {
+      if (dateData is String) {
+        return DateTime.parse(dateData);
+      } else if (dateData is DateTime) {
+        return dateData;
+      }
+      return DateTime.now();
+    } catch (e) {
+      print('Ошибка парсинга даты: $e');
+      return DateTime.now();
+    }
   }
 
   void _showAddArticleDialog() {
@@ -162,22 +181,6 @@ class _ArticlesPageState extends State<ArticlesPage> {
         userName: widget.userName,
       ),
     );
-  }
-
-  List<Map<String, dynamic>> _getFilteredArticles(int tabIndex) {
-    final articles = _getArticlesFromProvider();
-    final selectedCategory = _categories[tabIndex];
-
-    return articles.where((article) {
-      final matchesSearch = _searchQuery.isEmpty ||
-          (article['title']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (article['description']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
-
-      final matchesCategory = selectedCategory.id == 'all' ||
-          (article['category']?.toString() ?? '').toLowerCase() == selectedCategory.title.toLowerCase();
-
-      return matchesSearch && matchesCategory;
-    }).toList();
   }
 
   void _showFilterBottomSheet() {
@@ -315,225 +318,256 @@ class _ArticlesPageState extends State<ArticlesPage> {
         elevation: 4,
         tooltip: 'Добавить статью',
       ),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: 100.0,
-              floating: false,
-              pinned: true,
-              backgroundColor: Colors.white,
-              title: Text(
-                'Статьи',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 20.0,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              centerTitle: false,
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(48),
-                child: ColoredBox(
-                  color: Colors.white,
-                  child: SingleChildScrollView(
-                    controller: _tabScrollController,
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _categories.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final category = entry.value;
-                        return _buildTabItem(category, index);
-                      }).toList(),
+      body: Consumer<ArticlesProvider>(
+        builder: (context, articlesProvider, child) {
+          return NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverAppBar(
+                  expandedHeight: 100.0,
+                  floating: false,
+                  pinned: true,
+                  backgroundColor: Colors.white,
+                  title: Text(
+                    'Статьи',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 20.0,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: Icon(Icons.filter_list_rounded,
-                      size: 24,
-                      color: Colors.grey[700]),
-                  onPressed: _showFilterBottomSheet,
-                  tooltip: 'Фильтры',
-                ),
-              ],
-            ),
-
-            SliverPadding(
-              padding: const EdgeInsets.all(20),
-              sliver: SliverToBoxAdapter(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                  centerTitle: false,
+                  bottom: PreferredSize(
+                    preferredSize: const Size.fromHeight(48),
+                    child: ColoredBox(
+                      color: Colors.white,
+                      child: SingleChildScrollView(
+                        controller: _tabScrollController,
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _categories.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final category = entry.value;
+                            return _buildTabItem(category, index);
+                          }).toList(),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Поиск статей...',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 22),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 22),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                          : null,
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                    },
                   ),
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (_currentTabIndex != 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Категория: ',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            Text(
-                              _categories[_currentTabIndex].title,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _currentTabIndex = 0;
-                                });
-                              },
-                              child: const Icon(Icons.close_rounded, size: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_searchQuery.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.green.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Поиск: ',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            Text(
-                              '"$_searchQuery"',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.green[700],
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _searchController.clear();
-                                  _searchQuery = '';
-                                });
-                              },
-                              child: const Icon(Icons.close_rounded, size: 14),
-                            ),
-                          ],
-                        ),
-                      ),
+                  actions: [
+                    IconButton(
+                      icon: Icon(Icons.filter_list_rounded,
+                          size: 24,
+                          color: Colors.grey[700]),
+                      onPressed: _showFilterBottomSheet,
+                      tooltip: 'Фильтры',
+                    ),
                   ],
                 ),
-              ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverToBoxAdapter(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Поиск статей...',
+                          prefixIcon: const Icon(Icons.search_rounded, size: 22),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 22),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                              : null,
+                          filled: true,
+                          fillColor: Theme.of(context).colorScheme.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (_currentTabIndex != 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Категория: ',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                Text(
+                                  _categories[_currentTabIndex].title,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _currentTabIndex = 0;
+                                    });
+                                  },
+                                  child: const Icon(Icons.close_rounded, size: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (_searchQuery.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.green.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Поиск: ',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                Text(
+                                  '"$_searchQuery"',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                  child: const Icon(Icons.close_rounded, size: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ];
+            },
+            body: _CategoryContentBuilder(
+              allArticles: articlesProvider.articles,
+              tabIndex: _currentTabIndex,
+              searchQuery: _searchQuery,
+              categories: _categories,
+              onArticleTap: _openArticleDetail,
+              parseAuthorLevel: _parseAuthorLevel,
             ),
-          ];
+          );
         },
-        body: _CategoryContentBuilder(
-          tabIndex: _currentTabIndex,
-          getFilteredArticles: _getFilteredArticles,
-          onArticleTap: _openArticleDetail,
-          parseAuthorLevel: _parseAuthorLevel,
-        ),
       ),
     );
   }
 }
 
 class _CategoryContentBuilder extends StatelessWidget {
+  final List<Map<String, dynamic>> allArticles;
   final int tabIndex;
-  final List<Map<String, dynamic>> Function(int) getFilteredArticles;
+  final String searchQuery;
+  final List<ArticleCategory> categories;
   final Function(Map<String, dynamic>) onArticleTap;
   final AuthorLevel Function(dynamic) parseAuthorLevel;
 
   const _CategoryContentBuilder({
+    required this.allArticles,
     required this.tabIndex,
-    required this.getFilteredArticles,
+    required this.searchQuery,
+    required this.categories,
     required this.onArticleTap,
     required this.parseAuthorLevel,
   });
 
+  // Метод фильтрации
+  List<Map<String, dynamic>> _getFilteredArticles() {
+    final selectedCategory = categories[tabIndex];
+
+    return allArticles.where((article) {
+      final matchesSearch = searchQuery.isEmpty ||
+          (article['title']?.toString() ?? '').toLowerCase().contains(searchQuery.toLowerCase()) ||
+          (article['description']?.toString() ?? '').toLowerCase().contains(searchQuery.toLowerCase());
+
+      final matchesCategory = selectedCategory.id == 'all' ||
+          (article['category']?.toString() ?? '').toLowerCase() == selectedCategory.id.toLowerCase();
+
+      return matchesSearch && matchesCategory;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filteredArticles = getFilteredArticles(tabIndex);
+    final filteredArticles = _getFilteredArticles();
 
     return filteredArticles.isEmpty
-        ? Center(
+        ? _buildEmptyState()
+        : _buildArticlesGrid(filteredArticles);
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -556,42 +590,69 @@ class _CategoryContentBuilder extends StatelessWidget {
           ),
         ],
       ),
-    )
-        : GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.7,
-      ),
-      itemCount: filteredArticles.length,
-      itemBuilder: (context, index) {
-        final articleData = filteredArticles[index];
-
-        final article = Article(
-          id: articleData['id']?.toString() ?? '',
-          title: articleData['title'] ?? '',
-          description: articleData['description'] ?? '',
-          emoji: articleData['emoji'] ?? '📝',
-          content: articleData['content'] ?? '',
-          views: (articleData['views'] as int?) ?? 0,
-          likes: (articleData['likes'] as int?) ?? 0,
-          publishDate: articleData['publish_date'] != null
-              ? DateTime.parse(articleData['publish_date'])
-              : DateTime.now(),
-          category: articleData['category'] ?? 'Общее',
-          author: articleData['author'] ?? 'Неизвестный автор',
-          imageUrl: articleData['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
-          authorLevel: parseAuthorLevel(articleData['author_level']),
-        );
-
-        return ArticleCard(
-          article: article,
-          onTap: () => onArticleTap(articleData),
-        );
-      },
     );
+  }
+
+  Widget _buildArticlesGrid(List<Map<String, dynamic>> filteredArticles) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        // Заглушка для обновления - можно добавить реальную логику
+        await Future.delayed(const Duration(seconds: 1));
+      },
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.7,
+        ),
+        itemCount: filteredArticles.length,
+        itemBuilder: (context, index) {
+          final articleData = filteredArticles[index];
+          final article = Article(
+            id: articleData['id']?.toString() ?? '',
+            title: articleData['title'] ?? '',
+            description: articleData['description'] ?? '',
+            emoji: articleData['emoji'] ?? '📝',
+            content: articleData['content'] ?? '',
+            views: (articleData['views'] as int?) ?? 0,
+            likes: (articleData['likes'] as int?) ?? 0,
+            publishDate: _parseDate(articleData['publish_date']),
+            category: articleData['category'] ?? 'Общее',
+            author: articleData['author'] ?? 'Неизвестный автор',
+            imageUrl: articleData['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
+            authorLevel: parseAuthorLevel(articleData['author_level']),
+          );
+
+          return AnimatedOpacity(
+            opacity: 1.0,
+            duration: Duration(milliseconds: 300 + (index % 5) * 100),
+            child: ArticleCard(
+              key: ValueKey(article.id),
+              article: article,
+              onTap: () => onArticleTap(articleData),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  DateTime _parseDate(dynamic dateData) {
+    if (dateData == null) return DateTime.now();
+
+    try {
+      if (dateData is String) {
+        return DateTime.parse(dateData);
+      } else if (dateData is DateTime) {
+        return dateData;
+      }
+      return DateTime.now();
+    } catch (e) {
+      print('Ошибка парсинга даты: $e');
+      return DateTime.now();
+    }
   }
 }
 

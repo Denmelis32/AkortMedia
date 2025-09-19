@@ -4,11 +4,13 @@ import '../models/article.dart';
 class ArticleCard extends StatefulWidget {
   final Article article;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress; // Добавляем параметр onLongPress
 
   const ArticleCard({
     super.key,
     required this.article,
     required this.onTap,
+    this.onLongPress, // Добавляем в конструктор
   });
 
   @override
@@ -188,6 +190,7 @@ class _ArticleCardState extends State<ArticleCard>
           onTap: () {
             Future.delayed(const Duration(milliseconds: 150), widget.onTap);
           },
+          onLongPress: widget.onLongPress, // Добавляем обработчик long press
           child: Container(
             constraints: const BoxConstraints(
               maxWidth: 400,

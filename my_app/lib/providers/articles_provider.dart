@@ -47,6 +47,11 @@ class ArticlesProvider with ChangeNotifier {
     }
   }
 
+  void removeArticle(String articleId) {
+    _articles.removeWhere((article) => article['id'] == articleId);
+    notifyListeners();
+  }
+
   void clearAllChannelArticles() {
     _channelArticles.clear();
     notifyListeners();

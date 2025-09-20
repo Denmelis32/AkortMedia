@@ -1,6 +1,6 @@
 // lib/pages/cards_page/widgets/channel_header.dart
 import 'package:flutter/material.dart';
-import 'package:my_app/pages/rooms_pages/rooms_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/channel.dart';
 
 class ChannelHeader extends StatelessWidget {
@@ -12,148 +12,113 @@ class ChannelHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Positioned.fill(
-          child: Image.network(
-            channel.imageUrl,
-            fit: BoxFit.cover,
-            color: Colors.black.withOpacity(0.3),
-            colorBlendMode: BlendMode.darken,
+        // Фоновое изображение
+        Container(
+          color: channel.cardColor,
+          height: double.infinity,
+          width: double.infinity,
+          child: Opacity(
+            opacity: 0.1,
+            child: Image.network(
+              channel.imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(),
+            ),
           ),
         ),
+
+        // Градиент поверх фона
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.4),
-                Colors.black.withOpacity(0.2),
-                Colors.black.withOpacity(0.6),
+                channel.cardColor.withOpacity(0.8),
+                channel.cardColor.withOpacity(0.4),
+                Colors.transparent,
               ],
             ),
           ),
         ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.8),
-                      width: 3,
+
+        // Контент заголовка
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Аватар канала
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.network(
-                      channel.imageUrl,
-                      fit: BoxFit.cover,
+                  ],
+                ),
+                child: ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: channel.imageUrl,
+                    placeholder: (context, url) => Container(
+                      color: Colors.white.withOpacity(0.2),
+                      child: const Icon(Icons.person, color: Colors.white, size: 40),
                     ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.white.withOpacity(0.2),
+                      child: const Icon(Icons.person, color: Colors.white, size: 40),
+                    ),
+                    fit: BoxFit.cover,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  channel.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 12,
-                        color: Colors.black,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+
+              // Название канала
+              Text(
+                channel.title,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 300),
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 16,
-                    runSpacing: 4,
-                    children: [
-                      _buildStatItem(
-                        icon: Icons.people_outline,
-                        value: '${channel.subscribers.formatCount()}',
-                        label: 'подписчиков',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+
+              // Теги канала
+              if (channel.tags.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: channel.tags.map((tag) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      _buildStatItem(
-                        icon: Icons.video_library_outlined,
-                        value: '${channel.videos}',
-                        label: 'видео',
+                      child: Text(
+                        '#$tag',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
                       ),
-                      _buildStatItem(
-                        icon: Icons.visibility_outlined,
-                        value: '2.5M',
-                        label: 'просмотров',
-                      ),
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildStatItem({required IconData icon, required String value, required String label}) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 60),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white.withOpacity(0.9), size: 16),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  blurRadius: 6,
-                  color: Colors.black,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 8,
-              shadows: [
-                Shadow(
-                  blurRadius: 4,
-                  color: Colors.black,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

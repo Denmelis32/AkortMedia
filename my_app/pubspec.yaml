@@ -30,7 +30,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.2.0  # ← правильно добавленная зависимость
+  http: ^1.2.0
   provider: ^6.0.5
   shared_preferences: ^2.2.2
   intl: ^0.18.1
@@ -40,7 +40,10 @@ dependencies:
   path_provider: ^2.1.1
   path: ^1.9.0
   pull_to_refresh: ^2.0.0
-  share_plus: ^7.0.0
+  cached_network_image: ^3.3.0
+  flutter_feather_icons: ^2.0.0+1
+  shimmer: ^3.0.0  # обновленная версия
+  share_plus: ^7.0.1
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

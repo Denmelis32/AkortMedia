@@ -1,11 +1,12 @@
 // lib/pages/home_page.dart
 import 'package:flutter/material.dart';
-import 'news_page//news_page.dart';
+import 'package:provider/provider.dart';
+import 'news_page/news_page.dart';
 import 'predictions_league_page/predictions_league_page.dart';
 import 'profile_page.dart' hide NewsPage;
 import 'articles_pages/articles_page.dart';
 import 'rooms_pages/rooms_page.dart';
-import 'cards_page/cards_page.dart'; // Импортируем новую страницу карточек
+import 'cards_page/cards_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -34,8 +35,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _initializePages() {
-
-
     _pages = [
       NewsPage(
         userName: widget.userName,
@@ -47,14 +46,12 @@ class _HomePageState extends State<HomePage> {
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
       ),
-      CardsPage( // Новая страница карточек
+      CardsPage(
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
       ),
       RoomsPage(
-        userName: widget.userName,
-        userEmail: widget.userEmail,
         onLogout: widget.onLogout,
       ),
       PredictionsLeaguePage(
@@ -106,7 +103,7 @@ class _HomePageState extends State<HomePage> {
             label: 'Статьи',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.video_library), // Или Icons.play_circle_fill
+            icon: Icon(Icons.video_library),
             label: 'Каналы',
           ),
           BottomNavigationBarItem(
@@ -126,3 +123,5 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
+// Старая версия HomePage как StatelessWidget удалена и заменена на StatefulWidget выше

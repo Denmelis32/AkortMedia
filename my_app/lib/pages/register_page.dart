@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'home_page.dart';
+import '../providers/user_provider.dart'; // Добавляем импорт
 
 const Color myCustomRed = Color(0xFF2196F3);
 
@@ -56,15 +58,22 @@ class _RegisterPageState extends State<RegisterPage> {
       Future.delayed(const Duration(seconds: 1), () {
         setState(() => _isLoading = false);
 
-        // УСПЕШНАЯ РЕГИСТРАЦИЯ - ПЕРЕХОД НА НОВУЮ СТРАНИЦУ
+        // Сохраняем данные пользователя в провайдер
+        final userProvider = context.read<UserProvider>();
+        userProvider.setUserData(
+          _nameController.text,
+          _emailController.text,
+        );
+
+        // Переход на HomePage
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => HomePage(
-              userName: _nameController.text,
-              userEmail: _emailController.text,
+              userName: _nameController.text, // Добавлено
+              userEmail: _emailController.text, // Добавлено
               onLogout: () {
-                // Логика выхода - возврат на страницу регистрации/входа
+                userProvider.clearUserData();
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(builder: (context) => const RegisterPage()),
                 );

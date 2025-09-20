@@ -1,7 +1,9 @@
 // lib/pages/login_page.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import 'register_page.dart'; // Добавляем импорт страницы регистрации
+import 'register_page.dart';
+import '../providers/user_provider.dart'; // Добавляем импорт
 
 class LoginPage extends StatefulWidget {
   final Function() onLoginSuccess;
@@ -27,6 +29,14 @@ class _LoginPageState extends State<LoginPage> {
           _emailController.text,
           _passwordController.text,
         );
+
+        // Сохраняем данные пользователя в провайдер
+        final userProvider = context.read<UserProvider>();
+        userProvider.setUserData(
+          'Пользователь', // Можно получить из API или базы данных
+          _emailController.text,
+        );
+
         // Просто вызываем callback, навигацию обработает родитель
         widget.onLoginSuccess();
       } catch (e) {

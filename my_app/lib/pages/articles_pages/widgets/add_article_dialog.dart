@@ -9,6 +9,7 @@ class AddArticleDialog extends StatefulWidget {
   final List<String> emojis;
   final Function(Article) onArticleAdded;
   final String userName;
+  final Color channelColor;
 
   const AddArticleDialog({
     super.key,
@@ -16,6 +17,7 @@ class AddArticleDialog extends StatefulWidget {
     required this.emojis,
     required this.onArticleAdded,
     required this.userName,
+    this.channelColor = Colors.blue,
   });
 
   @override

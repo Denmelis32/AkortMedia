@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
   final String userName;
   final VoidCallback onLike;
+  final VoidCallback onBookmark;
   final Function(String) onComment;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onShare;
   final Function(String, String, Color) onTagEdit;
   final String Function(String) formatDate;
   final String Function(String) getTimeAgo;
@@ -15,15 +18,18 @@ class NewsCard extends StatefulWidget {
   final Color cardColor;
   final Color textColor;
   final Color secondaryTextColor;
+  final ScrollController scrollController;
 
   const NewsCard({
     super.key,
     required this.news,
     required this.userName,
     required this.onLike,
+    required this.onBookmark,
     required this.onComment,
     required this.onEdit,
     required this.onDelete,
+    required this.onShare,
     required this.onTagEdit,
     required this.formatDate,
     required this.getTimeAgo,
@@ -32,136 +38,298 @@ class NewsCard extends StatefulWidget {
     required this.cardColor,
     required this.textColor,
     required this.secondaryTextColor,
+    required this.scrollController,
   });
 
   @override
   State<NewsCard> createState() => _NewsCardState();
 }
 
-class _NewsCardState extends State<NewsCard> {
+class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin {
   final TextEditingController _commentController = TextEditingController();
   final TextEditingController _tagEditController = TextEditingController();
+  late AnimationController _expandController;
+  late Animation<double> _expandAnimation;
+  late Animation<double> _fadeAnimation;
   bool _isExpanded = false;
   bool _isLiked = false;
   bool _isBookmarked = false;
   String _editingTagId = '';
-  Color _selectedTagColor = const Color(0xFF2196F3);
+
+  final List<Color> _availableColors = [
+    const Color(0xFFDA291C),
+    const Color(0xFF6C1D45),
+    const Color(0xFFFFD700),
+    const Color(0xFF2196F3),
+    const Color(0xFF4CAF50),
+    const Color(0xFFFF9800),
+    const Color(0xFF9C27B0),
+    const Color(0xFF607D8B),
+    const Color(0xFF795548),
+    const Color(0xFFE91E63),
+  ];
+
+  Color get _selectedTagColor {
+    if (widget.news['tag_color'] != null) {
+      return Color(widget.news['tag_color']);
+    }
+    return widget.primaryColor;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _expandController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _expandAnimation = CurvedAnimation(
+      parent: _expandController,
+      curve: Curves.fastOutSlowIn,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _expandController,
+        curve: const Interval(0.3, 1, curve: Curves.easeOut),
+      ),
+    );
+
+    // Безопасное получение значений
+    _isLiked = _getBoolValue(widget.news['isLiked']);
+    _isBookmarked = _getBoolValue(widget.news['isBookmarked']);
+  }
+
+  bool _getBoolValue(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return false;
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _tagEditController.dispose();
+    _expandController.dispose();
+    super.dispose();
+  }
 
   List<String> _parseHashtags(dynamic hashtags) {
     if (hashtags is String) {
-      // Убираем лишние пробелы и разделяем по запятым или пробелам
       return hashtags
-          .replaceAll('#', '') // Убираем символы # если они есть
+          .replaceAll('#', '')
           .split(RegExp(r'[,\s]+'))
           .where((tag) => tag.trim().isNotEmpty)
           .toList();
     } else if (hashtags is List) {
       return hashtags
-          .map((tag) => tag.toString())
+          .map((tag) => tag.toString().trim())
           .where((tag) => tag.isNotEmpty)
           .toList();
     }
     return [];
   }
 
+  Map<String, String> _parseUserTags(dynamic userTags) {
+    if (userTags is Map) {
+      return userTags.map((key, value) =>
+          MapEntry(key.toString(), value.toString()));
+    }
+    return {'tag1': 'Фанат Манчестера'};
+  }
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _expandController.forward();
+      } else {
+        _expandController.reverse();
+      }
+    });
+  }
+
+
   void _showTagEditDialog(String tag, String tagId, Color currentColor) {
     _tagEditController.text = tag;
     _editingTagId = tagId;
-    _selectedTagColor = currentColor;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        Color dialogSelectedColor = currentColor;
+
         return StatefulBuilder(
           builder: (context, setState) {
-            return AlertDialog(
+            return Dialog(
               backgroundColor: widget.cardColor,
-              title: Text(
-                'Редактировать тег',
-                style: TextStyle(color: widget.textColor),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: _tagEditController,
-                    style: TextStyle(color: widget.textColor),
-                    decoration: InputDecoration(
-                      hintText: 'Введите название тега',
-                      hintStyle: TextStyle(color: widget.secondaryTextColor),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '🎨 Редактировать тег',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: widget.textColor,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Выберите цвет тега:',
-                    style: TextStyle(
-                      color: widget.textColor,
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(height: 20),
+
+                    // Поле ввода названия тега
+                    TextField(
+                      controller: _tagEditController,
+                      style: TextStyle(color: widget.textColor, fontSize: 16),
+                      decoration: InputDecoration(
+                        hintText: 'Введите название тега',
+                        hintStyle: TextStyle(color: widget.secondaryTextColor),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: widget.primaryColor.withOpacity(0.3)),
+                        ),
+                        filled: true,
+                        fillColor: widget.backgroundColor,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      maxLength: 20,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(20),
+                      ],
+                      onChanged: (value) {
+                        setState(() {}); // Обновляем состояние для кнопки сохранения
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      _buildColorOption(
-                        const Color(0xFFDA291C),
-                        'Красный',
-                        setState,
+                    const SizedBox(height: 20),
+
+                    // Заголовок выбора цвета
+                    Text(
+                      'Выберите цвет:',
+                      style: TextStyle(
+                        color: widget.textColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
                       ),
-                      _buildColorOption(
-                        const Color(0xFF6C1D45),
-                        'Фиолетовый',
-                        setState,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Палитра цветов
+                    SizedBox(
+                      height: 50,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _availableColors.length,
+                        itemBuilder: (context, index) {
+                          final color = _availableColors[index];
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                dialogSelectedColor = color;
+                              });
+                            },
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: dialogSelectedColor == color ? Colors.white : Colors.transparent,
+                                  width: 3,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: dialogSelectedColor == color
+                                  ? const Icon(Icons.check, size: 18, color: Colors.white)
+                                  : null,
+                            ),
+                          );
+                        },
                       ),
-                      _buildColorOption(
-                        const Color(0xFFFFD700),
-                        'Золотой',
-                        setState,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Предпросмотр тега
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: dialogSelectedColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: dialogSelectedColor.withOpacity(0.3), width: 1),
                       ),
-                      _buildColorOption(
-                        widget.primaryColor,
-                        'Основной',
-                        setState,
+                      child: Text(
+                        _tagEditController.text.isNotEmpty ? _tagEditController.text : 'Пример тега',
+                        style: TextStyle(
+                          color: _getTagTextColor(dialogSelectedColor),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                      _buildColorOption(Colors.green, 'Зеленый', setState),
-                      _buildColorOption(Colors.blue, 'Синий', setState),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Кнопки действий
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              side: BorderSide(color: widget.primaryColor),
+                            ),
+                            child: Text(
+                              'Отмена',
+                              style: TextStyle(color: widget.primaryColor),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _tagEditController.text.trim().isNotEmpty
+                                ? () {
+                              final text = _tagEditController.text.trim();
+                              widget.onTagEdit(_editingTagId, text, dialogSelectedColor);
+                              Navigator.pop(context);
+
+                              // Показываем уведомление об успехе
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Тег "$text" сохранен!'),
+                                  backgroundColor: Colors.green,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                                : null, // Кнопка неактивна если текст пустой
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: widget.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Сохранить'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: Text(
-                    'Отмена',
-                    style: TextStyle(color: widget.secondaryTextColor),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (_tagEditController.text.trim().isNotEmpty) {
-                      widget.onTagEdit(
-                        _editingTagId,
-                        _tagEditController.text.trim(),
-                        _selectedTagColor,
-                      );
-                      Navigator.pop(context);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.primaryColor,
-                  ),
-                  child: const Text(
-                    'Сохранить',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
             );
           },
         );
@@ -169,238 +337,76 @@ class _NewsCardState extends State<NewsCard> {
     );
   }
 
+
+
+
   void _showOptionsMenu(BuildContext context) {
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final RelativeRect position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(
-          button.size.topRight(Offset.zero),
-          ancestor: overlay,
-        ),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-
-    showMenu<String>(
+    showModalBottomSheet(
       context: context,
-      position: position,
-      items: [
-        PopupMenuItem(
-          value: 'edit',
-          child: Row(
+      backgroundColor: widget.cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.edit_rounded, color: widget.primaryColor),
-              const SizedBox(width: 8),
-              Text('Редактировать', style: TextStyle(color: widget.textColor)),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildMenuOption(Icons.edit, 'Редактировать', widget.primaryColor, widget.onEdit),
+              _buildMenuOption(Icons.delete, 'Удалить', Colors.red, widget.onDelete),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: widget.secondaryTextColor,
+                  side: BorderSide(color: Colors.grey.shade300),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Отмена'),
+              ),
             ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_rounded, color: Colors.red),
-              const SizedBox(width: 8),
-              Text('Удалить', style: TextStyle(color: widget.textColor)),
-            ],
-          ),
-        ),
-      ],
-    ).then((value) {
-      if (value == 'edit') {
-        widget.onEdit();
-      } else if (value == 'delete') {
-        widget.onDelete();
-      }
-    });
-  }
-
-  Widget _buildColorOption(Color color, String label, StateSetter setState) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedTagColor = color;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _selectedTagColor == color
-                ? Colors.black
-                : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: _getTextColorForBackground(color),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ),
     );
   }
 
-  Color _getTextColorForBackground(Color backgroundColor) {
-    final brightness = backgroundColor.computeLuminance();
-    return brightness > 0.5 ? Colors.black : Colors.white;
+  Widget _buildMenuOption(IconData icon, String text, Color color, VoidCallback onTap) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(text, style: TextStyle(color: widget.textColor, fontWeight: FontWeight.w500)),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+      contentPadding: EdgeInsets.zero,
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // Проверка на канальный пост
-    if (widget.news['is_channel_post'] == true) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-              spreadRadius: 0,
-            ),
-          ],
-        ),
-        child: Material(
-          color: widget.cardColor,
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.group, color: widget.primaryColor, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Пост из канала',
-                      style: TextStyle(
-                        color: widget.secondaryTextColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        widget.news['channel_name'] ?? 'Неизвестный канал',
-                        style: TextStyle(
-                          color: widget.primaryColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.more_horiz,
-                        size: 20,
-                        color: widget.secondaryTextColor,
-                      ),
-                      onPressed: () {
-                        // Дополнительные действия для канального поста
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (widget.news['title'] != null &&
-                    widget.news['title'].toString().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      widget.news['title'],
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: widget.textColor,
-                      ),
-                    ),
-                  ),
-                if (widget.news['description'] != null)
-                  Text(
-                    widget.news['description'],
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: widget.textColor.withOpacity(0.9),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildActionButton(
-                      icon: _isLiked
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_outline_rounded,
-                      count: widget.news['likes'] ?? 0,
-                      isActive: _isLiked,
-                      onPressed: () {
-                        setState(() {
-                          _isLiked = !_isLiked;
-                        });
-                        widget.onLike();
-                      },
-                    ),
-                    const SizedBox(width: 16),
-                    _buildActionButton(
-                      icon: Icons.share_rounded,
-                      count: 0,
-                      isActive: false,
-                      onPressed: () {},
-                    ),
-                    const Spacer(),
-                    Text(
-                      widget.getTimeAgo(widget.news['created_at']),
-                      style: TextStyle(
-                        color: widget.secondaryTextColor,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Оригинальная реализация для обычных постов
-    final comments = widget.news['comments'] ?? [];
-    final hashtags = _parseHashtags(widget.news['hashtags']);
-    final userTags = widget.news['user_tags'] is Map
-        ? (widget.news['user_tags'] as Map).map(
-            (key, value) => MapEntry(key.toString(), value.toString()),
-          )
-        : {'tag1': 'Фанат Манчестера'};
-
-    final tagColor = widget.news['tag_color'] != null
-        ? Color(widget.news['tag_color'])
-        : _getTagColor(userTags.values.first);
-
-    final isAuthor = widget.news['author_name'] == widget.userName;
-
+  Widget _buildCard({required Widget child}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
+        color: widget.cardColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
@@ -410,557 +416,456 @@ class _NewsCardState extends State<NewsCard> {
           ),
         ],
       ),
-      child: Material(
-        color: widget.cardColor,
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
+    final authorName = _getStringValue(widget.news['author_name']);
+    final createdAt = _getStringValue(widget.news['created_at']);
+
+    return Row(
+      children: [
+        // Avatar
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [widget.primaryColor.withOpacity(0.8), widget.primaryColor.withOpacity(0.4)],
+            ),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(authorName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: widget.textColor)),
+              const SizedBox(height: 2),
+              Text(widget.getTimeAgo(createdAt), style: TextStyle(color: widget.secondaryTextColor, fontSize: 13)),
+            ],
+          ),
+        ),
+        if (userTags.isNotEmpty && userTags.values.first.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildUserTag(userTags.values.first, userTags.keys.first, tagColor),
+          ),
+        if (isAuthor)
+          IconButton(
+            icon: Icon(Icons.more_vert, color: widget.secondaryTextColor, size: 22),
+            onPressed: () => _showOptionsMenu(context),
+          ),
+      ],
+    );
+  }
+
+  String _getStringValue(dynamic value) {
+    if (value is String) return value;
+    if (value != null) return value.toString();
+    return '';
+  }
+
+  Widget _buildUserTag(String tag, String tagId, Color color) {
+    return GestureDetector(
+      onTap: () => _showTagEditDialog(tag, tagId, color),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        // Avatar
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                widget.primaryColor.withOpacity(0.8),
-                                widget.primaryColor.withOpacity(0.4),
-                              ],
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              widget.news['author_name']?[0]?.toUpperCase() ??
-                                  '?',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.news['author_name'] ?? 'Неизвестно',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                  color: widget.textColor,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                widget.getTimeAgo(widget.news['created_at']),
-                                style: TextStyle(
-                                  color: widget.secondaryTextColor,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // User Tags - ПРАВЕЕ (компактное расположение)
-                        if (userTags.isNotEmpty &&
-                            userTags.values.first.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            // Компактный отступ
-                            child: GestureDetector(
-                              onTap: () => _showTagEditDialog(
-                                userTags.values.first,
-                                userTags.keys.first,
-                                tagColor,
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: tagColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: tagColor.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_getTagIcon(
-                                          userTags.values.first,
-                                          tagColor,
-                                        ) !=
-                                        null) ...[
-                                      _getTagIcon(
-                                        userTags.values.first,
-                                        tagColor,
-                                      )!,
-                                      const SizedBox(width: 4),
-                                    ],
-                                    Text(
-                                      userTags.values.first,
-                                      style: TextStyle(
-                                        color: _getTagTextColor(tagColor),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                        // More options button - ТРИ ТОЧКИ
-                        if (isAuthor)
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.more_horiz,
-                                size: 20,
-                                color: widget.secondaryTextColor,
-                              ),
-                              onPressed: () {
-                                _showOptionsMenu(context);
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title
-                        if (widget.news['title'] != null &&
-                            widget.news['title'].toString().isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Text(
-                              widget.news['title'],
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                height: 1.3,
-                                color: widget.textColor,
-                              ),
-                            ),
-                          ),
-
-                        // Description
-                        Text(
-                          widget.news['description'],
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.6,
-                            color: widget.textColor.withOpacity(0.9),
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Hashtags
-                  if (hashtags.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: hashtags.map((tag) {
-                          return GestureDetector(
-                            onTap: () {},
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: widget.primaryColor.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: widget.primaryColor.withOpacity(0.2),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Text(
-                                '#${tag.trim()}',
-                                style: TextStyle(
-                                  color: widget.primaryColor,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-
-                  const SizedBox(height: 20),
-
-                  // Stats and actions
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        // Like button
-                        _buildActionButton(
-                          icon: _isLiked
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_outline_rounded,
-                          count: widget.news['likes'] ?? 0,
-                          isActive: _isLiked,
-                          onPressed: () {
-                            setState(() {
-                              _isLiked = !_isLiked;
-                            });
-                            widget.onLike();
-                          },
-                        ),
-
-                        const SizedBox(width: 16),
-
-                        // Comment button
-                        _buildActionButton(
-                          icon: _isExpanded
-                              ? Icons.chat_rounded
-                              : Icons.chat_bubble_outline_rounded,
-                          count: comments.length,
-                          isActive: _isExpanded,
-                          onPressed: () {
-                            setState(() {
-                              _isExpanded = !_isExpanded;
-                            });
-                          },
-                        ),
-
-                        const SizedBox(width: 16),
-
-                        // Bookmark button
-                        _buildActionButton(
-                          icon: _isBookmarked
-                              ? Icons.bookmark_rounded
-                              : Icons.bookmark_outline_rounded,
-                          count: 0,
-                          isActive: _isBookmarked,
-                          onPressed: () {
-                            setState(() {
-                              _isBookmarked = !_isBookmarked;
-                            });
-                          },
-                        ),
-
-                        const Spacer(),
-
-                        // Share button
-                        IconButton(
-                          icon: Icon(
-                            Icons.share_rounded,
-                            size: 22,
-                            color: widget.secondaryTextColor,
-                          ),
-                          onPressed: () {},
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Comments section
-                  if (_isExpanded) ...[
-                    const SizedBox(height: 16),
-                    Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          if (comments.isNotEmpty)
-                            Column(
-                              children: [
-                                ...comments.map(
-                                  (comment) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Comment avatar
-                                        Container(
-                                          width: 36,
-                                          height: 36,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                Colors.blue.withOpacity(0.8),
-                                                Colors.blue.withOpacity(0.4),
-                                              ],
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              comment['author']?[0]
-                                                      ?.toUpperCase() ??
-                                                  '?',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Container(
-                                            padding: const EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: widget.backgroundColor,
-                                              borderRadius:
-                                                  BorderRadius.circular(18),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  comment['author'] ??
-                                                      'Неизвестно',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 14,
-                                                    color: widget.textColor,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  comment['text'],
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    height: 1.4,
-                                                    color: widget.textColor
-                                                        .withOpacity(0.9),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  comment['time'] ?? '',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: widget
-                                                        .secondaryTextColor,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-                            ),
-
-                          // Add comment input
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: widget.backgroundColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.grey.withOpacity(0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _commentController,
-                                    style: TextStyle(
-                                      color: widget.textColor,
-                                      fontSize: 15,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'Написать комментарий...',
-                                      hintStyle: TextStyle(
-                                        color: widget.secondaryTextColor,
-                                        fontSize: 15,
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                          ),
-                                    ),
-                                    maxLines: 1,
-                                    onSubmitted: (value) {
-                                      if (value.trim().isNotEmpty) {
-                                        widget.onComment(value);
-                                        _commentController.clear();
-                                      }
-                                    },
-                                  ),
-                                ),
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: widget.primaryColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.send_rounded,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
-                                    onPressed: () {
-                                      if (_commentController.text
-                                          .trim()
-                                          .isNotEmpty) {
-                                        widget.onComment(
-                                          _commentController.text,
-                                        );
-                                        _commentController.clear();
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+            if (_getTagIcon(tag, color) != null) ...[
+              _getTagIcon(tag, color)!,
+              const SizedBox(width: 6),
+            ],
+            Text(
+              tag,
+              style: TextStyle(
+                color: _getTagTextColor(color),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
               ),
             ),
+            const SizedBox(width: 4),
+            Icon(Icons.edit, size: 14, color: _getTagTextColor(color)),
           ],
         ),
       ),
     );
   }
 
-  Color _getTagColor(String tag) {
-    if (tag.toLowerCase().contains('манчестер')) {
-      return const Color(0xFFDA291C);
-    } else if (tag.toLowerCase().contains('фанат')) {
-      return const Color(0xFF6C1D45);
-    } else if (tag.toLowerCase().contains('премиум')) {
-      return const Color(0xFFFFD700);
-    } else {
-      return widget.primaryColor;
-    }
+  Widget _buildHashtags(List<String> hashtags) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: hashtags.map((tag) {
+        return GestureDetector(
+          onTap: () {},
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: widget.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: widget.primaryColor.withOpacity(0.2), width: 1),
+            ),
+            child: Text('#${tag.trim()}', style: TextStyle(color: widget.primaryColor, fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        );
+      }).toList(),
+    );
   }
 
-  Color _getTagTextColor(Color backgroundColor) {
-    final brightness = backgroundColor.computeLuminance();
-    return brightness > 0.5 ? Colors.black : Colors.white;
+  Widget _buildPostActions({int commentCount = 0, bool showBookmark = true}) {
+    final likes = _getIntValue(widget.news['likes']);
+
+    return Row(
+      children: [
+        _buildActionButton(
+          icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+          count: likes,
+          isActive: _isLiked,
+          onPressed: () {
+            setState(() => _isLiked = !_isLiked);
+            widget.onLike();
+          },
+        ),
+        const SizedBox(width: 16),
+        _buildActionButton(
+          icon: _isExpanded ? Icons.chat_rounded : Icons.chat_bubble_outline_rounded,
+          count: commentCount,
+          isActive: _isExpanded,
+          onPressed: _toggleExpanded,
+        ),
+        if (showBookmark) const SizedBox(width: 16),
+        if (showBookmark)
+          _buildActionButton(
+            icon: _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+            count: 0,
+            isActive: _isBookmarked,
+            onPressed: () {
+              setState(() => _isBookmarked = !_isBookmarked);
+              widget.onBookmark();
+            },
+          ),
+        const Spacer(),
+        IconButton(
+          icon: Icon(Icons.share_rounded, size: 22, color: widget.secondaryTextColor),
+          onPressed: widget.onShare,
+          splashRadius: 20,
+        ),
+      ],
+    );
   }
 
-  Widget? _getTagIcon(String tag, Color color) {
-    final textColor = _getTagTextColor(color);
-    if (tag.toLowerCase().contains('манчестер')) {
-      return Icon(Icons.sports_soccer, size: 14, color: textColor);
-    } else if (tag.toLowerCase().contains('фанат')) {
-      return Icon(Icons.people, size: 14, color: textColor);
-    } else if (tag.toLowerCase().contains('премиум')) {
-      return Icon(Icons.star, size: 14, color: textColor);
-    }
-    return null;
+  int _getIntValue(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required int count,
-    required bool isActive,
-    required VoidCallback onPressed,
-  }) {
+  Widget _buildActionButton({required IconData icon, required int count, required bool isActive, required VoidCallback onPressed}) {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive
-              ? widget.primaryColor.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: isActive ? widget.primaryColor.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isActive ? widget.primaryColor : widget.secondaryTextColor,
-            ),
+            Icon(icon, size: 20, color: isActive ? widget.primaryColor : widget.secondaryTextColor),
             if (count > 0) const SizedBox(width: 6),
             if (count > 0)
-              Text(
-                count.toString(),
-                style: TextStyle(
-                  color: isActive
-                      ? widget.primaryColor
-                      : widget.secondaryTextColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
+              Text(_formatCount(count), style: TextStyle(color: isActive ? widget.primaryColor : widget.secondaryTextColor, fontWeight: FontWeight.w600, fontSize: 14)),
           ],
         ),
+      ),
+    );
+  }
+
+  String _formatCount(int count) {
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
+    return count.toString();
+  }
+
+  Widget _buildCommentsSection(List<dynamic> comments) {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        Divider(height: 1, color: Colors.grey.withOpacity(0.1)),
+        Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: Column(
+            children: [
+              if (comments.isNotEmpty) ...[
+                ...comments.map((comment) => _buildCommentItem(comment)),
+                const SizedBox(height: 16),
+              ],
+              _buildCommentInput(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommentItem(dynamic comment) {
+    final commentMap = _convertToMap(comment);
+    final author = _getStringValue(commentMap['author']);
+    final text = _getStringValue(commentMap['text']);
+    final time = _getStringValue(commentMap['time']);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.blue.withOpacity(0.8), Colors.blueAccent.withOpacity(0.6)]),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(author.isNotEmpty ? author[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: widget.backgroundColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(author, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: widget.textColor)),
+                      const Spacer(),
+                      Text(time, style: TextStyle(fontSize: 11, color: widget.secondaryTextColor, fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(text, style: TextStyle(fontSize: 14, color: widget.textColor.withOpacity(0.9), height: 1.4)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Map<String, dynamic> _convertToMap(dynamic item) {
+    if (item is Map<String, dynamic>) return item;
+    if (item is Map) return item.cast<String, dynamic>();
+    return {};
+  }
+
+  Widget _buildCommentInput() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: widget.backgroundColor,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _commentController,
+              style: TextStyle(color: widget.textColor, fontSize: 15),
+              decoration: InputDecoration(
+                hintText: 'Написать комментарий...',
+                hintStyle: TextStyle(color: widget.secondaryTextColor),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+              ),
+              maxLines: 1,
+              onSubmitted: (value) {
+                if (value.trim().isNotEmpty) {
+                  widget.onComment(value);
+                  _commentController.clear();
+                }
+              },
+            ),
+          ),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [widget.primaryColor, widget.primaryColor.withOpacity(0.8)]),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.send_rounded, size: 20, color: Colors.white),
+              onPressed: () {
+                final text = _commentController.text.trim();
+                if (text.isNotEmpty) {
+                  widget.onComment(text);
+                  _commentController.clear();
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getTagTextColor(Color backgroundColor) {
+    return backgroundColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+  }
+
+  Widget? _getTagIcon(String tag, Color color) {
+    final lowerTag = tag.toLowerCase();
+    final textColor = _getTagTextColor(color);
+
+    if (lowerTag.contains('манчестер')) return Icon(Icons.sports_soccer_rounded, size: 16, color: textColor);
+    if (lowerTag.contains('фанат')) return Icon(Icons.people_alt_rounded, size: 16, color: textColor);
+    if (lowerTag.contains('премиум') || lowerTag.contains('золот')) return Icon(Icons.star_rounded, size: 16, color: textColor);
+    if (lowerTag.contains('спорт')) return Icon(Icons.fitness_center_rounded, size: 16, color: textColor);
+    return null;
+  }
+
+  Widget _buildChannelPost() {
+    final title = _getStringValue(widget.news['title']);
+    final description = _getStringValue(widget.news['description']);
+    final channelName = _getStringValue(widget.news['channel_name']);
+    final createdAt = _getStringValue(widget.news['created_at']);
+
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: widget.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.group, color: widget.primaryColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Канальный пост', style: TextStyle(color: widget.textColor, fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(channelName, style: TextStyle(color: widget.primaryColor, fontSize: 13, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+              Text(widget.getTimeAgo(createdAt), style: TextStyle(color: widget.secondaryTextColor, fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: widget.textColor, height: 1.4)),
+            ),
+          if (description.isNotEmpty)
+            Text(description, style: TextStyle(fontSize: 15, color: widget.textColor.withOpacity(0.9), height: 1.5)),
+          const SizedBox(height: 16),
+          _buildPostActions(showBookmark: false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRegularPost() {
+    final comments = widget.news['comments'] ?? [];
+    final hashtags = _parseHashtags(widget.news['hashtags']);
+    final userTags = _parseUserTags(widget.news['user_tags']);
+    final tagColor = _selectedTagColor;
+    final isAuthor = _getStringValue(widget.news['author_name']) == widget.userName;
+
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPostHeader(isAuthor, userTags, tagColor),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_getStringValue(widget.news['title']).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _getStringValue(widget.news['title']),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.3, color: widget.textColor),
+                    ),
+                  ),
+                Text(
+                  _getStringValue(widget.news['description']),
+                  style: TextStyle(fontSize: 16, height: 1.6, color: widget.textColor.withOpacity(0.9)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (hashtags.isNotEmpty) _buildHashtags(hashtags),
+          const SizedBox(height: 20),
+          _buildPostActions(commentCount: comments.length),
+          SizeTransition(
+            sizeFactor: _expandAnimation,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildCommentsSection(comments),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
-  void dispose() {
-    _commentController.dispose();
-    _tagEditController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+    return isChannelPost ? _buildChannelPost() : _buildRegularPost();
   }
 }

@@ -21,7 +21,7 @@ class CardsPage extends StatefulWidget {
   State<CardsPage> createState() => _CardsPageState();
 }
 
-class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
+class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
   final List<Channel> _channels = [
     Channel(
       id: 1,
@@ -42,8 +42,8 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
       comments: 2300,
       owner: 'Иван Технолог',
       tags: ['технологии', 'IT', 'инновации', 'робототехника'],
-      isLive: true,
-      liveViewers: 2450,
+      isLive: false,
+      liveViewers: 0,
       websiteUrl: 'https://tech-future.ru',
       socialMedia: '@tech_future',
     ),
@@ -90,8 +90,8 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
       comments: 4500,
       owner: 'Алексей Геймеров',
       tags: ['игры', 'гейминг', 'обзоры', 'стримы'],
-      isLive: true,
-      liveViewers: 3200,
+      isLive: false,
+      liveViewers: 0,
       websiteUrl: 'https://game-reviews.ru',
       socialMedia: '@game_reviews',
     ),
@@ -138,8 +138,8 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
       comments: 3200,
       owner: 'Дмитрий Спортивный',
       tags: ['спорт', 'новости', 'аналитика', 'матчи'],
-      isLive: true,
-      liveViewers: 1500,
+      isLive: false,
+      liveViewers: 0,
       websiteUrl: 'https://sport-news.ru',
       socialMedia: '@sport_news',
     ),
@@ -230,7 +230,6 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
 
   final List<FilterOption> _filterOptions = [
     FilterOption(id: 'verified', title: 'Только проверенные', icon: Icons.verified),
-    FilterOption(id: 'live', title: 'Сейчас в эфире', icon: Icons.live_tv),
     FilterOption(id: 'subscribed', title: 'Мои подписки', icon: Icons.subscriptions),
     FilterOption(id: 'favorites', title: 'Избранное', icon: Icons.favorite),
   ];
@@ -253,6 +252,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
   bool _isLoading = false;
   bool _isRefreshing = false;
   bool _showFilters = false;
+  bool _showSearchBar = false;
 
   @override
   void initState() {
@@ -305,9 +305,6 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
     // Применение дополнительных фильтров
     if (_activeFilters.contains('verified')) {
       filtered = filtered.where((channel) => channel.isVerified).toList();
-    }
-    if (_activeFilters.contains('live')) {
-      filtered = filtered.where((channel) => channel.isLive).toList();
     }
     if (_activeFilters.contains('subscribed')) {
       filtered = filtered.where((channel) => channel.isSubscribed).toList();
@@ -739,6 +736,11 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
                 ),
                 actions: [
                   IconButton(
+                    icon: Icon(_showSearchBar ? Icons.search_off : Icons.search, size: 24),
+                    onPressed: () => setState(() => _showSearchBar = !_showSearchBar),
+                    tooltip: 'Поиск',
+                  ),
+                  IconButton(
                     icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view, size: 24),
                     onPressed: () => setState(() => _isGridView = !_isGridView),
                     tooltip: 'Сменить вид',
@@ -790,48 +792,49 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
                   child: _buildFilterSection(),
                 ),
 
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                sliver: SliverToBoxAdapter(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+              if (_showSearchBar)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  sliver: SliverToBoxAdapter(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Поиск каналов...',
+                          prefixIcon: const Icon(Icons.search_rounded, size: 24),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 22),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                              : null,
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                         ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Поиск каналов...',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 24),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 22),
-                          onPressed: () {
-                            setState(() {
-                              _searchController.clear();
-                              _searchQuery = '';
-                            });
-                          },
-                        )
-                            : null,
-                        filled: true,
-                        fillColor: theme.colorScheme.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                       ),
                     ),
                   ),
                 ),
-              ),
 
               if (_currentTabIndex != 0 || _searchQuery.isNotEmpty || _selectedSort != 'newest' || _activeFilters.isNotEmpty)
                 SliverToBoxAdapter(
@@ -1219,8 +1222,11 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
   }
 
   Widget _buildChannelCard(Channel channel, int index) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Card(
-      elevation: 4,
+      elevation: 6,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         onTap: () {
@@ -1239,104 +1245,21 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                channel.cardColor,
-                channel.cardColor.withOpacity(0.8),
+                channel.cardColor.withOpacity(0.9),
+                channel.cardColor.withOpacity(0.7),
               ],
             ),
           ),
           child: Stack(
             children: [
-              // Live badge
-              if (channel.isLive)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red.withOpacity(0.5),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'LIVE ${_formatNumber(channel.liveViewers)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // Subscriber count badge
+              // Background pattern
               Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${_formatNumber(channel.subscribers)} под.',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-
-              // Verified badge
-              if (channel.isVerified)
-                Positioned(
-                  top: channel.isLive ? 40 : 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.verified, size: 14, color: Colors.white),
-                  ),
-                ),
-
-              // Favorite button
-              Positioned(
-                top: channel.isLive ? 40 : 12,
-                right: channel.isLive ? 12 : 50,
-                child: IconButton(
-                  icon: Icon(
-                    channel.isFavorite ? Icons.favorite : Icons.favorite_border,
-                    size: 18,
-                    color: channel.isFavorite ? Colors.red : Colors.white.withOpacity(0.8),
-                  ),
-                  onPressed: () => _toggleFavorite(index),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                top: -20,
+                right: -20,
+                child: Icon(
+                  Icons.circle,
+                  size: 80,
+                  color: Colors.white.withOpacity(0.1),
                 ),
               ),
 
@@ -1346,65 +1269,108 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Channel avatar
-                    Center(
-                      child: CircleAvatar(
-                        radius: 32,
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        backgroundImage: NetworkImage(channel.imageUrl),
-                      ),
+                    // Channel header
+                    Row(
+                      children: [
+                        // Channel avatar with verification badge
+                        Stack(
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                image: DecorationImage(
+                                  image: NetworkImage(channel.imageUrl),
+                                  fit: BoxFit.cover,
+                                ),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            if (channel.isVerified)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.blue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.verified, size: 12, color: Colors.white),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                channel.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                channel.owner,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Favorite button
+                        IconButton(
+                          icon: Icon(
+                            channel.isFavorite ? Icons.favorite : Icons.favorite_border,
+                            size: 20,
+                            color: channel.isFavorite ? Colors.red : Colors.white.withOpacity(0.8),
+                          ),
+                          onPressed: () => _toggleFavorite(index),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 16),
 
-                    // Channel title
+                    // Channel stats
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        Expanded(
-                          child: Text(
-                            channel.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        _buildStatItem(
+                          Icons.people,
+                          '${_formatNumber(channel.subscribers)}',
+                          'подписчиков',
                         ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Rating and engagement
-                    Row(
-                      children: [
-                        Icon(Icons.star, size: 14, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        Text(
+                        _buildStatItem(
+                          Icons.video_library,
+                          '${channel.videos}',
+                          'видео',
+                        ),
+                        _buildStatItem(
+                          Icons.star,
                           channel.rating.toStringAsFixed(1),
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.visibility, size: 14, color: Colors.white.withOpacity(0.8)),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatNumber(channel.views),
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 12,
-                          ),
+                          'рейтинг',
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
 
                     // Channel description
                     Text(
@@ -1420,23 +1386,32 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
 
                     const Spacer(),
 
-                    // Video count and date
+                    // Tags
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: channel.tags.take(3).map((tag) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '#$tag',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 10,
+                          ),
+                        ),
+                      )).toList(),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Subscribe button and date
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.video_library, color: Colors.white.withOpacity(0.8), size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${channel.videos} видео',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
                         Text(
                           _formatDate(channel.createdAt),
                           style: TextStyle(
@@ -1444,34 +1419,30 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
                             fontSize: 10,
                           ),
                         ),
+                        ElevatedButton(
+                          onPressed: () => _toggleSubscription(index),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: channel.isSubscribed
+                                ? Colors.white.withOpacity(0.2)
+                                : Colors.white,
+                            foregroundColor: channel.isSubscribed
+                                ? Colors.white
+                                : channel.cardColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            minimumSize: const Size(0, 36),
+                          ),
+                          child: Text(
+                            channel.isSubscribed ? 'Отписаться' : 'Подписаться',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Subscribe button
-                    ElevatedButton(
-                      onPressed: () => _toggleSubscription(index),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: channel.isSubscribed
-                            ? Colors.white.withOpacity(0.2)
-                            : Colors.white,
-                        foregroundColor: channel.isSubscribed
-                            ? Colors.white
-                            : channel.cardColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        minimumSize: const Size(double.infinity, 40),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      child: Text(
-                        channel.isSubscribed ? 'Отписаться' : 'Подписаться',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -1483,7 +1454,33 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
     );
   }
 
+  Widget _buildStatItem(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, size: 16, color: Colors.white.withOpacity(0.9)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildChannelListItem(Channel channel, int index) {
+    final theme = Theme.of(context);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1529,26 +1526,6 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
                         child: const Icon(Icons.verified, size: 12, color: Colors.white),
                       ),
                     ),
-                  if (channel.isLive)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'LIVE',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
               const SizedBox(width: 16),
@@ -1583,6 +1560,15 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
                     ),
                     const SizedBox(height: 4),
                     Text(
+                      channel.owner,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
                       channel.description,
                       style: TextStyle(
                         fontSize: 12,
@@ -1591,44 +1577,50 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
-                        Icon(Icons.people, size: 12, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${_formatNumber(channel.subscribers)} под.',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        _buildListStatItem(
+                          Icons.people,
+                          '${_formatNumber(channel.subscribers)}',
                         ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.video_library, size: 12, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${channel.videos} видео',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        const SizedBox(width: 16),
+                        _buildListStatItem(
+                          Icons.video_library,
+                          '${channel.videos}',
                         ),
-                        const Spacer(),
-                        Icon(Icons.star, size: 12, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        Text(
+                        const SizedBox(width: 16),
+                        _buildListStatItem(
+                          Icons.star,
                           channel.rating.toStringAsFixed(1),
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(
-                          channel.owner,
-                          style: TextStyle(fontSize: 11, color: Colors.grey[700], fontWeight: FontWeight.w500),
                         ),
                         const Spacer(),
                         Text(
                           _formatDate(channel.createdAt),
-                          style: TextStyle(fontSize: 10, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                          ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      children: channel.tags.take(2).map((tag) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '#$tag',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontSize: 10,
+                          ),
+                        ),
+                      )).toList(),
                     ),
                   ],
                 ),
@@ -1637,6 +1629,19 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin  {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildListStatItem(IconData icon, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 12, color: Colors.grey),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+      ],
     );
   }
 

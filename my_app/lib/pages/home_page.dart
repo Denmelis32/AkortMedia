@@ -49,7 +49,7 @@ class _HomePageState extends State<HomePage> {
       CardsPage(
         userName: widget.userName,
         userEmail: widget.userEmail,
-        onLogout: widget.onLogout,
+        onLogout: widget.onLogout, userAvatarUrl: '',
       ),
       RoomsPage(
         onLogout: widget.onLogout,

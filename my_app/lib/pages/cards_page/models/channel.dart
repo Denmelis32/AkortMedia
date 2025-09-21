@@ -9,7 +9,7 @@ class Channel {
   final int subscribers;
   final int videos;
   final bool isSubscribed;
-  final bool isFavorite; // ← ДОБАВЛЕНО СВОЙСТВО
+  final bool isFavorite;
   final Color cardColor;
   final String categoryId;
   final DateTime createdAt;
@@ -24,6 +24,10 @@ class Channel {
   final int liveViewers;
   final String websiteUrl;
   final String socialMedia;
+  final String author;
+  final String authorImageUrl;
+  final int commentsCount;
+  final bool isPinned;
 
   Channel({
     required this.id,
@@ -33,14 +37,17 @@ class Channel {
     required this.subscribers,
     required this.videos,
     required this.isSubscribed,
-    required this.isFavorite, // ← ДОБАВЛЕНО
+    required this.isFavorite,
     required this.cardColor,
     required this.categoryId,
     required this.createdAt,
     required this.isVerified,
     required this.rating,
+    required this.author,
+    required this.authorImageUrl,
+    required this.commentsCount,
+    required this.likes,
     this.views = 0,
-    this.likes = 0,
     this.comments = 0,
     this.owner = 'Неизвестный автор',
     this.tags = const [],
@@ -48,6 +55,7 @@ class Channel {
     this.liveViewers = 0,
     this.websiteUrl = '',
     this.socialMedia = '',
+    this.isPinned = false,
   });
 
   Channel copyWith({
@@ -58,7 +66,7 @@ class Channel {
     int? subscribers,
     int? videos,
     bool? isSubscribed,
-    bool? isFavorite, // ← ДОБАВЛЕНО
+    bool? isFavorite,
     Color? cardColor,
     String? categoryId,
     DateTime? createdAt,
@@ -73,6 +81,10 @@ class Channel {
     int? liveViewers,
     String? websiteUrl,
     String? socialMedia,
+    String? author,
+    String? authorImageUrl,
+    int? commentsCount,
+    bool? isPinned,
   }) {
     return Channel(
       id: id ?? this.id,
@@ -82,7 +94,7 @@ class Channel {
       subscribers: subscribers ?? this.subscribers,
       videos: videos ?? this.videos,
       isSubscribed: isSubscribed ?? this.isSubscribed,
-      isFavorite: isFavorite ?? this.isFavorite, // ← ДОБАВЛЕНО
+      isFavorite: isFavorite ?? this.isFavorite,
       cardColor: cardColor ?? this.cardColor,
       categoryId: categoryId ?? this.categoryId,
       createdAt: createdAt ?? this.createdAt,
@@ -97,6 +109,10 @@ class Channel {
       liveViewers: liveViewers ?? this.liveViewers,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       socialMedia: socialMedia ?? this.socialMedia,
+      author: author ?? this.author,
+      authorImageUrl: authorImageUrl ?? this.authorImageUrl,
+      commentsCount: commentsCount ?? this.commentsCount,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 
@@ -147,6 +163,16 @@ class Channel {
     return subscribers.toString();
   }
 
+  // Метод для получения формата просмотров
+  String get formattedViews {
+    if (views >= 1000000) {
+      return '${(views / 1000000).toStringAsFixed(1)}M просмотров';
+    } else if (views >= 1000) {
+      return '${(views / 1000).toStringAsFixed(1)}K просмотров';
+    }
+    return '$views просмотров';
+  }
+
   // Метод для получения основного цвета в hex
   String get colorHex {
     return '#${cardColor.value.toRadixString(16).substring(2, 8)}';
@@ -170,6 +196,14 @@ class Channel {
     return categoryMap[categoryId] ?? categoryId;
   }
 
+  // Метод для получения формата даты создания
+  String get formattedCreatedAt {
+    return '${createdAt.day}.${createdAt.month}.${createdAt.year}';
+  }
+
+  // Метод для проверки, является ли канал новым (создан менее 7 дней назад)
+  bool get isNew => age.inDays < 7;
+
   // Метод для преобразования в Map (для Firebase или других БД)
   Map<String, dynamic> toMap() {
     return {
@@ -180,7 +214,7 @@ class Channel {
       'subscribers': subscribers,
       'videos': videos,
       'isSubscribed': isSubscribed,
-      'isFavorite': isFavorite, // ← ДОБАВЛЕНО
+      'isFavorite': isFavorite,
       'cardColor': cardColor.value,
       'categoryId': categoryId,
       'createdAt': createdAt.millisecondsSinceEpoch,
@@ -195,6 +229,10 @@ class Channel {
       'liveViewers': liveViewers,
       'websiteUrl': websiteUrl,
       'socialMedia': socialMedia,
+      'author': author,
+      'authorImageUrl': authorImageUrl,
+      'commentsCount': commentsCount,
+      'isPinned': isPinned,
     };
   }
 
@@ -208,7 +246,7 @@ class Channel {
       subscribers: map['subscribers'],
       videos: map['videos'],
       isSubscribed: map['isSubscribed'],
-      isFavorite: map['isFavorite'] ?? false, // ← ДОБАВЛЕНО
+      isFavorite: map['isFavorite'] ?? false,
       cardColor: Color(map['cardColor']),
       categoryId: map['categoryId'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
@@ -223,12 +261,56 @@ class Channel {
       liveViewers: map['liveViewers'] ?? 0,
       websiteUrl: map['websiteUrl'] ?? '',
       socialMedia: map['socialMedia'] ?? '',
+      author: map['author'] ?? 'Неизвестный автор',
+      authorImageUrl: map['authorImageUrl'] ?? '',
+      commentsCount: map['commentsCount'] ?? 0,
+      isPinned: map['isPinned'] ?? false,
+    );
+  }
+
+  // Фабричный метод для создания упрощенного канала (совместимость)
+  factory Channel.simple({
+    required int id,
+    required String title,
+    required String description,
+    required String imageUrl,
+    required Color cardColor,
+    int subscribers = 0,
+    int videos = 0,
+    double rating = 0.0,
+    bool isSubscribed = false,
+    bool isFavorite = false,
+    String author = 'Неизвестный автор',
+    String authorImageUrl = '',
+    int commentsCount = 0,
+    int likes = 0,
+  }) {
+    return Channel(
+      id: id,
+      title: title,
+      description: description,
+      imageUrl: imageUrl,
+      subscribers: subscribers,
+      videos: videos,
+      isSubscribed: isSubscribed,
+      isFavorite: isFavorite,
+      cardColor: cardColor,
+      categoryId: 'general',
+      createdAt: DateTime.now(),
+      isVerified: false,
+      rating: rating,
+      author: author,
+      authorImageUrl: authorImageUrl,
+      commentsCount: commentsCount,
+      likes: likes,
+      views: 0,
+      comments: 0,
     );
   }
 
   @override
   String toString() {
-    return 'Channel{id: $id, title: $title, subscribers: $subscribers, isSubscribed: $isSubscribed, isFavorite: $isFavorite, rating: $rating, isVerified: $isVerified}';
+    return 'Channel{id: $id, title: $title, subscribers: $subscribers, isSubscribed: $isSubscribed, isFavorite: $isFavorite, rating: $rating, isVerified: $isVerified, isPinned: $isPinned}';
   }
 
   @override
@@ -240,4 +322,13 @@ class Channel {
 
   @override
   int get hashCode => id.hashCode;
+
+  // Метод для сравнения по дате создания (для сортировки)
+  int compareByDate(Channel other) => createdAt.compareTo(other.createdAt);
+
+  // Метод для сравнения по популярности (для сортировки)
+  int compareByPopularity(Channel other) => subscribers.compareTo(other.subscribers);
+
+  // Метод для сравнения по рейтингу (для сортировки)
+  int compareByRating(Channel other) => rating.compareTo(other.rating);
 }

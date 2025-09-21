@@ -6,7 +6,7 @@ import '../models/channel.dart';
 class ChannelHeader extends StatelessWidget {
   final Channel channel;
 
-  const ChannelHeader({super.key, required this.channel});
+  const ChannelHeader({super.key, required this.channel, required Future<void> Function() onFollow, required bool isSubscribed});
 
   @override
   Widget build(BuildContext context) {

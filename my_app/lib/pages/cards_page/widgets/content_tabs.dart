@@ -11,7 +11,7 @@ class ContentTabs extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onTabChanged,
-    required this.channelColor,
+    required this.channelColor, required List<String> tabs,
   });
 
   @override

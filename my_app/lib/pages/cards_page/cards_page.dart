@@ -1,4 +1,6 @@
 // lib/pages/cards_page/cards_page.dart
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:shimmer/shimmer.dart';
@@ -8,12 +10,14 @@ import 'models/channel.dart';
 class CardsPage extends StatefulWidget {
   final String userName;
   final String userEmail;
+  final String userAvatarUrl;
   final VoidCallback onLogout;
 
   const CardsPage({
     super.key,
     required this.userName,
     required this.userEmail,
+    required this.userAvatarUrl,
     required this.onLogout,
   });
 
@@ -22,7 +26,7 @@ class CardsPage extends StatefulWidget {
 }
 
 class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
-  final List<Channel> _channels = [
+  final List<Channel> _channels = <Channel>[
     Channel(
       id: 1,
       title: 'Технологии будущего',
@@ -41,11 +45,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       likes: 45000,
       comments: 2300,
       owner: 'Иван Технолог',
+      author: 'Иван Технолог',
+      authorImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
       tags: ['технологии', 'IT', 'инновации', 'робототехника'],
       isLive: false,
       liveViewers: 0,
       websiteUrl: 'https://tech-future.ru',
       socialMedia: '@tech_future',
+      commentsCount: 2300,
     ),
     Channel(
       id: 2,
@@ -65,11 +72,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       likes: 32000,
       comments: 1500,
       owner: 'Мария Бизнесменова',
+      author: 'Мария Бизнесменова',
+      authorImageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
       tags: ['бизнес', 'инвестиции', 'стратегии', 'финансы'],
       isLive: false,
       liveViewers: 0,
       websiteUrl: 'https://business-strategy.ru',
       socialMedia: '@biz_strategy',
+      commentsCount: 1500,
     ),
     Channel(
       id: 3,
@@ -89,11 +99,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       likes: 89000,
       comments: 4500,
       owner: 'Алексей Геймеров',
+      author: 'Алексей Геймеров',
+      authorImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
       tags: ['игры', 'гейминг', 'обзоры', 'стримы'],
       isLive: false,
       liveViewers: 0,
       websiteUrl: 'https://game-reviews.ru',
       socialMedia: '@game_reviews',
+      commentsCount: 4500,
     ),
     Channel(
       id: 4,
@@ -113,11 +126,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       likes: 125000,
       comments: 7800,
       owner: 'Сергей Разработчик',
+      author: 'Сергей Разработчик',
+      authorImageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150',
       tags: ['программирование', 'IT', 'разработка', 'обучение'],
       isLive: false,
       liveViewers: 0,
       websiteUrl: 'https://code-master.ru',
       socialMedia: '@code_master',
+      commentsCount: 7800,
     ),
     Channel(
       id: 5,
@@ -137,11 +153,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       likes: 67000,
       comments: 3200,
       owner: 'Дмитрий Спортивный',
+      author: 'Дмитрий Спортивный',
+      authorImageUrl: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=150',
       tags: ['спорт', 'новости', 'аналитика', 'матчи'],
       isLive: false,
       liveViewers: 0,
       websiteUrl: 'https://sport-news.ru',
       socialMedia: '@sport_news',
+      commentsCount: 3200,
     ),
     Channel(
       id: 6,
@@ -161,11 +180,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       likes: 28000,
       comments: 1900,
       owner: 'Анна Психологова',
+      author: 'Анна Психологова',
+      authorImageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
       tags: ['психология', 'общение', 'отношения', 'развитие'],
       isLive: false,
       liveViewers: 0,
       websiteUrl: 'https://psychology-talk.ru',
       socialMedia: '@psychology_talk',
+      commentsCount: 1900,
     ),
   ];
 
@@ -226,12 +248,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     SortOption(id: 'subscribers', title: 'По подписчикам', icon: Icons.people),
     SortOption(id: 'rating', title: 'По рейтингу', icon: Icons.star),
     SortOption(id: 'videos', title: 'По количеству видео', icon: Icons.video_library),
+    SortOption(id: 'comments', title: 'По комментариям', icon: Icons.comment),
   ];
 
   final List<FilterOption> _filterOptions = [
     FilterOption(id: 'verified', title: 'Только проверенные', icon: Icons.verified),
     FilterOption(id: 'subscribed', title: 'Мои подписки', icon: Icons.subscriptions),
     FilterOption(id: 'favorites', title: 'Избранное', icon: Icons.favorite),
+    FilterOption(id: 'live', title: 'Прямой эфир', icon: Icons.live_tv),
   ];
 
   final TextEditingController _titleController = TextEditingController();
@@ -253,6 +277,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
   bool _isRefreshing = false;
   bool _showFilters = false;
   bool _showSearchBar = false;
+  bool _showCreateButton = true;
 
   @override
   void initState() {
@@ -276,6 +301,21 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase();
       });
+    });
+
+    _tabScrollController.addListener(() {
+      // Скрывать FAB при прокрутке категорий
+      if (_tabScrollController.offset > 50 && _showCreateButton) {
+        setState(() {
+          _showCreateButton = false;
+          _animationController.reverse();
+        });
+      } else if (_tabScrollController.offset <= 50 && !_showCreateButton) {
+        setState(() {
+          _showCreateButton = true;
+          _animationController.forward();
+        });
+      }
     });
 
     _animationController.forward();
@@ -312,6 +352,9 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     if (_activeFilters.contains('favorites')) {
       filtered = filtered.where((channel) => channel.isFavorite).toList();
     }
+    if (_activeFilters.contains('live')) {
+      filtered = filtered.where((channel) => channel.isLive).toList();
+    }
 
     // Фильтрация по поисковому запросу
     if (_searchQuery.isNotEmpty) {
@@ -319,7 +362,8 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
         return channel.title.toLowerCase().contains(_searchQuery) ||
             channel.description.toLowerCase().contains(_searchQuery) ||
             channel.tags.any((tag) => tag.toLowerCase().contains(_searchQuery)) ||
-            channel.owner.toLowerCase().contains(_searchQuery);
+            channel.owner.toLowerCase().contains(_searchQuery) ||
+            channel.author.toLowerCase().contains(_searchQuery);
       }).toList();
     }
 
@@ -340,6 +384,9 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       case 'videos':
         filtered.sort((a, b) => b.videos.compareTo(a.videos));
         break;
+      case 'comments':
+        filtered.sort((a, b) => (b.commentsCount ?? 0).compareTo(a.commentsCount ?? 0));
+        break;
     }
 
     return filtered;
@@ -352,9 +399,21 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     // Имитация загрузки новых данных
     await Future.delayed(const Duration(seconds: 2));
 
+    // Обновляем несколько каналов для демонстрации
     setState(() {
       _isRefreshing = false;
       _refreshController.reset();
+
+      // Добавляем случайные прямые эфиры
+      final random = Random();
+      for (var channel in _channels) {
+        if (random.nextBool()) {
+          channel = channel.copyWith(
+            isLive: random.nextDouble() > 0.7,
+            liveViewers: random.nextInt(1000),
+          );
+        }
+      }
     });
   }
 
@@ -444,7 +503,13 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                   ),
                 );
               }).toList(),
-              onChanged: (value) {},
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedCategoryId = value;
+                  });
+                }
+              },
             ),
             const SizedBox(height: 24),
             Row(
@@ -521,11 +586,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       likes: 0,
       comments: 0,
       owner: widget.userName,
+      author: widget.userName,
+      authorImageUrl: widget.userAvatarUrl,
       tags: ['новый', 'канал'],
       isLive: false,
       liveViewers: 0,
       websiteUrl: '',
       socialMedia: '',
+      commentsCount: 0,
     );
 
     setState(() {
@@ -539,6 +607,18 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         backgroundColor: Colors.green,
+        action: SnackBarAction(
+          label: 'Перейти',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChannelDetailPage(channel: newChannel),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -630,6 +710,16 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
           _selectedCategoryId = category.id;
           _searchController.clear();
         });
+
+        // Прокрутка к выбранной категории
+        if (_tabScrollController.hasClients) {
+          final double offset = index * 120.0; // Примерная ширина элемента
+          _tabScrollController.animateTo(
+            offset.clamp(0.0, _tabScrollController.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
@@ -672,263 +762,267 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      floatingActionButton: ScaleTransition(
+      floatingActionButton: _showCreateButton ? ScaleTransition(
         scale: _fabAnimation,
-        child: FloatingActionButton(
+        child: FloatingActionButton.extended(
           onPressed: _createNewChannel,
           backgroundColor: theme.colorScheme.primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: const Icon(Icons.add, size: 28),
+          icon: const Icon(Icons.add, size: 24),
+          label: const Text('Создать канал'),
         ),
-      ),
+      ) : null,
       body: RefreshIndicator(
         onRefresh: _refreshData,
         color: theme.colorScheme.primary,
         backgroundColor: theme.scaffoldBackgroundColor,
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              SliverAppBar(
-                expandedHeight: 140.0,
-                floating: false,
-                pinned: true,
-                backgroundColor: theme.scaffoldBackgroundColor,
-                elevation: 0,
-                title: AnimatedOpacity(
-                  opacity: innerBoxIsScrolled ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Text(
-                    'Каналы',
-                    style: TextStyle(
-                      color: theme.colorScheme.onBackground,
-                      fontSize: 20.0,
-                      fontWeight: FontWeight.bold,
-                    ),
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 140.0,
+              floating: false,
+              pinned: true,
+              backgroundColor: theme.scaffoldBackgroundColor,
+              elevation: 0,
+              title: AnimatedOpacity(
+                opacity: _showSearchBar ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  'Каналы',
+                  style: TextStyle(
+                    color: theme.colorScheme.onBackground,
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                centerTitle: false,
-                bottom: PreferredSize(
-                  preferredSize: const Size.fromHeight(70),
-                  child: ColoredBox(
-                    color: theme.scaffoldBackgroundColor,
-                    child: Column(
-                      children: [
-                        SingleChildScrollView(
-                          controller: _tabScrollController,
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Row(
-                            children: _categories.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final category = entry.value;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: _buildTabItem(category, index),
-                              );
-                            }).toList(),
-                          ),
+              ),
+              centerTitle: false,
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(70),
+                child: ColoredBox(
+                  color: theme.scaffoldBackgroundColor,
+                  child: Column(
+                    children: [
+                      SingleChildScrollView(
+                        controller: _tabScrollController,
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Row(
+                          children: _categories.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final category = entry.value;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: _buildTabItem(category, index),
+                            );
+                          }).toList(),
                         ),
-                        const SizedBox(height: 8),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(_showSearchBar ? Icons.search_off : Icons.search, size: 24),
+                  onPressed: () => setState(() => _showSearchBar = !_showSearchBar),
+                  tooltip: 'Поиск',
+                ),
+                IconButton(
+                  icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view, size: 24),
+                  onPressed: () => setState(() => _isGridView = !_isGridView),
+                  tooltip: 'Сменить вид',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.sort, size: 24),
+                  onPressed: _showSortBottomSheet,
+                  tooltip: 'Сортировка',
+                ),
+                IconButton(
+                  icon: Icon(_showFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 24),
+                  onPressed: () => setState(() => _showFilters = !_showFilters),
+                  tooltip: 'Фильтры',
+                ),
+                IconButton(
+                  icon: CircleAvatar(
+                    radius: 14,
+                    backgroundImage: NetworkImage(widget.userAvatarUrl),
+                  ),
+                  onPressed: _showProfileMenu,
+                  tooltip: 'Профиль',
+                ),
+              ],
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        theme.colorScheme.primary.withOpacity(0.8),
+                        theme.colorScheme.primary.withOpacity(0.4),
                       ],
                     ),
                   ),
-                ),
-                actions: [
-                  IconButton(
-                    icon: Icon(_showSearchBar ? Icons.search_off : Icons.search, size: 24),
-                    onPressed: () => setState(() => _showSearchBar = !_showSearchBar),
-                    tooltip: 'Поиск',
-                  ),
-                  IconButton(
-                    icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view, size: 24),
-                    onPressed: () => setState(() => _isGridView = !_isGridView),
-                    tooltip: 'Сменить вид',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.sort, size: 24),
-                    onPressed: _showSortBottomSheet,
-                    tooltip: 'Сортировка',
-                  ),
-                  IconButton(
-                    icon: Icon(_showFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 24),
-                    onPressed: () => setState(() => _showFilters = !_showFilters),
-                    tooltip: 'Фильтры',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.account_circle_rounded, size: 24),
-                    onPressed: _showProfileMenu,
-                    tooltip: 'Профиль',
-                  ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          theme.colorScheme.primary.withOpacity(0.8),
-                          theme.colorScheme.primary.withOpacity(0.4),
-                        ],
-                      ),
+                  padding: const EdgeInsets.only(left: 20, bottom: 70),
+                  alignment: Alignment.bottomLeft,
+                  child: const Text(
+                    'Каналы',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                    padding: const EdgeInsets.only(left: 20, bottom: 70),
-                    alignment: Alignment.bottomLeft,
-                    child: const Text(
-                      'Каналы',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+
+            if (_showFilters)
+              SliverToBoxAdapter(
+                child: _buildFilterSection(),
+              ),
+
+            if (_showSearchBar)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                sliver: SliverToBoxAdapter(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Поиск каналов...',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 24),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 22),
+                          onPressed: () {
+                            setState(() {
+                              _searchController.clear();
+                              _searchQuery = '';
+                            });
+                          },
+                        )
+                            : null,
+                        filled: true,
+                        fillColor: theme.colorScheme.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                       ),
                     ),
                   ),
                 ),
               ),
 
-              if (_showFilters)
-                SliverToBoxAdapter(
-                  child: _buildFilterSection(),
-                ),
-
-              if (_showSearchBar)
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  sliver: SliverToBoxAdapter(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+            if (_currentTabIndex != 0 || _searchQuery.isNotEmpty || _selectedSort != 'newest' || _activeFilters.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (_currentTabIndex != 0)
+                        FilterChip(
+                          label: Text(
+                            'Категория: ${_categories[_currentTabIndex].title}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.primary,
+                            ),
                           ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Поиск каналов...',
-                          prefixIcon: const Icon(Icons.search_rounded, size: 24),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 22),
-                            onPressed: () {
-                              setState(() {
-                                _searchController.clear();
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                              : null,
-                          filled: true,
-                          fillColor: theme.colorScheme.surface,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                          onSelected: (_) {
+                            setState(() {
+                              _currentTabIndex = 0;
+                              _selectedCategoryId = 'all';
+                            });
+                          },
+                          backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
                         ),
-                      ),
-                    ),
+                      if (_searchQuery.isNotEmpty)
+                        FilterChip(
+                          label: Text(
+                            'Поиск: "$_searchQuery"',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green[700],
+                            ),
+                          ),
+                          onSelected: (_) {
+                            setState(() {
+                              _searchController.clear();
+                              _searchQuery = '';
+                            });
+                          },
+                          backgroundColor: Colors.green.withOpacity(0.1),
+                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                        ),
+                      if (_selectedSort != 'newest')
+                        FilterChip(
+                          label: Text(
+                            'Сортировка: ${_sortOptions.firstWhere((opt) => opt.id == _selectedSort).title}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedSort = 'newest';
+                            });
+                          },
+                          backgroundColor: Colors.orange.withOpacity(0.1),
+                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                        ),
+                      ..._activeFilters.map((filter) {
+                        final option = _filterOptions.firstWhere((opt) => opt.id == filter);
+                        return FilterChip(
+                          label: Text(
+                            option.title,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.purple[700],
+                            ),
+                          ),
+                          onSelected: (_) {
+                            setState(() {
+                              _activeFilters.remove(filter);
+                            });
+                          },
+                          backgroundColor: Colors.purple.withOpacity(0.1),
+                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                        );
+                      }).toList(),
+                    ],
                   ),
                 ),
+              ),
 
-              if (_currentTabIndex != 0 || _searchQuery.isNotEmpty || _selectedSort != 'newest' || _activeFilters.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (_currentTabIndex != 0)
-                          FilterChip(
-                            label: Text(
-                              'Категория: ${_categories[_currentTabIndex].title}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _currentTabIndex = 0;
-                                _selectedCategoryId = 'all';
-                              });
-                            },
-                            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                          ),
-                        if (_searchQuery.isNotEmpty)
-                          FilterChip(
-                            label: Text(
-                              'Поиск: "$_searchQuery"',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.green[700],
-                              ),
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _searchController.clear();
-                                _searchQuery = '';
-                              });
-                            },
-                            backgroundColor: Colors.green.withOpacity(0.1),
-                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                          ),
-                        if (_selectedSort != 'newest')
-                          FilterChip(
-                            label: Text(
-                              'Сортировка: ${_sortOptions.firstWhere((opt) => opt.id == _selectedSort).title}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.orange[700],
-                              ),
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _selectedSort = 'newest';
-                              });
-                            },
-                            backgroundColor: Colors.orange.withOpacity(0.1),
-                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                          ),
-                        ..._activeFilters.map((filter) {
-                          final option = _filterOptions.firstWhere((opt) => opt.id == filter);
-                          return FilterChip(
-                            label: Text(
-                              option.title,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.purple[700],
-                              ),
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _activeFilters.remove(filter);
-                              });
-                            },
-                            backgroundColor: Colors.purple.withOpacity(0.1),
-                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                          );
-                        }).toList(),
-                      ],
-                    ),
-                  ),
-                ),
-            ];
-          },
-          body: _isLoading
-              ? _buildLoadingShimmer()
-              : _buildCategoryContent(),
+            // Основной контент
+            _isLoading
+                ? SliverToBoxAdapter(child: _buildLoadingShimmer())
+                : _buildCategoryContent(),
+          ],
         ),
       ),
     );
@@ -990,20 +1084,21 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
   }
 
   Widget _buildLoadingShimmer() {
-    return ListView.builder(
+    return Padding(
       padding: const EdgeInsets.all(16),
-      itemCount: 6,
-      itemBuilder: (context, index) => Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
-        child: Container(
-          height: 120,
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+      child: Column(
+        children: List.generate(6, (index) => Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            height: 120,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
-        ),
+        )),
       ),
     );
   }
@@ -1038,14 +1133,8 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
             const SizedBox(height: 20),
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                child: Text(
-                  widget.userName[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                backgroundImage: NetworkImage(widget.userAvatarUrl),
+                radius: 24,
               ),
               title: Text(widget.userName, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(widget.userEmail),
@@ -1062,9 +1151,29 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
             ListTile(
               leading: const Icon(Icons.favorite),
               title: const Text('Избранное'),
+              trailing: Badge(
+                label: Text(_channels.where((c) => c.isFavorite).length.toString()),
+              ),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Переход к избранному
+                setState(() {
+                  _activeFilters = {'favorites'};
+                  _showFilters = true;
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.subscriptions),
+              title: const Text('Мои подписки'),
+              trailing: Badge(
+                label: Text(_channels.where((c) => c.isSubscribed).length.toString()),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {
+                  _activeFilters = {'subscribed'};
+                  _showFilters = true;
+                });
               },
             ),
             ListTile(
@@ -1156,74 +1265,77 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     final categoryChannels = _filteredChannels;
 
     if (categoryChannels.isEmpty) {
-      return Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[400]),
-              const SizedBox(height: 20),
-              Text(
-                'Каналы не найдены',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[600],
+      return SliverFillRemaining(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[400]),
+                const SizedBox(height: 20),
+                Text(
+                  'Каналы не найдены',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Попробуйте изменить параметры поиска\nили создать новый канал',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 14,
+                const SizedBox(height: 12),
+                Text(
+                  'Попробуйте изменить параметры поиска\nили создать новый канал',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _createNewChannel,
-                icon: const Icon(Icons.add),
-                label: const Text('Создать канал'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _createNewChannel,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Создать канал'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return _isGridView ? _buildGridView(categoryChannels) : _buildListView(categoryChannels);
-  }
-
-  Widget _buildGridView(List<Channel> channels) {
-    return GridView.builder(
+    return _isGridView
+        ? SliverPadding(
       padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.75,
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.75,
+        ),
+        delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildChannelCard(categoryChannels[index], index),
+          childCount: categoryChannels.length,
+        ),
       ),
-      itemCount: channels.length,
-      itemBuilder: (context, index) => _buildChannelCard(channels[index], index),
-    );
-  }
-
-  Widget _buildListView(List<Channel> channels) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: channels.length,
-      itemBuilder: (context, index) => _buildChannelListItem(channels[index], index),
+    )
+        : SliverList(
+      delegate: SliverChildBuilderDelegate(
+            (context, index) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: _buildChannelListItem(categoryChannels[index], index),
+        ),
+        childCount: categoryChannels.length,
+      ),
     );
   }
 
   Widget _buildChannelCard(Channel channel, int index) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Card(
       elevation: 6,
@@ -1262,6 +1374,42 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                   color: Colors.white.withOpacity(0.1),
                 ),
               ),
+
+              // Live indicator
+              if (channel.isLive)
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'LIVE ${_formatNumber(channel.liveViewers)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
               // Content
               Padding(
@@ -1323,7 +1471,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                channel.owner,
+                                channel.author,
                                 style: TextStyle(
                                   color: Colors.white.withOpacity(0.8),
                                   fontSize: 12,
@@ -1482,7 +1630,8 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     final theme = Theme.of(context);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
@@ -1526,6 +1675,26 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                         child: const Icon(Icons.verified, size: 12, color: Colors.white),
                       ),
                     ),
+                  if (channel.isLive)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'LIVE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(width: 16),
@@ -1560,7 +1729,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      channel.owner,
+                      channel.author,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -1594,6 +1763,11 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                           Icons.star,
                           channel.rating.toStringAsFixed(1),
                         ),
+                        const SizedBox(width: 16),
+                        _buildListStatItem(
+                          Icons.comment,
+                          '${_formatNumber(channel.commentsCount ?? 0)}',
+                        ),
                         const Spacer(),
                         Text(
                           _formatDate(channel.createdAt),
@@ -1621,6 +1795,33 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                           ),
                         ),
                       )).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        onPressed: () => _toggleSubscription(index),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: channel.isSubscribed
+                              ? theme.colorScheme.primary.withOpacity(0.1)
+                              : theme.colorScheme.primary,
+                          foregroundColor: channel.isSubscribed
+                              ? theme.colorScheme.primary
+                              : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                        ),
+                        child: Text(
+                          channel.isSubscribed ? 'Отписаться' : 'Подписаться',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),

@@ -32,7 +32,8 @@ class Channel {
   final String authorImageUrl;
   final int commentsCount;
   final bool isPinned;
-  final List<Playlist> playlists; // Добавленное поле
+  final List<Playlist> playlists;
+  final String? coverImageUrl; // Добавленное поле
 
   Channel({
     required this.id,
@@ -61,11 +62,13 @@ class Channel {
     this.websiteUrl = '',
     this.socialMedia = '',
     this.isPinned = false,
-    this.playlists = const [], // Значение по умолчанию - пустой список
+    this.playlists = const [],
+    this.coverImageUrl, // Значение по умолчанию - пустой список
   });
 
   Channel copyWith({
     int? id,
+    String? coverImageUrl,
     String? title,
     String? description,
     String? imageUrl,
@@ -120,7 +123,8 @@ class Channel {
       authorImageUrl: authorImageUrl ?? this.authorImageUrl,
       commentsCount: commentsCount ?? this.commentsCount,
       isPinned: isPinned ?? this.isPinned,
-      playlists: playlists ?? this.playlists, // Добавлено
+      playlists: playlists ?? this.playlists,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,// Добавлено
     );
   }
 

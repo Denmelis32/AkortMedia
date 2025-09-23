@@ -135,15 +135,16 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       },
     );
   }
-
   SliverAppBar _buildAppBar(BuildContext context, ChannelDetailProvider provider, ChannelDetailState state) {
     return SliverAppBar(
-      expandedHeight: 320,
+      expandedHeight: 280,
       flexibleSpace: FlexibleSpaceBar(
         background: ChannelHeader(
           channel: widget.channel,
-          onFollow: provider.toggleSubscription,
-          isSubscribed: state.isSubscribed,
+          initialHashtags: const ['Flutter', 'Dart', 'MobileDev'],
+          initialCoverImageUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400',
+          initialAvatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face', // НОВЫЙ АВАТАР
+          editable: true,
         ),
         title: AnimatedOpacity(
           opacity: state.showAppBarTitle ? 1.0 : 0.0,
@@ -167,6 +168,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       actions: _buildAppBarActions(context, provider, state),
     );
   }
+
 
   Color? _getAppBarColor(ChannelDetailState state) {
     final progress = state.scrollOffset.clamp(0, 200) / 200;

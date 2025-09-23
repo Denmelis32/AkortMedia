@@ -16,7 +16,6 @@ import '../articles_pages/widgets/add_article_dialog.dart';
 import '../news_page/dialogs.dart';
 import 'models/channel.dart';
 import 'models/chat_message.dart';
-import 'models/discussion.dart';
 
 // Импорты виджетов
 import 'widgets/channel_header.dart';
@@ -27,7 +26,6 @@ import 'widgets/channel_members.dart';
 import 'widgets/playlist_section.dart';
 import 'widgets/notification_settings_bottom_sheet.dart';
 import 'widgets/chat_dialog.dart';
-import 'widgets/discussions_list.dart';
 
 // Импорты новых компонентов
 import 'widgets/sections/channel_info_section.dart';
@@ -102,9 +100,25 @@ class _ChannelDetailContent extends StatefulWidget {
   State<_ChannelDetailContent> createState() => _ChannelDetailContentState();
 }
 
+// Вспомогательный класс для объединенного контента
+class _ContentItem {
+  final String type;
+  final dynamic data;
+
+  const _ContentItem({required this.type, required this.data});
+}
+
 class _ChannelDetailContentState extends State<_ChannelDetailContent> {
+  // Переменные для хранения введенных данных
+  final TextEditingController _postTitleController = TextEditingController();
+  final TextEditingController _postDescriptionController = TextEditingController();
+  final TextEditingController _postHashtagsController = TextEditingController();
+
   @override
   void dispose() {
+    _postTitleController.dispose();
+    _postDescriptionController.dispose();
+    _postHashtagsController.dispose();
     super.dispose();
   }
 
@@ -135,15 +149,20 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       },
     );
   }
-  SliverAppBar _buildAppBar(BuildContext context, ChannelDetailProvider provider, ChannelDetailState state) {
+
+  SliverAppBar _buildAppBar(
+      BuildContext context,
+      ChannelDetailProvider provider,
+      ChannelDetailState state,
+      ) {
     return SliverAppBar(
       expandedHeight: 280,
       flexibleSpace: FlexibleSpaceBar(
         background: ChannelHeader(
           channel: widget.channel,
           initialHashtags: const ['Flutter', 'Dart', 'MobileDev'],
-          initialCoverImageUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400',
-          initialAvatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face', // НОВЫЙ АВАТАР
+          initialCoverImageUrl:
+          'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400',
           editable: true,
         ),
         title: AnimatedOpacity(
@@ -169,7 +188,6 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-
   Color? _getAppBarColor(ChannelDetailState state) {
     final progress = state.scrollOffset.clamp(0, 200) / 200;
     return Color.lerp(
@@ -179,7 +197,11 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  List<Widget> _buildAppBarActions(BuildContext context, ChannelDetailProvider provider, ChannelDetailState state) {
+  List<Widget> _buildAppBarActions(
+      BuildContext context,
+      ChannelDetailProvider provider,
+      ChannelDetailState state,
+      ) {
     return [
       IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -217,7 +239,9 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
             width: 100,
             height: 100,
             child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(widget.channel.cardColor),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                widget.channel.cardColor,
+              ),
               strokeWidth: 3,
             ),
           ),
@@ -249,43 +273,37 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Секция информации о канале
             ChannelInfoSection(
               channel: widget.channel,
               provider: provider,
               state: state,
             ),
 
-            // Секция участников
             MembersSection(
               channel: widget.channel,
               provider: provider,
               state: state,
             ),
 
-            // Секция плейлистов
             PlaylistsSection(
               channel: widget.channel,
               provider: provider,
               state: state,
             ),
 
-            // Секция кнопок действий
             ActionButtonsSection(
               channel: widget.channel,
               provider: provider,
               state: state,
             ),
 
-            // Вкладки контента
             ContentTabs(
               currentIndex: state.currentContentType,
               onTabChanged: provider.changeContentType,
               channelColor: widget.channel.cardColor,
-              tabs: const ['Новости', 'Статьи', 'Обсуждения'],
+              tabs: const ['Стена', 'Акорта', 'Статьи'],
             ),
 
-            // Динамический контент
             _buildContentByType(context, provider, state),
 
             const SizedBox(height: 32),
@@ -295,7 +313,11 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  Widget _buildContentByType(BuildContext context, ChannelDetailProvider provider, ChannelDetailState state) {
+  Widget _buildContentByType(
+      BuildContext context,
+      ChannelDetailProvider provider,
+      ChannelDetailState state,
+      ) {
     return Consumer2<ChannelPostsProvider, ArticlesProvider>(
       builder: (context, postsProvider, articlesProvider, child) {
         return AnimatedSwitcher(
@@ -319,32 +341,485 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       ) {
     switch (index) {
       case 0:
-        return PostsList(
-          key: const ValueKey('posts'),
-          posts: postsProvider.getPostsForChannel(widget.channel.id),
-          channel: widget.channel,
-          emptyMessage: 'Пока нет постов. Будьте первым, кто поделится новостью!',
-        );
+        return _buildWallTab(postsProvider, articlesProvider);
+
       case 1:
+        return _buildAkorTab(postsProvider);
+
+      case 2:
         return ArticlesGrid(
           key: const ValueKey('articles'),
           articles: articlesProvider.getArticlesForChannel(widget.channel.id),
           channel: widget.channel,
-          emptyMessage: 'Пока нет статей. Создайте первую статью для этого канала!',
+          emptyMessage:
+          'Пока нет статей. Создайте первую статью для этого канала!',
         );
-      case 2:
-        return DiscussionsList(
-          key: const ValueKey('discussions'),
-          discussions: channelProvider.state.discussions,
-          channel: widget.channel,
-          onDiscussionTap: (discussion) => _showDiscussionDetail(context, discussion),
-        );
+
       default:
         return const SizedBox(key: ValueKey('empty'));
     }
   }
 
-  Widget _buildFloatingActionButtons(BuildContext context, ChannelDetailProvider provider, ChannelDetailState state) {
+  Widget _buildWallTab(
+      ChannelPostsProvider postsProvider,
+      ArticlesProvider articlesProvider,
+      ) {
+    final posts = postsProvider.getPostsForChannel(widget.channel.id);
+    final articles = articlesProvider.getArticlesForChannel(widget.channel.id);
+
+    final allContent = [
+      ...posts.map((post) => _ContentItem(type: 'post', data: post)),
+      ...articles.map(
+            (article) => _ContentItem(type: 'article', data: article),
+      ),
+    ];
+
+    allContent.sort((a, b) => _getContentDate(b).compareTo(_getContentDate(a)));
+
+    if (allContent.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Icon(Icons.dashboard, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Стена пока пустая',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Будьте первым, кто поделится контентом!',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: allContent.length,
+      itemBuilder: (context, index) {
+        final item = allContent[index];
+
+        switch (item.type) {
+          case 'post':
+            return _buildWallPostItem(item.data);
+          case 'article':
+            return _buildWallArticleItem(item.data);
+          default:
+            return const SizedBox();
+        }
+      },
+    );
+  }
+
+  Widget _buildAkorTab(ChannelPostsProvider postsProvider) {
+    final posts = postsProvider.getPostsForChannel(widget.channel.id);
+
+    return Column(
+      children: [
+        // Кнопка создания новости в разделе Акорта
+        Container(
+          margin: const EdgeInsets.all(16),
+          child: ElevatedButton(
+            onPressed: () => _showAddPostDialog(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: widget.channel.cardColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add),
+                SizedBox(width: 8),
+                Text('Создать новость'),
+              ],
+            ),
+          ),
+        ),
+
+        // Список новостей в разделе Акорта
+        if (posts.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(40),
+            child: Column(
+              children: [
+                Icon(Icons.newspaper, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'Пока нет новостей',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Создайте первую новость для этого канала!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              return _buildAkorPostItem(posts[index]);
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAkorPostItem(Map<String, dynamic> post) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.newspaper, color: widget.channel.cardColor, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Новость в Акорт',
+                style: TextStyle(
+                  color: widget.channel.cardColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatDate(DateTime.parse(post['created_at'])),
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            post['title'] ?? 'Без названия',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+          ),
+          if (post['description'] != null &&
+              post['description'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                post['description'].toString(),
+                style: TextStyle(color: Colors.grey[700], fontSize: 14),
+              ),
+            ),
+          if (post['hashtags'] != null && (post['hashtags'] as List).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Wrap(
+                spacing: 8,
+                children: (post['hashtags'] as List).map<Widget>((hashtag) {
+                  return Chip(
+                    label: Text(
+                      '#$hashtag',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: widget.channel.cardColor,
+                      ),
+                    ),
+                    backgroundColor: widget.channel.cardColor.withOpacity(0.1),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  );
+                }).toList(),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(
+                  '${post['likes'] ?? 0}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+                const SizedBox(width: 16),
+                Icon(Icons.comment, size: 14, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(
+                  '${post['comments'] != null ? (post['comments'] as List).length : 0}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+                const Spacer(),
+                Text(
+                  'Опубликовано на Стене',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.green,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  DateTime _getContentDate(_ContentItem item) {
+    switch (item.type) {
+      case 'post':
+        return DateTime.parse(item.data['created_at']);
+      case 'article':
+        return DateTime.parse(item.data['publish_date']);
+      default:
+        return DateTime.now();
+    }
+  }
+
+  Widget _buildWallPostItem(Map<String, dynamic> post) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.newspaper, color: widget.channel.cardColor, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Новость из Акорт',
+                style: TextStyle(
+                  color: widget.channel.cardColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatDate(DateTime.parse(post['created_at'])),
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            post['title'] ?? 'Без названия',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+          ),
+          if (post['description'] != null &&
+              post['description'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                post['description'].toString(),
+                style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(
+                  '${post['likes'] ?? 0}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+                const SizedBox(width: 16),
+                Icon(Icons.comment, size: 14, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(
+                  '${post['comments'] != null ? (post['comments'] as List).length : 0}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWallArticleItem(Map<String, dynamic> article) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.article, color: Colors.purple, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Статья',
+                style: TextStyle(
+                  color: Colors.purple,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatDate(DateTime.parse(article['publish_date'])),
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (article['emoji'] != null &&
+                  article['emoji'].toString().isNotEmpty)
+                Text(
+                  article['emoji'].toString(),
+                  style: const TextStyle(fontSize: 20),
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  article['title'] ?? 'Без названия',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (article['description'] != null &&
+              article['description'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                article['description'].toString(),
+                style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          if (article['category'] != null &&
+              article['category'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  article['category'].toString(),
+                  style: TextStyle(
+                    color: Colors.purple,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                Icon(Icons.visibility, size: 14, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(
+                  '${article['views'] ?? 0}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+                const SizedBox(width: 16),
+                Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(
+                  '${article['likes'] ?? 0}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 365) {
+      return '${date.day}.${date.month}.${date.year}';
+    } else if (difference.inDays > 7) {
+      return '${date.day}.${date.month}';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}д назад';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}ч назад';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}м назад';
+    } else {
+      return 'только что';
+    }
+  }
+
+  Widget _buildFloatingActionButtons(
+      BuildContext context,
+      ChannelDetailProvider provider,
+      ChannelDetailState state,
+      ) {
     return Positioned(
       bottom: 24,
       right: 24,
@@ -357,7 +832,9 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
           onPressed: () => _showContentTypeDialog(context, provider),
           backgroundColor: widget.channel.cardColor,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: const Icon(Icons.add, size: 32),
           elevation: 8,
           highlightElevation: 16,
@@ -366,7 +843,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  Widget _buildScrollToTopButton(ChannelDetailProvider provider, ChannelDetailState state) {
+  Widget _buildScrollToTopButton(
+      ChannelDetailProvider provider,
+      ChannelDetailState state,
+      ) {
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
       right: 24,
@@ -381,20 +861,21 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  // === МЕТОДЫ ДИАЛОГОВ И ДЕЙСТВИЙ ===
-
   void _shareChannel(BuildContext context) async {
     try {
       await Share.share(
-        'Посмотрите канал "${widget.channel.title}"!\n\n${widget.channel.description}\n\n#${widget.channel.title.replaceAll(' ', '')}',
+        'Посмотрите канал "${widget.channel.title}"!\n\n${widget.channel.description}',
         subject: 'Канал: ${widget.channel.title}',
       );
     } catch (e) {
-      // Без уведомления об ошибке
+      // ignore
     }
   }
 
-  void _showChannelOptions(BuildContext context, ChannelDetailProvider provider) {
+  void _showChannelOptions(
+      BuildContext context,
+      ChannelDetailProvider provider,
+      ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -404,12 +885,16 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         onBlock: () => _showBlockConfirmation(context),
         onCopyLink: () => _copyLinkToClipboard(context),
         onShowQR: () => _showQRCode(context),
-        onNotificationSettings: () => _showNotificationSettings(context, provider),
+        onNotificationSettings: () =>
+            _showNotificationSettings(context, provider),
       ),
     );
   }
 
-  void _showContentTypeDialog(BuildContext context, ChannelDetailProvider provider) {
+  void _showContentTypeDialog(
+      BuildContext context,
+      ChannelDetailProvider provider,
+      ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -418,114 +903,124 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         channel: widget.channel,
         onAddPost: () => _showAddPostDialog(context),
         onAddArticle: () => _showAddArticleDialog(context),
-        onAddDiscussion: () => _createNewDiscussion(context, provider),
+        onAddDiscussion: () {}, // Убрано создание обсуждений
       ),
     );
   }
 
   void _showAddPostDialog(BuildContext context) {
-    final postsProvider = Provider.of<ChannelPostsProvider>(context, listen: false);
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    // Сброс контроллеров при открытии диалога
+    _postTitleController.clear();
+    _postDescriptionController.clear();
+    _postHashtagsController.clear();
 
-    showAddNewsDialog(
+    showDialog(
       context: context,
-      onAdd: (title, description, hashtags) => _addPost(
-          context, title, description, hashtags, postsProvider, newsProvider
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Создать новость'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _postTitleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Заголовок новости',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _postDescriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Описание новости',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _postHashtagsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Хештеги (через пробел)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Отмена'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final title = _postTitleController.text.trim();
+                  final description = _postDescriptionController.text.trim();
+                  final hashtags = _postHashtagsController.text.trim();
+
+                  if (title.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Введите заголовок новости')),
+                    );
+                    return;
+                  }
+
+                  Navigator.pop(context);
+                  _addPost(context, title, description, hashtags);
+                },
+                child: const Text('Создать новость'),
+              ),
+            ],
+          );
+        },
       ),
-      primaryColor: widget.channel.cardColor,
-      cardColor: Colors.white,
-      textColor: const Color(0xFF333333),
-      secondaryTextColor: const Color(0xFF666666),
-      backgroundColor: const Color(0xFFF5F9FF),
     );
   }
 
-  void _addPost(
-      BuildContext context,
-      String title,
-      String description,
-      String hashtags,
-      ChannelPostsProvider postsProvider,
-      NewsProvider newsProvider,
-      ) async {
-    if (!mounted) return;
+  void _addPost(BuildContext context, String title, String description, String hashtags) {
+    final postsProvider = Provider.of<ChannelPostsProvider>(context, listen: false);
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
 
-    final hashtagsArray = hashtags.split(' ').where((tag) => tag.isNotEmpty).toList();
+    final hashtagsArray = hashtags
+        .split(' ')
+        .where((tag) => tag.isNotEmpty)
+        .toList();
 
     try {
-      final newPost = await ApiService.createChannelPost({
-        'title': title,
-        'description': description,
-        'hashtags': hashtagsArray,
-        'channel_id': widget.channel.id,
-      });
-
-      if (!mounted) return;
-
-      final channelPost = {
-        ...newPost,
-        'hashtags': hashtagsArray,
-        'comments': [],
+      final newPost = {
+        "id": "channel-${DateTime.now().millisecondsSinceEpoch}",
+        "title": title,
+        "description": description,
+        "hashtags": hashtagsArray,
+        "likes": 0,
+        "author_name": "Администратор канала",
+        "created_at": DateTime.now().toIso8601String(),
+        "comments": [],
         'is_channel_post': true,
         'channel_name': widget.channel.title,
         'channel_image': widget.channel.imageUrl,
       };
 
-      postsProvider.addPostToChannel(widget.channel.id, channelPost);
-      newsProvider.addNews(channelPost);
+      // Публикуем новость и в Акорт и на Стену
+      postsProvider.addPostToChannel(widget.channel.id, newPost);
+      newsProvider.addNews(newPost);
 
-      _showSuccessSnackbar(context, 'Новость успешно опубликована!');
-
+      _showSuccessSnackbar(context, 'Новость успешно создана и опубликована в Акорт и на Стене!');
     } catch (e) {
       debugPrint('Error creating post: $e');
-      if (mounted) {
-        _addLocalPost(context, title, description, hashtagsArray, postsProvider, newsProvider);
-      }
+      _showSuccessSnackbar(context, 'Ошибка при создании новости');
     }
-  }
-
-  void _addLocalPost(
-      BuildContext context,
-      String title,
-      String description,
-      List<String> hashtagsArray,
-      ChannelPostsProvider channelPostsProvider,
-      NewsProvider newsProvider,
-      ) {
-    final newPost = {
-      "id": "channel-${DateTime.now().millisecondsSinceEpoch}",
-      "title": title,
-      "description": description,
-      "hashtags": hashtagsArray,
-      "likes": 0,
-      "author_name": "Администратор канала",
-      "created_at": DateTime.now().toIso8601String(),
-      "comments": [],
-      'is_channel_post': true,
-      'channel_name': widget.channel.title,
-      'channel_image': widget.channel.imageUrl,
-    };
-
-    channelPostsProvider.addPostToChannel(widget.channel.id, newPost);
-    newsProvider.addNews(newPost);
-    _showSuccessSnackbar(context, 'Новость добавлена локально');
   }
 
   void _showAddArticleDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AddArticleDialog(
-        categories: const [
-          'YouTube',
-          'Бизнес',
-          'Программирование',
-          'Общение',
-          'Спорт',
-          'Игры',
-          'Тактика',
-          'Аналитика',
-        ],
-        emojis: const ['📊', '⭐', '🏆', '⚽', '👑', '🔥', '🎯', '💫'],
+        categories: const ['YouTube', 'Бизнес', 'Программирование'],
+        emojis: const ['📊', '⭐', '🏆'],
         onArticleAdded: (article) => _addArticle(context, article),
         userName: "Администратор канала",
         channelColor: widget.channel.cardColor,
@@ -536,250 +1031,37 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   void _addArticle(BuildContext context, Article article) async {
     if (!mounted) return;
 
-    final articlesProvider = Provider.of<ArticlesProvider>(context, listen: false);
+    final articlesProvider = Provider.of<ArticlesProvider>(
+      context,
+      listen: false,
+    );
 
     try {
-      final newArticle = await ApiService.createChannelArticle({
-        'title': article.title,
-        'description': article.description,
-        'content': article.content,
-        'emoji': article.emoji,
-        'category': article.category,
-        'channel_id': widget.channel.id,
-      });
-
-      if (!mounted) return;
-
-      final channelArticle = {
-        ...newArticle,
-        'channel_id': widget.channel.id,
-        'channel_name': widget.channel.title,
-        'channel_image': widget.channel.imageUrl,
+      final newArticle = {
+        "id": "article-${DateTime.now().millisecondsSinceEpoch}",
+        "title": article.title,
+        "description": article.description,
+        "content": article.content,
+        "emoji": article.emoji,
+        "category": article.category,
+        "views": 0,
+        "likes": 0,
+        "author": "Администратор канала",
+        "publish_date": DateTime.now().toIso8601String(),
+        "image_url": widget.channel.imageUrl,
+        "channel_id": widget.channel.id,
+        "channel_name": widget.channel.title,
+        "channel_image": widget.channel.imageUrl,
       };
 
-      articlesProvider.addArticleToChannel(widget.channel.id, channelArticle);
-      articlesProvider.addArticle(channelArticle);
+      articlesProvider.addArticleToChannel(widget.channel.id, newArticle);
+      articlesProvider.addArticle(newArticle);
 
-      _showSuccessSnackbar(context, 'Статья успешно опубликована!');
-
+      _showSuccessSnackbar(context, 'Статья успешно создана и добавлена на Стену!');
     } catch (e) {
       debugPrint('Error creating article: $e');
-      if (mounted) {
-        _addLocalArticle(context, article, articlesProvider);
-      }
+      _showSuccessSnackbar(context, 'Статья добавлена локально');
     }
-  }
-
-  void _addLocalArticle(BuildContext context, Article article, ArticlesProvider articlesProvider) {
-    final newArticle = {
-      "id": "article-${DateTime.now().millisecondsSinceEpoch}",
-      "title": article.title,
-      "description": article.description,
-      "content": article.content,
-      "emoji": article.emoji,
-      "category": article.category,
-      "views": 0,
-      "likes": 0,
-      "author": "Администратор канала",
-      "publish_date": DateTime.now().toIso8601String(),
-      "image_url": widget.channel.imageUrl,
-      "channel_id": widget.channel.id,
-      "channel_name": widget.channel.title,
-      "channel_image": widget.channel.imageUrl,
-    };
-
-    articlesProvider.addArticleToChannel(widget.channel.id, newArticle);
-    articlesProvider.addArticle(newArticle);
-    _showSuccessSnackbar(context, 'Статья добавлена локально');
-  }
-
-  void _createNewDiscussion(BuildContext context, ChannelDetailProvider provider) {
-    Navigator.pop(context);
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 32,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Новое обсуждение',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: widget.channel.cardColor,
-                ),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Заголовок обсуждения',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: widget.channel.cardColor),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Описание',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: widget.channel.cardColor),
-                  ),
-                ),
-                maxLines: 4,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text('Отмена'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _addNewDiscussion(context, provider);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.channel.cardColor,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 4,
-                      ),
-                      child: const Text('Создать', style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _addNewDiscussion(BuildContext context, ChannelDetailProvider provider) {
-    final newDiscussion = Discussion(
-      id: '${provider.state.discussions.length + 1}',
-      title: 'Новое обсуждение',
-      author: 'Вы',
-      createdAt: DateTime.now(),
-      commentsCount: 0,
-      likes: 0,
-    );
-
-    provider.addDiscussion(newDiscussion);
-    _showSuccessSnackbar(context, 'Обсуждение создано!');
-  }
-
-  void _showDiscussionDetail(BuildContext context, Discussion discussion) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 32,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                discussion.title,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: widget.channel.cardColor,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  CircleAvatar(radius: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    discussion.author,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _formatDate(discussion.createdAt),
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Это пример содержимого обсуждения. Здесь будет отображаться полный текст обсуждения и комментарии участников.',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8)),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Icon(Icons.thumb_up, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text('${discussion.likes}'),
-                  const SizedBox(width: 16),
-                  Icon(Icons.comment, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text('${discussion.commentsCount}'),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Закрыть'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   void _showReportDialog(BuildContext context) {
@@ -787,7 +1069,9 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Пожаловаться на канал'),
-        content: const Text('Выберите причину жалобы. Мы рассмотрим вашу жалобу в течение 24 часов.'),
+        content: const Text(
+          'Выберите причину жалобы. Мы рассмотрим вашу жалобу в течение 24 часов.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -796,7 +1080,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _showSuccessSnackbar(context, 'Жалоба отправлена на рассмотрение');
+              _showSuccessSnackbar(
+                context,
+                'Жалоба отправлена на рассмотрение',
+              );
             },
             child: const Text('Отправить'),
           ),
@@ -810,7 +1097,9 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Заблокировать канал?'),
-        content: Text('Вы больше не будете видеть контент канала "${widget.channel.title}".'),
+        content: Text(
+          'Вы больше не будете видеть контент канала "${widget.channel.title}".',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -822,7 +1111,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
               _showSuccessSnackbar(context, 'Канал заблокирован');
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Заблокировать', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Заблокировать',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -830,7 +1122,9 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   }
 
   void _copyLinkToClipboard(BuildContext context) {
-    FlutterClipboard.copy('https://app.example.com/channel/${widget.channel.id}').then((_) {
+    FlutterClipboard.copy(
+      'https://app.example.com/channel/${widget.channel.id}',
+    ).then((_) {
       _showSuccessSnackbar(context, 'Ссылка скопирована в буфер обмена');
     });
   }
@@ -884,7 +1178,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  void _showNotificationSettings(BuildContext context, ChannelDetailProvider provider) {
+  void _showNotificationSettings(
+      BuildContext context,
+      ChannelDetailProvider provider,
+      ) {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -942,9 +1239,5 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
 }

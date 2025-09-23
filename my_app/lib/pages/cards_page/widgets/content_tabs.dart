@@ -1,17 +1,19 @@
-// lib/pages/cards_page/widgets/content_tabs.dart
 import 'package:flutter/material.dart';
 
 class ContentTabs extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTabChanged;
   final Color channelColor;
-  final List<String> tabs = const ['Сообщество', 'Статьи'];
+
+  // 3 ВКЛАДКИ: Стена, Акорта, Статьи
+  final List<String> tabs;
 
   const ContentTabs({
     super.key,
     required this.currentIndex,
     required this.onTabChanged,
-    required this.channelColor, required List<String> tabs,
+    required this.channelColor,
+    this.tabs = const ['Стена', 'Акорта', 'Статьи'], // 3 вкладки
   });
 
   @override

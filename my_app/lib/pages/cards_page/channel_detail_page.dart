@@ -2,14 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:badges/badges.dart' as badges;
-import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:clipboard/clipboard.dart';
-
 
 import '../../providers/articles_provider.dart';
 import '../articles_pages/models/article.dart';
@@ -21,17 +17,14 @@ import '../../../providers/channel_posts_provider.dart';
 import '../../../services/api_service.dart';
 import 'models/chat_message.dart';
 import 'models/discussion.dart';
-import 'models/media_item.dart';
 import 'widgets/channel_header.dart';
 import 'widgets/content_tabs.dart';
 import 'widgets/posts_list.dart';
 import 'widgets/articles_grid.dart';
-import 'widgets/social_links.dart';
 import 'widgets/channel_members.dart';
 import 'widgets/playlist_section.dart';
 import 'widgets/notification_settings_bottom_sheet.dart';
 import 'widgets/chat_dialog.dart';
-import 'widgets/media_content_grid.dart';
 import 'widgets/discussions_list.dart';
 
 class ChannelDetailPage extends StatefulWidget {
@@ -54,7 +47,6 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
   late Animation<double> _fabAnimation;
   late Animation<Color?> _appBarColorAnimation;
 
-
   bool _isLoading = false;
   bool _showFullDescription = false;
   double _appBarElevation = 0;
@@ -65,8 +57,6 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
     1: false, // Плейлисты
   };
 
-
-
   final ValueNotifier<double> _scrollOffset = ValueNotifier<double>(0);
   bool _showScrollToTop = false;
 
@@ -76,41 +66,6 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
   // Состояние для чата
   final List<ChatMessage> _chatMessages = [];
   final List<Discussion> _discussions = [];
-
-  // Медиа контент
-  final List<MediaItem> _mediaContent = [
-    MediaItem(
-      id: '1',
-      title: 'Обзор нового функционала',
-      type: MediaType.video,
-      thumbnail: 'https://picsum.photos/300/200',
-      duration: '15:30',
-      views: 12500,
-    ),
-    MediaItem(
-      id: '2',
-      title: 'Интервью с создателем',
-      type: MediaType.video,
-      thumbnail: 'https://picsum.photos/300/201',
-      duration: '22:15',
-      views: 8900,
-    ),
-    MediaItem(
-      id: '3',
-      title: 'Галерея проекта',
-      type: MediaType.image,
-      thumbnail: 'https://picsum.photos/300/202',
-      views: 5600,
-    ),
-    MediaItem(
-      id: '4',
-      title: 'Туториал для начинающих',
-      type: MediaType.video,
-      thumbnail: 'https://picsum.photos/300/203',
-      duration: '08:45',
-      views: 15200,
-    ),
-  ];
 
   @override
   bool get wantKeepAlive => true;
@@ -160,6 +115,7 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       isMe: false,
       timestamp: DateTime.now(),
       senderName: 'Система',
+      senderId: 'system_welcome',
     ));
   }
 
@@ -231,7 +187,7 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       await Future.wait([
         _loadChannelPosts(),
         _loadChannelArticles(),
-        Future.delayed(const Duration(milliseconds: 500)),
+        Future.delayed(const Duration(milliseconds: 300)),
       ]);
     } catch (e) {
       debugPrint('Error loading initial data: $e');
@@ -269,6 +225,71 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
   Future<void> _toggleSubscription() async {
     final newValue = !_isSubscribed.value;
     _isSubscribed.value = newValue;
+
+    // Анимация подписки
+    if (newValue) {
+      _showSubscriptionAnimation();
+    }
+  }
+
+  void _showSubscriptionAnimation() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle,
+                color: widget.channel.cardColor,
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Подписка оформлена!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: widget.channel.cardColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Теперь вы будете получать уведомления о новых публикациях',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.channel.cardColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text('Отлично', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) Navigator.pop(context);
+    });
   }
 
   Future<void> _toggleFavorite() async {
@@ -307,6 +328,8 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       channelPostsProvider.addPostToChannel(widget.channel.id, channelPost);
       newsProvider.addNews(channelPost);
 
+      _showSuccessSnackbar('Новость успешно опубликована!');
+
     } catch (e) {
       debugPrint('Error creating post: $e');
       _addLocalPost(title, description, hashtagsArray, channelPostsProvider, newsProvider);
@@ -336,6 +359,7 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
 
     channelPostsProvider.addPostToChannel(widget.channel.id, newPost);
     newsProvider.addNews(newPost);
+    _showSuccessSnackbar('Новость добавлена локально');
   }
 
   Future<void> _addArticle(Article article) async {
@@ -363,6 +387,8 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       articlesProvider.addArticleToChannel(widget.channel.id, channelArticle);
       articlesProvider.addArticle(channelArticle);
 
+      _showSuccessSnackbar('Статья успешно опубликована!');
+
     } catch (e) {
       debugPrint('Error creating article: $e');
       _addLocalArticle(article, articlesProvider);
@@ -389,6 +415,24 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
 
     articlesProvider.addArticleToChannel(widget.channel.id, newArticle);
     articlesProvider.addArticle(newArticle);
+    _showSuccessSnackbar('Статья добавлена локально');
+  }
+
+  void _showSuccessSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(message),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   void _showAddPostDialog() {
@@ -690,7 +734,8 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       _discussions.insert(0, newDiscussion);
     });
 
-    _currentContentType.value = 3;
+    _currentContentType.value = 2; // Обсуждения
+    _showSuccessSnackbar('Обсуждение создано!');
   }
 
   void _handleContentTypeChange(int index) {
@@ -943,6 +988,7 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
 
   void _copyLinkToClipboard() {
     FlutterClipboard.copy('https://app.example.com/channel/${widget.channel.id}');
+    _showSuccessSnackbar('Ссылка скопирована в буфер обмена');
   }
 
   void _showQRCode() {
@@ -1065,6 +1111,7 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
 
   void _saveDescriptionChanges() {
     // Логика сохранения описания
+    _showSuccessSnackbar('Описание обновлено');
   }
 
   void _toggleSection(int sectionId) {
@@ -1100,6 +1147,7 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       isMe: true,
       timestamp: DateTime.now(),
       senderName: 'Вы',
+      senderId: 'current_user_id',
     );
 
     setState(() {
@@ -1128,18 +1176,13 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
         isMe: false,
         timestamp: DateTime.now(),
         senderName: 'Модератор',
+        senderId: 'moderator_id',
       );
 
       setState(() {
         _chatMessages.add(systemMessage);
       });
     });
-  }
-
-  Future<void> _launchSocialMedia(String url) async {
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url));
-    }
   }
 
   @override
@@ -1261,7 +1304,7 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
                               currentIndex: currentIndex,
                               onTabChanged: _handleContentTypeChange,
                               channelColor: widget.channel.cardColor,
-                              tabs: const ['Новости', 'Статьи', 'Медиа', 'Обсуждения'],
+                              tabs: const ['Новости', 'Статьи', 'Обсуждения'],
                             );
                           },
                         ),
@@ -1344,12 +1387,6 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
           emptyMessage: 'Пока нет статей. Создайте первую статью для этого канала!',
         );
       case 2:
-        return MediaContentGrid(
-          key: const ValueKey('media'),
-          mediaItems: _mediaContent,
-          channel: widget.channel,
-        );
-      case 3:
         return DiscussionsList(
           key: const ValueKey('discussions'),
           discussions: _discussions,
@@ -1519,7 +1556,6 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
           _buildInfoRow(Icons.calendar_today_rounded, 'Создан: ${_formatDate(DateTime(2022, 3, 15))}', widget.channel.cardColor),
           if (widget.channel.socialMedia.isNotEmpty) ...[
             const SizedBox(height: 20),
-            SocialLinks(channel: widget.channel),
           ],
         ],
       ),
@@ -1785,4 +1821,3 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
 }
-

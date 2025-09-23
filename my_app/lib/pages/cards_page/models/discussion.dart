@@ -7,6 +7,10 @@ class Discussion {
   final int commentsCount;
   final int likes;
   final bool isPinned;
+  final String? previewText; // Добавлено
+  final String? category; // Добавлено
+  final bool? isResolved; // Добавлено
+  final bool? isClosed; // Добавлено
 
   Discussion({
     required this.id,
@@ -16,5 +20,9 @@ class Discussion {
     required this.commentsCount,
     required this.likes,
     this.isPinned = false,
+    this.previewText, // Добавлено
+    this.category, // Добавлено
+    this.isResolved, // Добавлено
+    this.isClosed, // Добавлено
   });
 }

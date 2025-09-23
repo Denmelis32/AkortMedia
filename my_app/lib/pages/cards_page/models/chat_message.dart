@@ -5,6 +5,7 @@ class ChatMessage {
   final DateTime timestamp;
   final String senderName;
   final String senderImageUrl;
+  final String senderId; // Добавлено
 
   ChatMessage({
     required this.text,
@@ -12,5 +13,6 @@ class ChatMessage {
     required this.timestamp,
     this.senderName = 'Пользователь',
     this.senderImageUrl = '',
+    required this.senderId, // Добавлено
   });
 }

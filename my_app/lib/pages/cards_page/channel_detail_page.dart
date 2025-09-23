@@ -35,6 +35,10 @@ import 'widgets/sections/action_buttons_section.dart';
 import 'widgets/dialogs/content_type_dialog.dart';
 import 'widgets/dialogs/channel_options_dialog.dart';
 
+// Импорты вынесенных виджетов контента
+import 'widgets/content_widgets/wall_content.dart';
+import 'widgets/content_widgets/akor_content.dart';
+
 class ChannelDetailPage extends StatefulWidget {
   final Channel channel;
 
@@ -98,14 +102,6 @@ class _ChannelDetailContent extends StatefulWidget {
 
   @override
   State<_ChannelDetailContent> createState() => _ChannelDetailContentState();
-}
-
-// Вспомогательный класс для объединенного контента
-class _ContentItem {
-  final String type;
-  final dynamic data;
-
-  const _ContentItem({required this.type, required this.data});
 }
 
 class _ChannelDetailContentState extends State<_ChannelDetailContent> {
@@ -341,10 +337,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       ) {
     switch (index) {
       case 0:
-        return _buildWallTab(postsProvider, articlesProvider);
+        return WallContent(channel: widget.channel);
 
       case 1:
-        return _buildAkorTab(postsProvider);
+        return AkorContent(channel: widget.channel);
 
       case 2:
         return ArticlesGrid(
@@ -358,442 +354,6 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       default:
         return const SizedBox(key: ValueKey('empty'));
     }
-  }
-
-  Widget _buildWallTab(
-      ChannelPostsProvider postsProvider,
-      ArticlesProvider articlesProvider,
-      ) {
-    final posts = postsProvider.getPostsForChannel(widget.channel.id);
-    final articles = articlesProvider.getArticlesForChannel(widget.channel.id);
-
-    final allContent = [
-      ...posts.map((post) => _ContentItem(type: 'post', data: post)),
-      ...articles.map(
-            (article) => _ContentItem(type: 'article', data: article),
-      ),
-    ];
-
-    allContent.sort((a, b) => _getContentDate(b).compareTo(_getContentDate(a)));
-
-    if (allContent.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          children: [
-            Icon(Icons.dashboard, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'Стена пока пустая',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Будьте первым, кто поделится контентом!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: allContent.length,
-      itemBuilder: (context, index) {
-        final item = allContent[index];
-
-        switch (item.type) {
-          case 'post':
-            return _buildWallPostItem(item.data);
-          case 'article':
-            return _buildWallArticleItem(item.data);
-          default:
-            return const SizedBox();
-        }
-      },
-    );
-  }
-
-  Widget _buildAkorTab(ChannelPostsProvider postsProvider) {
-    final posts = postsProvider.getPostsForChannel(widget.channel.id);
-
-    return Column(
-      children: [
-        // Кнопка создания новости в разделе Акорта
-        Container(
-          margin: const EdgeInsets.all(16),
-          child: ElevatedButton(
-            onPressed: () => _showAddPostDialog(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: widget.channel.cardColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.add),
-                SizedBox(width: 8),
-                Text('Создать новость'),
-              ],
-            ),
-          ),
-        ),
-
-        // Список новостей в разделе Акорта
-        if (posts.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(40),
-            child: Column(
-              children: [
-                Icon(Icons.newspaper, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'Пока нет новостей',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Создайте первую новость для этого канала!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[500]),
-                ),
-              ],
-            ),
-          )
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: posts.length,
-            itemBuilder: (context, index) {
-              return _buildAkorPostItem(posts[index]);
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _buildAkorPostItem(Map<String, dynamic> post) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.newspaper, color: widget.channel.cardColor, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                'Новость в Акорт',
-                style: TextStyle(
-                  color: widget.channel.cardColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _formatDate(DateTime.parse(post['created_at'])),
-                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            post['title'] ?? 'Без названия',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-          ),
-          if (post['description'] != null &&
-              post['description'].toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                post['description'].toString(),
-                style: TextStyle(color: Colors.grey[700], fontSize: 14),
-              ),
-            ),
-          if (post['hashtags'] != null && (post['hashtags'] as List).isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Wrap(
-                spacing: 8,
-                children: (post['hashtags'] as List).map<Widget>((hashtag) {
-                  return Chip(
-                    label: Text(
-                      '#$hashtag',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: widget.channel.cardColor,
-                      ),
-                    ),
-                    backgroundColor: widget.channel.cardColor.withOpacity(0.1),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  );
-                }).toList(),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              children: [
-                Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  '${post['likes'] ?? 0}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.comment, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  '${post['comments'] != null ? (post['comments'] as List).length : 0}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-                const Spacer(),
-                Text(
-                  'Опубликовано на Стене',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.green,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  DateTime _getContentDate(_ContentItem item) {
-    switch (item.type) {
-      case 'post':
-        return DateTime.parse(item.data['created_at']);
-      case 'article':
-        return DateTime.parse(item.data['publish_date']);
-      default:
-        return DateTime.now();
-    }
-  }
-
-  Widget _buildWallPostItem(Map<String, dynamic> post) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.newspaper, color: widget.channel.cardColor, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                'Новость из Акорт',
-                style: TextStyle(
-                  color: widget.channel.cardColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _formatDate(DateTime.parse(post['created_at'])),
-                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            post['title'] ?? 'Без названия',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-          ),
-          if (post['description'] != null &&
-              post['description'].toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                post['description'].toString(),
-                style: TextStyle(color: Colors.grey[700], fontSize: 14),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              children: [
-                Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  '${post['likes'] ?? 0}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.comment, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  '${post['comments'] != null ? (post['comments'] as List).length : 0}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWallArticleItem(Map<String, dynamic> article) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.article, color: Colors.purple, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                'Статья',
-                style: TextStyle(
-                  color: Colors.purple,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _formatDate(DateTime.parse(article['publish_date'])),
-                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              if (article['emoji'] != null &&
-                  article['emoji'].toString().isNotEmpty)
-                Text(
-                  article['emoji'].toString(),
-                  style: const TextStyle(fontSize: 20),
-                ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  article['title'] ?? 'Без названия',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (article['description'] != null &&
-              article['description'].toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                article['description'].toString(),
-                style: TextStyle(color: Colors.grey[700], fontSize: 14),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          if (article['category'] != null &&
-              article['category'].toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  article['category'].toString(),
-                  style: TextStyle(
-                    color: Colors.purple,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              children: [
-                Icon(Icons.visibility, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  '${article['views'] ?? 0}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  '${article['likes'] ?? 0}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   String _formatDate(DateTime date) {
@@ -1019,8 +579,16 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     showDialog(
       context: context,
       builder: (context) => AddArticleDialog(
-        categories: const ['YouTube', 'Бизнес', 'Программирование'],
-        emojis: const ['📊', '⭐', '🏆'],
+        categories: const [
+          'YouTube',
+          'Бизнес',
+          'Игры',
+          'Программирование',
+          'Спорт',
+          'Общение',
+          'Общее'
+        ],
+        emojis: const ['📊', '⭐', '🏆', '🚀', '💡', '📱', '🌐', '💻', '📈', '🎯', '🎮', '⚽'],
         onArticleAdded: (article) => _addArticle(context, article),
         userName: "Администратор канала",
         channelColor: widget.channel.cardColor,

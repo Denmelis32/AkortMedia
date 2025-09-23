@@ -8,7 +8,7 @@ import '../widgets/playlist_section.dart';
 class Channel {
   final int id;
   final String title;
-  final String description;
+  late final String description;
   final String imageUrl;
   final int subscribers;
   final int videos;

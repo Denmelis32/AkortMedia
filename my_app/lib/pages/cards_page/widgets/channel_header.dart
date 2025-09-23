@@ -1,12 +1,18 @@
-// lib/pages/cards_page/widgets/channel_header.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/channel.dart';
 
 class ChannelHeader extends StatelessWidget {
   final Channel channel;
+  final VoidCallback onFollow; // Исправлено: должно быть VoidCallback
+  final bool isSubscribed;
 
-  const ChannelHeader({super.key, required this.channel, required Future<void> Function() onFollow, required bool isSubscribed});
+  const ChannelHeader({
+    super.key,
+    required this.channel,
+    required this.onFollow, // Исправлено: убрали Future<void> Function()
+    required this.isSubscribed // Исправлено: правильное объявление
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +121,27 @@ class ChannelHeader extends StatelessWidget {
                     );
                   }).toList(),
                 ),
+
+              // Кнопка подписки (ДОБАВИЛИ отсутствующую кнопку!)
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: onFollow,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isSubscribed ? Colors.white.withOpacity(0.2) : Colors.white,
+                  foregroundColor: isSubscribed ? Colors.white : channel.cardColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Text(
+                  isSubscribed ? 'ОТПИСАТЬСЯ' : 'ПОДПИСАТЬСЯ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
             ],
           ),
         ),

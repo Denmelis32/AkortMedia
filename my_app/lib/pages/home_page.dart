@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'news_page/news_page.dart';
 import 'predictions_league_page/predictions_league_page.dart';
-import 'profile_page.dart' hide NewsPage;
 import 'articles_pages/articles_page.dart';
 import 'rooms_pages/rooms_page.dart';
 import 'cards_page/cards_page.dart';
+import 'event_page/event_list_screen.dart'; // Импортируем нашу страницу событий
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -49,7 +49,8 @@ class _HomePageState extends State<HomePage> {
       CardsPage(
         userName: widget.userName,
         userEmail: widget.userEmail,
-        onLogout: widget.onLogout, userAvatarUrl: '',
+        onLogout: widget.onLogout,
+        userAvatarUrl: '',
       ),
       RoomsPage(
         onLogout: widget.onLogout,
@@ -59,11 +60,8 @@ class _HomePageState extends State<HomePage> {
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
       ),
-      ProfilePage(
-        userName: widget.userName,
-        userEmail: widget.userEmail,
-        onLogout: widget.onLogout,
-      ),
+      EventListScreen(
+      ), // Заменили ProfilePage на нашу страницу событий
     ];
   }
 
@@ -115,13 +113,11 @@ class _HomePageState extends State<HomePage> {
             label: 'Прогнозы',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Профиль',
+            icon: Icon(Icons.event), // Изменили иконку с person на event
+            label: 'События', // Изменили label с "Профиль" на "События"
           ),
         ],
       ),
     );
   }
 }
-
-// Старая версия HomePage как StatelessWidget удалена и заменена на StatefulWidget выше

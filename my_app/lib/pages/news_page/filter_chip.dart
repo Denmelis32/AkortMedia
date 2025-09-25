@@ -1,41 +1,32 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class FilterChip extends StatelessWidget {
-  final Widget label;
+  final Widget label; // Измените String на Widget
   final bool selected;
   final ValueChanged<bool> onSelected;
-  final Color? selectedColor;
-  final Color? checkmarkColor;
-  final TextStyle? labelStyle;
-  final Color? backgroundColor;
-  final OutlinedBorder? shape;
+  final Widget? avatar;
 
   const FilterChip({
     super.key,
-    required this.label,
+    required this.label, // Теперь принимает Widget, а не String
     required this.selected,
     required this.onSelected,
-    this.selectedColor,
-    this.checkmarkColor,
-    this.labelStyle,
-    this.backgroundColor,
-    this.shape,
+    this.avatar,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onSelected(!selected),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: ShapeDecoration(
-          color: selected ? selectedColor : backgroundColor,
-          shape: shape ?? const StadiumBorder(),
-        ),
-        child: DefaultTextStyle(
-          style: labelStyle ?? const TextStyle(),
-          child: label,
-        ),
+    return InputChip(
+      label: label, // Просто используем переданный widget
+      selected: selected,
+      onSelected: onSelected,
+      avatar: avatar,
+      showCheckmark: false,
+      selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
+      checkmarkColor: Theme.of(context).primaryColor,
+      labelStyle: TextStyle(
+        color: selected ? Theme.of(context).primaryColor : Colors.grey[700],
       ),
     );
   }

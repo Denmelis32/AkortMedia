@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/channel.dart';
+import '../models/channel.dart';
 
 class ContentTypeDialog extends StatelessWidget {
   final Channel channel;

@@ -18,24 +18,25 @@ import 'models/channel.dart';
 import 'models/chat_message.dart';
 
 // Импорты виджетов
-import 'widgets/channel_header.dart';
-import 'widgets/content_tabs.dart';
-import 'widgets/posts_list.dart';
-import 'widgets/articles_grid.dart';
-import 'widgets/channel_members.dart';
-import 'widgets/playlist_section.dart';
-import 'widgets/notification_settings_bottom_sheet.dart';
-import 'widgets/chat_dialog.dart';
+import 'widgets/shared/channel_header.dart';
+import 'widgets/shared/content_tabs.dart';
+import 'widgets/content_widgets/posts_list.dart';
+import 'widgets/content_widgets/articles_grid.dart';
+import 'widgets/shared/channel_members.dart';
+import 'widgets/page_sections/playlist_section.dart';
+import 'dialogs/notification_settings_bottom_sheet.dart';
+import 'dialogs/chat_dialog.dart';
 
 // Импорты новых компонентов
-import 'widgets/sections/channel_info_section.dart';
-import 'widgets/sections/members_section.dart';
-import 'widgets/sections/playlists_section.dart';
-import 'widgets/sections/action_buttons_section.dart';
-import 'widgets/dialogs/content_type_dialog.dart';
-import 'widgets/dialogs/channel_options_dialog.dart';
+import 'widgets/page_sections/channel_info_section.dart';
+import 'widgets/page_sections/members_section.dart';
+import 'widgets/page_sections/playlists_section.dart';
+import 'widgets/page_sections/action_buttons_section.dart';
+import 'dialogs/content_type_dialog.dart';
+import 'dialogs/channel_options_dialog.dart';
 
 // Импорты вынесенных виджетов контента
+import 'models/channel_detail_state.dart';
 import 'widgets/content_widgets/wall_content.dart';
 import 'widgets/content_widgets/akor_content.dart';
 

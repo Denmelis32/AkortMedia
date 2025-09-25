@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import '../models/discussion.dart';
-import '../models/channel.dart';
+import '../../models/discussion.dart';
+import '../../models/channel.dart';
 
 class DiscussionsList extends StatelessWidget {
   final List<Discussion> discussions;

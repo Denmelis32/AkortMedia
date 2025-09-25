@@ -1,8 +1,8 @@
 // lib/pages/cards_page/widgets/playlist_section.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../models/channel.dart';
-import '../models/playlist.dart';
+import '../../models/channel.dart';
+import '../../models/playlist.dart';
 
 class PlaylistSection extends StatelessWidget {
   final Channel channel;

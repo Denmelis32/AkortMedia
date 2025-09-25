@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/channel_detail_provider.dart';
 import '../../models/channel.dart';
-import '../chat_dialog.dart';
+import '../../dialogs/chat_dialog.dart';
+import '../../models/channel_detail_state.dart';
 
 class ActionButtonsSection extends StatelessWidget {
   final Channel channel;

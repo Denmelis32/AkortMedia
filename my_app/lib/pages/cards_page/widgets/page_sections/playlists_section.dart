@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/channel_detail_provider.dart';
 import '../../models/channel.dart';
-import '../playlist_section.dart';
+import '../../models/channel_detail_state.dart';
+import 'playlist_section.dart';
 
 class PlaylistsSection extends StatelessWidget {
   final Channel channel;

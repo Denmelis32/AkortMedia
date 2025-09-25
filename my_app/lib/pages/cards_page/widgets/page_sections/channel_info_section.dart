@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/channel_detail_provider.dart';
 import '../../models/channel.dart';
+import '../../models/channel_detail_state.dart';
+
 
 class ChannelInfoSection extends StatelessWidget {
   final Channel channel;

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/channel_detail_provider.dart';
 import '../../models/channel.dart';
-import '../channel_members.dart';
+import '../../models/channel_detail_state.dart';
+import '../shared/channel_members.dart';
 
 class MembersSection extends StatelessWidget {
   final Channel channel;

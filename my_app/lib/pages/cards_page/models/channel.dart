@@ -3,7 +3,7 @@ import 'dart:ui' show Color;
 
 import 'package:my_app/pages/cards_page/models/playlist.dart';
 
-import '../widgets/playlist_section.dart';
+import '../widgets/page_sections/playlist_section.dart';
 
 class Channel {
   final int id;

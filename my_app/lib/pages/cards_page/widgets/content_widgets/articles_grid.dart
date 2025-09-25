@@ -1,6 +1,6 @@
 // lib/pages/cards_page/widgets/articles_grid.dart
 import 'package:flutter/material.dart';
-import '../models/channel.dart';
+import '../../models/channel.dart';
 
 class ArticlesGrid extends StatelessWidget {
   final List<Map<String, dynamic>> articles;

@@ -1,4 +1,3 @@
-// lib/pages/rooms_pages/rooms_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
@@ -12,6 +11,7 @@ import 'widgets/search_filter_chip.dart';
 import 'create_room_bottom_sheet.dart';
 import 'advanced_filters_bottom_sheet.dart';
 import 'user_profile_dialog.dart';
+import 'widgets/room_stats_dialog.dart';
 
 class RoomsPage extends StatefulWidget {
   final VoidCallback onLogout;
@@ -64,7 +64,9 @@ class _RoomsPageState extends State<RoomsPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => const AdvancedFiltersBottomSheet(),
+      builder: (context) => AdvancedFiltersBottomSheet(
+        onFiltersApplied: () => setState(() {}), // Исправлено
+      ),
     );
   }
 
@@ -75,61 +77,197 @@ class _RoomsPageState extends State<RoomsPage> {
     );
   }
 
+  void _showSortDialog() {
+    final roomProvider = context.read<RoomProvider>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Сортировка комнат'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: RoomSortBy.values.map((sortBy) {
+            return ListTile(
+              leading: Icon(sortBy.icon, color: Theme.of(context).primaryColor),
+              title: Text(sortBy.title),
+              trailing: roomProvider.sortBy == sortBy
+                  ? Icon(Icons.check, color: Theme.of(context).primaryColor)
+                  : null,
+              onTap: () {
+                roomProvider.setSortBy(sortBy);
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _showStatsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => RoomStatsDialog(
+        stats: context.read<RoomProvider>().getRoomStats(),
+      ),
+    );
+  }
+
+  void _editRoom(Room room) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Редактировать "${room.title}"'),
+        content: const Text('Функция редактирования в разработке'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _shareRoom(Room room) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Ссылка на "${room.title}" скопирована'),
+        action: SnackBarAction(
+          label: 'Открыть',
+          onPressed: () {},
+        ),
+      ),
+    );
+  }
+
+  void _pinRoom(String roomId) {
+    context.read<RoomProvider>().togglePinRoom(roomId);
+  }
+
+  void _reportRoom(Room room) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Пожаловаться на комнату'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Выберите причину жалобы:'),
+            const SizedBox(height: 16),
+            ...['Спам', 'Неуместный контент', 'Нарушение правил', 'Другое']
+                .map((reason) => ListTile(
+              title: Text(reason),
+              leading: const Icon(Icons.report),
+              onTap: () {
+                Navigator.pop(context);
+                _submitReport(room, reason);
+              },
+            ))
+                .toList(),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submitReport(Room room, String reason) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Жалоба на "${room.title}" отправлена'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final roomProvider = context.watch<RoomProvider>();
+    final theme = Theme.of(context); // Получаем theme из контекста
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      floatingActionButton: _buildFloatingActionButton(),
+      backgroundColor: theme.colorScheme.background,
+      floatingActionButton: _buildFloatingActionButton(roomProvider, theme),
       body: RefreshIndicator(
         onRefresh: () => roomProvider.loadRooms(),
         child: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
-              _buildAppBar(),
-              _buildSearchSection(),
-              _buildFilterChipsSection(roomProvider),
+              _buildAppBar(theme, roomProvider),
+              _buildSearchSection(theme),
+              _buildFilterChipsSection(roomProvider, theme),
+              _buildStatsSection(roomProvider, theme),
             ];
           },
-          body: _buildRoomGrid(roomProvider),
+          body: _buildRoomGrid(roomProvider, theme),
         ),
       ),
     );
   }
 
-  SliverAppBar _buildAppBar() {
+  SliverAppBar _buildAppBar(ThemeData theme, RoomProvider roomProvider) {
     return SliverAppBar(
-      expandedHeight: 120.0,
+      expandedHeight: 140.0,
       floating: false,
       pinned: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      elevation: 3,
+      backgroundColor: theme.colorScheme.surface,
+      elevation: 4,
       shadowColor: Colors.black.withOpacity(0.1),
-      title: Text(
-        'Обсуждения',
-        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-          fontWeight: FontWeight.w700,
+      flexibleSpace: FlexibleSpaceBar(
+        title: Text(
+          'Обсуждения',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                theme.primaryColor.withOpacity(0.1),
+                theme.primaryColor.withOpacity(0.05),
+              ],
+            ),
+          ),
         ),
       ),
       centerTitle: false,
       actions: [
         IconButton(
+          icon: const Icon(Icons.analytics_outlined),
+          onPressed: _showStatsDialog,
+          tooltip: 'Статистика',
+        ),
+        IconButton(
+          icon: const Icon(Icons.sort_rounded),
+          onPressed: _showSortDialog,
+          tooltip: 'Сортировка',
+        ),
+        IconButton(
           icon: const Icon(Icons.notifications_none_rounded),
           onPressed: () {},
           tooltip: 'Уведомления',
         ),
-        _buildUserAvatar(),
+        _buildUserAvatar(theme),
         const SizedBox(width: 8),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(60),
-        child: _buildCategoryTabs(),
+        child: _buildCategoryTabs(roomProvider, theme),
       ),
     );
   }
 
-  Widget _buildUserAvatar() {
+  Widget _buildUserAvatar(ThemeData theme) {
     return GestureDetector(
       onTap: _showUserProfile,
       child: Container(
@@ -137,7 +275,7 @@ class _RoomsPageState extends State<RoomsPage> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+            color: theme.colorScheme.primary.withOpacity(0.2),
             width: 2,
           ),
         ),
@@ -156,11 +294,9 @@ class _RoomsPageState extends State<RoomsPage> {
     );
   }
 
-  Widget _buildCategoryTabs() {
-    final roomProvider = context.read<RoomProvider>();
-
+  Widget _buildCategoryTabs(RoomProvider roomProvider, ThemeData theme) {
     return Container(
-      color: Theme.of(context).colorScheme.surface,
+      color: theme.colorScheme.surface,
       child: SingleChildScrollView(
         controller: _tabScrollController,
         scrollDirection: Axis.horizontal,
@@ -178,7 +314,7 @@ class _RoomsPageState extends State<RoomsPage> {
     );
   }
 
-  SliverPadding _buildSearchSection() {
+  SliverPadding _buildSearchSection(ThemeData theme) {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       sliver: SliverToBoxAdapter(
@@ -201,7 +337,7 @@ class _RoomsPageState extends State<RoomsPage> {
               prefixIcon: const Icon(Icons.search_rounded),
               suffixIcon: _buildSearchSuffixIcon(),
               filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
+              fillColor: theme.colorScheme.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
@@ -227,57 +363,150 @@ class _RoomsPageState extends State<RoomsPage> {
       );
     }
 
-    return IconButton(
-      icon: const Icon(Icons.filter_alt_outlined),
-      onPressed: _showAdvancedFilters,
-      tooltip: 'Расширенные фильтры',
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.tune_rounded),
+          onPressed: _showAdvancedFilters,
+          tooltip: 'Расширенные фильтры',
+        ),
+      ],
     );
   }
 
-  SliverToBoxAdapter _buildFilterChipsSection(RoomProvider roomProvider) {
+  SliverToBoxAdapter _buildFilterChipsSection(RoomProvider roomProvider, ThemeData theme) {
+    final activeFilters = [
+      if (roomProvider.selectedCategory != RoomCategory.all)
+        SearchFilterChip(
+          label: 'Категория: ${roomProvider.selectedCategory.title}',
+          color: theme.primaryColor,
+          onRemove: () => roomProvider.setCategory(RoomCategory.all),
+        ),
+      if (roomProvider.searchQuery.isNotEmpty)
+        SearchFilterChip(
+          label: 'Поиск: "${roomProvider.searchQuery}"',
+          color: Colors.green,
+          onRemove: () {
+            _searchController.clear();
+            roomProvider.setSearchQuery('');
+          },
+        ),
+      if (roomProvider.showJoinedOnly)
+        SearchFilterChip(
+          label: 'Только мои обсуждения',
+          color: Colors.orange,
+          onRemove: () => roomProvider.toggleShowJoinedOnly(),
+        ),
+      if (!roomProvider.showActiveOnly)
+        SearchFilterChip(
+          label: 'Показывать неактивные',
+          color: Colors.grey,
+          onRemove: () => roomProvider.toggleShowActiveOnly(),
+        ),
+    ];
+
+    if (activeFilters.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (roomProvider.selectedCategory != RoomCategory.all)
-              SearchFilterChip(
-                label: 'Категория: ${roomProvider.selectedCategory.title}',
-                color: Theme.of(context).colorScheme.primary,
-                onRemove: () => roomProvider.setCategory(RoomCategory.all),
-              ),
-            if (roomProvider.searchQuery.isNotEmpty)
-              SearchFilterChip(
-                label: 'Поиск: "${roomProvider.searchQuery}"',
-                color: Colors.green,
-                onRemove: () {
-                  _searchController.clear();
-                  roomProvider.setSearchQuery('');
-                },
-              ),
-            if (roomProvider.showJoinedOnly)
-              SearchFilterChip(
-                label: 'Только мои обсуждения',
-                color: Colors.orange,
-                onRemove: () => roomProvider.toggleShowJoinedOnly(),
-              ),
+            Row(
+              children: [
+                Text(
+                  'Активные фильтры:',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: roomProvider.resetFilters,
+                  child: const Text('Сбросить все'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: activeFilters,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRoomGrid(RoomProvider roomProvider) {
+  SliverToBoxAdapter _buildStatsSection(RoomProvider roomProvider, ThemeData theme) {
+    final stats = roomProvider.getRoomStats();
+    if (roomProvider.filteredRooms.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              _buildStatItem(Icons.forum, '${stats['totalRooms']}', 'Комнат', theme),
+              _buildStatItem(Icons.people, '${stats['activeRooms']}', 'Активных', theme),
+              _buildStatItem(Icons.star, '${stats['averageRating']}', 'Рейтинг', theme),
+              _buildStatItem(Icons.push_pin, '${stats['pinnedRooms']}', 'Закреп.', theme),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String value, String label, ThemeData theme) {
+    return Expanded(
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: theme.colorScheme.primary),
+              const SizedBox(width: 4),
+              Text(
+                value,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoomGrid(RoomProvider roomProvider, ThemeData theme) {
     if (roomProvider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
     }
 
     final rooms = roomProvider.filteredRooms;
 
     if (rooms.isEmpty) {
-      return _buildEmptyState();
+      return _buildEmptyState(roomProvider, theme);
     }
 
     return GridView.builder(
@@ -295,58 +524,121 @@ class _RoomsPageState extends State<RoomsPage> {
           room: room,
           onTap: () => _openChatPage(room),
           onJoin: () => roomProvider.toggleJoinRoom(room.id),
+          onEdit: () => _editRoom(room),
+          onShare: () => _shareRoom(room),
+          onPin: () => _pinRoom(room.id),
+          onReport: () => _reportRoom(room),
         );
       },
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(RoomProvider roomProvider, ThemeData theme) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.forum_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3)),
-          const SizedBox(height: 20),
-          Text(
-            'Обсуждения не найдены',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.forum_outlined,
+              size: 80,
+              color: theme.colorScheme.onSurface.withOpacity(0.2),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Попробуйте изменить параметры поиска',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+            const SizedBox(height: 24),
+            Text(
+              'Обсуждения не найдены',
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _createNewRoom,
-            child: const Text('Создать первое обсуждение'),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              _getEmptyStateMessage(roomProvider),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.4),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                ElevatedButton(
+                  onPressed: _createNewRoom,
+                  child: const Text('Создать обсуждение'),
+                ),
+                OutlinedButton(
+                  onPressed: roomProvider.resetFilters,
+                  child: const Text('Сбросить фильтры'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFloatingActionButton() {
+  String _getEmptyStateMessage(RoomProvider roomProvider) {
+    if (roomProvider.searchQuery.isNotEmpty) {
+      return 'Попробуйте изменить поисковый запрос или сбросить фильтры';
+    }
+    if (roomProvider.selectedCategory != RoomCategory.all) {
+      return 'В этой категории пока нет обсуждений';
+    }
+    if (roomProvider.showJoinedOnly) {
+      return 'Вы еще не присоединились ни к одному обсуждению';
+    }
+    return 'Будьте первым, кто создаст обсуждение в этом сообществе';
+  }
+
+  Widget _buildFloatingActionButton(RoomProvider roomProvider, ThemeData theme) {
     return FloatingActionButton(
       onPressed: _createNewRoom,
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: theme.primaryColor,
       foregroundColor: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
-      elevation: 4,
-      child: const Icon(Icons.add_rounded, size: 28),
+      elevation: 6,
+      child: Badge(
+        isLabelVisible: roomProvider.getScheduledRooms().isNotEmpty,
+        label: Text(roomProvider.getScheduledRooms().length.toString()),
+        child: const Icon(Icons.add_rounded, size: 28),
+      ),
     );
   }
 
   void _openChatPage(Room room) {
     final userProvider = context.read<UserProvider>();
+    final userId = userProvider.userId; // Получаем userId из провайдера
+
+    // Проверка доступа для защищенных комнат
+    if (room.requiresPassword) {
+      _showPasswordDialog(room, userProvider);
+      return;
+    }
+
+    // Проверка доступа для приватных комнат
+    if (room.accessLevel == RoomAccessLevel.private &&
+        !room.hasAccess(userId)) { // Используем полученный userId
+      _showAccessDeniedDialog(room);
+      return;
+    }
+
+    // Проверка на заполненность комнаты
+    if (room.isFull) {
+      _showRoomFullDialog(room);
+      return;
+    }
+
+    // Проверка на запланированную комнату
+    if (room.isScheduled && !room.isExpired) {
+      _showScheduledRoomDialog(room);
+      return;
+    }
 
     Navigator.push(
       context,
@@ -355,6 +647,112 @@ class _RoomsPageState extends State<RoomsPage> {
           room: room,
           userName: userProvider.userName,
         ),
+      ),
+    );
+  }
+
+  void _showPasswordDialog(Room room, UserProvider userProvider) {
+    final passwordController = TextEditingController();
+    final userId = userProvider.userId; // Получаем userId
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Вход в "${room.title}"'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Эта комната защищена паролем'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Пароль',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (room.hasAccess(userId, inputPassword: passwordController.text)) {
+                Navigator.pop(context);
+                _openChatPage(room.copyWith(
+                  // Временный доступ после ввода пароля
+                  accessLevel: RoomAccessLevel.public,
+                ));
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Неверный пароль')),
+                );
+              }
+            },
+            child: const Text('Войти'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAccessDeniedDialog(Room room) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Доступ ограничен'),
+        content: Text('Комната "${room.title}" является приватной. Обратитесь к создателю для получения доступа.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRoomFullDialog(Room room) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Комната заполнена'),
+        content: Text('В комнате "${room.title}" достигнут лимит участников (${room.maxParticipants}).'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showScheduledRoomDialog(Room room) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Комната запланирована'),
+        content: Text('Комната "${room.title}" начнется ${room.formattedStartTime}.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Напоминание установлено')),
+              );
+            },
+            child: const Text('Напомнить'),
+          ),
+        ],
       ),
     );
   }

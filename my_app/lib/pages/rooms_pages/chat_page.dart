@@ -6,22 +6,26 @@ import 'package:provider/provider.dart';
 import 'dart:math';
 import 'models/room.dart';
 import '../../providers/room_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 
 class ChatPage extends StatefulWidget {
   final Room room;
   final String userName;
+  final String userAvatar;
 
   const ChatPage({
     super.key,
     required this.room,
     required this.userName,
+    this.userAvatar = '',
   });
 
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _messageFocusNode = FocusNode();
@@ -32,17 +36,33 @@ class _ChatPageState extends State<ChatPage> {
   bool _isTyping = false;
   bool _isRecording = false;
   bool _showReactions = false;
+  bool _showStickers = false;
+  bool _isPinnedMessagesOpen = false;
   String _typingUser = '';
   ChatMessage? _replyingTo;
   ChatMessage? _editingMessage;
   double _recordingTime = 0.0;
   int _selectedReactionIndex = -1;
+  int _currentPage = 0;
 
   final Map<String, Color> _userColors = {};
   final Random _random = Random();
   final List<String> _availableReactions = ['❤️', '😂', '😮', '😢', '👍', '👎', '🔥', '🎉'];
+  final List<String> _pinnedMessages = [];
+
+  late AnimationController _animationController;
+  late Animation<double> _slideAnimation;
+  late TabController _tabController;
 
   final Map<String, bool> _expandedMessages = {};
+  final Map<String, bool> _selectedMessages = {};
+  bool _isSelectionMode = false;
+
+  // Новые состояния для улучшенного функционала
+  bool _isOnline = true;
+  int _unreadCount = 0;
+  List<ChatMember> _onlineMembers = [];
+  List<ChatMember> _allMembers = [];
 
   @override
   void initState() {
@@ -50,6 +70,17 @@ class _ChatPageState extends State<ChatPage> {
     _loadInitialMessages();
     _scrollController.addListener(_onScroll);
     _setupTypingIndicator();
+    _loadRoomMembers();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _slideAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   void _setupTypingIndicator() {
@@ -110,6 +141,7 @@ class _ChatPageState extends State<ChatPage> {
             isMe: false,
             reactions: {'👍': 2, '❤️': 1},
             userColor: _getUserColor('Алексей Петров'),
+            userAvatar: 'https://i.pravatar.cc/150?img=1',
           ),
           ChatMessage(
             id: '3',
@@ -119,6 +151,7 @@ class _ChatPageState extends State<ChatPage> {
             isMe: false,
             reactions: {'❤️': 1, '🔥': 1},
             userColor: _getUserColor('Мария Иванова'),
+            userAvatar: 'https://i.pravatar.cc/150?img=2',
           ),
           ChatMessage(
             id: '4',
@@ -127,6 +160,7 @@ class _ChatPageState extends State<ChatPage> {
             time: DateTime.now().subtract(const Duration(minutes: 1)),
             isMe: false,
             userColor: _getUserColor('Иван Сидоров'),
+            userAvatar: 'https://i.pravatar.cc/150?img=3',
           ),
           ChatMessage(
             id: '5',
@@ -136,11 +170,82 @@ class _ChatPageState extends State<ChatPage> {
             isMe: false,
             isEdited: true,
             userColor: _getUserColor('Алексей Петров'),
+            userAvatar: 'https://i.pravatar.cc/150?img=1',
+          ),
+          ChatMessage(
+            id: '6',
+            text: 'Кстати, не пропустите завтрашний матч! Начинается в 20:00 по московскому времени. Будет очень интересно! 🏆',
+            sender: 'Мария Иванова',
+            time: DateTime.now().subtract(const Duration(minutes: 1)),
+            isMe: false,
+            userColor: _getUserColor('Мария Иванова'),
+            userAvatar: 'https://i.pravatar.cc/150?img=2',
+            isPinned: true,
           ),
         ]);
+
+        // Добавляем закрепленные сообщения
+        _pinnedMessages.addAll(['4', '5', '6']);
+
         _isLoading = false;
       });
       _scrollToBottom();
+    });
+  }
+
+  void _loadRoomMembers() {
+    // Симуляция загрузки участников комнаты
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+
+      setState(() {
+        _onlineMembers = [
+          ChatMember(
+            id: '1',
+            name: 'Алексей Петров',
+            avatar: 'https://i.pravatar.cc/150?img=1',
+            isOnline: true,
+            role: MemberRole.admin,
+            lastSeen: DateTime.now(),
+          ),
+          ChatMember(
+            id: '2',
+            name: 'Мария Иванова',
+            avatar: 'https://i.pravatar.cc/150?img=2',
+            isOnline: true,
+            role: MemberRole.moderator,
+            lastSeen: DateTime.now(),
+          ),
+          ChatMember(
+            id: '3',
+            name: 'Иван Сидоров',
+            avatar: 'https://i.pravatar.cc/150?img=3',
+            isOnline: true,
+            role: MemberRole.member,
+            lastSeen: DateTime.now(),
+          ),
+          ChatMember(
+            id: '4',
+            name: 'Екатерина Смирнова',
+            avatar: 'https://i.pravatar.cc/150?img=4',
+            isOnline: false,
+            role: MemberRole.member,
+            lastSeen: DateTime.now().subtract(const Duration(hours: 2)),
+          ),
+        ];
+
+        _allMembers = List.from(_onlineMembers)
+          ..addAll([
+            ChatMember(
+              id: '5',
+              name: 'Дмитрий Козлов',
+              avatar: 'https://i.pravatar.cc/150?img=5',
+              isOnline: false,
+              role: MemberRole.member,
+              lastSeen: DateTime.now().subtract(const Duration(days: 1)),
+            ),
+          ]);
+      });
     });
   }
 
@@ -159,6 +264,7 @@ class _ChatPageState extends State<ChatPage> {
       isMe: true,
       replyTo: _replyingTo,
       userColor: _getUserColor(widget.userName),
+      userAvatar: widget.userAvatar,
     );
 
     setState(() {
@@ -214,6 +320,7 @@ class _ChatPageState extends State<ChatPage> {
           time: DateTime.now().add(const Duration(seconds: 1)),
           isMe: false,
           userColor: _getUserColor(aiUser),
+          userAvatar: 'https://i.pravatar.cc/150?img=${aiUsers.indexOf(aiUser) + 1}',
         ));
       });
       _scrollToBottom();
@@ -300,13 +407,117 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  // НОВАЯ ФУНКЦИОНАЛЬНОСТЬ: Режим выделения сообщений
+  void _toggleMessageSelection(ChatMessage message) {
+    setState(() {
+      _selectedMessages[message.id] = !(_selectedMessages[message.id] ?? false);
+      _isSelectionMode = _selectedMessages.values.any((isSelected) => isSelected);
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedMessages.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  void _deleteSelectedMessages() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить сообщения?'),
+        content: Text('Вы уверены, что хотите удалить ${_selectedMessages.length} сообщений? Это действие нельзя отменить.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _messages.removeWhere((msg) => _selectedMessages[msg.id] == true);
+                _clearSelection();
+              });
+              Navigator.pop(context);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Удалено ${_selectedMessages.length} сообщений'),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _forwardSelectedMessages() {
+    // В реальном приложении здесь была бы логика пересылки
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${_selectedMessages.length} сообщений готовы к пересылке'),
+        backgroundColor: Theme.of(context).primaryColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    _clearSelection();
+  }
+
+  void _pinMessage(ChatMessage message) {
+    setState(() {
+      // Создаем копию сообщения с обновленным флагом isPinned
+      final index = _messages.indexWhere((msg) => msg.id == message.id);
+      if (index != -1) {
+        _messages[index] = _messages[index].copyWith(isPinned: true);
+        if (!_pinnedMessages.contains(message.id)) {
+          _pinnedMessages.add(message.id);
+        }
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Сообщение закреплено'),
+        backgroundColor: Theme.of(context).primaryColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _unpinMessage(ChatMessage message) {
+    setState(() {
+      // Создаем копию сообщения с обновленным флагом isPinned
+      final index = _messages.indexWhere((msg) => msg.id == message.id);
+      if (index != -1) {
+        _messages[index] = _messages[index].copyWith(isPinned: false);
+        _pinnedMessages.remove(message.id);
+      }
+    });
+  }
+
+  void _togglePinnedMessagesPanel() {
+    if (_isPinnedMessagesOpen) {
+      _animationController.reverse();
+    } else {
+      _animationController.forward();
+    }
+    setState(() {
+      _isPinnedMessagesOpen = !_isPinnedMessagesOpen;
+    });
+  }
+
   void _handleAppBarAction(String value) {
     switch (value) {
       case 'info':
         _showEnhancedRoomInfo();
         break;
       case 'members':
-        _showMembers();
+        _showEnhancedMembers();
         break;
       case 'share':
         _inviteUsers();
@@ -316,6 +527,9 @@ class _ChatPageState extends State<ChatPage> {
         break;
       case 'search':
         _showSearch();
+        break;
+      case 'pinned':
+        _togglePinnedMessagesPanel();
         break;
     }
   }
@@ -346,7 +560,29 @@ class _ChatPageState extends State<ChatPage> {
   void _toggleReactions() {
     setState(() {
       _showReactions = !_showReactions;
+      _showStickers = false;
     });
+  }
+
+  void _toggleStickers() {
+    setState(() {
+      _showStickers = !_showStickers;
+      _showReactions = false;
+    });
+  }
+
+  void _addEmojiToMessage(String emoji) {
+    final currentText = _messageController.text;
+    final selection = _messageController.selection;
+    final newText = currentText.replaceRange(
+      selection.start,
+      selection.end,
+      emoji,
+    );
+    _messageController.value = _messageController.value.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(offset: selection.start + emoji.length),
+    );
   }
 
   @override
@@ -360,11 +596,20 @@ class _ChatPageState extends State<ChatPage> {
         child: Column(
           children: [
             _buildEnhancedAppBar(theme),
+
+            // Панель закрепленных сообщений
+            if (_pinnedMessages.isNotEmpty && _isPinnedMessagesOpen)
+              _buildPinnedMessagesPanel(theme),
+
+            // Панель выделенных сообщений
+            if (_isSelectionMode) _buildSelectionPanel(theme),
+
             Expanded(
               child: Stack(
                 children: [
-                  // Улучшенный фоновый градиент
-                  Container(
+                  // Улучшенный фоновый градиент с анимацией
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 500),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
@@ -373,52 +618,37 @@ class _ChatPageState extends State<ChatPage> {
                             ? [
                           theme.colorScheme.surface.withOpacity(0.3),
                           theme.colorScheme.background.withOpacity(0.7),
+                          theme.colorScheme.background,
                         ]
                             : [
                           theme.colorScheme.primary.withOpacity(0.03),
                           theme.colorScheme.background.withOpacity(0.8),
+                          theme.colorScheme.background,
                         ],
                       ),
                     ),
                   ),
 
                   if (_isLoading)
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation(theme.primaryColor),
-                            strokeWidth: 2,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Загружаем сообщения...',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.6),
-                            ),
-                          ),
-                        ],
-                      ),
+                    _buildLoadingShimmer()
+                  else
+                    ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length + (_typingUser.isNotEmpty ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index < _messages.length) {
+                          final message = _messages[index];
+                          final showAvatar = index == 0 ||
+                              _messages[index - 1].sender != message.sender ||
+                              message.time.difference(_messages[index - 1].time).inMinutes > 5;
+
+                          return _buildEnhancedMessageBubble(message, showAvatar, theme);
+                        } else {
+                          return _buildTypingIndicator(theme);
+                        }
+                      },
                     ),
-
-                  ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length + (_typingUser.isNotEmpty ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index < _messages.length) {
-                        final message = _messages[index];
-                        final showAvatar = index == 0 ||
-                            _messages[index - 1].sender != message.sender ||
-                            message.time.difference(_messages[index - 1].time).inMinutes > 5;
-
-                        return _buildEnhancedMessageBubble(message, showAvatar, theme);
-                      } else {
-                        return _buildTypingIndicator(theme);
-                      }
-                    },
-                  ),
 
                   if (_showScrollToBottom)
                     Positioned(
@@ -440,6 +670,8 @@ class _ChatPageState extends State<ChatPage> {
             if (_replyingTo != null) _buildReplyPanel(theme),
 
             if (_editingMessage != null) _buildEditPanel(theme),
+
+            if (_showStickers) _buildStickersPanel(theme),
 
             _buildEnhancedMessageInput(theme),
           ],
@@ -576,6 +808,26 @@ class _ChatPageState extends State<ChatPage> {
             // Кнопки действий
             Row(
               children: [
+                // Кнопка закрепленных сообщений
+                if (_pinnedMessages.isNotEmpty)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.background,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      icon: Badge(
+                        label: Text(_pinnedMessages.length.toString()),
+                        smallSize: 16,
+                        backgroundColor: Colors.orange,
+                        child: Icon(Icons.push_pin, color: theme.primaryColor),
+                      ),
+                      onPressed: _togglePinnedMessagesPanel,
+                    ),
+                  ),
+
+                const SizedBox(width: 8),
+
                 // Кнопка участников
                 Container(
                   decoration: BoxDecoration(
@@ -588,7 +840,7 @@ class _ChatPageState extends State<ChatPage> {
                       backgroundColor: Colors.green,
                       child: Icon(Icons.people_alt_outlined, color: theme.primaryColor),
                     ),
-                    onPressed: _showMembers,
+                    onPressed: _showEnhancedMembers,
                   ),
                 ),
 
@@ -624,6 +876,17 @@ class _ChatPageState extends State<ChatPage> {
                           ],
                         ),
                       ),
+                      if (_pinnedMessages.isNotEmpty)
+                        PopupMenuItem(
+                          value: 'pinned',
+                          child: Row(
+                            children: [
+                              Icon(Icons.push_pin, color: theme.primaryColor),
+                              const SizedBox(width: 8),
+                              const Text('Закрепленные сообщения'),
+                            ],
+                          ),
+                        ),
                       PopupMenuItem(
                         value: 'share',
                         child: Row(
@@ -667,8 +930,233 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Widget _buildPinnedMessagesPanel(ThemeData theme) {
+    final pinnedMessages = _messages.where((msg) => _pinnedMessages.contains(msg.id)).toList();
+
+    return SizeTransition(
+      sizeFactor: _slideAnimation,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          border: Border(
+            bottom: BorderSide(color: theme.dividerColor.withOpacity(0.3)),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.push_pin, size: 16, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(
+                  'Закрепленные сообщения',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(Icons.close, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                  onPressed: _togglePinnedMessagesPanel,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 80, // Увеличена высота для лучшего отображения
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: pinnedMessages.length,
+                itemBuilder: (context, index) {
+                  final message = pinnedMessages[index];
+                  return GestureDetector(
+                    onTap: () {
+                      // Прокрутка к закрепленному сообщению
+                      final messageIndex = _messages.indexWhere((msg) => msg.id == message.id);
+                      if (messageIndex != -1) {
+                        _scrollController.animateTo(
+                          messageIndex * 120.0, // Примерная высота сообщения
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                      _togglePinnedMessagesPanel(); // Закрываем панель после выбора
+                    },
+                    child: Container(
+                      width: 220,
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      message.userColor ?? theme.primaryColor,
+                                      message.userColor?.withOpacity(0.7) ?? theme.primaryColor.withOpacity(0.7),
+                                    ],
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    message.sender[0].toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  message.sender,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Expanded(
+                            child: Text(
+                              message.text,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.8),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectionPanel(ThemeData theme) {
+    final selectedCount = _selectedMessages.values.where((isSelected) => isSelected).length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withOpacity(0.1),
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor.withOpacity(0.3)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Выбрано: $selectedCount',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.primaryColor,
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: Icon(Icons.forward, color: theme.primaryColor),
+            onPressed: _forwardSelectedMessages,
+          ),
+          IconButton(
+            icon: Icon(Icons.delete, color: Colors.red),
+            onPressed: _deleteSelectedMessages,
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+            onPressed: _clearSelection,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingShimmer() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 10,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 120,
+                        height: 16,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildEnhancedOnlineIndicator(ThemeData theme) {
-    final onlineCount = (widget.room.currentParticipants * 0.3).round();
+    final onlineCount = _onlineMembers.length;
     return Row(
       children: [
         Container(
@@ -844,6 +1332,92 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Widget _buildStickersPanel(ThemeData theme) {
+    final stickerPacks = [
+      ['😀', '😃', '😄', '😁', '😆'],
+      ['😊', '😇', '🙂', '🙃', '😉'],
+      ['😌', '😍', '🥰', '😘', '😗'],
+      ['😙', '😚', '😋', '😛', '😝'],
+    ];
+
+    return Container(
+      height: 180,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: theme.dividerColor.withOpacity(0.3)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabs: List.generate(stickerPacks.length, (index) => Tab(text: 'Pack ${index + 1}')),
+            onTap: (index) => setState(() => _currentPage = index),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: stickerPacks[_currentPage].length,
+              itemBuilder: (context, index) {
+                return GestureDetector(
+                  onTap: () {
+                    _sendSticker(stickerPacks[_currentPage][index]);
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.background,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        stickerPacks[_currentPage][index],
+                        style: const TextStyle(fontSize: 24),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _sendSticker(String sticker) {
+    final newMessage = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: sticker,
+      sender: widget.userName,
+      time: DateTime.now(),
+      isMe: true,
+      messageType: MessageType.sticker,
+      userColor: _getUserColor(widget.userName),
+      userAvatar: widget.userAvatar,
+    );
+
+    setState(() {
+      _messages.add(newMessage);
+      _showStickers = false;
+    });
+    _scrollToBottom();
+  }
+
   Widget _buildEnhancedMessageInput(ThemeData theme) {
     if (_isRecording) {
       return _buildVoiceRecordingPanel(theme);
@@ -859,7 +1433,12 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        top: 16,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(top: BorderSide(color: theme.dividerColor.withOpacity(0.3))),
@@ -872,9 +1451,10 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Быстрые реакции
-          if (_showReactions) _buildQuickReactions(theme),
+          // Быстрые реакции для добавления в текущее сообщение
+          if (_showReactions) _buildQuickReactionsForInput(theme),
 
           Row(
             children: [
@@ -926,6 +1506,10 @@ class _ChatPageState extends State<ChatPage> {
                             icon: Icon(Icons.attach_file, color: theme.primaryColor),
                             onPressed: _showEnhancedAttachmentMenu,
                           ),
+                          IconButton(
+                            icon: Icon(Icons.face, color: theme.primaryColor),
+                            onPressed: _toggleStickers,
+                          ),
                         ],
                       ),
                     ),
@@ -939,7 +1523,7 @@ class _ChatPageState extends State<ChatPage> {
               // Кнопка отправки/записи
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: _messageController.text.isEmpty ? 48 : 48,
+                width: 48,
                 child: _messageController.text.isEmpty
                     ? Container(
                   decoration: BoxDecoration(
@@ -979,7 +1563,7 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildQuickReactions(ThemeData theme) {
+  Widget _buildQuickReactionsForInput(ThemeData theme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -999,10 +1583,10 @@ class _ChatPageState extends State<ChatPage> {
         children: List.generate(_availableReactions.length, (index) {
           return GestureDetector(
             onTap: () {
+              _addEmojiToMessage(_availableReactions[index]);
               setState(() {
-                _selectedReactionIndex = index;
+                _showReactions = false;
               });
-              _toggleReactions();
             },
             child: Container(
               padding: const EdgeInsets.all(8),
@@ -1164,45 +1748,58 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildEnhancedMessageBubble(ChatMessage message, bool showAvatar, ThemeData theme) {
     final isSystem = message.messageType == MessageType.system;
+    final isSticker = message.messageType == MessageType.sticker;
     final isExpanded = _expandedMessages[message.id] ?? false;
+    final isSelected = _selectedMessages[message.id] ?? false;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (isSystem)
-            _buildSystemMessage(message, theme)
-          else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-              children: [
-                if (!message.isMe && showAvatar)
-                  _buildUserAvatar(message, theme),
-                if (!message.isMe && showAvatar) const SizedBox(width: 8),
+    return GestureDetector(
+      onLongPress: () => _isSelectionMode ? _toggleMessageSelection(message) : _showEnhancedMessageOptions(message, theme),
+      onTap: () {
+        if (_isSelectionMode) {
+          _toggleMessageSelection(message);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? theme.primaryColor.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected ? Border.all(color: theme.primaryColor) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (isSystem)
+              _buildSystemMessage(message, theme)
+            else if (isSticker)
+              _buildStickerMessage(message, showAvatar, theme)
+            else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                children: [
+                  if (!message.isMe && showAvatar)
+                    _buildUserAvatar(message, theme),
+                  if (!message.isMe && showAvatar) const SizedBox(width: 8),
 
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                    children: [
-                      if (!message.isMe && showAvatar)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6, left: 8),
-                          child: Text(
-                            message.sender,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.8),
-                              fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                      children: [
+                        if (!message.isMe && showAvatar)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6, left: 8),
+                            child: Text(
+                              message.sender,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
 
-                      // Сообщение с улучшенным дизайном
-                      GestureDetector(
-                        onLongPress: () => _showEnhancedMessageOptions(message, theme),
-                        onDoubleTap: () => _addReaction(message, '❤️'),
-                        child: Container(
+                        // Сообщение с улучшенным дизайном
+                        Container(
                           constraints: BoxConstraints(
                             maxWidth: MediaQuery.of(context).size.width * 0.75,
                           ),
@@ -1267,46 +1864,110 @@ class _ChatPageState extends State<ChatPage> {
                             ],
                           ),
                         ),
-                      ),
 
-                      // Реакции
-                      if (message.reactions != null && message.reactions!.isNotEmpty)
-                        _buildEnhancedReactions(message, theme),
+                        // Реакции
+                        if (message.reactions != null && message.reactions!.isNotEmpty)
+                          _buildEnhancedReactions(message, theme),
 
-                      // Время и статус редактирования
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6, left: 8),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              DateFormat.Hm().format(message.time),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.5),
-                              ),
-                            ),
-                            if (message.isEdited) ...[
-                              const SizedBox(width: 6),
+                        // Время и статус редактирования
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6, left: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               Text(
-                                'ред.',
+                                DateFormat.Hm().format(message.time),
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: theme.colorScheme.onSurface.withOpacity(0.5),
-                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
+                              if (message.isEdited) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  'ред.',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                              if (message.isPinned) ...[
+                                const SizedBox(width: 6),
+                                Icon(Icons.push_pin, size: 12, color: Colors.orange),
+                              ],
                             ],
-                          ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (message.isMe) const SizedBox(width: 8),
+                  if (message.isMe && showAvatar)
+                    _buildUserAvatar(message, theme),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStickerMessage(ChatMessage message, bool showAvatar, ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!message.isMe && showAvatar)
+                _buildUserAvatar(message, theme),
+              if (!message.isMe && showAvatar) const SizedBox(width: 8),
+
+              Column(
+                crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  if (!message.isMe && showAvatar)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6, left: 8),
+                      child: Text(
+                        message.sender,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.8),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                if (message.isMe) const SizedBox(width: 8),
-                if (message.isMe && showAvatar)
-                  _buildUserAvatar(message, theme),
-              ],
-            ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      message.text,
+                      style: const TextStyle(fontSize: 40),
+                    ),
+                  ),
+                ],
+              ),
+
+              if (message.isMe) const SizedBox(width: 8),
+              if (message.isMe && showAvatar)
+                _buildUserAvatar(message, theme),
+            ],
+          ),
         ],
       ),
     );
@@ -1315,38 +1976,104 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildUserAvatar(ChatMessage message, ThemeData theme) {
     return Column(
       children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                message.userColor ?? theme.primaryColor,
-                message.userColor?.withOpacity(0.7) ?? theme.primaryColor.withOpacity(0.7),
+        if (message.userAvatar?.isNotEmpty == true)
+          CachedNetworkImage(
+            imageUrl: message.userAvatar!,
+            imageBuilder: (context, imageProvider) => Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: imageProvider,
+                  fit: BoxFit.cover,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+            ),
+            placeholder: (context, url) => Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.colorScheme.background,
+              ),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    message.userColor ?? theme.primaryColor,
+                    message.userColor?.withOpacity(0.7) ?? theme.primaryColor.withOpacity(0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (message.userColor ?? theme.primaryColor).withOpacity(0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  message.sender[0].toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  message.userColor ?? theme.primaryColor,
+                  message.userColor?.withOpacity(0.7) ?? theme.primaryColor.withOpacity(0.7),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (message.userColor ?? theme.primaryColor).withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
               ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: (message.userColor ?? theme.primaryColor).withOpacity(0.3),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              message.sender[0].toUpperCase(),
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+            child: Center(
+              child: Text(
+                message.sender[0].toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -1436,6 +2163,7 @@ class _ChatPageState extends State<ChatPage> {
             time: DateTime.now(),
             isMe: false,
             userColor: _getUserColor(_typingUser),
+            userAvatar: 'https://i.pravatar.cc/150?img=1',
           ), theme),
           const SizedBox(width: 12),
           Container(
@@ -1565,6 +2293,40 @@ class _ChatPageState extends State<ChatPage> {
                     () {
                   Navigator.pop(context);
                   _showEnhancedReactionPicker(message, theme);
+                },
+                theme,
+              ),
+
+              if (message.isPinned)
+                _buildEnhancedOptionTile(
+                  Icons.push_pin,
+                  'Открепить',
+                  'Убрать сообщение из закрепленных',
+                      () {
+                    Navigator.pop(context);
+                    _unpinMessage(message);
+                  },
+                  theme,
+                )
+              else
+                _buildEnhancedOptionTile(
+                  Icons.push_pin,
+                  'Закрепить',
+                  'Закрепить это сообщение',
+                      () {
+                    Navigator.pop(context);
+                    _pinMessage(message);
+                  },
+                  theme,
+                ),
+
+              _buildEnhancedOptionTile(
+                Icons.select_all,
+                'Выбрать',
+                'Выбрать несколько сообщений',
+                    () {
+                  Navigator.pop(context);
+                  _toggleMessageSelection(message);
                 },
                 theme,
               ),
@@ -1744,6 +2506,9 @@ class _ChatPageState extends State<ChatPage> {
             onPressed: () {
               setState(() {
                 _messages.remove(message);
+                if (message.isPinned) {
+                  _pinnedMessages.remove(message.id);
+                }
               });
               Navigator.pop(context);
 
@@ -1773,42 +2538,258 @@ class _ChatPageState extends State<ChatPage> {
           color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(2),
+        child: DefaultTabController(
+          length: 3,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              TabBar(
+                tabs: const [
+                  Tab(text: 'Информация'),
+                  Tab(text: 'Участники'),
+                  Tab(text: 'Настройки'),
+                ],
+                labelColor: Theme.of(context).primaryColor,
+                unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                indicatorColor: Theme.of(context).primaryColor,
+              ),
+              Expanded(
+                child: TabBarView(
                   children: [
-                    _buildEnhancedRoomHeader(Theme.of(context)),
-                    const SizedBox(height: 32),
-                    _buildEnhancedRoomStats(Theme.of(context)),
-                    const SizedBox(height: 32),
-                    _buildRoomDescription(Theme.of(context)),
-                    const SizedBox(height: 24),
-                    _buildRoomTags(Theme.of(context)),
-                    const SizedBox(height: 32),
-                    _buildRoomRules(Theme.of(context)),
-                    const SizedBox(height: 32),
-                    _buildEnhancedActionButtons(Theme.of(context)),
+                    // Вкладка информации
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildEnhancedRoomHeader(Theme.of(context)),
+                          const SizedBox(height: 32),
+                          _buildEnhancedRoomStats(Theme.of(context)),
+                          const SizedBox(height: 32),
+                          _buildRoomDescription(Theme.of(context)),
+                          const SizedBox(height: 24),
+                          _buildRoomTags(Theme.of(context)),
+                          const SizedBox(height: 32),
+                          _buildRoomRules(Theme.of(context)),
+                          const SizedBox(height: 32),
+                          _buildEnhancedActionButtons(Theme.of(context)),
+                        ],
+                      ),
+                    ),
+                    // Вкладка участников
+                    _buildMembersTab(Theme.of(context)),
+                    // Вкладка настроек
+                    _buildSettingsTab(Theme.of(context)),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildMembersTab(ThemeData theme) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Row(
+            children: [
+              const Text(
+                'Участники',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_onlineMembers.length} онлайн • ${_allMembers.length} всего',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _allMembers.length,
+            itemBuilder: (context, index) {
+              final member = _allMembers[index];
+              return ListTile(
+                leading: CachedNetworkImage(
+                  imageUrl: member.avatar,
+                  imageBuilder: (context, imageProvider) => Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      image: DecorationImage(
+                        image: imageProvider,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  placeholder: (context, url) => Container(
+                    width: 50,
+                    height: 50,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.primaryColor,
+                    ),
+                    child: Center(
+                      child: Text(
+                        member.name[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                title: Text(member.name),
+                subtitle: Text(
+                  member.isOnline
+                      ? 'В сети'
+                      : 'Был(а) ${DateFormat('dd.MM.yyyy').format(member.lastSeen)}',
+                ),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getRoleColor(member.role).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _getRoleText(member.role),
+                    style: TextStyle(
+                      color: _getRoleColor(member.role),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingsTab(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Настройки комнаты',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildSettingItem(
+            'Уведомления',
+            'Настройки уведомлений комнаты',
+            Icons.notifications,
+            theme,
+            trailing: Switch(value: true, onChanged: (_) {}),
+          ),
+          _buildSettingItem(
+            'Звуки',
+            'Включить/выключить звуки',
+            Icons.volume_up,
+            theme,
+            trailing: Switch(value: true, onChanged: (_) {}),
+          ),
+          _buildSettingItem(
+            'Тема',
+            'Светлая/темная тема',
+            Icons.color_lens,
+            theme,
+            trailing: Switch(value: false, onChanged: (_) {}),
+          ),
+          const SizedBox(height: 32),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.onSurface,
+              side: BorderSide(color: theme.dividerColor),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              minimumSize: const Size(double.infinity, 50),
+            ),
+            child: const Text('Закрыть'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingItem(String title, String subtitle, IconData icon, ThemeData theme, {Widget? trailing}) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: theme.primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: theme.primaryColor, size: 20),
+      ),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: trailing,
+    );
+  }
+
+  void _showEnhancedMembers() {
+    _showEnhancedRoomInfo(); // Теперь используем общую панель с табами
+  }
+
+  Color _getRoleColor(MemberRole role) {
+    switch (role) {
+      case MemberRole.admin:
+        return Colors.red;
+      case MemberRole.moderator:
+        return Colors.blue;
+      case MemberRole.member:
+        return Colors.green;
+    }
+  }
+
+  String _getRoleText(MemberRole role) {
+    switch (role) {
+      case MemberRole.admin:
+        return 'Админ';
+      case MemberRole.moderator:
+        return 'Модератор';
+      case MemberRole.member:
+        return 'Участник';
+    }
   }
 
   Widget _buildEnhancedRoomHeader(ThemeData theme) {
@@ -2200,17 +3181,6 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  void _showMembers() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Функция участников в разработке'),
-        backgroundColor: Theme.of(context).primaryColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
   void _showEnhancedAttachmentMenu() {
     showModalBottomSheet(
       context: context,
@@ -2327,6 +3297,8 @@ class _ChatPageState extends State<ChatPage> {
     _messageController.dispose();
     _scrollController.dispose();
     _messageFocusNode.dispose();
+    _animationController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 }
@@ -2411,8 +3383,10 @@ class ChatMessage {
   final bool isMe;
   final MessageType messageType;
   final bool isEdited;
+  final bool isPinned;
   final ChatMessage? replyTo;
   final Color? userColor;
+  final String? userAvatar;
   Map<String, int>? reactions;
 
   ChatMessage({
@@ -2423,14 +3397,18 @@ class ChatMessage {
     required this.isMe,
     this.messageType = MessageType.text,
     this.isEdited = false,
+    this.isPinned = false,
     this.replyTo,
     this.reactions,
     this.userColor,
+    this.userAvatar,
   });
 
   ChatMessage copyWith({
     String? text,
     bool? isEdited,
+    bool? isPinned,
+    Map<String, int>? reactions,
   }) {
     return ChatMessage(
       id: id,
@@ -2440,9 +3418,11 @@ class ChatMessage {
       isMe: isMe,
       messageType: messageType,
       isEdited: isEdited ?? this.isEdited,
+      isPinned: isPinned ?? this.isPinned,
       replyTo: replyTo,
-      reactions: reactions,
+      reactions: reactions ?? this.reactions,
       userColor: userColor,
+      userAvatar: userAvatar,
     );
   }
 }
@@ -2451,6 +3431,31 @@ enum MessageType {
   text,
   image,
   system,
+  sticker,
+}
+
+class ChatMember {
+  final String id;
+  final String name;
+  final String avatar;
+  final bool isOnline;
+  final MemberRole role;
+  final DateTime lastSeen;
+
+  ChatMember({
+    required this.id,
+    required this.name,
+    required this.avatar,
+    required this.isOnline,
+    required this.role,
+    required this.lastSeen,
+  });
+}
+
+enum MemberRole {
+  admin,
+  moderator,
+  member,
 }
 
 // Расширение для форматирования чисел

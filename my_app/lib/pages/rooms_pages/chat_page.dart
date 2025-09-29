@@ -38,21 +38,27 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _showReactions = false;
   bool _showStickers = false;
   bool _isPinnedMessagesOpen = false;
+  bool _isMembersPanelOpen = false;
+  bool _isSearchMode = false;
+  bool _isDarkMode = false;
   String _typingUser = '';
   ChatMessage? _replyingTo;
   ChatMessage? _editingMessage;
   double _recordingTime = 0.0;
   int _selectedReactionIndex = -1;
   int _currentPage = 0;
+  String _searchQuery = '';
 
   final Map<String, Color> _userColors = {};
   final Random _random = Random();
   final List<String> _availableReactions = ['❤️', '😂', '😮', '😢', '👍', '👎', '🔥', '🎉'];
   final List<String> _pinnedMessages = [];
+  late List<ChatMessage> _searchResults = [];
 
   late AnimationController _animationController;
   late Animation<double> _slideAnimation;
   late TabController _tabController;
+  late AnimationController _typingAnimationController;
 
   final Map<String, bool> _expandedMessages = {};
   final Map<String, bool> _selectedMessages = {};
@@ -63,6 +69,15 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   int _unreadCount = 0;
   List<ChatMember> _onlineMembers = [];
   List<ChatMember> _allMembers = [];
+  List<ChatMessage> _filteredMessages = [];
+
+  // Состояния для новых функций
+  bool _isVoiceMessagePlaying = false;
+  int _playingVoiceMessageId = -1;
+  double _voiceMessageProgress = 0.0;
+  bool _showMessageTranslation = false;
+  Map<String, String> _messageTranslations = {};
+  bool _isIncognitoMode = false;
 
   @override
   void initState() {
@@ -81,6 +96,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
 
     _tabController = TabController(length: 4, vsync: this);
+    _typingAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
   }
 
   void _setupTypingIndicator() {
@@ -182,12 +201,24 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             userAvatar: 'https://i.pravatar.cc/150?img=2',
             isPinned: true,
           ),
+          ChatMessage(
+            id: '7',
+            text: '🎵',
+            sender: 'Алексей Петров',
+            time: DateTime.now().subtract(const Duration(minutes: 1)),
+            isMe: false,
+            messageType: MessageType.voice,
+            userColor: _getUserColor('Алексей Петров'),
+            userAvatar: 'https://i.pravatar.cc/150?img=1',
+            voiceDuration: 30,
+          ),
         ]);
 
         // Добавляем закрепленные сообщения
         _pinnedMessages.addAll(['4', '5', '6']);
 
         _isLoading = false;
+        _filteredMessages = List.from(_messages);
       });
       _scrollToBottom();
     });
@@ -276,6 +307,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         _editingMessage = null;
       } else {
         _messages.add(newMessage);
+        _filteredMessages.add(newMessage);
       }
       _messageController.clear();
       _isTyping = false;
@@ -312,16 +344,19 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       final aiUsers = ['Алексей Петров', 'Мария Иванова', 'Иван Сидоров'];
       final aiUser = aiUsers[DateTime.now().second % aiUsers.length];
 
+      final aiMessage = ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        text: response,
+        sender: aiUser,
+        time: DateTime.now().add(const Duration(seconds: 1)),
+        isMe: false,
+        userColor: _getUserColor(aiUser),
+        userAvatar: 'https://i.pravatar.cc/150?img=${aiUsers.indexOf(aiUser) + 1}',
+      );
+
       setState(() {
-        _messages.add(ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          text: response,
-          sender: aiUser,
-          time: DateTime.now().add(const Duration(seconds: 1)),
-          isMe: false,
-          userColor: _getUserColor(aiUser),
-          userAvatar: 'https://i.pravatar.cc/150?img=${aiUsers.indexOf(aiUser) + 1}',
-        ));
+        _messages.add(aiMessage);
+        _filteredMessages.add(aiMessage);
       });
       _scrollToBottom();
     });
@@ -397,8 +432,25 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   void _sendVoiceMessage() {
+    final newMessage = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: '🎵 Голосовое сообщение',
+      sender: widget.userName,
+      time: DateTime.now(),
+      isMe: true,
+      messageType: MessageType.voice,
+      userColor: _getUserColor(widget.userName),
+      userAvatar: widget.userAvatar,
+      voiceDuration: _recordingTime.round()
+    );
+
+    setState(() {
+      _messages.add(newMessage);
+      _filteredMessages.add(newMessage);
+    });
+
     _stopVoiceRecording();
-    _simulateAIResponse('[Голосовое сообщение]');
+    _scrollToBottom();
   }
 
   void _toggleMessageExpansion(String messageId) {
@@ -407,7 +459,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     });
   }
 
-  // НОВАЯ ФУНКЦИОНАЛЬНОСТЬ: Режим выделения сообщений
   void _toggleMessageSelection(ChatMessage message) {
     setState(() {
       _selectedMessages[message.id] = !(_selectedMessages[message.id] ?? false);
@@ -437,6 +488,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             onPressed: () {
               setState(() {
                 _messages.removeWhere((msg) => _selectedMessages[msg.id] == true);
+                _filteredMessages.removeWhere((msg) => _selectedMessages[msg.id] == true);
                 _clearSelection();
               });
               Navigator.pop(context);
@@ -470,7 +522,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   void _pinMessage(ChatMessage message) {
     setState(() {
-      // Создаем копию сообщения с обновленным флагом isPinned
       final index = _messages.indexWhere((msg) => msg.id == message.id);
       if (index != -1) {
         _messages[index] = _messages[index].copyWith(isPinned: true);
@@ -491,7 +542,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   void _unpinMessage(ChatMessage message) {
     setState(() {
-      // Создаем копию сообщения с обновленным флагом isPinned
       final index = _messages.indexWhere((msg) => msg.id == message.id);
       if (index != -1) {
         _messages[index] = _messages[index].copyWith(isPinned: false);
@@ -511,13 +561,46 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     });
   }
 
+  void _toggleMembersPanel() {
+    setState(() {
+      _isMembersPanelOpen = !_isMembersPanelOpen;
+    });
+  }
+
+  void _toggleSearchMode() {
+    setState(() {
+      _isSearchMode = !_isSearchMode;
+      if (!_isSearchMode) {
+        _searchQuery = '';
+        _searchResults.clear();
+        _filteredMessages = List.from(_messages);
+      }
+    });
+  }
+
+  void _handleSearch(String query) {
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _searchResults.clear();
+        _filteredMessages = List.from(_messages);
+      } else {
+        _searchResults = _messages.where((message) {
+          return message.text.toLowerCase().contains(query.toLowerCase()) ||
+              message.sender.toLowerCase().contains(query.toLowerCase());
+        }).toList();
+        _filteredMessages = _searchResults;
+      }
+    });
+  }
+
   void _handleAppBarAction(String value) {
     switch (value) {
       case 'info':
         _showEnhancedRoomInfo();
         break;
       case 'members':
-        _showEnhancedMembers();
+        _toggleMembersPanel();
         break;
       case 'share':
         _inviteUsers();
@@ -526,12 +609,30 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         _showRoomSettings();
         break;
       case 'search':
-        _showSearch();
+        _toggleSearchMode();
         break;
       case 'pinned':
         _togglePinnedMessagesPanel();
         break;
+      case 'theme':
+        _toggleTheme();
+        break;
+      case 'incognito':
+        _toggleIncognitoMode();
+        break;
     }
+  }
+
+  void _toggleTheme() {
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
+  }
+
+  void _toggleIncognitoMode() {
+    setState(() {
+      _isIncognitoMode = !_isIncognitoMode;
+    });
   }
 
   void _showRoomSettings() {
@@ -547,13 +648,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
         ],
       ),
-    );
-  }
-
-  void _showSearch() {
-    showSearch(
-      context: context,
-      delegate: _ChatSearchDelegate(_messages),
     );
   }
 
@@ -585,97 +679,197 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
+  void _playVoiceMessage(ChatMessage message) {
+    setState(() {
+      _isVoiceMessagePlaying = true;
+      _playingVoiceMessageId = int.parse(message.id);
+      _voiceMessageProgress = 0.0;
+    });
+
+    // Симуляция воспроизведения голосового сообщения
+    _simulateVoicePlayback(message.voiceDuration ?? 0);
+  }
+
+  void _stopVoiceMessage() {
+    setState(() {
+      _isVoiceMessagePlaying = false;
+      _playingVoiceMessageId = -1;
+      _voiceMessageProgress = 0.0;
+    });
+  }
+
+  void _simulateVoicePlayback(int duration) {
+    if (_isVoiceMessagePlaying) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (_isVoiceMessagePlaying && mounted) {
+          setState(() {
+            _voiceMessageProgress += 0.1 / duration;
+            if (_voiceMessageProgress >= 1.0) {
+              _isVoiceMessagePlaying = false;
+              _playingVoiceMessageId = -1;
+              _voiceMessageProgress = 0.0;
+            }
+          });
+          _simulateVoicePlayback(duration);
+        }
+      });
+    }
+  }
+
+  void _translateMessage(ChatMessage message) {
+    // Симуляция перевода сообщения
+    final translations = {
+      'Привет всем! Рад присоединиться к обсуждению! 👋': 'Hello everyone! Glad to join the discussion! 👋',
+      'Кто уже смотрел последний матч? Какие мысли? ⚽': 'Who has already watched the last match? Any thoughts? ⚽',
+      'Отличная игра была!': 'It was a great game!',
+      'А как вам гол на 89-й минуте? Просто великолепно! 🥅': 'What about the goal at the 89th minute? Just great! 🥅',
+    };
+
+    setState(() {
+      _messageTranslations[message.id] = translations[message.text] ?? 'Translation not available';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final theme = _isDarkMode ? ThemeData.dark() : ThemeData.light();
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildEnhancedAppBar(theme),
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        backgroundColor: theme.colorScheme.background,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildEnhancedAppBar(theme),
 
-            // Панель закрепленных сообщений
-            if (_pinnedMessages.isNotEmpty && _isPinnedMessagesOpen)
-              _buildPinnedMessagesPanel(theme),
+              // Поисковая панель
+              if (_isSearchMode) _buildSearchPanel(theme),
 
-            // Панель выделенных сообщений
-            if (_isSelectionMode) _buildSelectionPanel(theme),
+              // Панель закрепленных сообщений
+              if (_pinnedMessages.isNotEmpty && _isPinnedMessagesOpen)
+                _buildPinnedMessagesPanel(theme),
 
-            Expanded(
-              child: Stack(
-                children: [
-                  // Улучшенный фоновый градиент с анимацией
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 500),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: isDark
-                            ? [
-                          theme.colorScheme.surface.withOpacity(0.3),
-                          theme.colorScheme.background.withOpacity(0.7),
-                          theme.colorScheme.background,
-                        ]
-                            : [
-                          theme.colorScheme.primary.withOpacity(0.03),
-                          theme.colorScheme.background.withOpacity(0.8),
-                          theme.colorScheme.background,
-                        ],
+              // Панель участников
+              if (_isMembersPanelOpen) _buildMembersPanel(theme),
+
+              // Панель выделенных сообщений
+              if (_isSelectionMode) _buildSelectionPanel(theme),
+
+              Expanded(
+                child: Stack(
+                  children: [
+                    // Улучшенный фоновый градиент с анимацией
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: _isDarkMode
+                              ? [
+                            theme.colorScheme.surface.withOpacity(0.3),
+                            theme.colorScheme.background.withOpacity(0.7),
+                            theme.colorScheme.background,
+                          ]
+                              : [
+                            theme.colorScheme.primary.withOpacity(0.03),
+                            theme.colorScheme.background.withOpacity(0.8),
+                            theme.colorScheme.background,
+                          ],
+                        ),
                       ),
                     ),
-                  ),
 
-                  if (_isLoading)
-                    _buildLoadingShimmer()
-                  else
-                    ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _messages.length + (_typingUser.isNotEmpty ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index < _messages.length) {
-                          final message = _messages[index];
-                          final showAvatar = index == 0 ||
-                              _messages[index - 1].sender != message.sender ||
-                              message.time.difference(_messages[index - 1].time).inMinutes > 5;
+                    if (_isLoading)
+                      _buildLoadingShimmer()
+                    else
+                      _buildEnhancedMessageList(theme),
 
-                          return _buildEnhancedMessageBubble(message, showAvatar, theme);
-                        } else {
-                          return _buildTypingIndicator(theme);
-                        }
-                      },
-                    ),
-
-                  if (_showScrollToBottom)
-                    Positioned(
-                      bottom: 100,
-                      right: 20,
-                      child: FloatingActionButton(
-                        mini: true,
-                        backgroundColor: theme.primaryColor,
-                        onPressed: _scrollToBottom,
-                        child: Icon(Icons.arrow_downward, size: 20, color: theme.colorScheme.onPrimary),
+                    if (_showScrollToBottom)
+                      Positioned(
+                        bottom: 100,
+                        right: 20,
+                        child: FloatingActionButton(
+                          mini: true,
+                          backgroundColor: theme.primaryColor,
+                          onPressed: _scrollToBottom,
+                          child: Icon(Icons.arrow_downward, size: 20, color: theme.colorScheme.onPrimary),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            if (_typingUser.isNotEmpty) _buildTypingIndicatorBar(theme),
+              if (_typingUser.isNotEmpty) _buildTypingIndicatorBar(theme),
 
-            if (_replyingTo != null) _buildReplyPanel(theme),
+              if (_replyingTo != null) _buildReplyPanel(theme),
 
-            if (_editingMessage != null) _buildEditPanel(theme),
+              if (_editingMessage != null) _buildEditPanel(theme),
 
-            if (_showStickers) _buildStickersPanel(theme),
+              if (_showStickers) _buildStickersPanel(theme),
 
-            _buildEnhancedMessageInput(theme),
-          ],
+              _buildEnhancedMessageInput(theme),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedMessageList(ThemeData theme) {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: _filteredMessages.length + (_typingUser.isNotEmpty ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index < _filteredMessages.length) {
+          final message = _filteredMessages[index];
+          final showAvatar = index == 0 ||
+              _filteredMessages[index - 1].sender != message.sender ||
+              message.time.difference(_filteredMessages[index - 1].time).inMinutes > 5;
+
+          return _buildEnhancedMessageBubble(message, showAvatar, theme);
+        } else {
+          return _buildTypingIndicator(theme);
+        }
+      },
+    );
+  }
+
+  Widget _buildSearchPanel(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor.withOpacity(0.3)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Поиск по сообщениям...',
+                prefixIcon: Icon(Icons.search, color: theme.primaryColor),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: theme.colorScheme.background,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+              ),
+              onChanged: _handleSearch,
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.close, color: theme.primaryColor),
+            onPressed: _toggleSearchMode,
+          ),
+        ],
       ),
     );
   }
@@ -766,7 +960,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              // Бейджи комнаты
                               if (widget.room.isVerified)
                                 Container(
                                   margin: const EdgeInsets.only(left: 4),
@@ -808,6 +1001,20 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             // Кнопки действий
             Row(
               children: [
+                // Кнопка поиска
+                Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.background,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.search, color: theme.primaryColor),
+                    onPressed: _toggleSearchMode,
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
                 // Кнопка закрепленных сообщений
                 if (_pinnedMessages.isNotEmpty)
                   Container(
@@ -840,7 +1047,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                       backgroundColor: Colors.green,
                       child: Icon(Icons.people_alt_outlined, color: theme.primaryColor),
                     ),
-                    onPressed: _showEnhancedMembers,
+                    onPressed: _toggleMembersPanel,
                   ),
                 ),
 
@@ -888,6 +1095,36 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           ),
                         ),
                       PopupMenuItem(
+                        value: 'search',
+                        child: Row(
+                          children: [
+                            Icon(Icons.search, color: theme.primaryColor),
+                            const SizedBox(width: 8),
+                            const Text('Поиск по сообщениям'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'theme',
+                        child: Row(
+                          children: [
+                            Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode, color: theme.primaryColor),
+                            const SizedBox(width: 8),
+                            Text(_isDarkMode ? 'Светлая тема' : 'Темная тема'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'incognito',
+                        child: Row(
+                          children: [
+                            Icon(_isIncognitoMode ? Icons.visibility_off : Icons.visibility, color: theme.primaryColor),
+                            const SizedBox(width: 8),
+                            Text(_isIncognitoMode ? 'Выключить инкогнито' : 'Режим инкогнито'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
                         value: 'share',
                         child: Row(
                           children: [
@@ -908,17 +1145,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                             ],
                           ),
                         ),
-                      const PopupMenuDivider(),
-                      PopupMenuItem(
-                        value: 'search',
-                        child: Row(
-                          children: [
-                            Icon(Icons.search, color: theme.primaryColor),
-                            const SizedBox(width: 8),
-                            const Text('Поиск по сообщениям'),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -926,6 +1152,100 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMembersPanel(ThemeData theme) {
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor.withOpacity(0.3)),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                'Участники онлайн',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.close, size: 20, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                onPressed: _toggleMembersPanel,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _onlineMembers.length,
+              itemBuilder: (context, index) {
+                final member = _onlineMembers[index];
+                return Container(
+                  width: 80,
+                  margin: const EdgeInsets.only(right: 12),
+                  child: Column(
+                    children: [
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundImage: CachedNetworkImageProvider(member.avatar),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: theme.colorScheme.surface, width: 2),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        member.name.split(' ')[0],
+                        style: theme.textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _getRoleColor(member.role).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _getRoleText(member.role),
+                          style: TextStyle(
+                            color: _getRoleColor(member.role),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -966,7 +1286,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 80, // Увеличена высота для лучшего отображения
+              height: 80,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: pinnedMessages.length,
@@ -974,16 +1294,15 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   final message = pinnedMessages[index];
                   return GestureDetector(
                     onTap: () {
-                      // Прокрутка к закрепленному сообщению
                       final messageIndex = _messages.indexWhere((msg) => msg.id == message.id);
                       if (messageIndex != -1) {
                         _scrollController.animateTo(
-                          messageIndex * 120.0, // Примерная высота сообщения
+                          messageIndex * 120.0,
                           duration: const Duration(milliseconds: 500),
                           curve: Curves.easeInOut,
                         );
                       }
-                      _togglePinnedMessagesPanel(); // Закрываем панель после выбора
+                      _togglePinnedMessagesPanel();
                     },
                     child: Container(
                       width: 220,
@@ -1413,6 +1732,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
     setState(() {
       _messages.add(newMessage);
+      _filteredMessages.add(newMessage);
       _showStickers = false;
     });
     _scrollToBottom();
@@ -1749,8 +2069,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Widget _buildEnhancedMessageBubble(ChatMessage message, bool showAvatar, ThemeData theme) {
     final isSystem = message.messageType == MessageType.system;
     final isSticker = message.messageType == MessageType.sticker;
+    final isVoice = message.messageType == MessageType.voice;
     final isExpanded = _expandedMessages[message.id] ?? false;
     final isSelected = _selectedMessages[message.id] ?? false;
+    final hasTranslation = _messageTranslations.containsKey(message.id);
 
     return GestureDetector(
       onLongPress: () => _isSelectionMode ? _toggleMessageSelection(message) : _showEnhancedMessageOptions(message, theme),
@@ -1773,142 +2095,271 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               _buildSystemMessage(message, theme)
             else if (isSticker)
               _buildStickerMessage(message, showAvatar, theme)
-            else
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                children: [
-                  if (!message.isMe && showAvatar)
-                    _buildUserAvatar(message, theme),
-                  if (!message.isMe && showAvatar) const SizedBox(width: 8),
+            else if (isVoice)
+                _buildVoiceMessage(message, showAvatar, theme)
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                  children: [
+                    if (!message.isMe && showAvatar)
+                      _buildUserAvatar(message, theme),
+                    if (!message.isMe && showAvatar) const SizedBox(width: 8),
 
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                      children: [
-                        if (!message.isMe && showAvatar)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6, left: 8),
-                            child: Text(
-                              message.sender,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.8),
-                                fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        children: [
+                          if (!message.isMe && showAvatar)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6, left: 8),
+                              child: Text(
+                                message.sender,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                          ),
 
-                        // Сообщение с улучшенным дизайном
-                        Container(
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(context).size.width * 0.75,
-                          ),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: message.isMe
-                                ? theme.primaryColor
-                                : theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                            gradient: message.isMe
-                                ? LinearGradient(
-                              colors: [
-                                theme.primaryColor,
-                                theme.primaryColor.withOpacity(0.9),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                                : null,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Текст сообщения
-                              Text(
-                                message.text,
-                                style: TextStyle(
-                                  color: message.isMe
-                                      ? theme.colorScheme.onPrimary
-                                      : theme.colorScheme.onSurface,
-                                  height: 1.4,
+                          // Сообщение с улучшенным дизайном
+                          Container(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.75,
+                            ),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: message.isMe
+                                  ? theme.primaryColor
+                                  : theme.colorScheme.surface,
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
                                 ),
-                                maxLines: isExpanded ? null : 10,
-                                overflow: isExpanded ? null : TextOverflow.ellipsis,
-                              ),
+                              ],
+                              gradient: message.isMe
+                                  ? LinearGradient(
+                                colors: [
+                                  theme.primaryColor,
+                                  theme.primaryColor.withOpacity(0.9),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                                  : null,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Текст сообщения
+                                Text(
+                                  message.text,
+                                  style: TextStyle(
+                                    color: message.isMe
+                                        ? theme.colorScheme.onPrimary
+                                        : theme.colorScheme.onSurface,
+                                    height: 1.4,
+                                  ),
+                                  maxLines: isExpanded ? null : 10,
+                                  overflow: isExpanded ? null : TextOverflow.ellipsis,
+                                ),
 
-                              // Кнопка "Развернуть" для длинных сообщений
-                              if (message.text.length > 200 && !isExpanded)
-                                GestureDetector(
-                                  onTap: () => _toggleMessageExpansion(message.id),
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(top: 8),
+                                // Перевод сообщения
+                                if (hasTranslation && _showMessageTranslation)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 8),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: theme.primaryColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     child: Text(
-                                      'Развернуть...',
+                                      _messageTranslations[message.id]!,
                                       style: TextStyle(
-                                        color: message.isMe
-                                            ? theme.colorScheme.onPrimary.withOpacity(0.8)
-                                            : theme.primaryColor,
+                                        color: theme.colorScheme.onSurface.withOpacity(0.8),
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w500,
+                                        fontStyle: FontStyle.italic,
                                       ),
                                     ),
                                   ),
-                                ),
-                            ],
+
+                                // Кнопка "Развернуть" для длинных сообщений
+                                if (message.text.length > 200 && !isExpanded)
+                                  GestureDetector(
+                                    onTap: () => _toggleMessageExpansion(message.id),
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Text(
+                                        'Развернуть...',
+                                        style: TextStyle(
+                                          color: message.isMe
+                                              ? theme.colorScheme.onPrimary.withOpacity(0.8)
+                                              : theme.primaryColor,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
 
-                        // Реакции
-                        if (message.reactions != null && message.reactions!.isNotEmpty)
-                          _buildEnhancedReactions(message, theme),
+                          // Реакции
+                          if (message.reactions != null && message.reactions!.isNotEmpty)
+                            _buildEnhancedReactions(message, theme),
 
-                        // Время и статус редактирования
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6, left: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                DateFormat.Hm().format(message.time),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.5),
-                                ),
-                              ),
-                              if (message.isEdited) ...[
-                                const SizedBox(width: 6),
+                          // Время и статус редактирования
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6, left: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
                                 Text(
-                                  'ред.',
+                                  DateFormat.Hm().format(message.time),
                                   style: theme.textTheme.labelSmall?.copyWith(
                                     color: theme.colorScheme.onSurface.withOpacity(0.5),
-                                    fontStyle: FontStyle.italic,
                                   ),
                                 ),
+                                if (message.isEdited) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'ред.',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                                if (message.isPinned) ...[
+                                  const SizedBox(width: 6),
+                                  Icon(Icons.push_pin, size: 12, color: Colors.orange),
+                                ],
                               ],
-                              if (message.isPinned) ...[
-                                const SizedBox(width: 6),
-                                Icon(Icons.push_pin, size: 12, color: Colors.orange),
-                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    if (message.isMe) const SizedBox(width: 8),
+                    if (message.isMe && showAvatar)
+                      _buildUserAvatar(message, theme),
+                  ],
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceMessage(ChatMessage message, bool showAvatar, ThemeData theme) {
+    final isPlaying = _isVoiceMessagePlaying && _playingVoiceMessageId == int.parse(message.id);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!message.isMe && showAvatar)
+                _buildUserAvatar(message, theme),
+              if (!message.isMe && showAvatar) const SizedBox(width: 8),
+
+              Column(
+                crossAxisAlignment: message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  if (!message.isMe && showAvatar)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6, left: 8),
+                      child: Text(
+                        message.sender,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.8),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                  Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.6,
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: message.isMe ? theme.primaryColor : theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: message.isMe ? theme.colorScheme.onPrimary : theme.primaryColor,
+                          ),
+                          onPressed: isPlaying ? _stopVoiceMessage : () => _playVoiceMessage(message),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Голосовое сообщение',
+                                style: TextStyle(
+                                  color: message.isMe ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              LinearProgressIndicator(
+                                value: isPlaying ? _voiceMessageProgress : 0.0,
+                                backgroundColor: message.isMe
+                                    ? theme.colorScheme.onPrimary.withOpacity(0.3)
+                                    : theme.primaryColor.withOpacity(0.3),
+                                valueColor: AlwaysStoppedAnimation(
+                                  message.isMe ? theme.colorScheme.onPrimary : theme.primaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${message.voiceDuration?.toStringAsFixed(1) ?? '0'} сек',
+                                style: TextStyle(
+                                  color: message.isMe
+                                      ? theme.colorScheme.onPrimary.withOpacity(0.7)
+                                      : theme.colorScheme.onSurface.withOpacity(0.6),
+                                  fontSize: 12,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ],
                     ),
                   ),
-
-                  if (message.isMe) const SizedBox(width: 8),
-                  if (message.isMe && showAvatar)
-                    _buildUserAvatar(message, theme),
                 ],
               ),
-          ],
-        ),
+
+              if (message.isMe) const SizedBox(width: 8),
+              if (message.isMe && showAvatar)
+                _buildUserAvatar(message, theme),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1974,6 +2425,22 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Widget _buildUserAvatar(ChatMessage message, ThemeData theme) {
+    if (_isIncognitoMode && !message.isMe) {
+      return Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.grey.withOpacity(0.5),
+        ),
+        child: Icon(
+          Icons.visibility_off,
+          color: Colors.white,
+          size: 18,
+        ),
+      );
+    }
+
     return Column(
       children: [
         if (message.userAvatar?.isNotEmpty == true)
@@ -2193,14 +2660,20 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Widget _buildTypingDot(int index, ThemeData theme) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 3),
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: theme.primaryColor.withOpacity(0.5 + index * 0.2),
-        shape: BoxShape.circle,
-      ),
+    return AnimatedBuilder(
+      animation: _typingAnimationController,
+      builder: (context, child) {
+        final animationValue = (_typingAnimationController.value + index * 0.2) % 1.0;
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: theme.primaryColor.withOpacity(0.5 + animationValue * 0.5),
+            shape: BoxShape.circle,
+          ),
+        );
+      },
     );
   }
 
@@ -2285,6 +2758,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 },
                 theme,
               ),
+
+              if (message.messageType == MessageType.text)
+                _buildEnhancedOptionTile(
+                  Icons.translate,
+                  'Перевести',
+                  'Перевести сообщение на русский',
+                      () {
+                    Navigator.pop(context);
+                    _translateMessage(message);
+                  },
+                  theme,
+                ),
 
               _buildEnhancedOptionTile(
                 Icons.emoji_emotions_outlined,
@@ -2506,6 +2991,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             onPressed: () {
               setState(() {
                 _messages.remove(message);
+                _filteredMessages.remove(message);
                 if (message.isPinned) {
                   _pinnedMessages.remove(message.id);
                 }
@@ -2564,29 +3050,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               Expanded(
                 child: TabBarView(
                   children: [
-                    // Вкладка информации
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildEnhancedRoomHeader(Theme.of(context)),
-                          const SizedBox(height: 32),
-                          _buildEnhancedRoomStats(Theme.of(context)),
-                          const SizedBox(height: 32),
-                          _buildRoomDescription(Theme.of(context)),
-                          const SizedBox(height: 24),
-                          _buildRoomTags(Theme.of(context)),
-                          const SizedBox(height: 32),
-                          _buildRoomRules(Theme.of(context)),
-                          const SizedBox(height: 32),
-                          _buildEnhancedActionButtons(Theme.of(context)),
-                        ],
-                      ),
-                    ),
-                    // Вкладка участников
+                    _buildRoomInfoTab(Theme.of(context)),
                     _buildMembersTab(Theme.of(context)),
-                    // Вкладка настроек
                     _buildSettingsTab(Theme.of(context)),
                   ],
                 ),
@@ -2594,6 +3059,28 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRoomInfoTab(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildEnhancedRoomHeader(theme),
+          const SizedBox(height: 32),
+          _buildEnhancedRoomStats(theme),
+          const SizedBox(height: 32),
+          _buildRoomDescription(theme),
+          const SizedBox(height: 24),
+          _buildRoomTags(theme),
+          const SizedBox(height: 32),
+          _buildRoomRules(theme),
+          const SizedBox(height: 32),
+          _buildEnhancedActionButtons(theme),
+        ],
       ),
     );
   }
@@ -2727,11 +3214,24 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             trailing: Switch(value: true, onChanged: (_) {}),
           ),
           _buildSettingItem(
-            'Тема',
-            'Светлая/темная тема',
-            Icons.color_lens,
+            'Перевод сообщений',
+            'Автоматически переводить сообщения',
+            Icons.translate,
             theme,
-            trailing: Switch(value: false, onChanged: (_) {}),
+            trailing: Switch(
+              value: _showMessageTranslation,
+              onChanged: (value) => setState(() => _showMessageTranslation = value),
+            ),
+          ),
+          _buildSettingItem(
+            'Режим инкогнито',
+            'Скрывать информацию об участниках',
+            Icons.visibility_off,
+            theme,
+            trailing: Switch(
+              value: _isIncognitoMode,
+              onChanged: (value) => setState(() => _isIncognitoMode = value),
+            ),
           ),
           const SizedBox(height: 32),
           OutlinedButton(
@@ -2764,10 +3264,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       subtitle: Text(subtitle),
       trailing: trailing,
     );
-  }
-
-  void _showEnhancedMembers() {
-    _showEnhancedRoomInfo(); // Теперь используем общую панель с табами
   }
 
   Color _getRoleColor(MemberRole role) {
@@ -3299,79 +3795,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _messageFocusNode.dispose();
     _animationController.dispose();
     _tabController.dispose();
+    _typingAnimationController.dispose();
     super.dispose();
-  }
-}
-
-// Класс для поиска по сообщениям
-class _ChatSearchDelegate extends SearchDelegate<String> {
-  final List<ChatMessage> messages;
-
-  _ChatSearchDelegate(this.messages);
-
-  @override
-  List<Widget> buildActions(BuildContext context) {
-    return [
-      IconButton(
-        icon: const Icon(Icons.clear),
-        onPressed: () {
-          query = '';
-        },
-      ),
-    ];
-  }
-
-  @override
-  Widget buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, '');
-      },
-    );
-  }
-
-  @override
-  Widget buildResults(BuildContext context) {
-    return _buildSearchResults();
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    return _buildSearchResults();
-  }
-
-  Widget _buildSearchResults() {
-    final results = messages.where((message) {
-      return message.text.toLowerCase().contains(query.toLowerCase()) ||
-          message.sender.toLowerCase().contains(query.toLowerCase());
-    }).toList();
-
-    return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final message = results[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Theme.of(context).primaryColor,
-            child: Text(
-              message.sender[0].toUpperCase(),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-          title: Text(message.sender),
-          subtitle: Text(
-            message.text,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: Text(DateFormat.Hm().format(message.time)),
-          onTap: () {
-            close(context, message.id);
-          },
-        );
-      },
-    );
   }
 }
 
@@ -3387,6 +3812,7 @@ class ChatMessage {
   final ChatMessage? replyTo;
   final Color? userColor;
   final String? userAvatar;
+  final int? voiceDuration;
   Map<String, int>? reactions;
 
   ChatMessage({
@@ -3402,6 +3828,7 @@ class ChatMessage {
     this.reactions,
     this.userColor,
     this.userAvatar,
+    this.voiceDuration,
   });
 
   ChatMessage copyWith({
@@ -3409,6 +3836,7 @@ class ChatMessage {
     bool? isEdited,
     bool? isPinned,
     Map<String, int>? reactions,
+    int? voiceDuration,
   }) {
     return ChatMessage(
       id: id,
@@ -3423,6 +3851,7 @@ class ChatMessage {
       reactions: reactions ?? this.reactions,
       userColor: userColor,
       userAvatar: userAvatar,
+      voiceDuration: voiceDuration ?? this.voiceDuration,
     );
   }
 }
@@ -3432,6 +3861,7 @@ enum MessageType {
   image,
   system,
   sticker,
+  voice,
 }
 
 class ChatMember {

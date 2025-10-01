@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/room_provider.dart';
 import '../../models/room.dart';
-import '../search_filter_chip.dart';
+import '../chips/search_filter_chip.dart';
 
 class FiltersSection extends StatelessWidget {
   final RoomProvider roomProvider;

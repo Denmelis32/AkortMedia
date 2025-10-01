@@ -24,7 +24,7 @@ class MessageList extends StatelessWidget {
   final Function(ChatMessage) onPlayVoiceMessage;
   final Function() onStopVoiceMessage;
   final bool isVoiceMessagePlaying;
-  final int playingVoiceMessageId;
+  final String playingVoiceMessageId; // ИСПРАВЛЕНО: теперь String
   final double voiceMessageProgress;
 
   const MessageList({
@@ -45,7 +45,7 @@ class MessageList extends StatelessWidget {
     required this.onPlayVoiceMessage,
     required this.onStopVoiceMessage,
     required this.isVoiceMessagePlaying,
-    required this.playingVoiceMessageId,
+    required this.playingVoiceMessageId, // ИСПРАВЛЕНО: теперь String
     required this.voiceMessageProgress,
   });
 
@@ -101,7 +101,8 @@ class MessageList extends StatelessWidget {
           theme: theme,
           isIncognitoMode: isIncognitoMode,
           userColors: userColors,
-          isPlaying: isVoiceMessagePlaying && playingVoiceMessageId == int.parse(message.id),
+          // ИСПРАВЛЕНИЕ: Сравниваем строки, а не преобразуем в int
+          isPlaying: isVoiceMessagePlaying && playingVoiceMessageId == message.id,
           progress: voiceMessageProgress,
           onTap: () => onMessageTap(message),
           onLongPress: () => onMessageLongPress(message),

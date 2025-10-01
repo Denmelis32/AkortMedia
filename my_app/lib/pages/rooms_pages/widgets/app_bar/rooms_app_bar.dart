@@ -3,7 +3,7 @@ import 'package:path/path.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/room_provider.dart';
 import '../../../../providers/user_provider.dart';
-import '../../user_profile_dialog.dart';
+import '../dialogs/user_profile_dialog.dart';
 
 class RoomsAppBar extends StatelessWidget {
   final RoomProvider roomProvider;

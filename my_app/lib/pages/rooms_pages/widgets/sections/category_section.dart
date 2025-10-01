@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/room_provider.dart';
 import '../../models/room.dart';
-import '../category_chip.dart';
+import '../chips/category_chip.dart';
 
 class CategorySection extends StatelessWidget {
   final RoomProvider roomProvider;

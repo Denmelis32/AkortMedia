@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../chat/chat_page.dart';
-import '../advanced_filters_bottom_sheet.dart';
-import '../create_room_bottom_sheet.dart';
+import '../widgets/bottom_sheets/advanced_filters_bottom_sheet.dart';
+import '../widgets/bottom_sheets/create_room_bottom_sheet.dart';
 import '../models/room.dart';
 import '../../../providers/room_provider.dart';
 import '../../../providers/user_provider.dart';
@@ -10,7 +10,7 @@ import '../widgets/dialogs/notifications_dialog.dart';
 import '../widgets/dialogs/quick_actions_dialog.dart' show QuickActionsDialog;
 import '../widgets/dialogs/room_quick_actions_dialog.dart';
 import '../widgets/dialogs/sort_dialog.dart';
-import '../widgets/room_stats_dialog.dart';
+import '../widgets/dialogs/room_stats_dialog.dart';
 import 'room_dialogs.dart';
 
 class RoomNavigation {
@@ -66,7 +66,6 @@ class RoomNavigation {
       ),
     );
   }
-
   void createNewRoom(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -82,15 +81,32 @@ class RoomNavigation {
     // Показываем уведомление о успешном создании
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Комната "${newRoom.title}" создана!'),
+        content: Text('Комната "${newRoom.title}" создана! 🎉'),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Открыть',
+          textColor: Colors.white,
+          onPressed: () {
+            // Открываем созданную комнату
+            final userProvider = context.read<UserProvider>();
+            openChatPage(
+              context: context,
+              room: newRoom,
+              userName: userProvider.userName,
+            );
+          },
+        ),
       ),
     );
 
-    // Можно добавить автоматическое обновление списка комнат
-    context.read<RoomProvider>().loadRooms();
+    // Дополнительное обновление через 2 секунды для синхронизации
+    Future.delayed(const Duration(seconds: 2), () {
+      if (context.mounted) {
+        context.read<RoomProvider>().loadRooms();
+      }
+    });
   }
 
   void showAdvancedFilters(BuildContext context) {

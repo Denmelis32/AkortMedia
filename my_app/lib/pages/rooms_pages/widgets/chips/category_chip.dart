@@ -1,6 +1,6 @@
 // widgets/category_chip.dart
 import 'package:flutter/material.dart';
-import '../models/room.dart';
+import '../../models/room.dart';
 
 class CategoryChip extends StatefulWidget {
   final RoomCategory category;

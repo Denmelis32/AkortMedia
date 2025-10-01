@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../providers/room_provider.dart';
 import '../../models/room.dart';
-import '../animated_room_card.dart';
+import '../cards/animated_room_card.dart';
 import '../empty_states/rooms_empty_state.dart';
 
 class RoomsGridSection extends StatelessWidget {

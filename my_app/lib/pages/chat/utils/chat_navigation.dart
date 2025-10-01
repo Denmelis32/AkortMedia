@@ -180,6 +180,8 @@ class ChatNavigation {
     final text = messageController.text.trim();
     if (text.isEmpty) return;
 
+    print('📤 Пользователь "$userName" отправляет сообщение: "$text"');
+
     final newMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       text: text,
@@ -204,50 +206,90 @@ class ChatNavigation {
       onMessageSent();
     });
 
+    // ВЫЗОВ ОТВЕТА БОТА ТОЛЬКО ДЛЯ НОВЫХ СООБЩЕНИЙ (НЕ РЕДАКТИРОВАНИЯ)
     if (editingMessage == null) {
+      print('🤖 Запуск ответа бота на сообщение: "$text"');
       _simulateAIResponse(text);
     }
+
     scrollToBottom();
   }
 
   void _simulateAIResponse(String userMessage) {
     String response = '';
 
+    // Расширенная логика ответов ботов
     if (userMessage.toLowerCase().contains('привет')) {
       response = 'Привет! Рад видеть вас в чате! 😊';
-    } else if (userMessage.toLowerCase().contains('матч')) {
+    } else if (userMessage.toLowerCase().contains('как дела')) {
+      response = 'Отлично! Обсуждаем последние спортивные события. А у вас?';
+    } else if (userMessage.toLowerCase().contains('спасибо')) {
+      response = 'Всегда пожалуйста! 🎉';
+    } else if (userMessage.toLowerCase().contains('матч') || userMessage.toLowerCase().contains('игра')) {
       response = 'Да, матч был захватывающий! Особенно впечатлила игра полузащиты.';
+    } else if (userMessage.toLowerCase().contains('гол') || userMessage.toLowerCase().contains('счет')) {
+      response = 'Как вам последний гол? По-моему, это был один из лучших моментов матча! ⚽';
+    } else if (userMessage.toLowerCase().contains('команда') || userMessage.toLowerCase().contains('игрок')) {
+      response = 'Интересно, а какой игрок произвел на вас наибольшее впечатление?';
+    } else if (userMessage.toLowerCase().contains('время') || userMessage.toLowerCase().contains('когда')) {
+      response = 'Следующий матч начинается завтра в 20:00. Не пропустите! 🕗';
+    } else if (userMessage.toLowerCase().contains('погод') || userMessage.toLowerCase().contains('дожд')) {
+      response = 'Погода действительно повлияла на игру. Заметили как ветер мешал дальним передачам?';
+    } else if (userMessage.toLowerCase().contains('тренер') || userMessage.toLowerCase().contains('стратеги')) {
+      response = 'Тренерская работа была на высоте! Отличные замены во втором тайме.';
     } else {
       final responses = [
         'Интересная мысль! Что еще думаете по этому поводу?',
         'Согласен с вами! Добавлю, что важна также командная работа.',
         'Хороший вопрос! Давайте обсудим это подробнее.',
         'Отличное замечание! Полностью поддерживаю вашу точку зрения.',
+        'Интересно! А что вы думаете о тактике команды в этом сезоне?',
+        'Спасибо, что поделились мнением! Это действительно важная тема.',
+        'Полностью с вами согласен! Добавлю, что ключевым был момент на 65-й минуте.',
+        'Отличная тема для обсуждения! Как вы думаете, что решило исход матча?',
       ];
-      response = responses[DateTime.now().millisecond % responses.length];
+      response = responses[_random.nextInt(responses.length)];
     }
 
-    Future.delayed(Duration(seconds: 1 + _random.nextInt(2)), () {
-      if (!context.mounted) return;
+    print('🤖 Бот готовит ответ: "$response"');
+
+    // Задержка перед ответом (1-3 секунды)
+    final delaySeconds = 1 + _random.nextInt(3);
+
+    Future.delayed(Duration(seconds: delaySeconds), () {
+      if (!context.mounted) {
+        print('❌ Контекст не доступен для ответа бота');
+        return;
+      }
 
       final aiUsers = ['Алексей Петров', 'Мария Иванова', 'Иван Сидоров'];
-      final aiUser = aiUsers[DateTime.now().second % aiUsers.length];
+      final aiUser = aiUsers[_random.nextInt(aiUsers.length)];
 
       final aiMessage = ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: 'ai-${DateTime.now().millisecondsSinceEpoch}',
         text: response,
         sender: aiUser,
-        time: DateTime.now().add(const Duration(seconds: 1)),
+        time: DateTime.now().add(Duration(seconds: delaySeconds)),
         isMe: false,
         userColor: _getUserColor(aiUser, {}),
         userAvatar: 'https://i.pravatar.cc/150?img=${aiUsers.indexOf(aiUser) + 1}',
       );
 
+      print('🤖 Бот "$aiUser" отправляет ответ: "$response"');
+
       updateState(() {
         messages.add(aiMessage);
+        print('✅ Ответ бота добавлен в список сообщений. Всего сообщений: ${messages.length}');
       });
+
       scrollToBottom();
     });
+  }
+
+  // Метод для принудительного вызова ответа бота (для тестирования)
+  void triggerBotResponse(String testMessage) {
+    print('🔧 Принудительный вызов ответа бота на: "$testMessage"');
+    _simulateAIResponse(testMessage);
   }
 
   void sendSticker(String sticker) {

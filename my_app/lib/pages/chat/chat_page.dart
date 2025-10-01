@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/room_provider.dart';
 import '../rooms_pages/models/room.dart';
@@ -76,7 +77,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   // Additional features
   bool _isVoiceMessagePlaying = false;
-  int _playingVoiceMessageId = -1;
+  String _playingVoiceMessageId = '';
   double _voiceMessageProgress = 0.0;
   bool _showMessageTranslation = false;
   Map<String, String> _messageTranslations = {};
@@ -187,6 +188,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   void _sendMessage() {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+
     _navigation.sendMessage(
       messageController: _messageController,
       replyingTo: _replyingTo,
@@ -197,9 +201,17 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           _typingUser = '';
           _replyingTo = null;
           _editingMessage = null;
+          _filteredMessages = List.from(_messages);
         });
       },
     );
+  }
+
+  Color _getUserColor(String userName) {
+    if (!_userColors.containsKey(userName)) {
+      _userColors[userName] = Colors.primaries[DateTime.now().millisecond % Colors.primaries.length].shade600;
+    }
+    return _userColors[userName]!;
   }
 
   void _toggleSearchMode() {
@@ -665,7 +677,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   void _playVoiceMessage(ChatMessage message) {
     setState(() {
       _isVoiceMessagePlaying = true;
-      _playingVoiceMessageId = int.parse(message.id);
+      _playingVoiceMessageId = message.id;
       _voiceMessageProgress = 0.0;
     });
 
@@ -677,7 +689,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             _voiceMessageProgress = progress;
             if (progress >= 1.0) {
               _isVoiceMessagePlaying = false;
-              _playingVoiceMessageId = -1;
+              _playingVoiceMessageId = '';
               _voiceMessageProgress = 0.0;
             }
           });
@@ -689,7 +701,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   void _stopVoiceMessage() {
     setState(() {
       _isVoiceMessagePlaying = false;
-      _playingVoiceMessageId = -1;
+      _playingVoiceMessageId = '';
       _voiceMessageProgress = 0.0;
     });
   }

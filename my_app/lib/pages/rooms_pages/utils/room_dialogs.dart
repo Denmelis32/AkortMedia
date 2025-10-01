@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/room.dart';
 import '../../../providers/user_provider.dart';
-import '../widgets/room_preview_dialog.dart';
+import '../widgets/dialogs/room_preview_dialog.dart';
 
 class RoomDialogs {
   void showPasswordDialog(BuildContext context, Room room, UserProvider userProvider) {

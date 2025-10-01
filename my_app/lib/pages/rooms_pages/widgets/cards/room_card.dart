@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/room.dart';
-import 'room_actions_menu.dart';
+import '../../models/room.dart';
+import '../menus/room_actions_menu.dart';
 
 class RoomCard extends StatefulWidget {
   final Room room;

@@ -202,15 +202,6 @@ class RoomProvider with ChangeNotifier {
   }
 
   // НОВЫЙ МЕТОД: Сброс фильтров для новой комнаты
-  void _resetFiltersForNewRoom() {
-    // Сбрасываем только проблемные фильтры, но сохраняем категорию и сортировку
-    _searchQuery = '';
-    _showJoinedOnly = false; // Важно: новая комната не присоединена
-    _selectedTags.clear();
-    _searchSuggestions = [];
-    // НЕ сбрасываем категорию - пусть новая комната показывается в выбранной категории
-    // НЕ сбрасываем сортировку
-  }
 
   void _checkForNewInvites() {
     // Логика проверки новых приглашений
@@ -439,7 +430,7 @@ class RoomProvider with ChangeNotifier {
   }
 
   // ИСПРАВЛЕННЫЙ МЕТОД СОЗДАНИЯ КОМНАТЫ
-  Future<void> createRoom({
+  Future<Room> createRoom({
     required String title,
     required String description,
     required RoomCategory category,
@@ -456,6 +447,9 @@ class RoomProvider with ChangeNotifier {
     bool enableVideoChat = false,
   }) async {
     try {
+      _isLoading = true;
+      notifyListeners();
+
       // Проверяем, не создается ли уже комната с таким названием
       final existingRoom = _rooms.firstWhereOrNull(
             (room) => room.title == title && room.creatorId == 'current_user_id', // TODO: заменить на реальный ID
@@ -482,29 +476,65 @@ class RoomProvider with ChangeNotifier {
         enableVideoChat: enableVideoChat,
       );
 
-      // Добавляем комнату в начало списка ТОЛЬКО ОДИН РАЗ
-      _rooms.insert(0, newRoom);
+      // ВАЖНО: Добавляем комнату с правильными флагами для фильтров
+      final roomWithCorrectFlags = newRoom.copyWith(
+        isJoined: true, // Создатель автоматически присоединен к комнате
+        lastActivity: DateTime.now(), // Делаем комнату активной
+        isActive: true,
+      );
 
-      // Сбрасываем фильтры, которые могут скрыть новую комнату
-      _resetFiltersForNewRoom();
+      // Добавляем комнату в начало списка
+      _rooms.insert(0, roomWithCorrectFlags);
+
+      // Сбрасываем ТОЛЬКО проблемные фильтры
+      _resetProblematicFilters();
 
       // Применяем фильтры и уведомляем
       _applyFilters();
       notifyListeners();
 
       if (kDebugMode) {
-        print('Комната создана: ${newRoom.title}');
+        print('Комната создана: ${roomWithCorrectFlags.title}');
+        print('isJoined: ${roomWithCorrectFlags.isJoined}');
+        print('isActive: ${roomWithCorrectFlags.isActive}');
         print('Всего комнат: ${_rooms.length}');
         print('Отфильтровано: ${_filteredRooms.length}');
       }
 
+      return roomWithCorrectFlags;
+
     } catch (error) {
-      if (kDebugMode) {
-        print('Error creating room: $error');
-      }
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
   }
+
+
+  void _resetProblematicFilters() {
+    // Сбрасываем только фильтры, которые могут скрыть новую комнату
+    _showJoinedOnly = false; // Важно: сбрасываем фильтр "только мои"
+    _searchQuery = ''; // Очищаем поиск
+    _selectedTags.clear(); // Очищаем выбранные теги
+
+    // Сбрасываем проблемные расширенные фильтры
+    _activeFilters = _activeFilters.copyWith(
+      isJoined: false, // Сбрасываем фильтр "только присоединенные"
+    );
+
+    // НЕ сбрасываем категорию - пусть новая комната показывается в выбранной категории
+    // НЕ сбрасываем сортировку
+    // НЕ сбрасываем другие расширенные фильтры
+
+    if (kDebugMode) {
+      print('=== СБРОС ПРОБЛЕМНЫХ ФИЛЬТРОВ ===');
+      print('showJoinedOnly: $_showJoinedOnly');
+      print('searchQuery: "$_searchQuery"');
+      print('selectedTags: $_selectedTags');
+      print('activeFilters.isJoined: ${_activeFilters.isJoined}');
+    }
+  }
+
 
   // Поиск и фильтрация
   List<Room> searchRoomsByTag(String tag) {
@@ -562,7 +592,6 @@ class RoomProvider with ChangeNotifier {
   void _applyFilters() {
     List<Room> filtered = List.from(_rooms);
 
-    // Отладочная информация
     if (kDebugMode) {
       print('=== ПРИМЕНЕНИЕ ФИЛЬТРОВ ===');
       print('Всего комнат: ${_rooms.length}');
@@ -570,15 +599,22 @@ class RoomProvider with ChangeNotifier {
       print('Поиск: "$_searchQuery"');
       print('Только мои: $_showJoinedOnly');
       print('Только активные: $_showActiveOnly');
+      print('Показать закрепленные первыми: $_showPinnedFirst');
+      print('Активные фильтры: ${_activeFilters.hasActiveFilters}');
+      if (_activeFilters.hasActiveFilters) {
+        print('Детали фильтров: $_activeFilters');
+      }
     }
 
     // Базовые фильтры
     if (_selectedCategory != RoomCategory.all) {
+      final before = filtered.length;
       filtered = filtered.where((room) => room.category == _selectedCategory).toList();
-      if (kDebugMode) print('После категории: ${filtered.length}');
+      if (kDebugMode) print('После категории: $before -> ${filtered.length}');
     }
 
     if (_searchQuery.isNotEmpty) {
+      final before = filtered.length;
       final query = _searchQuery.toLowerCase();
       filtered = filtered.where((room) =>
       room.title.toLowerCase().contains(query) ||
@@ -587,69 +623,100 @@ class RoomProvider with ChangeNotifier {
           room.creatorName.toLowerCase().contains(query) ||
           room.category.title.toLowerCase().contains(query)
       ).toList();
-      if (kDebugMode) print('После поиска: ${filtered.length}');
+      if (kDebugMode) print('После поиска: $before -> ${filtered.length}');
     }
 
     if (_showJoinedOnly) {
+      final before = filtered.length;
       filtered = filtered.where((room) => room.isJoined).toList();
-      if (kDebugMode) print('После "только мои": ${filtered.length}');
+      if (kDebugMode) print('После "только мои": $before -> ${filtered.length}');
+
+      // Отладочная информация о joined статусе
+      if (kDebugMode && before != filtered.length) {
+        final joinedRooms = _rooms.where((room) => room.isJoined).toList();
+        print('Всего присоединенных комнат: ${joinedRooms.length}');
+        for (final room in joinedRooms.take(3)) {
+          print(' - "${room.title}" (joined: ${room.isJoined}, active: ${room.isActive})');
+        }
+      }
     }
 
     if (_showActiveOnly) {
+      final before = filtered.length;
       filtered = filtered.where((room) => room.isActive && !room.isExpired).toList();
-      if (kDebugMode) print('После "только активные": ${filtered.length}');
+      if (kDebugMode) print('После "только активные": $before -> ${filtered.length}');
     }
 
     // Расширенные фильтры из RoomFilters
     if (_activeFilters.tags.isNotEmpty) {
+      final before = filtered.length;
       filtered = filtered.where((room) =>
           _activeFilters.tags.any((tag) => room.tags.contains(tag))
       ).toList();
+      if (kDebugMode) print('После фильтра по тегам: $before -> ${filtered.length}');
     }
 
     if (_activeFilters.minParticipants > 0) {
+      final before = filtered.length;
       filtered = filtered.where((room) =>
       room.currentParticipants >= _activeFilters.minParticipants
       ).toList();
+      if (kDebugMode) print('После мин. участников: $before -> ${filtered.length}');
     }
 
     if (_activeFilters.maxParticipants < 1000) {
+      final before = filtered.length;
       filtered = filtered.where((room) =>
       room.currentParticipants <= _activeFilters.maxParticipants
       ).toList();
+      if (kDebugMode) print('После макс. участников: $before -> ${filtered.length}');
     }
 
     if (_activeFilters.minRating > 0.0) {
+      final before = filtered.length;
       filtered = filtered.where((room) => room.rating >= _activeFilters.minRating).toList();
+      if (kDebugMode) print('После мин. рейтинга: $before -> ${filtered.length}');
     }
 
     if (_activeFilters.createdAfter != null) {
+      final before = filtered.length;
       filtered = filtered.where((room) =>
           room.createdAt.isAfter(_activeFilters.createdAfter!)
       ).toList();
+      if (kDebugMode) print('После даты создания: $before -> ${filtered.length}');
     }
 
     if (_activeFilters.hasMedia) {
+      final before = filtered.length;
       filtered = filtered.where((room) => room.hasMedia).toList();
+      if (kDebugMode) print('После медиа-фильтра: $before -> ${filtered.length}');
     }
 
     if (_activeFilters.isVerified) {
+      final before = filtered.length;
       filtered = filtered.where((room) => room.isVerified).toList();
+      if (kDebugMode) print('После верификации: $before -> ${filtered.length}');
     }
 
     if (_activeFilters.isPinned) {
+      final before = filtered.length;
       filtered = filtered.where((room) => room.isPinned).toList();
+      if (kDebugMode) print('После закрепленных: $before -> ${filtered.length}');
     }
 
     if (_activeFilters.isJoined) {
+      final before = filtered.length;
       filtered = filtered.where((room) => room.isJoined).toList();
+      if (kDebugMode) print('После присоединенных: $before -> ${filtered.length}');
     }
 
     // Фильтр по выбранным тегам
     if (_selectedTags.isNotEmpty) {
+      final before = filtered.length;
       filtered = filtered.where((room) =>
           _selectedTags.any((tag) => room.tags.contains(tag))
       ).toList();
+      if (kDebugMode) print('После выбранных тегов: $before -> ${filtered.length}');
     }
 
     // Сортировка
@@ -660,12 +727,25 @@ class RoomProvider with ChangeNotifier {
       final pinnedRooms = filtered.where((room) => room.isPinned).toList();
       final unpinnedRooms = filtered.where((room) => !room.isPinned).toList();
       filtered = [...pinnedRooms, ...unpinnedRooms];
+      if (kDebugMode) print('После закрепления: ${pinnedRooms.length} закрепленных + ${unpinnedRooms.length} обычных');
     }
 
     _filteredRooms = filtered;
 
     if (kDebugMode) {
       print('Итоговое количество: ${_filteredRooms.length}');
+      if (_filteredRooms.isNotEmpty) {
+        print('Первые 3 комнаты в результате:');
+        for (final room in _filteredRooms.take(3)) {
+          print(' - "${room.title}" (joined: ${room.isJoined}, active: ${room.isActive}, participants: ${room.currentParticipants})');
+        }
+      } else {
+        print('⚠️ Нет комнат после фильтрации!');
+        print('Последние 3 комнаты в исходном списке:');
+        for (final room in _rooms.take(3)) {
+          print(' - "${room.title}" (joined: ${room.isJoined}, active: ${room.isActive}, category: ${room.category.title})');
+        }
+      }
       print('========================');
     }
   }

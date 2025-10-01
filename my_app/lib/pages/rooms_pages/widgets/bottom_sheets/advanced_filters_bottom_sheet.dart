@@ -1,10 +1,10 @@
 // lib/pages/rooms_pages/advanced_filters_bottom_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/room_provider.dart';
-import 'models/room.dart';
-import 'models/room_filters.dart';
-import 'widgets/tag_chip.dart';
+import '../../../../providers/room_provider.dart';
+import '../../models/room.dart';
+import '../../models/room_filters.dart';
+import '../chips/tag_chip.dart';
 
 class AdvancedFiltersBottomSheet extends StatefulWidget {
   final VoidCallback onFiltersApplied;

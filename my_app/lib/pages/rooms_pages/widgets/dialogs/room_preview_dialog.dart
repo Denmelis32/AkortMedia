@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/room.dart';
+import '../../models/room.dart';
 
 class RoomPreviewDialog extends StatelessWidget {
   final Room room;

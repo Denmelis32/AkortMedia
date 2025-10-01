@@ -16,6 +16,7 @@ class RoomProvider with ChangeNotifier {
   bool _showJoinedOnly = false;
   bool _showActiveOnly = true;
   bool _showPinnedFirst = true;
+  bool _hasNewInvites = false;
 
   // НОВЫЕ СВОЙСТВА ДЛЯ РАСШИРЕННЫХ ФИЛЬТРОВ
   RoomFilters _activeFilters = const RoomFilters();
@@ -34,11 +35,26 @@ class RoomProvider with ChangeNotifier {
   bool get showJoinedOnly => _showJoinedOnly;
   bool get showActiveOnly => _showActiveOnly;
   bool get showPinnedFirst => _showPinnedFirst;
+  bool get hasNewInvites => _hasNewInvites;
 
   // НОВЫЕ ГЕТТЕРЫ
   RoomFilters get activeFilters => _activeFilters;
   Set<String> get selectedTags => _selectedTags;
   List<String> get searchSuggestions => _searchSuggestions;
+
+  // Проверка активных расширенных фильтров
+  bool get hasActiveAdvancedFilters {
+    return _activeFilters.tags.isNotEmpty ||
+        _activeFilters.minParticipants > 0 ||
+        _activeFilters.maxParticipants < 1000 ||
+        _activeFilters.minRating > 0.0 ||
+        _activeFilters.createdAfter != null ||
+        _activeFilters.hasMedia ||
+        _activeFilters.isVerified ||
+        _activeFilters.isPinned ||
+        _activeFilters.isJoined ||
+        _selectedTags.isNotEmpty;
+  }
 
   // ОСНОВНЫЕ МЕТОДЫ
   void addRoom(Room room) {
@@ -54,6 +70,9 @@ class RoomProvider with ChangeNotifier {
     try {
       _rooms = await _roomService.getRooms();
       _applyFilters();
+
+      // Проверяем наличие новых приглашений
+      _checkForNewInvites();
     } catch (error) {
       if (kDebugMode) {
         print('Error loading rooms: $error');
@@ -79,7 +98,7 @@ class RoomProvider with ChangeNotifier {
   void setSearchQuery(String query) {
     _searchQuery = query;
     if (query.length >= 2) {
-      updateSearchSuggestions(query); // ← изменили здесь
+      _updateSearchSuggestions(query);
     } else {
       _searchSuggestions = [];
     }
@@ -105,6 +124,11 @@ class RoomProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void setHasNewInvites(bool value) {
+    _hasNewInvites = value;
+    notifyListeners();
+  }
+
   // НОВЫЕ МЕТОДЫ ДЛЯ РАСШИРЕННЫХ ФИЛЬТРОВ
   void setFilters(RoomFilters filters) {
     _activeFilters = filters;
@@ -122,20 +146,43 @@ class RoomProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void updateSearchSuggestions(String query) {
+  void clearSelectedTags() {
+    _selectedTags.clear();
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void _updateSearchSuggestions(String query) {
     if (query.length < 2) {
       _searchSuggestions = [];
     } else {
       final queryLower = query.toLowerCase();
-      _searchSuggestions = _rooms
-          .where((room) =>
-      room.title.toLowerCase().contains(queryLower) ||
-          room.description.toLowerCase().contains(queryLower) ||
-          room.tags.any((tag) => tag.toLowerCase().contains(queryLower)) ||
-          room.creatorName.toLowerCase().contains(queryLower))
-          .map((room) => room.title)
-          .take(5)
-          .toList();
+      final suggestions = <String>{};
+
+      // Добавляем предложения из названий комнат
+      for (final room in _rooms) {
+        if (room.title.toLowerCase().contains(queryLower)) {
+          suggestions.add(room.title);
+        }
+      }
+
+      // Добавляем предложения из тегов
+      for (final room in _rooms) {
+        for (final tag in room.tags) {
+          if (tag.toLowerCase().contains(queryLower)) {
+            suggestions.add(tag);
+          }
+        }
+      }
+
+      // Добавляем предложения из категорий
+      for (final category in RoomCategory.values) {
+        if (category.title.toLowerCase().contains(queryLower)) {
+          suggestions.add(category.title);
+        }
+      }
+
+      _searchSuggestions = suggestions.take(8).toList();
     }
     notifyListeners();
   }
@@ -152,6 +199,29 @@ class RoomProvider with ChangeNotifier {
     _searchSuggestions = [];
     _applyFilters();
     notifyListeners();
+  }
+
+  // НОВЫЙ МЕТОД: Сброс фильтров для новой комнаты
+  void _resetFiltersForNewRoom() {
+    // Сбрасываем только проблемные фильтры, но сохраняем категорию и сортировку
+    _searchQuery = '';
+    _showJoinedOnly = false; // Важно: новая комната не присоединена
+    _selectedTags.clear();
+    _searchSuggestions = [];
+    // НЕ сбрасываем категорию - пусть новая комната показывается в выбранной категории
+    // НЕ сбрасываем сортировку
+  }
+
+  void _checkForNewInvites() {
+    // Логика проверки новых приглашений
+    // В реальном приложении здесь будет запрос к серверу
+    final hasInvites = _rooms.any((room) =>
+    room.hasPendingInvite ||
+        room.accessLevel == RoomAccessLevel.private &&
+            room.allowedUsers.contains('current_user_id') // TODO: Заменить на реальный ID
+    );
+
+    _hasNewInvites = hasInvites;
   }
 
   // МЕТОДЫ ДЛЯ РАБОТЫ С КОМНАТАМИ
@@ -175,6 +245,8 @@ class RoomProvider with ChangeNotifier {
       if (kDebugMode) {
         print('Error toggling room join: $error');
       }
+      // Откатываем изменения в случае ошибки
+      notifyListeners();
     }
   }
 
@@ -213,7 +285,7 @@ class RoomProvider with ChangeNotifier {
         // Усреднение рейтинга с учетом предыдущих оценок
         final updatedRating = (room.rating * room.ratingCount + newRating) / (room.ratingCount + 1);
         final updatedRoom = room.copyWith(
-          rating: updatedRating,
+          rating: double.parse(updatedRating.toStringAsFixed(1)),
           ratingCount: room.ratingCount + 1,
         );
 
@@ -331,7 +403,7 @@ class RoomProvider with ChangeNotifier {
       final roomIndex = _rooms.indexWhere((room) => room.id == roomId);
       if (roomIndex != -1) {
         final room = _rooms[roomIndex];
-        final updatedTags = List<String>.from(room.tags)..add(tag);
+        final updatedTags = List<String>.from(room.tags)..add(tag.toLowerCase());
         final updatedRoom = room.copyWith(tags: updatedTags);
 
         _rooms[roomIndex] = updatedRoom;
@@ -351,7 +423,7 @@ class RoomProvider with ChangeNotifier {
       final roomIndex = _rooms.indexWhere((room) => room.id == roomId);
       if (roomIndex != -1) {
         final room = _rooms[roomIndex];
-        final updatedTags = List<String>.from(room.tags)..remove(tag);
+        final updatedTags = List<String>.from(room.tags)..remove(tag.toLowerCase());
         final updatedRoom = room.copyWith(tags: updatedTags);
 
         _rooms[roomIndex] = updatedRoom;
@@ -366,7 +438,7 @@ class RoomProvider with ChangeNotifier {
     }
   }
 
-  // Создание комнаты с расширенными параметрами
+  // ИСПРАВЛЕННЫЙ МЕТОД СОЗДАНИЯ КОМНАТЫ
   Future<void> createRoom({
     required String title,
     required String description,
@@ -379,8 +451,20 @@ class RoomProvider with ChangeNotifier {
     String password = '',
     DateTime? scheduledStart,
     Duration? duration,
+    bool hasMedia = false,
+    bool enableVoiceChat = false,
+    bool enableVideoChat = false,
   }) async {
     try {
+      // Проверяем, не создается ли уже комната с таким названием
+      final existingRoom = _rooms.firstWhereOrNull(
+            (room) => room.title == title && room.creatorId == 'current_user_id', // TODO: заменить на реальный ID
+      );
+
+      if (existingRoom != null) {
+        throw Exception('Комната с таким названием уже существует');
+      }
+
       final newRoom = await _roomService.createRoom(
         title: title,
         description: description,
@@ -393,11 +477,27 @@ class RoomProvider with ChangeNotifier {
         password: password,
         scheduledStart: scheduledStart,
         duration: duration,
+        hasMedia: hasMedia,
+        enableVoiceChat: enableVoiceChat,
+        enableVideoChat: enableVideoChat,
       );
 
+      // Добавляем комнату в начало списка ТОЛЬКО ОДИН РАЗ
       _rooms.insert(0, newRoom);
+
+      // Сбрасываем фильтры, которые могут скрыть новую комнату
+      _resetFiltersForNewRoom();
+
+      // Применяем фильтры и уведомляем
       _applyFilters();
       notifyListeners();
+
+      if (kDebugMode) {
+        print('Комната создана: ${newRoom.title}');
+        print('Всего комнат: ${_rooms.length}');
+        print('Отфильтровано: ${_filteredRooms.length}');
+      }
+
     } catch (error) {
       if (kDebugMode) {
         print('Error creating room: $error');
@@ -408,7 +508,7 @@ class RoomProvider with ChangeNotifier {
 
   // Поиск и фильтрация
   List<Room> searchRoomsByTag(String tag) {
-    return _rooms.where((room) => room.tags.contains(tag)).toList();
+    return _rooms.where((room) => room.tags.contains(tag.toLowerCase())).toList();
   }
 
   List<Room> getPopularRooms({int minParticipants = 20, double minRating = 4.0}) {
@@ -429,6 +529,10 @@ class RoomProvider with ChangeNotifier {
     return _rooms.where((room) => room.isScheduled && !room.isExpired).toList();
   }
 
+  List<Room> getRoomsWithNewInvites() {
+    return _rooms.where((room) => room.hasPendingInvite).toList();
+  }
+
   // Статистика с обновленными данными
   Map<String, dynamic> getRoomStats() {
     final filtered = _filteredRooms;
@@ -447,16 +551,31 @@ class RoomProvider with ChangeNotifier {
       'scheduledRooms': _rooms.where((room) => room.isScheduled).length,
       'filteredRooms': filtered.length,
       'joinedRooms': _rooms.where((room) => room.isJoined).length,
+      'newInvites': _rooms.where((room) => room.hasPendingInvite).length,
+      'activeNow': _rooms.where((room) => room.lastActivity.isAfter(
+          DateTime.now().subtract(const Duration(minutes: 5))
+      )).length,
     };
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД ФИЛЬТРАЦИИ
+  // ИСПРАВЛЕННЫЙ МЕТОД ФИЛЬТРАЦИИ
   void _applyFilters() {
-    List<Room> filtered = _rooms;
+    List<Room> filtered = List.from(_rooms);
+
+    // Отладочная информация
+    if (kDebugMode) {
+      print('=== ПРИМЕНЕНИЕ ФИЛЬТРОВ ===');
+      print('Всего комнат: ${_rooms.length}');
+      print('Категория: ${_selectedCategory.title}');
+      print('Поиск: "$_searchQuery"');
+      print('Только мои: $_showJoinedOnly');
+      print('Только активные: $_showActiveOnly');
+    }
 
     // Базовые фильтры
     if (_selectedCategory != RoomCategory.all) {
       filtered = filtered.where((room) => room.category == _selectedCategory).toList();
+      if (kDebugMode) print('После категории: ${filtered.length}');
     }
 
     if (_searchQuery.isNotEmpty) {
@@ -465,16 +584,20 @@ class RoomProvider with ChangeNotifier {
       room.title.toLowerCase().contains(query) ||
           room.description.toLowerCase().contains(query) ||
           room.tags.any((tag) => tag.toLowerCase().contains(query)) ||
-          room.creatorName.toLowerCase().contains(query)
+          room.creatorName.toLowerCase().contains(query) ||
+          room.category.title.toLowerCase().contains(query)
       ).toList();
+      if (kDebugMode) print('После поиска: ${filtered.length}');
     }
 
     if (_showJoinedOnly) {
       filtered = filtered.where((room) => room.isJoined).toList();
+      if (kDebugMode) print('После "только мои": ${filtered.length}');
     }
 
     if (_showActiveOnly) {
-      filtered = filtered.where((room) => room.isActive).toList();
+      filtered = filtered.where((room) => room.isActive && !room.isExpired).toList();
+      if (kDebugMode) print('После "только активные": ${filtered.length}');
     }
 
     // Расширенные фильтры из RoomFilters
@@ -540,27 +663,48 @@ class RoomProvider with ChangeNotifier {
     }
 
     _filteredRooms = filtered;
+
+    if (kDebugMode) {
+      print('Итоговое количество: ${_filteredRooms.length}');
+      print('========================');
+    }
   }
 
   List<Room> _sortRooms(List<Room> rooms) {
+    final sortedRooms = List<Room>.from(rooms);
+
     switch (_sortBy) {
       case RoomSortBy.recent:
-        return rooms.sorted((a, b) => b.lastActivity.compareTo(a.lastActivity));
+        sortedRooms.sort((a, b) => b.lastActivity.compareTo(a.lastActivity));
+        break;
       case RoomSortBy.popular:
-        return rooms.sorted((a, b) => b.currentParticipants.compareTo(a.currentParticipants));
+        sortedRooms.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+        break;
       case RoomSortBy.participants:
-        return rooms.sorted((a, b) => b.currentParticipants.compareTo(a.currentParticipants));
+        sortedRooms.sort((a, b) => b.currentParticipants.compareTo(a.currentParticipants));
+        break;
       case RoomSortBy.messages:
-        return rooms.sorted((a, b) => b.messageCount.compareTo(a.messageCount));
+        sortedRooms.sort((a, b) => b.messageCount.compareTo(a.messageCount));
+        break;
       case RoomSortBy.rating:
-        return rooms.sorted((a, b) => b.rating.compareTo(a.rating));
+        sortedRooms.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
       case RoomSortBy.scheduled:
-        return rooms.sorted((a, b) {
-          final aStart = a.scheduledStart ?? DateTime(0);
-          final bStart = b.scheduledStart ?? DateTime(0);
+        sortedRooms.sort((a, b) {
+          final aStart = a.scheduledStart ?? DateTime(2100);
+          final bStart = b.scheduledStart ?? DateTime(2100);
           return aStart.compareTo(bStart);
         });
+        break;
+      case RoomSortBy.activity:
+        sortedRooms.sort((a, b) => b.activityLevel.compareTo(a.activityLevel));
+        break;
+      case RoomSortBy.newest:
+        sortedRooms.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
     }
+
+    return sortedRooms;
   }
 
   // Валидация и утилиты
@@ -599,6 +743,28 @@ class RoomProvider with ChangeNotifier {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return Map.fromEntries(sortedTags.take(limit));
+  }
+
+  // Получение комнат по уровню активности
+  List<Room> getRoomsByActivityLevel(double minActivityLevel) {
+    return _rooms.where((room) => room.activityLevel >= minActivityLevel).toList();
+  }
+
+  // Обновление активности комнаты
+  void updateRoomActivity(String roomId) {
+    final roomIndex = _rooms.indexWhere((room) => room.id == roomId);
+    if (roomIndex != -1) {
+      final room = _rooms[roomIndex];
+      final updatedRoom = room.copyWith(lastActivity: DateTime.now());
+      _rooms[roomIndex] = updatedRoom;
+      _applyFilters();
+      notifyListeners();
+    }
+  }
+
+  void addRoomLocally(Room newRoom) {
+    _rooms.insert(0, newRoom); // Добавляем в начало
+    notifyListeners();
   }
 
   // Сброс фильтров (старый метод для обратной совместимости)

@@ -4,6 +4,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:shimmer/shimmer.dart';
+import '../rooms_pages/models/filter_option.dart';
+import '../rooms_pages/models/room_category.dart';
+import '../rooms_pages/models/sort_option.dart';
 import 'channel_detail_page.dart';
 import 'models/channel.dart';
 
@@ -1871,44 +1874,4 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       return 'только что';
     }
   }
-}
-
-class RoomCategory {
-  final String id;
-  final String title;
-  final String? description;
-  final IconData icon;
-  final Color color;
-
-  RoomCategory({
-    required this.id,
-    required this.title,
-    this.description,
-    required this.icon,
-    required this.color,
-  });
-}
-
-class SortOption {
-  final String id;
-  final String title;
-  final IconData icon;
-
-  SortOption({
-    required this.id,
-    required this.title,
-    required this.icon,
-  });
-}
-
-class FilterOption {
-  final String id;
-  final String title;
-  final IconData icon;
-
-  FilterOption({
-    required this.id,
-    required this.title,
-    required this.icon,
-  });
 }

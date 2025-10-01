@@ -1,17 +1,20 @@
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+
 import '../../models/chat_member.dart';
 import '../../models/enums.dart';
 
 class MembersPanel extends StatelessWidget {
   final ThemeData theme;
   final List<ChatMember> onlineMembers;
+  final List<ChatMember> allMembers; // Добавляем новый параметр
   final VoidCallback onClose;
 
   const MembersPanel({
     super.key,
     required this.theme,
     required this.onlineMembers,
+    required this.allMembers, // Добавляем в конструктор
     required this.onClose,
   });
 
@@ -59,7 +62,15 @@ class MembersPanel extends StatelessWidget {
                         children: [
                           CircleAvatar(
                             radius: 24,
-                            backgroundImage: CachedNetworkImageProvider(member.avatar),
+                            backgroundImage: member.avatar != null
+                                ? CachedNetworkImageProvider(member.avatar!)
+                                : null,
+                            child: member.avatar == null
+                                ? Text(
+                              member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
+                              style: TextStyle(color: theme.colorScheme.onSurface),
+                            )
+                                : null,
                           ),
                           Positioned(
                             bottom: 0,
@@ -105,6 +116,16 @@ class MembersPanel extends StatelessWidget {
               },
             ),
           ),
+          // Добавляем отображение общего количества участников
+          Container(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Всего участников: ${allMembers.length}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -118,6 +139,8 @@ class MembersPanel extends StatelessWidget {
         return Colors.blue;
       case MemberRole.member:
         return Colors.green;
+      case MemberRole.guest:
+        return Colors.grey;
     }
   }
 
@@ -129,6 +152,8 @@ class MembersPanel extends StatelessWidget {
         return 'Модератор';
       case MemberRole.member:
         return 'Участник';
+      case MemberRole.guest:
+        return 'Гость';
     }
   }
 }

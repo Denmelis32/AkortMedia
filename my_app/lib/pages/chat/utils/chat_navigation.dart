@@ -1,8 +1,10 @@
+// chat_navigation.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'dart:math';
+import '../../../services/chat_service.dart';
 import '../../rooms_pages/models/room.dart';
 import '../models/chat_message.dart';
 import '../models/chat_member.dart';
@@ -16,9 +18,12 @@ class ChatNavigation {
   final List<ChatMessage> messages;
   final Function(void Function()) updateState;
   final VoidCallback scrollToBottom;
+  final VoidCallback? onMessagesUpdated;
 
   final Random _random = Random();
   final List<String> _availableReactions = ['❤️', '😂', '😮', '😢', '👍', '👎', '🔥', '🎉'];
+  final Map<String, String> _translationCache = {};
+  final Map<String, Color> _userColors = {};
 
   ChatNavigation({
     required this.context,
@@ -28,6 +33,7 @@ class ChatNavigation {
     required this.messages,
     required this.updateState,
     required this.scrollToBottom,
+    this.onMessagesUpdated,
   });
 
   List<String> get availableReactions => _availableReactions;
@@ -43,6 +49,7 @@ class ChatNavigation {
     messages.addAll([
       ChatMessage(
         id: '1',
+        roomId: room.id, // ДОБАВЛЕНО roomId
         text: 'Добро пожаловать в "${room.title}"! 🎉\nЗдесь обсуждаем последние спортивные события и матчи. Не стесняйтесь задавать вопросы и делиться мнениями!',
         sender: 'Система',
         time: DateTime.now().subtract(const Duration(minutes: 2)),
@@ -51,26 +58,27 @@ class ChatNavigation {
       ),
       ChatMessage(
         id: '2',
+        roomId: room.id, // ДОБАВЛЕНО roomId
         text: 'Привет всем! Рад присоединиться к обсуждению! 👋',
         sender: 'Алексей Петров',
         time: DateTime.now().subtract(const Duration(minutes: 1)),
         isMe: false,
-        reactions: {'👍': 2, '❤️': 1},
         userColor: _getUserColor('Алексей Петров', userColors),
         userAvatar: 'https://i.pravatar.cc/150?img=1',
       ),
       ChatMessage(
         id: '3',
+        roomId: room.id, // ДОБАВЛЕНО roomId
         text: 'Кто уже смотрел последний матч? Какие мысли? ⚽',
         sender: 'Мария Иванова',
         time: DateTime.now().subtract(const Duration(minutes: 1)),
         isMe: false,
-        reactions: {'❤️': 1, '🔥': 1},
         userColor: _getUserColor('Мария Иванова', userColors),
         userAvatar: 'https://i.pravatar.cc/150?img=2',
       ),
       ChatMessage(
         id: '4',
+        roomId: room.id, // ДОБАВЛЕНО roomId
         text: 'Отличная игра была! Особенно понравилась стратегия команды в защите. На мой взгляд, ключевым моментом стала замена на 70-й минуте.',
         sender: 'Иван Сидоров',
         time: DateTime.now().subtract(const Duration(minutes: 1)),
@@ -80,6 +88,7 @@ class ChatNavigation {
       ),
       ChatMessage(
         id: '5',
+        roomId: room.id, // ДОБАВЛЕНО roomId
         text: 'А как вам гол на 89-й минуте? Просто великолепно! 🥅',
         sender: 'Алексей Петров',
         time: DateTime.now().subtract(const Duration(minutes: 1)),
@@ -90,6 +99,7 @@ class ChatNavigation {
       ),
       ChatMessage(
         id: '6',
+        roomId: room.id, // ДОБАВЛЕНО roomId
         text: 'Кстати, не пропустите завтрашний матч! Начинается в 20:00 по московскому времени. Будет очень интересно! 🏆',
         sender: 'Мария Иванова',
         time: DateTime.now().subtract(const Duration(minutes: 1)),
@@ -100,6 +110,7 @@ class ChatNavigation {
       ),
       ChatMessage(
         id: '7',
+        roomId: room.id, // ДОБАВЛЕНО roomId
         text: '🎵',
         sender: 'Алексей Петров',
         time: DateTime.now().subtract(const Duration(minutes: 1)),
@@ -115,7 +126,6 @@ class ChatNavigation {
   Future<RoomMembers> loadRoomMembers() async {
     await Future.delayed(const Duration(milliseconds: 500));
 
-    // Явно указываем тип для onlineMembers
     final List<ChatMember> onlineMembers = [
       ChatMember(
         id: '1',
@@ -124,6 +134,7 @@ class ChatNavigation {
         isOnline: true,
         role: MemberRole.admin,
         lastSeen: DateTime.now(),
+        joinDate: DateTime.now().subtract(const Duration(days: 30)),
       ),
       ChatMember(
         id: '2',
@@ -132,6 +143,7 @@ class ChatNavigation {
         isOnline: true,
         role: MemberRole.moderator,
         lastSeen: DateTime.now(),
+        joinDate: DateTime.now().subtract(const Duration(days: 25)),
       ),
       ChatMember(
         id: '3',
@@ -140,7 +152,12 @@ class ChatNavigation {
         isOnline: true,
         role: MemberRole.member,
         lastSeen: DateTime.now(),
+        joinDate: DateTime.now().subtract(const Duration(days: 15)),
       ),
+    ];
+
+    final List<ChatMember> allMembers = [
+      ...onlineMembers,
       ChatMember(
         id: '4',
         name: 'Екатерина Смирнова',
@@ -148,12 +165,8 @@ class ChatNavigation {
         isOnline: false,
         role: MemberRole.member,
         lastSeen: DateTime.now().subtract(const Duration(hours: 2)),
+        joinDate: DateTime.now().subtract(const Duration(days: 10)),
       ),
-    ];
-
-    // Явно указываем тип для allMembers и используем правильный синтаксис
-    final List<ChatMember> allMembers = [
-      ...onlineMembers,
       ChatMember(
         id: '5',
         name: 'Дмитрий Козлов',
@@ -161,10 +174,10 @@ class ChatNavigation {
         isOnline: false,
         role: MemberRole.member,
         lastSeen: DateTime.now().subtract(const Duration(days: 1)),
+        joinDate: DateTime.now().subtract(const Duration(days: 5)),
       ),
     ];
 
-    // Возвращаем RoomMembers с правильными типами
     return RoomMembers(
       onlineMembers: onlineMembers,
       allMembers: allMembers,
@@ -184,12 +197,13 @@ class ChatNavigation {
 
     final newMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
+      roomId: room.id,
       text: text,
       sender: userName,
       time: DateTime.now(),
       isMe: true,
       replyTo: replyingTo,
-      userColor: _getUserColor(userName, {}),
+      userColor: _getUserColor(userName, _userColors),
       userAvatar: userAvatar,
     );
 
@@ -206,87 +220,96 @@ class ChatNavigation {
       onMessageSent();
     });
 
-    // ВЫЗОВ ОТВЕТА БОТА ТОЛЬКО ДЛЯ НОВЫХ СООБЩЕНИЙ (НЕ РЕДАКТИРОВАНИЯ)
+    // ВЫЗОВ AI ТОЛЬКО ДЛЯ НОВЫХ СООБЩЕНИЙ (не для редактирования)
     if (editingMessage == null) {
-      print('🤖 Запуск ответа бота на сообщение: "$text"');
+      print('🤖 Запуск AI-ответа на новое сообщение: "$text"');
       _simulateAIResponse(text);
     }
 
     scrollToBottom();
   }
 
-  void _simulateAIResponse(String userMessage) {
-    String response = '';
+  void _simulateAIResponse(String userMessage) async {
+    print('🤖 Запуск AI-ответа на сообщение: "$userMessage"');
 
-    // Расширенная логика ответов ботов
-    if (userMessage.toLowerCase().contains('привет')) {
-      response = 'Привет! Рад видеть вас в чате! 😊';
-    } else if (userMessage.toLowerCase().contains('как дела')) {
-      response = 'Отлично! Обсуждаем последние спортивные события. А у вас?';
-    } else if (userMessage.toLowerCase().contains('спасибо')) {
-      response = 'Всегда пожалуйста! 🎉';
-    } else if (userMessage.toLowerCase().contains('матч') || userMessage.toLowerCase().contains('игра')) {
-      response = 'Да, матч был захватывающий! Особенно впечатлила игра полузащиты.';
-    } else if (userMessage.toLowerCase().contains('гол') || userMessage.toLowerCase().contains('счет')) {
-      response = 'Как вам последний гол? По-моему, это был один из лучших моментов матча! ⚽';
-    } else if (userMessage.toLowerCase().contains('команда') || userMessage.toLowerCase().contains('игрок')) {
-      response = 'Интересно, а какой игрок произвел на вас наибольшее впечатление?';
-    } else if (userMessage.toLowerCase().contains('время') || userMessage.toLowerCase().contains('когда')) {
-      response = 'Следующий матч начинается завтра в 20:00. Не пропустите! 🕗';
-    } else if (userMessage.toLowerCase().contains('погод') || userMessage.toLowerCase().contains('дожд')) {
-      response = 'Погода действительно повлияла на игру. Заметили как ветер мешал дальним передачам?';
-    } else if (userMessage.toLowerCase().contains('тренер') || userMessage.toLowerCase().contains('стратеги')) {
-      response = 'Тренерская работа была на высоте! Отличные замены во втором тайме.';
-    } else {
-      final responses = [
-        'Интересная мысль! Что еще думаете по этому поводу?',
-        'Согласен с вами! Добавлю, что важна также командная работа.',
-        'Хороший вопрос! Давайте обсудим это подробнее.',
-        'Отличное замечание! Полностью поддерживаю вашу точку зрения.',
-        'Интересно! А что вы думаете о тактике команды в этом сезоне?',
-        'Спасибо, что поделились мнением! Это действительно важная тема.',
-        'Полностью с вами согласен! Добавлю, что ключевым был момент на 65-й минуте.',
-        'Отличная тема для обсуждения! Как вы думаете, что решило исход матча?',
-      ];
-      response = responses[_random.nextInt(responses.length)];
-    }
+    try {
+      final chatService = ChatService();
+      final response = await chatService.getAIResponse(userMessage, room.id);
 
-    print('🤖 Бот готовит ответ: "$response"');
+      print('🤖 AI подготовил ответ: "$response"');
 
-    // Задержка перед ответом (1-3 секунды)
-    final delaySeconds = 1 + _random.nextInt(3);
+      final delaySeconds = 1 + _random.nextInt(3);
 
-    Future.delayed(Duration(seconds: delaySeconds), () {
-      if (!context.mounted) {
-        print('❌ Контекст не доступен для ответа бота');
-        return;
-      }
+      Future.delayed(Duration(seconds: delaySeconds), () {
+        if (!context.mounted) {
+          print('❌ Контекст не доступен для ответа AI');
+          return;
+        }
 
+        final aiUsers = ['Алексей Петров', 'Мария Иванова', 'Иван Сидоров'];
+        final aiUser = aiUsers[_random.nextInt(aiUsers.length)];
+
+        final aiMessage = ChatMessage(
+          id: 'ai-${DateTime.now().millisecondsSinceEpoch}',
+          roomId: room.id,
+          text: response,
+          sender: aiUser,
+          time: DateTime.now().add(Duration(seconds: delaySeconds)),
+          isMe: false,
+          userColor: _getUserColor(aiUser, _userColors),
+          userAvatar: 'https://i.pravatar.cc/150?img=${aiUsers.indexOf(aiUser) + 1}',
+        );
+
+        print('🤖 AI "$aiUser" отправляет ответ: "$response"');
+
+        updateState(() {
+          messages.add(aiMessage);
+          print('✅ Ответ AI добавлен в список сообщений. Всего сообщений: ${messages.length}');
+        });
+
+        // ВАЖНО: Вызываем колбэк для обновления filteredMessages
+        onMessagesUpdated?.call();
+
+        scrollToBottom();
+      });
+
+    } catch (e) {
+      print('❌ Ошибка при получении AI-ответа: $e');
+
+      final fallbackResponse = 'Интересное сообщение! Давайте обсудим это подробнее.';
       final aiUsers = ['Алексей Петров', 'Мария Иванова', 'Иван Сидоров'];
       final aiUser = aiUsers[_random.nextInt(aiUsers.length)];
 
-      final aiMessage = ChatMessage(
+      final fallbackMessage = ChatMessage(
         id: 'ai-${DateTime.now().millisecondsSinceEpoch}',
-        text: response,
+        roomId: room.id,
+        text: fallbackResponse,
         sender: aiUser,
-        time: DateTime.now().add(Duration(seconds: delaySeconds)),
+        time: DateTime.now(),
         isMe: false,
-        userColor: _getUserColor(aiUser, {}),
+        userColor: _getUserColor(aiUser, _userColors),
         userAvatar: 'https://i.pravatar.cc/150?img=${aiUsers.indexOf(aiUser) + 1}',
       );
 
-      print('🤖 Бот "$aiUser" отправляет ответ: "$response"');
-
       updateState(() {
-        messages.add(aiMessage);
-        print('✅ Ответ бота добавлен в список сообщений. Всего сообщений: ${messages.length}');
+        messages.add(fallbackMessage);
       });
 
+      // ВАЖНО: Вызываем колбэк для обновления filteredMessages
+      onMessagesUpdated?.call();
+
       scrollToBottom();
+    }
+  }
+
+// Добавьте этот метод в класс ChatNavigation
+  void _updateFilteredMessages() {
+    // Этот метод будет вызывать обновление filteredMessages в ChatPage
+    updateState(() {
+      // Пустая функция - просто триггер для обновления состояния
     });
   }
 
-  // Метод для принудительного вызова ответа бота (для тестирования)
   void triggerBotResponse(String testMessage) {
     print('🔧 Принудительный вызов ответа бота на: "$testMessage"');
     _simulateAIResponse(testMessage);
@@ -295,38 +318,45 @@ class ChatNavigation {
   void sendSticker(String sticker) {
     final newMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
+      roomId: room.id,
       text: sticker,
       sender: userName,
       time: DateTime.now(),
       isMe: true,
       messageType: MessageType.sticker,
-      userColor: _getUserColor(userName, {}),
+      userColor: _getUserColor(userName, _userColors),
       userAvatar: userAvatar,
     );
 
     updateState(() {
       messages.add(newMessage);
     });
+
+    // ОБНОВЛЯЕМ filteredMessages
+    onMessagesUpdated?.call();
   }
 
   Future<void> sendVoiceMessage(double recordingTime) async {
     final newMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
+      roomId: room.id,
       text: '🎵 Голосовое сообщение',
       sender: userName,
       time: DateTime.now(),
       isMe: true,
       messageType: MessageType.voice,
-      userColor: _getUserColor(userName, {}),
+      userColor: _getUserColor(userName, _userColors),
       userAvatar: userAvatar,
-      voiceDuration: recordingTime.round(),
+      voiceDuration: recordingTime,
     );
 
     updateState(() {
       messages.add(newMessage);
     });
-  }
 
+    // ОБНОВЛЯЕМ filteredMessages
+    onMessagesUpdated?.call();
+  }
   void startVoiceRecording(Function(double) onTimeUpdate) {
     double recordingTime = 0.0;
 
@@ -346,7 +376,8 @@ class ChatNavigation {
     updateRecordingTime();
   }
 
-  void simulateVoicePlayback(int duration, Function(double) onProgressUpdate) {
+
+  void simulateVoicePlayback(double duration, Function(double) onProgressUpdate) {
     double progress = 0.0;
 
     void updateProgress() {
@@ -366,6 +397,12 @@ class ChatNavigation {
   }
 
   Future<String?> translateMessage(ChatMessage message) async {
+    final cacheKey = '${message.id}_translation';
+
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey];
+    }
+
     final translations = {
       'Привет всем! Рад присоединиться к обсуждению! 👋': 'Hello everyone! Glad to join the discussion! 👋',
       'Кто уже смотрел последний матч? Какие мысли? ⚽': 'Who has already watched the last match? Any thoughts? ⚽',
@@ -374,7 +411,12 @@ class ChatNavigation {
     };
 
     await Future.delayed(const Duration(milliseconds: 500));
-    return translations[message.text] ?? 'Translation not available';
+
+    final translation = translations[message.text] ?? 'Translation not available';
+
+    _translationCache[cacheKey] = translation;
+
+    return translation;
   }
 
   void addEmojiToMessage(TextEditingController messageController, String emoji) {
@@ -916,6 +958,11 @@ class ChatNavigation {
         );
       },
     );
+  }
+
+  void dispose() {
+    _translationCache.clear();
+    _userColors.clear();
   }
 }
 

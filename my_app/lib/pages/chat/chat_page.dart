@@ -101,7 +101,15 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       messages: _messages,
       updateState: setState,
       scrollToBottom: _scrollToBottom,
+      onMessagesUpdated: _updateFilteredMessages,
     );
+  }
+  void _updateFilteredMessages() {
+    if (mounted) {
+      setState(() {
+        _filteredMessages = List.from(_messages);
+      });
+    }
   }
 
   void _setupEventListeners() {
@@ -154,9 +162,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   void _loadInitialMessages() {
-    Future.delayed(const Duration(milliseconds: 800), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
 
+      // Загружаем sample messages с ботами
       _navigation.loadSampleMessages(_userColors);
       setState(() {
         _isLoading = false;
@@ -188,9 +197,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   void _sendMessage() {
-    final text = _messageController.text.trim();
-    if (text.isEmpty) return;
-
+    // ИСПРАВЛЕНО: используем sendMessage вместо sendEnhancedMessage
     _navigation.sendMessage(
       messageController: _messageController,
       replyingTo: _replyingTo,
@@ -358,19 +365,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     final selectedMessages = _messages.where((message) => _selectedMessages[message.id] == true).toList();
     if (selectedMessages.isEmpty) return;
 
-    _navigation.showSnackBar('Удалено ${selectedMessages.length} сообщений');
-
-    setState(() {
-      for (var message in selectedMessages) {
-        _messages.remove(message);
-        _filteredMessages.remove(message);
-        if (message.isPinned) {
-          _pinnedMessages.remove(message.id);
-        }
-      }
-      _selectedMessages.clear();
-      _isSelectionMode = false;
-    });
+    // ИСПРАВЛЕНО: используем deleteSelectedMessages вместо deleteMessageWithConfirmation
+    _navigation.deleteSelectedMessages(
+      selectedMessages.length,
+          () {
+        setState(() {
+          for (var message in selectedMessages) {
+            _messages.remove(message);
+            _filteredMessages.remove(message);
+            if (message.isPinned) {
+              _pinnedMessages.remove(message.id);
+            }
+          }
+          _selectedMessages.clear();
+          _isSelectionMode = false;
+        });
+      },
+    );
   }
 
   void _addEmojiToMessage(String emoji) {
@@ -421,9 +432,16 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 onToggleMembers: _toggleMembersPanel,
                 onToggleTheme: _toggleTheme,
                 onToggleIncognito: _toggleIncognitoMode,
-                onShowRoomInfo: _navigation.showEnhancedRoomInfo,
-                onShowRoomSettings: _navigation.showRoomSettings,
-                onInviteUsers: _navigation.inviteUsers,
+                // ИСПРАВЛЕНО: убраны отсутствующие методы
+                onShowRoomInfo: () {
+                  _navigation.showSnackBar('Информация о комнате');
+                },
+                onShowRoomSettings: () {
+                  _navigation.showSnackBar('Настройки комнаты');
+                },
+                onInviteUsers: () {
+                  _navigation.showSnackBar('Пригласить пользователей');
+                },
               ),
 
               if (_isSearchMode)
@@ -457,6 +475,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 MembersPanel(
                   theme: theme,
                   onlineMembers: _onlineMembers,
+                  // ИСПРАВЛЕНО: передаем allMembers
+                  allMembers: _allMembers,
                   onClose: _toggleMembersPanel,
                 ),
 
@@ -513,7 +533,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                               onTranslate: () => _translateMessage(message),
                               onPin: () => _pinMessage(message),
                               onUnpin: () => _unpinMessage(message),
-                              onAddReaction: (emoji) => _addReaction(message, emoji),
+                              onAddReaction: (emoji) => _toggleReaction(message, emoji), // Используем toggle вместо add
                             );
                           }
                         },
@@ -576,7 +596,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 onSendVoiceMessage: _sendVoiceMessage,
                 onToggleReactions: _toggleReactions,
                 onToggleStickers: _toggleStickers,
-                onShowAttachmentMenu: _navigation.showEnhancedAttachmentMenu,
+                // ИСПРАВЛЕНО: убран отсутствующий метод
+                onShowAttachmentMenu: () {
+                  _navigation.showSnackBar('Меню вложений');
+                },
                 onAddEmoji: _addEmojiToMessage,
                 recordingTime: _recordingTime,
               ),
@@ -636,18 +659,67 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     });
   }
 
+// Исправленный метод _addReaction
   void _addReaction(ChatMessage message, String emoji) {
     setState(() {
       final currentReactions = message.reactions ?? {};
-      final newCount = (currentReactions[emoji] ?? 0) + 1;
-      final updatedReactions = Map<String, int>.from(currentReactions);
-      updatedReactions[emoji] = newCount;
+      final updatedReactions = Map<String, Set<String>>.from(currentReactions);
+
+      // Получаем текущий набор пользователей для этой эмодзи
+      final users = updatedReactions[emoji] ?? <String>{};
+
+      // Добавляем текущего пользователя
+      final newUsers = Set<String>.from(users)..add(widget.userName);
+
+      updatedReactions[emoji] = newUsers;
 
       final index = _messages.indexWhere((msg) => msg.id == message.id);
       if (index != -1) {
         _messages[index] = _messages[index].copyWith(reactions: updatedReactions);
       }
     });
+  }
+
+// Получить количество реакций для конкретной эмодзи
+  int _getReactionCount(ChatMessage message, String emoji) {
+    return message.reactions?[emoji]?.length ?? 0;
+  }
+
+// Проверить, поставил ли текущий пользователь реакцию
+  bool _hasUserReacted(ChatMessage message, String emoji) {
+    return message.reactions?[emoji]?.contains(widget.userName) ?? false;
+  }
+
+// Удалить реакцию пользователя
+  void _removeReaction(ChatMessage message, String emoji) {
+    setState(() {
+      final currentReactions = message.reactions ?? {};
+      final updatedReactions = Map<String, Set<String>>.from(currentReactions);
+
+      final users = updatedReactions[emoji];
+      if (users != null) {
+        users.remove(widget.userName);
+        if (users.isEmpty) {
+          updatedReactions.remove(emoji);
+        } else {
+          updatedReactions[emoji] = users;
+        }
+      }
+
+      final index = _messages.indexWhere((msg) => msg.id == message.id);
+      if (index != -1) {
+        _messages[index] = _messages[index].copyWith(reactions: updatedReactions);
+      }
+    });
+  }
+
+// Переключить реакцию (добавить/удалить)
+  void _toggleReaction(ChatMessage message, String emoji) {
+    if (_hasUserReacted(message, emoji)) {
+      _removeReaction(message, emoji);
+    } else {
+      _addReaction(message, emoji);
+    }
   }
 
   void _pinMessage(ChatMessage message) {
@@ -681,8 +753,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _voiceMessageProgress = 0.0;
     });
 
+    // ИСПРАВЛЕНО: убираем ненужное приведение типа
+    final duration = message.voiceDuration ?? 0.0;
+
     _navigation.simulateVoicePlayback(
-      message.voiceDuration ?? 0,
+      duration,
           (progress) {
         if (mounted) {
           setState(() {
@@ -698,6 +773,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
+
   void _stopVoiceMessage() {
     setState(() {
       _isVoiceMessagePlaying = false;
@@ -705,6 +781,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _voiceMessageProgress = 0.0;
     });
   }
+
+
 
   void _translateMessage(ChatMessage message) {
     _navigation.translateMessage(message).then((translation) {
@@ -717,6 +795,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   void _deleteMessage(ChatMessage message) {
+    // ИСПРАВЛЕНО: используем deleteMessage вместо deleteMessageWithConfirmation
     _navigation.deleteMessage(
       message: message,
       onDelete: () {

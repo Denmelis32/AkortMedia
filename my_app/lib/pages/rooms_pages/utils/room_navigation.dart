@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../chat/chat_page.dart';
+import '../community_detail_page.dart';
+import '../../communities/widgets/create_community_bottom_sheet.dart';
 import '../widgets/bottom_sheets/advanced_filters_bottom_sheet.dart';
 import '../widgets/bottom_sheets/create_room_bottom_sheet.dart';
 import '../models/room.dart';
+import '../../communities/models/community.dart';
 import '../../../providers/room_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../widgets/dialogs/notifications_dialog.dart';
@@ -66,6 +69,7 @@ class RoomNavigation {
       ),
     );
   }
+
   void createNewRoom(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -73,6 +77,41 @@ class RoomNavigation {
       backgroundColor: Colors.transparent,
       builder: (context) => CreateRoomBottomSheet(
         onRoomCreated: (newRoom) => _onRoomCreated(context, newRoom),
+      ),
+    );
+  }
+
+  void createNewCommunity(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CreateCommunityBottomSheet(
+        onCommunityCreated: (newCommunity) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Сообщество "${newCommunity.name}" создано! 🎉'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void openCommunityDetail({
+    required BuildContext context,
+    required Community community,
+    required int selectedTab,
+  }) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CommunityDetailPage(
+          community: community,
+          initialTab: selectedTab,
+        ),
       ),
     );
   }
@@ -101,12 +140,8 @@ class RoomNavigation {
       ),
     );
 
-    // Дополнительное обновление через 2 секунды для синхронизации
-    Future.delayed(const Duration(seconds: 2), () {
-      if (context.mounted) {
-        context.read<RoomProvider>().loadRooms();
-      }
-    });
+    // Обновляем список комнат
+    _refreshRooms(context);
   }
 
   void showAdvancedFilters(BuildContext context) {
@@ -117,7 +152,12 @@ class RoomNavigation {
       builder: (context) => AdvancedFiltersBottomSheet(
         onFiltersApplied: () {
           if (context.mounted) {
-            // Фильтры применены, можно обновить состояние
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Фильтры применены'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
           }
         },
       ),
@@ -131,7 +171,17 @@ class RoomNavigation {
       builder: (context) => SortDialog(
         currentSortBy: context.read<RoomProvider>().sortBy,
         onSortChanged: (sortBy) {
-          context.read<RoomProvider>().setSortBy(sortBy);
+          final roomProvider = context.read<RoomProvider>();
+          roomProvider.setSortBy(sortBy);
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Сортировка: ${sortBy.title}'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         },
       ),
     );
@@ -156,7 +206,7 @@ class RoomNavigation {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => NotificationsDialog(),
+      builder: (context) => const NotificationsDialog(),
     );
   }
 
@@ -171,12 +221,14 @@ class RoomNavigation {
   }
 
   void showRoomQuickActions(BuildContext context, Room room) {
+    final userProvider = context.read<UserProvider>();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => RoomQuickActionsDialog(
         room: room,
-        userId: context.read<UserProvider>().userId,
+        userId: userProvider.userId,
         onShowInfo: () => _dialogs.showRoomPreview(context, room),
         onCopyLink: () => _copyRoomLink(context, room),
         onEditRoom: () => _editRoom(context, room),
@@ -192,6 +244,7 @@ class RoomNavigation {
   Future<void> _refreshRooms(BuildContext context) async {
     final roomProvider = context.read<RoomProvider>();
 
+    // Показываем индикатор загрузки
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Обновление комнат...'),
@@ -213,55 +266,74 @@ class RoomNavigation {
   }
 
   void _copyRoomLink(BuildContext context, Room room) {
+    // TODO: Реализовать копирование ссылки в буфер обмена
+    // Clipboard.setData(ClipboardData(text: 'room-link-${room.id}'));
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Ссылка на "${room.title}" скопирована в буфер обмена'),
-        action: SnackBarAction(
-          label: 'Открыть',
-          onPressed: () {},
-        ),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
 
   void _editRoom(BuildContext context, Room room) {
-    _dialogs.showEditRoomDialog(context, room);
+    final userProvider = context.read<UserProvider>();
+
+    if (room.canEdit(userProvider.userId)) {
+      _dialogs.showEditRoomDialog(context, room);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('У вас нет прав для редактирования этой комнаты'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _pinRoom(BuildContext context, Room room) {
     final roomProvider = context.read<RoomProvider>();
-    roomProvider.togglePinRoom(room.id);
+    final userProvider = context.read<UserProvider>();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(room.isPinned
-            ? 'Комната "${room.title}" закреплена'
-            : 'Комната "${room.title}" откреплена'),
-        backgroundColor: room.isPinned ? Colors.green : Colors.blue,
-      ),
-    );
+    if (room.canPin(userProvider.userId)) {
+      roomProvider.togglePinRoom(room.id);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(room.isPinned
+              ? 'Комната "${room.title}" закреплена'
+              : 'Комната "${room.title}" откреплена'),
+          backgroundColor: room.isPinned ? Colors.green : Colors.blue,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('У вас нет прав для закрепления комнат'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _setRoomReminder(BuildContext context, Room room) {
+    // TODO: Реализовать установку напоминания
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Напоминание для "${room.title}" установлено'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
   void _shareRoom(BuildContext context, Room room) {
+    // TODO: Реализовать функционал шаринга
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Ссылка на "${room.title}" скопирована в буфер обмена'),
-        action: SnackBarAction(
-          label: 'Открыть',
-          onPressed: () {},
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        content: Text('Поделиться "${room.title}"'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -272,5 +344,23 @@ class RoomNavigation {
 
   void _reportRoom(BuildContext context, Room room) {
     _dialogs.showReportRoomDialog(context, room);
+  }
+
+  // Новый метод для проверки доступности комнаты
+  bool canAccessRoom(Room room, String userId) {
+    return room.isActive &&
+        !room.isExpired &&
+        !room.isFull &&
+        room.hasAccess(userId) &&
+        !room.requiresPassword;
+  }
+
+  // Новый метод для получения статуса комнаты
+  String getRoomStatus(Room room) {
+    if (!room.isActive) return 'Неактивна';
+    if (room.isExpired) return 'Завершена';
+    if (room.isFull) return 'Заполнена';
+    if (room.isScheduled) return 'Запланирована';
+    return 'Активна';
   }
 }

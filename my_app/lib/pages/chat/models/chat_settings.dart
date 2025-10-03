@@ -1,5 +1,16 @@
 // models/chat_settings.dart
+import 'package:flutter/material.dart';
+
 class ChatSettings {
+  final String id;
+  final bool enableBotResponses;
+  final bool translationEnabled;
+  final bool soundEnabled;
+  final bool vibrationEnabled;
+  final double fontSize;
+  final ThemeMode theme;
+
+  // Старые поля для совместимости
   final bool enableReactions;
   final bool enableVoiceMessages;
   final bool enableTranslations;
@@ -13,9 +24,17 @@ class ChatSettings {
   final int maxVoiceDuration;
   final List<String> allowedFileTypes;
   final bool slowModeEnabled;
-  final int slowModeDelay; // in seconds
+  final int slowModeDelay;
 
   const ChatSettings({
+    required this.id,
+    this.enableBotResponses = true,
+    this.translationEnabled = false,
+    this.soundEnabled = true,
+    this.vibrationEnabled = true,
+    this.fontSize = 16.0,
+    this.theme = ThemeMode.light,
+    // Старые поля
     this.enableReactions = true,
     this.enableVoiceMessages = true,
     this.enableTranslations = true,
@@ -33,6 +52,14 @@ class ChatSettings {
   });
 
   ChatSettings copyWith({
+    String? id,
+    bool? enableBotResponses,
+    bool? translationEnabled,
+    bool? soundEnabled,
+    bool? vibrationEnabled,
+    double? fontSize,
+    ThemeMode? theme,
+    // Старые поля
     bool? enableReactions,
     bool? enableVoiceMessages,
     bool? enableTranslations,
@@ -49,6 +76,13 @@ class ChatSettings {
     int? slowModeDelay,
   }) {
     return ChatSettings(
+      id: id ?? this.id,
+      enableBotResponses: enableBotResponses ?? this.enableBotResponses,
+      translationEnabled: translationEnabled ?? this.translationEnabled,
+      soundEnabled: soundEnabled ?? this.soundEnabled,
+      vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
+      fontSize: fontSize ?? this.fontSize,
+      theme: theme ?? this.theme,
       enableReactions: enableReactions ?? this.enableReactions,
       enableVoiceMessages: enableVoiceMessages ?? this.enableVoiceMessages,
       enableTranslations: enableTranslations ?? this.enableTranslations,
@@ -68,6 +102,14 @@ class ChatSettings {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
+      'enableBotResponses': enableBotResponses,
+      'translationEnabled': translationEnabled,
+      'soundEnabled': soundEnabled,
+      'vibrationEnabled': vibrationEnabled,
+      'fontSize': fontSize,
+      'theme': theme.toString(),
+      // Старые поля
       'enableReactions': enableReactions,
       'enableVoiceMessages': enableVoiceMessages,
       'enableTranslations': enableTranslations,
@@ -87,6 +129,13 @@ class ChatSettings {
 
   factory ChatSettings.fromJson(Map<String, dynamic> json) {
     return ChatSettings(
+      id: json['id'] ?? 'default',
+      enableBotResponses: json['enableBotResponses'] ?? true,
+      translationEnabled: json['translationEnabled'] ?? false,
+      soundEnabled: json['soundEnabled'] ?? true,
+      vibrationEnabled: json['vibrationEnabled'] ?? true,
+      fontSize: (json['fontSize'] ?? 16.0).toDouble(),
+      theme: _parseThemeMode(json['theme']),
       enableReactions: json['enableReactions'] ?? true,
       enableVoiceMessages: json['enableVoiceMessages'] ?? true,
       enableTranslations: json['enableTranslations'] ?? true,
@@ -102,5 +151,16 @@ class ChatSettings {
       slowModeEnabled: json['slowModeEnabled'] ?? false,
       slowModeDelay: json['slowModeDelay'] ?? 5,
     );
+  }
+
+  static ThemeMode _parseThemeMode(String themeString) {
+    switch (themeString) {
+      case 'ThemeMode.dark':
+        return ThemeMode.dark;
+      case 'ThemeMode.system':
+        return ThemeMode.system;
+      default:
+        return ThemeMode.light;
+    }
   }
 }

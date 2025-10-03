@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../services/chat_service.dart';
 import '../../../rooms_pages/models/room.dart';
 import '../../models/chat_member.dart';
+
 
 class ChatAppBar extends StatelessWidget {
   final Room room;
@@ -11,6 +13,7 @@ class ChatAppBar extends StatelessWidget {
   final bool isSearchMode;
   final bool isDarkMode;
   final bool isIncognitoMode;
+  final List<ChatBot> activeBots; // Добавлено: активные боты
   final VoidCallback onBack;
   final VoidCallback onToggleSearch;
   final VoidCallback onTogglePinnedMessages;
@@ -20,6 +23,8 @@ class ChatAppBar extends StatelessWidget {
   final VoidCallback onShowRoomInfo;
   final VoidCallback onShowRoomSettings;
   final VoidCallback onInviteUsers;
+  final VoidCallback onManageBots; // Добавлено: управление ботами
+  final VoidCallback onTestBots; // Добавлено: тест ботов
 
   const ChatAppBar({
     super.key,
@@ -39,6 +44,9 @@ class ChatAppBar extends StatelessWidget {
     required this.onShowRoomInfo,
     required this.onShowRoomSettings,
     required this.onInviteUsers,
+    this.activeBots = const [], // Добавлено по умолчанию
+    required this.onManageBots, // Добавлено опционально
+    required this.onTestBots, // Добавлено опционально
   });
 
   @override
@@ -185,6 +193,8 @@ class ChatAppBar extends StatelessWidget {
   }
 
   Widget _buildOnlineIndicator() {
+    final totalActive = onlineMembers.length + activeBots.length;
+
     return Row(
       children: [
         Container(
@@ -204,7 +214,7 @@ class ChatAppBar extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          '${room.isActive ? '${onlineMembers.length} онлайн' : 'Неактивна'} • ${_formatParticipantCount(room.currentParticipants)}',
+          '${room.isActive ? '$totalActive активны' : 'Неактивна'} • ${_formatParticipantCount(room.currentParticipants)}',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withOpacity(0.6),
             fontWeight: FontWeight.w500,
@@ -217,6 +227,28 @@ class ChatAppBar extends StatelessWidget {
   Widget _buildActionButtons() {
     return Row(
       children: [
+        // Bot management button
+        if (onManageBots != null)
+          _buildActionButton(
+            icon: Icons.smart_toy,
+            onPressed: onManageBots,
+            tooltip: 'Управление ботами',
+            badge: activeBots.isNotEmpty ? activeBots.length.toString() : null,
+            badgeColor: Colors.purple,
+          ),
+
+        if (onManageBots != null) const SizedBox(width: 8),
+
+        // Test bots button
+        if (onTestBots != null && activeBots.isNotEmpty)
+          _buildActionButton(
+            icon: Icons.play_arrow,
+            onPressed: onTestBots,
+            tooltip: 'Тест ботов',
+          ),
+
+        if (onTestBots != null && activeBots.isNotEmpty) const SizedBox(width: 8),
+
         // Search button
         _buildActionButton(
           icon: Icons.search,
@@ -236,14 +268,14 @@ class ChatAppBar extends StatelessWidget {
             badgeColor: Colors.orange,
           ),
 
-        const SizedBox(width: 8),
+        if (pinnedMessages.isNotEmpty) const SizedBox(width: 8),
 
         // Members button
         _buildActionButton(
           icon: Icons.people_alt_outlined,
           onPressed: onToggleMembers,
           tooltip: 'Участники',
-          badge: onlineMembers.length.toString(),
+          badge: (onlineMembers.length + activeBots.length).toString(),
           badgeColor: Colors.green,
         ),
 
@@ -270,7 +302,13 @@ class ChatAppBar extends StatelessWidget {
       child: IconButton(
         icon: badge != null
             ? Badge(
-          label: Text(badge),
+          label: Text(
+            badge,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           smallSize: 16,
           backgroundColor: badgeColor ?? theme.primaryColor,
           child: Icon(icon, color: theme.primaryColor),
@@ -292,6 +330,50 @@ class ChatAppBar extends StatelessWidget {
         icon: Icon(Icons.more_vert, color: theme.primaryColor),
         onSelected: (value) => _handleAppBarAction(value),
         itemBuilder: (context) => [
+          // Управление ботами в меню
+          if (onManageBots != null)
+            PopupMenuItem(
+              value: 'bots',
+              child: Row(
+                children: [
+                  Icon(Icons.smart_toy, color: theme.primaryColor),
+                  const SizedBox(width: 8),
+                  const Text('Управление ботами'),
+                  if (activeBots.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.purple,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        activeBots.length.toString(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+          // Тест ботов в меню
+          if (onTestBots != null && activeBots.isNotEmpty)
+            PopupMenuItem(
+              value: 'test_bots',
+              child: Row(
+                children: [
+                  Icon(Icons.play_arrow, color: theme.primaryColor),
+                  const SizedBox(width: 8),
+                  const Text('Тестировать ботов'),
+                ],
+              ),
+            ),
+
           PopupMenuItem(
             value: 'info',
             child: Row(
@@ -302,6 +384,7 @@ class ChatAppBar extends StatelessWidget {
               ],
             ),
           ),
+
           PopupMenuItem(
             value: 'members',
             child: Row(
@@ -312,6 +395,7 @@ class ChatAppBar extends StatelessWidget {
               ],
             ),
           ),
+
           if (pinnedMessages.isNotEmpty)
             PopupMenuItem(
               value: 'pinned',
@@ -323,6 +407,7 @@ class ChatAppBar extends StatelessWidget {
                 ],
               ),
             ),
+
           PopupMenuItem(
             value: 'search',
             child: Row(
@@ -333,6 +418,7 @@ class ChatAppBar extends StatelessWidget {
               ],
             ),
           ),
+
           PopupMenuItem(
             value: 'theme',
             child: Row(
@@ -343,6 +429,7 @@ class ChatAppBar extends StatelessWidget {
               ],
             ),
           ),
+
           PopupMenuItem(
             value: 'incognito',
             child: Row(
@@ -353,6 +440,7 @@ class ChatAppBar extends StatelessWidget {
               ],
             ),
           ),
+
           PopupMenuItem(
             value: 'share',
             child: Row(
@@ -363,6 +451,7 @@ class ChatAppBar extends StatelessWidget {
               ],
             ),
           ),
+
           if (room.canEdit('current_user_id'))
             PopupMenuItem(
               value: 'settings',
@@ -381,6 +470,12 @@ class ChatAppBar extends StatelessWidget {
 
   void _handleAppBarAction(String value) {
     switch (value) {
+      case 'bots':
+        onManageBots?.call();
+        break;
+      case 'test_bots':
+        onTestBots?.call();
+        break;
       case 'info':
         onShowRoomInfo();
         break;

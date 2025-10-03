@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/room_provider.dart';
+import '../../services/chat_service.dart';
 import '../rooms_pages/models/room.dart';
+import 'models/chat_settings.dart';
 import 'widgets/app_bar/chat_app_bar.dart';
 import 'widgets/message/message_list.dart';
 import 'widgets/input/message_input_field.dart';
@@ -71,8 +73,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _isSelectionMode = false;
 
   // Room members
-  List<ChatMember> _onlineMembers = [];
-  List<ChatMember> _allMembers = [];
+  List<ChatMember> _roomMembers = [];
   List<ChatMessage> _filteredMessages = [];
 
   // Additional features
@@ -82,6 +83,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _showMessageTranslation = false;
   Map<String, String> _messageTranslations = {};
   bool _isIncognitoMode = false;
+
+  // Bot management
+  List<ChatBot> _activeBots = [];
+  ChatSettings _chatSettings = ChatSettings(
+    id: 'default',
+    enableBotResponses: true,
+    translationEnabled: false,
+    soundEnabled: true,
+    vibrationEnabled: true,
+    fontSize: 16.0,
+    theme: ThemeMode.light,
+  );
 
   @override
   void initState() {
@@ -104,6 +117,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       onMessagesUpdated: _updateFilteredMessages,
     );
   }
+
   void _updateFilteredMessages() {
     if (mounted) {
       setState(() {
@@ -117,10 +131,19 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _messageController.addListener(_onMessageChanged);
   }
 
-  void _loadInitialData() {
-    _loadInitialMessages();
-    _loadRoomMembers();
+  Future<void> _loadInitialData() async {
+    await _navigation.loadInitialData();
+    await _loadRoomMembers();
     _animations.initializeAnimations();
+
+    // Загружаем настройки и ботов после инициализации
+    _activeBots = _navigation.activeBots;
+    _chatSettings = _navigation.chatSettings;
+
+    setState(() {
+      _isLoading = false;
+      _filteredMessages = List.from(_messages);
+    });
   }
 
   void _onScroll() {
@@ -161,29 +184,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
-  void _loadInitialMessages() {
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-
-      // Загружаем sample messages с ботами
-      _navigation.loadSampleMessages(_userColors);
+  Future<void> _loadRoomMembers() async {
+    final members = await _navigation.loadRoomMembers();
+    if (mounted) {
       setState(() {
-        _isLoading = false;
-        _filteredMessages = List.from(_messages);
+        _roomMembers = members;
       });
-      _scrollToBottom();
-    });
-  }
-
-  void _loadRoomMembers() {
-    _navigation.loadRoomMembers().then((members) {
-      if (mounted) {
-        setState(() {
-          _onlineMembers = members.onlineMembers;
-          _allMembers = members.allMembers;
-        });
-      }
-    });
+    }
   }
 
   void _scrollToBottom() {
@@ -196,9 +203,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
-  void _sendMessage() {
-    // ИСПРАВЛЕНО: используем sendMessage вместо sendEnhancedMessage
-    _navigation.sendMessage(
+  Future<void> _sendMessage() async {
+    await _navigation.sendMessage(
       messageController: _messageController,
       replyingTo: _replyingTo,
       editingMessage: _editingMessage,
@@ -327,7 +333,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _isRecording = true;
       _recordingTime = 0.0;
     });
-    _navigation.startVoiceRecording(_updateRecordingTime);
+    _startRecordingTimer();
   }
 
   void _stopVoiceRecording() {
@@ -336,17 +342,35 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     });
   }
 
+  void _startRecordingTimer() {
+    double recordingTime = 0.0;
+
+    void updateRecordingTime() {
+      if (mounted && _isRecording) {
+        recordingTime += 0.1;
+        _updateRecordingTime(recordingTime);
+
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && _isRecording) {
+            updateRecordingTime();
+          }
+        });
+      }
+    }
+
+    updateRecordingTime();
+  }
+
   void _updateRecordingTime(double time) {
     setState(() {
       _recordingTime = time;
     });
   }
 
-  void _sendVoiceMessage() {
-    _navigation.sendVoiceMessage(_recordingTime).then((_) {
-      _stopVoiceRecording();
-      _scrollToBottom();
-    });
+  Future<void> _sendVoiceMessage() async {
+    await _navigation.sendVoiceMessage(_recordingTime);
+    _stopVoiceRecording();
+    _scrollToBottom();
   }
 
   void _forwardSelectedMessages() {
@@ -365,8 +389,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     final selectedMessages = _messages.where((message) => _selectedMessages[message.id] == true).toList();
     if (selectedMessages.isEmpty) return;
 
-    // ИСПРАВЛЕНО: используем deleteSelectedMessages вместо deleteMessageWithConfirmation
-    _navigation.deleteSelectedMessages(
+    _showDeleteConfirmationDialog(
       selectedMessages.length,
           () {
         setState(() {
@@ -380,7 +403,33 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           _selectedMessages.clear();
           _isSelectionMode = false;
         });
+        _navigation.showSnackBar('Удалено ${selectedMessages.length} сообщений');
       },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(int count, VoidCallback onConfirm) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить сообщения?'),
+        content: Text(
+          'Вы уверены, что хотите удалить $count сообщений? Это действие нельзя отменить.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              onConfirm();
+              Navigator.pop(context);
+            },
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -398,12 +447,78 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
+  // Новые методы для управления ботами
+  void _showBotManagementDialog() {
+    _navigation.showBotManagementDialog();
+  }
+
+  void _showSettingsDialog() {
+    _navigation.showSettingsDialog();
+  }
+
+  void _triggerTestBotResponse() {
+    _navigation.triggerTestBotResponse("Привет! Как вам последний матч?");
+  }
+
+  // Заглушки для отсутствующих методов
+  void _showEnhancedRoomInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Информация о комнате'),
+        content: Text('Информация о комнате "${widget.room.title}"'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрыть'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _inviteUsers() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Пригласить пользователей'),
+        content: const Text('Функция приглашения пользователей'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрыть'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _simulateVoicePlayback(double duration, Function(double) onProgressUpdate) {
+    double progress = 0.0;
+
+    void updateProgress() {
+      if (mounted && progress < 1.0) {
+        progress += 0.1 / duration;
+        onProgressUpdate(progress);
+
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && progress < 1.0) {
+            updateProgress();
+          }
+        });
+      }
+    }
+
+    updateProgress();
+  }
+
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     _messageFocusNode.dispose();
     _animations.dispose();
+    _navigation.dispose();
     super.dispose();
   }
 
@@ -421,27 +536,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               ChatAppBar(
                 room: widget.room,
                 theme: theme,
-                onlineMembers: _onlineMembers,
+                onlineMembers: _roomMembers.where((member) => member.isOnline).toList(),
                 pinnedMessages: _pinnedMessages,
                 isSearchMode: _isSearchMode,
                 isDarkMode: _isDarkMode,
                 isIncognitoMode: _isIncognitoMode,
+                activeBots: _activeBots,
                 onBack: () => Navigator.pop(context),
                 onToggleSearch: _toggleSearchMode,
                 onTogglePinnedMessages: _togglePinnedMessagesPanel,
                 onToggleMembers: _toggleMembersPanel,
                 onToggleTheme: _toggleTheme,
                 onToggleIncognito: _toggleIncognitoMode,
-                // ИСПРАВЛЕНО: убраны отсутствующие методы
-                onShowRoomInfo: () {
-                  _navigation.showSnackBar('Информация о комнате');
-                },
-                onShowRoomSettings: () {
-                  _navigation.showSnackBar('Настройки комнаты');
-                },
-                onInviteUsers: () {
-                  _navigation.showSnackBar('Пригласить пользователей');
-                },
+                onShowRoomInfo: _showEnhancedRoomInfo, // Исправлено
+                onShowRoomSettings: _showSettingsDialog,
+                onInviteUsers: _inviteUsers, // Исправлено
+                onManageBots: _showBotManagementDialog,
+                onTestBots: _triggerTestBotResponse,
               ),
 
               if (_isSearchMode)
@@ -474,9 +585,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               if (_isMembersPanelOpen)
                 MembersPanel(
                   theme: theme,
-                  onlineMembers: _onlineMembers,
-                  // ИСПРАВЛЕНО: передаем allMembers
-                  allMembers: _allMembers,
+                  onlineMembers: _roomMembers.where((member) => member.isOnline).toList(),
+                  allMembers: _roomMembers,
+                  activeBots: _activeBots,
                   onClose: _toggleMembersPanel,
                 ),
 
@@ -533,7 +644,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                               onTranslate: () => _translateMessage(message),
                               onPin: () => _pinMessage(message),
                               onUnpin: () => _unpinMessage(message),
-                              onAddReaction: (emoji) => _toggleReaction(message, emoji), // Используем toggle вместо add
+                              onAddReaction: (emoji) => _addReactionToMessage(message, emoji),
                             );
                           }
                         },
@@ -596,12 +707,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 onSendVoiceMessage: _sendVoiceMessage,
                 onToggleReactions: _toggleReactions,
                 onToggleStickers: _toggleStickers,
-                // ИСПРАВЛЕНО: убран отсутствующий метод
-                onShowAttachmentMenu: () {
-                  _navigation.showSnackBar('Меню вложений');
-                },
+                onShowAttachmentMenu: _navigation.showEnhancedAttachmentMenu,
                 onAddEmoji: _addEmojiToMessage,
                 recordingTime: _recordingTime,
+                onManageBots: _showBotManagementDialog,
               ),
             ],
           ),
@@ -659,91 +768,16 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     });
   }
 
-// Исправленный метод _addReaction
-  void _addReaction(ChatMessage message, String emoji) {
-    setState(() {
-      final currentReactions = message.reactions ?? {};
-      final updatedReactions = Map<String, Set<String>>.from(currentReactions);
-
-      // Получаем текущий набор пользователей для этой эмодзи
-      final users = updatedReactions[emoji] ?? <String>{};
-
-      // Добавляем текущего пользователя
-      final newUsers = Set<String>.from(users)..add(widget.userName);
-
-      updatedReactions[emoji] = newUsers;
-
-      final index = _messages.indexWhere((msg) => msg.id == message.id);
-      if (index != -1) {
-        _messages[index] = _messages[index].copyWith(reactions: updatedReactions);
-      }
-    });
+  Future<void> _addReactionToMessage(ChatMessage message, String emoji) async {
+    await _navigation.addReaction(message.id, emoji);
   }
 
-// Получить количество реакций для конкретной эмодзи
-  int _getReactionCount(ChatMessage message, String emoji) {
-    return message.reactions?[emoji]?.length ?? 0;
-  }
-
-// Проверить, поставил ли текущий пользователь реакцию
-  bool _hasUserReacted(ChatMessage message, String emoji) {
-    return message.reactions?[emoji]?.contains(widget.userName) ?? false;
-  }
-
-// Удалить реакцию пользователя
-  void _removeReaction(ChatMessage message, String emoji) {
-    setState(() {
-      final currentReactions = message.reactions ?? {};
-      final updatedReactions = Map<String, Set<String>>.from(currentReactions);
-
-      final users = updatedReactions[emoji];
-      if (users != null) {
-        users.remove(widget.userName);
-        if (users.isEmpty) {
-          updatedReactions.remove(emoji);
-        } else {
-          updatedReactions[emoji] = users;
-        }
-      }
-
-      final index = _messages.indexWhere((msg) => msg.id == message.id);
-      if (index != -1) {
-        _messages[index] = _messages[index].copyWith(reactions: updatedReactions);
-      }
-    });
-  }
-
-// Переключить реакцию (добавить/удалить)
-  void _toggleReaction(ChatMessage message, String emoji) {
-    if (_hasUserReacted(message, emoji)) {
-      _removeReaction(message, emoji);
-    } else {
-      _addReaction(message, emoji);
-    }
-  }
-
-  void _pinMessage(ChatMessage message) {
-    setState(() {
-      final index = _messages.indexWhere((msg) => msg.id == message.id);
-      if (index != -1) {
-        _messages[index] = _messages[index].copyWith(isPinned: true);
-        if (!_pinnedMessages.contains(message.id)) {
-          _pinnedMessages.add(message.id);
-        }
-      }
-    });
-
-    _navigation.showSnackBar('Сообщение закреплено');
+  Future<void> _pinMessage(ChatMessage message) async {
+    await _navigation.toggleMessagePin(message.id);
   }
 
   void _unpinMessage(ChatMessage message) {
-    setState(() {
-      final index = _messages.indexWhere((msg) => msg.id == message.id);
-      if (index != -1) {
-        _messages[index] = _messages[index].copyWith(isPinned: false);
-        _pinnedMessages.remove(message.id);
-      }
-    });
+    _pinMessage(message);
   }
 
   void _playVoiceMessage(ChatMessage message) {
@@ -753,10 +787,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _voiceMessageProgress = 0.0;
     });
 
-    // ИСПРАВЛЕНО: убираем ненужное приведение типа
     final duration = message.voiceDuration ?? 0.0;
 
-    _navigation.simulateVoicePlayback(
+    _simulateVoicePlayback(
       duration,
           (progress) {
         if (mounted) {
@@ -773,7 +806,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
-
   void _stopVoiceMessage() {
     setState(() {
       _isVoiceMessagePlaying = false;
@@ -782,31 +814,16 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     });
   }
 
-
-
-  void _translateMessage(ChatMessage message) {
-    _navigation.translateMessage(message).then((translation) {
-      if (mounted && translation != null) {
-        setState(() {
-          _messageTranslations[message.id] = translation;
-        });
-      }
-    });
+  Future<void> _translateMessage(ChatMessage message) async {
+    final translation = await _navigation.translateMessage(message);
+    if (mounted && translation != null) {
+      setState(() {
+        _messageTranslations[message.id] = translation;
+      });
+    }
   }
 
-  void _deleteMessage(ChatMessage message) {
-    // ИСПРАВЛЕНО: используем deleteMessage вместо deleteMessageWithConfirmation
-    _navigation.deleteMessage(
-      message: message,
-      onDelete: () {
-        setState(() {
-          _messages.remove(message);
-          _filteredMessages.remove(message);
-          if (message.isPinned) {
-            _pinnedMessages.remove(message.id);
-          }
-        });
-      },
-    );
+  Future<void> _deleteMessage(ChatMessage message) async {
+    await _navigation.deleteMessage(message.id);
   }
 }

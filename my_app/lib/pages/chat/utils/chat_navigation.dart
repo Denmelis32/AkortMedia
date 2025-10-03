@@ -1,13 +1,15 @@
-// chat_navigation.dart
+// utils/chat_navigation.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'dart:math';
+
 import '../../../services/chat_service.dart';
 import '../../rooms_pages/models/room.dart';
 import '../models/chat_message.dart';
 import '../models/chat_member.dart';
+import '../models/chat_settings.dart';
 import '../models/enums.dart';
 
 class ChatNavigation {
@@ -24,6 +26,20 @@ class ChatNavigation {
   final List<String> _availableReactions = ['❤️', '😂', '😮', '😢', '👍', '👎', '🔥', '🎉'];
   final Map<String, String> _translationCache = {};
   final Map<String, Color> _userColors = {};
+  final ChatService _chatService = ChatService();
+
+  // Новые поля для управления ботами
+  List<ChatBot> _availableBots = [];
+  List<ChatBot> _activeBots = [];
+  ChatSettings _chatSettings = ChatSettings(
+    id: 'default',
+    enableBotResponses: true,
+    translationEnabled: false,
+    soundEnabled: true,
+    vibrationEnabled: true,
+    fontSize: 16.0,
+    theme: ThemeMode.light,
+  );
 
   ChatNavigation({
     required this.context,
@@ -34,9 +50,50 @@ class ChatNavigation {
     required this.updateState,
     required this.scrollToBottom,
     this.onMessagesUpdated,
-  });
+  }) {
+    _initializeChatService();
+  }
+
+  Future<void> _initializeChatService() async {
+    try {
+      await _chatService.initialize();
+
+      // Загружаем настройки и ботов
+      _chatSettings = await _chatService.getChatSettings(room.id);
+      _availableBots = _chatService.getAvailableBots();
+      _activeBots = await _chatService.getActiveBots(room.id);
+
+      // Подписываемся на обновления сообщений
+      _setupMessageStream();
+
+      print('✅ ChatService инициализирован для комнаты ${room.id}');
+      print('🤖 Доступно ботов: ${_availableBots.length}, активных: ${_activeBots.length}');
+
+    } catch (e) {
+      print('❌ Ошибка инициализации ChatService: $e');
+    }
+  }
+
+  void _setupMessageStream() {
+    _chatService.watchRoomMessages(room.id).listen((newMessages) {
+      print('📨 Получены новые сообщения из потока: ${newMessages.length}');
+
+      updateState(() {
+        messages.clear();
+        messages.addAll(newMessages);
+      });
+
+      onMessagesUpdated?.call();
+      scrollToBottom();
+    });
+  }
 
   List<String> get availableReactions => _availableReactions;
+
+  // Геттеры для ботов и настроек
+  List<ChatBot> get availableBots => _availableBots;
+  List<ChatBot> get activeBots => _activeBots;
+  ChatSettings get chatSettings => _chatSettings;
 
   Color _getUserColor(String userName, Map<String, Color> userColors) {
     if (!userColors.containsKey(userName)) {
@@ -45,12 +102,35 @@ class ChatNavigation {
     return userColors[userName]!;
   }
 
-  void loadSampleMessages(Map<String, Color> userColors) {
-    messages.addAll([
+  // === ОСНОВНЫЕ МЕТОДЫ ЧАТА ===
+
+  Future<void> loadInitialData() async {
+    try {
+      print('🔄 Загрузка начальных данных для комнаты ${room.id}');
+
+      // Загружаем сообщения через сервис
+      final loadedMessages = await _chatService.loadMessages(room.id, limit: 50);
+
+      updateState(() {
+        messages.clear();
+        messages.addAll(loadedMessages);
+      });
+
+      print('✅ Загружено ${messages.length} сообщений');
+
+    } catch (e) {
+      print('❌ Ошибка загрузки начальных данных: $e');
+      // Загружаем демо-сообщения при ошибке
+      _loadDemoMessages();
+    }
+  }
+
+  void _loadDemoMessages() {
+    final demoMessages = [
       ChatMessage(
         id: '1',
-        roomId: room.id, // ДОБАВЛЕНО roomId
-        text: 'Добро пожаловать в "${room.title}"! 🎉\nЗдесь обсуждаем последние спортивные события и матчи. Не стесняйтесь задавать вопросы и делиться мнениями!',
+        roomId: room.id,
+        text: 'Добро пожаловать в "${room.title}"! 🎉\nЗдесь обсуждаем последние спортивные события и матчи.',
         sender: 'Система',
         time: DateTime.now().subtract(const Duration(minutes: 2)),
         isMe: false,
@@ -58,75 +138,43 @@ class ChatNavigation {
       ),
       ChatMessage(
         id: '2',
-        roomId: room.id, // ДОБАВЛЕНО roomId
+        roomId: room.id,
         text: 'Привет всем! Рад присоединиться к обсуждению! 👋',
         sender: 'Алексей Петров',
         time: DateTime.now().subtract(const Duration(minutes: 1)),
         isMe: false,
-        userColor: _getUserColor('Алексей Петров', userColors),
+        userColor: _getUserColor('Алексей Петров', _userColors),
         userAvatar: 'https://i.pravatar.cc/150?img=1',
       ),
       ChatMessage(
         id: '3',
-        roomId: room.id, // ДОБАВЛЕНО roomId
-        text: 'Кто уже смотрел последний матч? Какие мысли? ⚽',
+        roomId: room.id,
+        text: 'Как вам вчерашний матч? Отличная игра была! ⚽',
         sender: 'Мария Иванова',
         time: DateTime.now().subtract(const Duration(minutes: 1)),
         isMe: false,
-        userColor: _getUserColor('Мария Иванова', userColors),
+        userColor: _getUserColor('Мария Иванова', _userColors),
         userAvatar: 'https://i.pravatar.cc/150?img=2',
       ),
-      ChatMessage(
-        id: '4',
-        roomId: room.id, // ДОБАВЛЕНО roomId
-        text: 'Отличная игра была! Особенно понравилась стратегия команды в защите. На мой взгляд, ключевым моментом стала замена на 70-й минуте.',
-        sender: 'Иван Сидоров',
-        time: DateTime.now().subtract(const Duration(minutes: 1)),
-        isMe: false,
-        userColor: _getUserColor('Иван Сидоров', userColors),
-        userAvatar: 'https://i.pravatar.cc/150?img=3',
-      ),
-      ChatMessage(
-        id: '5',
-        roomId: room.id, // ДОБАВЛЕНО roomId
-        text: 'А как вам гол на 89-й минуте? Просто великолепно! 🥅',
-        sender: 'Алексей Петров',
-        time: DateTime.now().subtract(const Duration(minutes: 1)),
-        isMe: false,
-        isEdited: true,
-        userColor: _getUserColor('Алексей Петров', userColors),
-        userAvatar: 'https://i.pravatar.cc/150?img=1',
-      ),
-      ChatMessage(
-        id: '6',
-        roomId: room.id, // ДОБАВЛЕНО roomId
-        text: 'Кстати, не пропустите завтрашний матч! Начинается в 20:00 по московскому времени. Будет очень интересно! 🏆',
-        sender: 'Мария Иванова',
-        time: DateTime.now().subtract(const Duration(minutes: 1)),
-        isMe: false,
-        userColor: _getUserColor('Мария Иванова', userColors),
-        userAvatar: 'https://i.pravatar.cc/150?img=2',
-        isPinned: true,
-      ),
-      ChatMessage(
-        id: '7',
-        roomId: room.id, // ДОБАВЛЕНО roomId
-        text: '🎵',
-        sender: 'Алексей Петров',
-        time: DateTime.now().subtract(const Duration(minutes: 1)),
-        isMe: false,
-        messageType: MessageType.voice,
-        userColor: _getUserColor('Алексей Петров', userColors),
-        userAvatar: 'https://i.pravatar.cc/150?img=1',
-        voiceDuration: 30,
-      ),
-    ]);
+    ];
+
+    updateState(() {
+      messages.clear();
+      messages.addAll(demoMessages);
+    });
   }
 
-  Future<RoomMembers> loadRoomMembers() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+  Future<List<ChatMember>> loadRoomMembers() async {
+    try {
+      return await _chatService.loadRoomMembers(room.id);
+    } catch (e) {
+      print('❌ Ошибка загрузки участников: $e');
+      return _loadDemoMembers();
+    }
+  }
 
-    final List<ChatMember> onlineMembers = [
+  List<ChatMember> _loadDemoMembers() {
+    return [
       ChatMember(
         id: '1',
         name: 'Алексей Петров',
@@ -149,170 +197,286 @@ class ChatNavigation {
         id: '3',
         name: 'Иван Сидоров',
         avatar: 'https://i.pravatar.cc/150?img=3',
-        isOnline: true,
-        role: MemberRole.member,
-        lastSeen: DateTime.now(),
-        joinDate: DateTime.now().subtract(const Duration(days: 15)),
-      ),
-    ];
-
-    final List<ChatMember> allMembers = [
-      ...onlineMembers,
-      ChatMember(
-        id: '4',
-        name: 'Екатерина Смирнова',
-        avatar: 'https://i.pravatar.cc/150?img=4',
         isOnline: false,
         role: MemberRole.member,
         lastSeen: DateTime.now().subtract(const Duration(hours: 2)),
-        joinDate: DateTime.now().subtract(const Duration(days: 10)),
-      ),
-      ChatMember(
-        id: '5',
-        name: 'Дмитрий Козлов',
-        avatar: 'https://i.pravatar.cc/150?img=5',
-        isOnline: false,
-        role: MemberRole.member,
-        lastSeen: DateTime.now().subtract(const Duration(days: 1)),
-        joinDate: DateTime.now().subtract(const Duration(days: 5)),
+        joinDate: DateTime.now().subtract(const Duration(days: 15)),
       ),
     ];
-
-    return RoomMembers(
-      onlineMembers: onlineMembers,
-      allMembers: allMembers,
-    );
   }
 
-  void sendMessage({
+  // === ОТПРАВКА СООБЩЕНИЙ И УПРАВЛЕНИЕ БОТАМИ ===
+
+  Future<void> sendMessage({
     required TextEditingController messageController,
     required ChatMessage? replyingTo,
     required ChatMessage? editingMessage,
     required VoidCallback onMessageSent,
-  }) {
+  }) async {
     final text = messageController.text.trim();
     if (text.isEmpty) return;
 
     print('📤 Пользователь "$userName" отправляет сообщение: "$text"');
 
-    final newMessage = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      roomId: room.id,
-      text: text,
-      sender: userName,
-      time: DateTime.now(),
-      isMe: true,
-      replyTo: replyingTo,
-      userColor: _getUserColor(userName, _userColors),
-      userAvatar: userAvatar,
-    );
-
-    updateState(() {
-      if (editingMessage != null) {
-        final index = messages.indexWhere((msg) => msg.id == editingMessage.id);
-        if (index != -1) {
-          messages[index] = messages[index].copyWith(text: text, isEdited: true);
-        }
-      } else {
-        messages.add(newMessage);
-      }
-      messageController.clear();
-      onMessageSent();
-    });
-
-    // ВЫЗОВ AI ТОЛЬКО ДЛЯ НОВЫХ СООБЩЕНИЙ (не для редактирования)
-    if (editingMessage == null) {
-      print('🤖 Запуск AI-ответа на новое сообщение: "$text"');
-      _simulateAIResponse(text);
-    }
-
-    scrollToBottom();
-  }
-
-  void _simulateAIResponse(String userMessage) async {
-    print('🤖 Запуск AI-ответа на сообщение: "$userMessage"');
-
     try {
-      final chatService = ChatService();
-      final response = await chatService.getAIResponse(userMessage, room.id);
+      ChatMessage sentMessage;
 
-      print('🤖 AI подготовил ответ: "$response"');
-
-      final delaySeconds = 1 + _random.nextInt(3);
-
-      Future.delayed(Duration(seconds: delaySeconds), () {
-        if (!context.mounted) {
-          print('❌ Контекст не доступен для ответа AI');
-          return;
-        }
-
-        final aiUsers = ['Алексей Петров', 'Мария Иванова', 'Иван Сидоров'];
-        final aiUser = aiUsers[_random.nextInt(aiUsers.length)];
-
-        final aiMessage = ChatMessage(
-          id: 'ai-${DateTime.now().millisecondsSinceEpoch}',
-          roomId: room.id,
-          text: response,
-          sender: aiUser,
-          time: DateTime.now().add(Duration(seconds: delaySeconds)),
-          isMe: false,
-          userColor: _getUserColor(aiUser, _userColors),
-          userAvatar: 'https://i.pravatar.cc/150?img=${aiUsers.indexOf(aiUser) + 1}',
+      if (editingMessage != null) {
+        // Редактирование сообщения
+        sentMessage = await _chatService.editMessage(
+            editingMessage.id,
+            text,
+            room.id
         );
 
-        print('🤖 AI "$aiUser" отправляет ответ: "$response"');
-
         updateState(() {
-          messages.add(aiMessage);
-          print('✅ Ответ AI добавлен в список сообщений. Всего сообщений: ${messages.length}');
+          final index = messages.indexWhere((msg) => msg.id == editingMessage.id);
+          if (index != -1) {
+            messages[index] = sentMessage;
+          }
         });
 
-        // ВАЖНО: Вызываем колбэк для обновления filteredMessages
-        onMessagesUpdated?.call();
+      } else {
+        // Новое сообщение
+        final newMessage = ChatMessage(
+          id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+          roomId: room.id,
+          text: text,
+          sender: userName,
+          time: DateTime.now(),
+          isMe: true,
+          replyTo: replyingTo,
+          userColor: _getUserColor(userName, _userColors),
+          userAvatar: userAvatar,
+          status: MessageStatus.sending,
+        );
 
-        scrollToBottom();
-      });
+        // Добавляем сообщение локально сразу
+        updateState(() {
+          messages.add(newMessage);
+        });
+
+        // Отправляем через сервис
+        sentMessage = await _chatService.sendMessage(newMessage);
+
+        // Обновляем сообщение с сервера
+        updateState(() {
+          final index = messages.indexWhere((msg) => msg.id == newMessage.id);
+          if (index != -1) {
+            messages[index] = sentMessage;
+          }
+        });
+      }
+
+      messageController.clear();
+      onMessageSent();
+      scrollToBottom();
+
+      print('✅ Сообщение отправлено: ${sentMessage.text}');
 
     } catch (e) {
-      print('❌ Ошибка при получении AI-ответа: $e');
+      print('❌ Ошибка отправки сообщения: $e');
+      showSnackBar('Ошибка отправки сообщения');
 
-      final fallbackResponse = 'Интересное сообщение! Давайте обсудим это подробнее.';
-      final aiUsers = ['Алексей Петров', 'Мария Иванова', 'Иван Сидоров'];
-      final aiUser = aiUsers[_random.nextInt(aiUsers.length)];
-
-      final fallbackMessage = ChatMessage(
-        id: 'ai-${DateTime.now().millisecondsSinceEpoch}',
-        roomId: room.id,
-        text: fallbackResponse,
-        sender: aiUser,
-        time: DateTime.now(),
-        isMe: false,
-        userColor: _getUserColor(aiUser, _userColors),
-        userAvatar: 'https://i.pravatar.cc/150?img=${aiUsers.indexOf(aiUser) + 1}',
-      );
-
-      updateState(() {
-        messages.add(fallbackMessage);
-      });
-
-      // ВАЖНО: Вызываем колбэк для обновления filteredMessages
-      onMessagesUpdated?.call();
-
-      scrollToBottom();
+      // Помечаем сообщение как неотправленное
+      if (editingMessage == null) {
+        updateState(() {
+          final lastMessage = messages.lastWhere(
+                  (msg) => msg.id.startsWith('temp-'),
+              orElse: () => messages.last
+          );
+          final errorIndex = messages.indexOf(lastMessage);
+          if (errorIndex != -1) {
+            messages[errorIndex] = lastMessage.copyWith(
+                status: MessageStatus.error
+            );
+          }
+        });
+      }
     }
   }
 
-// Добавьте этот метод в класс ChatNavigation
-  void _updateFilteredMessages() {
-    // Этот метод будет вызывать обновление filteredMessages в ChatPage
-    updateState(() {
-      // Пустая функция - просто триггер для обновления состояния
-    });
+  // === УПРАВЛЕНИЕ БОТАМИ ===
+
+  Future<void> toggleBot(String botId, bool active) async {
+    try {
+      await _chatService.toggleBot(botId, active);
+
+      // Обновляем локальный список активных ботов
+      _activeBots = await _chatService.getActiveBots(room.id);
+
+      updateState(() {}); // Перерисовываем UI
+
+      showSnackBar(active ?
+      '🤖 Бот активирован' :
+      '🤖 Бот деактивирован'
+      );
+
+      print('${active ? '✅' : '❌'} Бот $botId ${active ? 'активирован' : 'деактивирован'}');
+
+    } catch (e) {
+      print('❌ Ошибка при переключении бота: $e');
+      showSnackBar('Ошибка при управлении ботом');
+    }
   }
 
-  void triggerBotResponse(String testMessage) {
-    print('🔧 Принудительный вызов ответа бота на: "$testMessage"');
-    _simulateAIResponse(testMessage);
+  Future<void> updateChatSettings(ChatSettings newSettings) async {
+    try {
+      await _chatService.updateChatSettings(room.id, newSettings);
+      _chatSettings = newSettings;
+
+      updateState(() {}); // Перерисовываем UI
+
+      showSnackBar('⚙️ Настройки обновлены');
+      print('✅ Настройки чата обновлены');
+
+    } catch (e) {
+      print('❌ Ошибка при обновлении настроек: $e');
+      showSnackBar('Ошибка при обновлении настроек');
+    }
+  }
+
+  // === РЕАКЦИИ И ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ===
+
+  Future<void> addReaction(String messageId, String reaction) async {
+    try {
+      final updatedReactions = await _chatService.addReaction(
+          messageId,
+          room.id,
+          reaction,
+          userName
+      );
+
+      if (updatedReactions != null) {
+        updateState(() {
+          final index = messages.indexWhere((msg) => msg.id == messageId);
+          if (index != -1) {
+            messages[index] = messages[index].copyWith(
+                reactions: updatedReactions
+            );
+          }
+        });
+
+        print('✅ Реакция $reaction добавлена к сообщению $messageId');
+      }
+
+    } catch (e) {
+      print('❌ Ошибка при добавлении реакции: $e');
+      showSnackBar('Ошибка при добавлении реакции');
+    }
+  }
+
+  Future<void> toggleMessagePin(String messageId) async {
+    try {
+      final success = await _chatService.toggleMessagePin(messageId, room.id);
+
+      if (success) {
+        updateState(() {
+          final index = messages.indexWhere((msg) => msg.id == messageId);
+          if (index != -1) {
+            messages[index] = messages[index].copyWith(
+                isPinned: !messages[index].isPinned
+            );
+          }
+        });
+
+        showSnackBar(messages.firstWhere((msg) => msg.id == messageId).isPinned ?
+        '📌 Сообщение закреплено' :
+        '📌 Сообщение откреплено'
+        );
+      }
+
+    } catch (e) {
+      print('❌ Ошибка при закреплении сообщения: $e');
+      showSnackBar('Ошибка при закреплении сообщения');
+    }
+  }
+
+  Future<void> deleteMessage(String messageId) async {
+    try {
+      final success = await _chatService.deleteMessage(messageId, room.id);
+
+      if (success) {
+        updateState(() {
+          messages.removeWhere((msg) => msg.id == messageId);
+        });
+
+        showSnackBar('🗑️ Сообщение удалено');
+        print('✅ Сообщение $messageId удалено');
+      }
+
+    } catch (e) {
+      print('❌ Ошибка при удалении сообщения: $e');
+      showSnackBar('Ошибка при удалении сообщения');
+    }
+  }
+
+  // === ПОИСК И ПЕРЕВОД ===
+
+  Future<List<ChatMessage>> searchMessages(String query) async {
+    try {
+      return await _chatService.searchMessages(room.id, query);
+    } catch (e) {
+      print('❌ Ошибка при поиске сообщений: $e');
+      return [];
+    }
+  }
+
+  Future<List<ChatMessage>> getPinnedMessages() async {
+    try {
+      return await _chatService.getPinnedMessages(room.id);
+    } catch (e) {
+      print('❌ Ошибка при получении закрепленных сообщений: $e');
+      return [];
+    }
+  }
+
+  Future<String?> translateMessage(ChatMessage message) async {
+    try {
+      return await _chatService.translateMessage(message.text, 'en');
+    } catch (e) {
+      print('❌ Ошибка при переводе сообщения: $e');
+      return null;
+    }
+  }
+
+  // === СТАТИСТИКА И АНАЛИТИКА ===
+
+  Future<Map<String, dynamic>> getRoomStats() async {
+    try {
+      return await _chatService.getRoomStats(room.id);
+    } catch (e) {
+      print('❌ Ошибка при получении статистики: $e');
+      return {
+        'totalMessages': messages.length,
+        'totalMembers': 0,
+        'onlineMembers': 0,
+        'todayMessages': 0,
+        'pinnedMessages': 0,
+        'activeBots': _activeBots.length,
+      };
+    }
+  }
+
+  // === ТЕСТИРОВАНИЕ И ДЕМО-ФУНКЦИИ ===
+
+  void triggerTestBotResponse(String testMessage) {
+    print('🔧 Тестовый вызов ботов для сообщения: "$testMessage"');
+
+    // Создаем тестовое сообщение для триггера ботов
+    final testUserMessage = ChatMessage(
+      id: 'test-${DateTime.now().millisecondsSinceEpoch}',
+      roomId: room.id,
+      text: testMessage,
+      sender: 'Тестовый пользователь',
+      time: DateTime.now(),
+      isMe: false,
+      userColor: Colors.grey,
+      userAvatar: '👤',
+    );
+
+    // Отправляем через сервис для активации ботов
+    _chatService.sendMessage(testUserMessage);
   }
 
   void sendSticker(String sticker) {
@@ -328,12 +492,7 @@ class ChatNavigation {
       userAvatar: userAvatar,
     );
 
-    updateState(() {
-      messages.add(newMessage);
-    });
-
-    // ОБНОВЛЯЕМ filteredMessages
-    onMessagesUpdated?.call();
+    _chatService.sendMessage(newMessage);
   }
 
   Future<void> sendVoiceMessage(double recordingTime) async {
@@ -350,88 +509,10 @@ class ChatNavigation {
       voiceDuration: recordingTime,
     );
 
-    updateState(() {
-      messages.add(newMessage);
-    });
-
-    // ОБНОВЛЯЕМ filteredMessages
-    onMessagesUpdated?.call();
-  }
-  void startVoiceRecording(Function(double) onTimeUpdate) {
-    double recordingTime = 0.0;
-
-    void updateRecordingTime() {
-      if (context.mounted) {
-        recordingTime += 0.1;
-        onTimeUpdate(recordingTime);
-
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            updateRecordingTime();
-          }
-        });
-      }
-    }
-
-    updateRecordingTime();
+    _chatService.sendMessage(newMessage);
   }
 
-
-  void simulateVoicePlayback(double duration, Function(double) onProgressUpdate) {
-    double progress = 0.0;
-
-    void updateProgress() {
-      if (context.mounted && progress < 1.0) {
-        progress += 0.1 / duration;
-        onProgressUpdate(progress);
-
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (context.mounted && progress < 1.0) {
-            updateProgress();
-          }
-        });
-      }
-    }
-
-    updateProgress();
-  }
-
-  Future<String?> translateMessage(ChatMessage message) async {
-    final cacheKey = '${message.id}_translation';
-
-    if (_translationCache.containsKey(cacheKey)) {
-      return _translationCache[cacheKey];
-    }
-
-    final translations = {
-      'Привет всем! Рад присоединиться к обсуждению! 👋': 'Hello everyone! Glad to join the discussion! 👋',
-      'Кто уже смотрел последний матч? Какие мысли? ⚽': 'Who has already watched the last match? Any thoughts? ⚽',
-      'Отличная игра была!': 'It was a great game!',
-      'А как вам гол на 89-й минуте? Просто великолепно! 🥅': 'What about the goal at the 89th minute? Just great! 🥅',
-    };
-
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final translation = translations[message.text] ?? 'Translation not available';
-
-    _translationCache[cacheKey] = translation;
-
-    return translation;
-  }
-
-  void addEmojiToMessage(TextEditingController messageController, String emoji) {
-    final currentText = messageController.text;
-    final selection = messageController.selection;
-    final newText = currentText.replaceRange(
-      selection.start,
-      selection.end,
-      emoji,
-    );
-    messageController.value = messageController.value.copyWith(
-      text: newText,
-      selection: TextSelection.collapsed(offset: selection.start + emoji.length),
-    );
-  }
+  // === UI ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
 
   void showEnhancedMessageOptions({
     required ChatMessage message,
@@ -547,7 +628,7 @@ class ChatNavigation {
               _buildOptionTile(
                 Icons.translate,
                 'Перевести',
-                'Перевести сообщение на русский',
+                'Перевести сообщение на английский',
                 onTranslate,
                 theme,
               ),
@@ -606,7 +687,9 @@ class ChatNavigation {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: theme.colorScheme.onSurface,
                   side: BorderSide(color: theme.dividerColor),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   minimumSize: const Size(double.infinity, 50),
                 ),
                 child: const Text('Отмена'),
@@ -618,7 +701,14 @@ class ChatNavigation {
     );
   }
 
-  Widget _buildOptionTile(IconData icon, String title, String subtitle, VoidCallback onTap, ThemeData theme, {bool isDestructive = false}) {
+  Widget _buildOptionTile(
+      IconData icon,
+      String title,
+      String subtitle,
+      VoidCallback onTap,
+      ThemeData theme,
+      {bool isDestructive = false}
+      ) {
     final color = isDestructive ? theme.colorScheme.error : theme.primaryColor;
 
     return ListTile(
@@ -631,10 +721,16 @@ class ChatNavigation {
         ),
         child: Icon(icon, color: color, size: 20),
       ),
-      title: Text(title, style: TextStyle(color: isDestructive ? theme.colorScheme.error : null)),
-      subtitle: Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurface.withOpacity(0.6),
-      )),
+      title: Text(
+          title,
+          style: TextStyle(color: isDestructive ? theme.colorScheme.error : null)
+      ),
+      subtitle: Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.6),
+          )
+      ),
       onTap: () {
         Navigator.pop(context);
         onTap();
@@ -642,7 +738,11 @@ class ChatNavigation {
     );
   }
 
-  void _showReactionPicker(ChatMessage message, Function(String) onAddReaction, ThemeData theme) {
+  void _showReactionPicker(
+      ChatMessage message,
+      Function(String) onAddReaction,
+      ThemeData theme
+      ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -700,7 +800,9 @@ class ChatNavigation {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: theme.colorScheme.onSurface,
                     side: BorderSide(color: theme.dividerColor),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     minimumSize: const Size(double.infinity, 50),
                   ),
                   child: const Text('Отмена'),
@@ -714,7 +816,8 @@ class ChatNavigation {
   }
 
   Widget _buildUserAvatar(ChatMessage message, ThemeData theme) {
-    if (message.userAvatar?.isNotEmpty == true) {
+    if (message.userAvatar?.isNotEmpty == true && !message.userAvatar!.startsWith('http')) {
+      // Для эмодзи аватаров ботов
       return Container(
         width: 36,
         height: 36,
@@ -731,16 +834,26 @@ class ChatNavigation {
         ),
         child: Center(
           child: Text(
-            message.sender[0].toUpperCase(),
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            message.userAvatar!,
+            style: const TextStyle(fontSize: 18),
+          ),
+        ),
+      );
+    } else if (message.userAvatar?.isNotEmpty == true) {
+      // Для URL аватаров
+      return Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          image: DecorationImage(
+            image: NetworkImage(message.userAvatar!),
+            fit: BoxFit.cover,
           ),
         ),
       );
     } else {
+      // Для обычных пользователей
       return Container(
         width: 36,
         height: 36,
@@ -774,76 +887,240 @@ class ChatNavigation {
     showSnackBar('Текст скопирован');
   }
 
-  void deleteMessage({
-    required ChatMessage message,
-    required VoidCallback onDelete,
-  }) {
+  void showBotManagementDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить сообщение?'),
-        content: const Text('Это действие нельзя отменить. Сообщение будет удалено для всех участников.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              onDelete();
-              Navigator.pop(context);
-              showSnackBar('Сообщение удалено');
-            },
-            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.smart_toy),
+                SizedBox(width: 8),
+                Text('Управление ботами'),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _availableBots.length,
+                itemBuilder: (context, index) {
+                  final bot = _availableBots[index];
+                  final isActive = _activeBots.any((b) => b.id == bot.id);
+
+                  return ListTile(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: bot.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Center(
+                        child: Text(
+                          bot.avatar,
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                      ),
+                    ),
+                    title: Text(bot.name),
+                    subtitle: Text(
+                      bot.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: Switch(
+                      value: isActive,
+                      onChanged: (value) {
+                        toggleBot(bot.id, value);
+                        setState(() {});
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Закрыть'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  void forwardSelectedMessages(int selectedCount) {
-    showSnackBar('$selectedCount сообщений готовы к пересылке');
-  }
-
-  void deleteSelectedMessages(int selectedCount, VoidCallback onDelete) {
+  void showSettingsDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить сообщения?'),
-        content: Text('Вы уверены, что хотите удалить $selectedCount сообщений? Это действие нельзя отменить.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              onDelete();
-              Navigator.pop(context);
-              showSnackBar('Удалено $selectedCount сообщений');
-            },
-            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.settings),
+                SizedBox(width: 8),
+                Text('Настройки чата'),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Ответы ботов'),
+                    subtitle: const Text('Разрешить ботам отвечать на сообщения'),
+                    value: _chatSettings.enableBotResponses,
+                    onChanged: (value) {
+                      final newSettings = _chatSettings.copyWith(enableBotResponses: value);
+                      updateChatSettings(newSettings);
+                      setState(() {});
+                    },
+                  ),
+                  SwitchListTile(
+                    title: const Text('Перевод сообщений'),
+                    subtitle: const Text('Автоматический перевод сообщений'),
+                    value: _chatSettings.translationEnabled,
+                    onChanged: (value) {
+                      final newSettings = _chatSettings.copyWith(translationEnabled: value);
+                      updateChatSettings(newSettings);
+                      setState(() {});
+                    },
+                  ),
+                  SwitchListTile(
+                    title: const Text('Звуковые уведомления'),
+                    subtitle: const Text('Воспроизводить звук при новых сообщениях'),
+                    value: _chatSettings.soundEnabled,
+                    onChanged: (value) {
+                      final newSettings = _chatSettings.copyWith(soundEnabled: value);
+                      updateChatSettings(newSettings);
+                      setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Размер шрифта',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Slider(
+                    value: _chatSettings.fontSize,
+                    min: 12.0,
+                    max: 24.0,
+                    divisions: 6,
+                    onChanged: (value) {
+                      final newSettings = _chatSettings.copyWith(fontSize: value);
+                      updateChatSettings(newSettings);
+                      setState(() {});
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Закрыть'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  void showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Theme.of(context).primaryColor,
-        behavior: SnackBarBehavior.floating,
+  // === ДОПОЛНИТЕЛЬНЫЕ UI МЕТОДЫ ===
+
+  void showEnhancedAttachmentMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Прикрепить файл',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    _buildAttachmentOption(Icons.photo, 'Фото', () {}),
+                    _buildAttachmentOption(Icons.videocam, 'Видео', () {}),
+                    _buildAttachmentOption(Icons.audio_file, 'Аудио', () {}),
+                    _buildAttachmentOption(Icons.insert_drive_file, 'Документ', () {}),
+                    _buildAttachmentOption(Icons.location_on, 'Местоположение', () {}),
+                    _buildAttachmentOption(Icons.contact_page, 'Контакт', () {}),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    side: BorderSide(color: Theme.of(context).dividerColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                  child: const Text('Отмена'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  // Placeholder methods for other navigation actions
-  void showEnhancedRoomInfo() {}
-  void showRoomSettings() {}
-  void inviteUsers() {}
-  void showEnhancedAttachmentMenu() {}
+  Widget _buildAttachmentOption(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.background,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 30, color: Theme.of(context).primaryColor),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget buildStickersPanel({required Function(String) onStickerSelected}) {
     final stickerPacks = [
@@ -874,7 +1151,10 @@ class ChatNavigation {
           TabBar(
             controller: TabController(length: 4, vsync: Navigator.of(context)),
             isScrollable: true,
-            tabs: List.generate(stickerPacks.length, (index) => Tab(text: 'Pack ${index + 1}')),
+            tabs: List.generate(
+                stickerPacks.length,
+                    (index) => Tab(text: 'Pack ${index + 1}')
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -960,18 +1240,18 @@ class ChatNavigation {
     );
   }
 
+  void showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).primaryColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void dispose() {
     _translationCache.clear();
     _userColors.clear();
   }
-}
-
-class RoomMembers {
-  final List<ChatMember> onlineMembers;
-  final List<ChatMember> allMembers;
-
-  RoomMembers({
-    required this.onlineMembers,
-    required this.allMembers,
-  });
 }

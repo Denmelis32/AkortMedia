@@ -1,3 +1,4 @@
+// models/chat_message.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'enums.dart';
@@ -21,6 +22,11 @@ class ChatMessage {
   final double? voiceDuration;
   final double? playbackProgress;
 
+  // Новые поля для ботов
+  final bool isBot;
+  final String? botId;
+  final String? botPersonality;
+
   const ChatMessage({
     required this.id,
     required this.roomId,
@@ -39,6 +45,10 @@ class ChatMessage {
     this.userAvatar,
     this.voiceDuration,
     this.playbackProgress,
+    // Новые параметры для ботов
+    this.isBot = false,
+    this.botId,
+    this.botPersonality,
   });
 
   ChatMessage copyWith({
@@ -59,6 +69,9 @@ class ChatMessage {
     String? userAvatar,
     double? voiceDuration,
     double? playbackProgress,
+    bool? isBot,
+    String? botId,
+    String? botPersonality,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -78,6 +91,9 @@ class ChatMessage {
       userAvatar: userAvatar ?? this.userAvatar,
       voiceDuration: voiceDuration ?? this.voiceDuration,
       playbackProgress: playbackProgress ?? this.playbackProgress,
+      isBot: isBot ?? this.isBot,
+      botId: botId ?? this.botId,
+      botPersonality: botPersonality ?? this.botPersonality,
     );
   }
 
@@ -114,10 +130,38 @@ class ChatMessage {
     return DateFormat('dd.MM.yy').format(time);
   }
 
+  // Дополнительные геттеры для ботов
+  bool get isFromBot => isBot;
+
+  String get botDisplayName {
+    if (!isBot) return sender;
+    return '$sender 🤖';
+  }
+
+  Color get effectiveColor {
+    if (userColor != null) return userColor!;
+    if (isBot) {
+      // Цвета для разных типов ботов
+      switch (botPersonality) {
+        case 'analytical':
+          return Colors.blue;
+        case 'funny':
+          return Colors.orange;
+        case 'professional':
+          return Colors.green;
+        case 'knowledgeable':
+          return Colors.purple;
+        default:
+          return Colors.grey;
+      }
+    }
+    return Colors.blue; // Цвет по умолчанию для пользователей
+  }
+
   // Для дебаггинга
   @override
   String toString() {
-    return 'ChatMessage{id: $id, sender: $sender, text: $text, time: $time, status: $status}';
+    return 'ChatMessage{id: $id, sender: $sender, text: $text, time: $time, status: $status, isBot: $isBot, botId: $botId}';
   }
 
   @override

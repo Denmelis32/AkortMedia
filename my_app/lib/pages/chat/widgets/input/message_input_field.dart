@@ -20,6 +20,7 @@ class MessageInputField extends StatelessWidget {
   final VoidCallback onToggleReactions;
   final VoidCallback onToggleStickers;
   final VoidCallback onShowAttachmentMenu;
+  final VoidCallback? onManageBots; // Добавлено: управление ботами
   final Function(String) onAddEmoji;
   final double recordingTime;
 
@@ -42,6 +43,7 @@ class MessageInputField extends StatelessWidget {
     required this.onShowAttachmentMenu,
     required this.onAddEmoji,
     required this.recordingTime,
+    this.onManageBots, // Добавлено опционально
   });
 
   @override
@@ -101,6 +103,12 @@ class MessageInputField extends StatelessWidget {
 
               const SizedBox(width: 8),
 
+              // Кнопка управления ботами
+              if (onManageBots != null) ...[
+                _buildBotManagementButton(),
+                const SizedBox(width: 8),
+              ],
+
               // Поле ввода сообщения
               Expanded(
                 child: _buildMessageInput(),
@@ -126,6 +134,21 @@ class MessageInputField extends StatelessWidget {
       child: IconButton(
         icon: Icon(Icons.add, color: theme.primaryColor, size: 24),
         onPressed: onShowAttachmentMenu,
+        tooltip: 'Прикрепить файл',
+      ),
+    );
+  }
+
+  Widget _buildBotManagementButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.purple.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: IconButton(
+        icon: Icon(Icons.smart_toy, color: Colors.purple, size: 24),
+        onPressed: onManageBots,
+        tooltip: 'Управление ботами',
       ),
     );
   }
@@ -155,18 +178,34 @@ class MessageInputField extends StatelessWidget {
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Кнопка эмодзи
               IconButton(
                 icon: Icon(Icons.emoji_emotions_outlined, color: theme.primaryColor),
                 onPressed: onToggleReactions,
+                tooltip: 'Эмодзи',
               ),
+
+              // Кнопка прикрепления файлов
               IconButton(
                 icon: Icon(Icons.attach_file, color: theme.primaryColor),
                 onPressed: onShowAttachmentMenu,
+                tooltip: 'Прикрепить файл',
               ),
+
+              // Кнопка стикеров
               IconButton(
                 icon: Icon(Icons.face, color: theme.primaryColor),
                 onPressed: onToggleStickers,
+                tooltip: 'Стикеры',
               ),
+
+              // Кнопка управления ботами (дублирование для удобства)
+              if (onManageBots != null)
+                IconButton(
+                  icon: Icon(Icons.smart_toy, color: Colors.purple),
+                  onPressed: onManageBots,
+                  tooltip: 'Управление ботами',
+                ),
             ],
           ),
         ),
@@ -199,6 +238,7 @@ class MessageInputField extends StatelessWidget {
       child: IconButton(
         icon: const Icon(Icons.mic, color: Colors.white),
         onPressed: onStartVoiceRecording,
+        tooltip: 'Запись голосового сообщения',
       ),
     );
   }
@@ -215,8 +255,12 @@ class MessageInputField extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
       ),
       child: IconButton(
-        icon: Icon(editingMessage != null ? Icons.check : Icons.send, color: Colors.white),
+        icon: Icon(
+            editingMessage != null ? Icons.check : Icons.send,
+            color: Colors.white
+        ),
         onPressed: onSendMessage,
+        tooltip: editingMessage != null ? 'Сохранить изменения' : 'Отправить сообщение',
       ),
     );
   }

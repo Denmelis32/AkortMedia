@@ -1,7 +1,7 @@
 // utils/community_navigation.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../rooms_pages/community_detail_page.dart';
+import '../community_detail_page.dart';
 import '../models/community.dart';
 import '../../../providers/user_provider.dart';
 import '../widgets/create_community_bottom_sheet.dart';

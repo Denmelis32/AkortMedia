@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../chat/chat_page.dart';
-import '../community_detail_page.dart';
+import '../../communities/community_detail_page.dart';
 import '../../communities/widgets/create_community_bottom_sheet.dart';
 import '../widgets/bottom_sheets/advanced_filters_bottom_sheet.dart';
 import '../widgets/bottom_sheets/create_room_bottom_sheet.dart';

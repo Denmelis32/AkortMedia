@@ -156,4 +156,89 @@ class CommunityNavigation {
       ),
     );
   }
+
+  void showCommunityQuickActions(BuildContext context, Community community) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.info_rounded),
+              title: const Text('Информация о сообществе'),
+              onTap: () {
+                Navigator.pop(context);
+                _showCommunityInfo(context, community);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share_rounded),
+              title: const Text('Поделиться'),
+              onTap: () {
+                Navigator.pop(context);
+                shareCommunity(context, community);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report_rounded),
+              title: const Text('Пожаловаться'),
+              onTap: () {
+                Navigator.pop(context);
+                reportCommunity(context, community);
+              },
+            ),
+            if (community.canManage)
+              ListTile(
+                leading: const Icon(Icons.settings_rounded),
+                title: const Text('Управление'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: Переход к управлению сообществом
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCommunityInfo(BuildContext context, Community community) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(community.name),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Категория: ${community.category}'),
+              const SizedBox(height: 8),
+              Text('Участников: ${community.memberCount}'),
+              const SizedBox(height: 8),
+              Text('Создано: ${community.formattedCreatedAt}'),
+              if (community.rules != null) ...[
+                const SizedBox(height: 8),
+                const Text('Правила:'),
+                Text(community.rules!),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрыть'),
+          ),
+        ],
+      ),
+    );
+  }
 }

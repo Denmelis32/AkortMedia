@@ -1,6 +1,5 @@
 // models/community.dart
 import 'package:flutter/material.dart';
-
 import '../../rooms_pages/models/room.dart';
 
 class Community {
@@ -117,6 +116,70 @@ class Community {
     }
   }
 
+  Color get categoryColor {
+    switch (category.toLowerCase()) {
+      case 'технологии':
+        return Colors.blue;
+      case 'игры':
+        return Colors.purple;
+      case 'социальное':
+        return Colors.green;
+      case 'путешествия':
+        return Colors.orange;
+      case 'образование':
+        return Colors.teal;
+      case 'бизнес':
+        return Colors.indigo;
+      case 'искусство':
+        return Colors.pink;
+      case 'музыка':
+        return Colors.deepPurple;
+      case 'наука':
+        return Colors.blueGrey;
+      case 'спорт':
+        return Colors.red;
+      case 'программирование':
+        return Colors.blueAccent;
+      case 'дизайн':
+        return Colors.pinkAccent;
+      case 'фотография':
+        return Colors.amber;
+      case 'кулинария':
+        return Colors.deepOrange;
+      case 'здоровье':
+        return Colors.lightGreen;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData get categoryIcon {
+    switch (category.toLowerCase()) {
+      case 'технологии':
+        return Icons.smartphone_rounded;
+      case 'игры':
+        return Icons.sports_esports_rounded;
+      case 'социальное':
+        return Icons.people_alt_rounded;
+      case 'путешествия':
+        return Icons.travel_explore_rounded;
+      case 'образование':
+        return Icons.school_rounded;
+      case 'бизнес':
+        return Icons.business_center_rounded;
+      case 'искусство':
+        return Icons.palette_rounded;
+      case 'музыка':
+        return Icons.music_note_rounded;
+      case 'наука':
+        return Icons.science_rounded;
+      case 'спорт':
+        return Icons.sports_soccer_rounded;
+      default:
+        return Icons.room_rounded;
+    }
+  }
+
   Widget buildCommunityHeader({required BuildContext context, bool showStats = true}) {
     return Column(
       children: [
@@ -161,7 +224,7 @@ class Community {
                     Text(
                       category,
                       style: TextStyle(
-                        color: Theme.of(context).primaryColor,
+                        color: categoryColor,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -253,72 +316,18 @@ class Community {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            _getCategoryColor().withOpacity(0.8),
-            _getCategoryColor().withOpacity(0.4),
+            categoryColor.withOpacity(0.8),
+            categoryColor.withOpacity(0.4),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(
-        _getCategoryIcon(),
+        categoryIcon,
         color: Colors.white,
         size: size * 0.6,
       ),
     );
-  }
-
-  Color _getCategoryColor() {
-    switch (category.toLowerCase()) {
-      case 'технологии':
-        return Colors.blue;
-      case 'игры':
-        return Colors.purple;
-      case 'социальное':
-        return Colors.green;
-      case 'путешествия':
-        return Colors.orange;
-      case 'образование':
-        return Colors.teal;
-      case 'бизнес':
-        return Colors.indigo;
-      case 'искусство':
-        return Colors.pink;
-      case 'музыка':
-        return Colors.deepPurple;
-      case 'наука':
-        return Colors.blueGrey;
-      case 'спорт':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getCategoryIcon() {
-    switch (category.toLowerCase()) {
-      case 'технологии':
-        return Icons.smartphone_rounded;
-      case 'игры':
-        return Icons.sports_esports_rounded;
-      case 'социальное':
-        return Icons.people_alt_rounded;
-      case 'путешествия':
-        return Icons.travel_explore_rounded;
-      case 'образование':
-        return Icons.school_rounded;
-      case 'бизнес':
-        return Icons.business_center_rounded;
-      case 'искусство':
-        return Icons.palette_rounded;
-      case 'музыка':
-        return Icons.music_note_rounded;
-      case 'наука':
-        return Icons.science_rounded;
-      case 'спорт':
-        return Icons.sports_soccer_rounded;
-      default:
-        return Icons.room_rounded;
-    }
   }
 
   List<Widget> buildBadges({bool compact = false}) {
@@ -371,6 +380,62 @@ class Community {
       ),
     );
   }
+
+  Community copyWith({
+    String? id,
+    String? name,
+    String? description,
+    String? imageUrl,
+    String? category,
+    int? memberCount,
+    int? onlineCount,
+    List<String>? tags,
+    bool? isUserMember,
+    bool? isPrivate,
+    String? creatorId,
+    String? creatorName,
+    DateTime? createdAt,
+    List<Room>? rooms,
+    String? rules,
+    String? welcomeMessage,
+    List<String>? moderators,
+    int? roomCount,
+    CommunityStats? stats,
+    CommunitySettings? settings,
+    List<CommunityEvent>? events,
+    String? bannerImageUrl,
+    CommunityLevel? level,
+    bool? isVerified,
+    List<String>? featuredTags,
+  }) {
+    return Community(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      imageUrl: imageUrl ?? this.imageUrl,
+      category: category ?? this.category,
+      memberCount: memberCount ?? this.memberCount,
+      onlineCount: onlineCount ?? this.onlineCount,
+      tags: tags ?? this.tags,
+      isUserMember: isUserMember ?? this.isUserMember,
+      isPrivate: isPrivate ?? this.isPrivate,
+      creatorId: creatorId ?? this.creatorId,
+      creatorName: creatorName ?? this.creatorName,
+      createdAt: createdAt ?? this.createdAt,
+      rooms: rooms ?? this.rooms,
+      rules: rules ?? this.rules,
+      welcomeMessage: welcomeMessage ?? this.welcomeMessage,
+      moderators: moderators ?? this.moderators,
+      roomCount: roomCount ?? this.roomCount,
+      stats: stats ?? this.stats,
+      settings: settings ?? this.settings,
+      events: events ?? this.events,
+      bannerImageUrl: bannerImageUrl ?? this.bannerImageUrl,
+      level: level ?? this.level,
+      isVerified: isVerified ?? this.isVerified,
+      featuredTags: featuredTags ?? this.featuredTags,
+    );
+  }
 }
 
 // Новые классы для расширенной функциональности
@@ -392,6 +457,26 @@ class CommunityStats {
     this.roomsCreated = 0,
     this.eventsHosted = 0,
   });
+
+  CommunityStats copyWith({
+    int? totalMessages,
+    int? dailyActiveUsers,
+    int? weeklyActiveUsers,
+    double? weeklyGrowth,
+    int? newMembersThisWeek,
+    int? roomsCreated,
+    int? eventsHosted,
+  }) {
+    return CommunityStats(
+      totalMessages: totalMessages ?? this.totalMessages,
+      dailyActiveUsers: dailyActiveUsers ?? this.dailyActiveUsers,
+      weeklyActiveUsers: weeklyActiveUsers ?? this.weeklyActiveUsers,
+      weeklyGrowth: weeklyGrowth ?? this.weeklyGrowth,
+      newMembersThisWeek: newMembersThisWeek ?? this.newMembersThisWeek,
+      roomsCreated: roomsCreated ?? this.roomsCreated,
+      eventsHosted: eventsHosted ?? this.eventsHosted,
+    );
+  }
 }
 
 class CommunitySettings {
@@ -414,6 +499,28 @@ class CommunitySettings {
     this.maxRoomSize = 100,
     this.bannedWords = const [],
   });
+
+  CommunitySettings copyWith({
+    bool? allowUserRooms,
+    bool? requireApproval,
+    bool? enableModeration,
+    bool? enableEvents,
+    bool? showOnlineMembers,
+    bool? allowFileSharing,
+    int? maxRoomSize,
+    List<String>? bannedWords,
+  }) {
+    return CommunitySettings(
+      allowUserRooms: allowUserRooms ?? this.allowUserRooms,
+      requireApproval: requireApproval ?? this.requireApproval,
+      enableModeration: enableModeration ?? this.enableModeration,
+      enableEvents: enableEvents ?? this.enableEvents,
+      showOnlineMembers: showOnlineMembers ?? this.showOnlineMembers,
+      allowFileSharing: allowFileSharing ?? this.allowFileSharing,
+      maxRoomSize: maxRoomSize ?? this.maxRoomSize,
+      bannedWords: bannedWords ?? this.bannedWords,
+    );
+  }
 }
 
 class CommunityEvent {
@@ -446,6 +553,34 @@ class CommunityEvent {
   bool get isUpcoming => startTime.isAfter(DateTime.now());
   bool get isActive => startTime.isBefore(DateTime.now()) && endTime.isAfter(DateTime.now());
   bool get isFinished => endTime.isBefore(DateTime.now());
+
+  CommunityEvent copyWith({
+    String? id,
+    String? title,
+    String? description,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? type,
+    List<String>? hosts,
+    int? participants,
+    bool? isOnline,
+    String? location,
+    String? imageUrl,
+  }) {
+    return CommunityEvent(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      type: type ?? this.type,
+      hosts: hosts ?? this.hosts,
+      participants: participants ?? this.participants,
+      isOnline: isOnline ?? this.isOnline,
+      location: location ?? this.location,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
+  }
 }
 
 enum CommunityLevel {

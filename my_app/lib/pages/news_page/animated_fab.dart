@@ -1,94 +1,62 @@
 import 'package:flutter/material.dart';
+import 'theme/news_theme.dart';
 
 class AnimatedFAB extends StatefulWidget {
   final VoidCallback onPressed;
   final String tooltip;
   final IconData icon;
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final ScrollController? scrollController; // Добавляем опциональный параметр
+  final ScrollController scrollController;
 
   const AnimatedFAB({
     super.key,
     required this.onPressed,
     required this.tooltip,
     required this.icon,
-    required this.backgroundColor,
-    required this.foregroundColor,
-    this.scrollController, // Делаем опциональным
+    required this.scrollController,
   });
 
   @override
   State<AnimatedFAB> createState() => _AnimatedFABState();
 }
 
-class _AnimatedFABState extends State<AnimatedFAB> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+class _AnimatedFABState extends State<AnimatedFAB> {
+  bool _isVisible = true;
 
   @override
   void initState() {
     super.initState();
-
-    // Инициализируем контроллер анимации
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-
-    // Инициализируем анимацию масштаба
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    // Опционально: добавляем слушатель скролла для скрытия FAB
-    widget.scrollController?.addListener(_onScroll);
+    widget.scrollController.addListener(_handleScroll);
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    widget.scrollController?.removeListener(_onScroll);
-    super.dispose();
-  }
-
-  void _onScroll() {
-    // Можно добавить логику скрытия/показа FAB при скролле
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    _controller.reverse();
-    widget.onPressed();
-  }
-
-  void _onTapCancel() {
-    _controller.reverse();
+  void _handleScroll() {
+    if (widget.scrollController.positions.isNotEmpty) {
+      final position = widget.scrollController.position;
+      if (position.pixels > 100 && _isVisible) {
+        setState(() => _isVisible = false);
+      } else if (position.pixels <= 100 && !_isVisible) {
+        setState(() => _isVisible = true);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: FloatingActionButton(
-          onPressed: null, // handled by gesture detector
-          tooltip: widget.tooltip,
-          backgroundColor: widget.backgroundColor,
-          foregroundColor: widget.foregroundColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Icon(widget.icon, size: 28),
-        ),
+    return AnimatedScale(
+      scale: _isVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: FloatingActionButton(
+        onPressed: widget.onPressed,
+        tooltip: widget.tooltip,
+        backgroundColor: NewsTheme.primaryColor,
+        foregroundColor: Colors.white,
+        child: Icon(widget.icon),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_handleScroll);
+    super.dispose();
   }
 }

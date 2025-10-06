@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:confetti/confetti.dart';
+import 'dart:math';
 import '../../models/room.dart';
 import '../menus/room_actions_menu.dart';
 
@@ -10,7 +12,9 @@ class RoomCard extends StatefulWidget {
   final VoidCallback onShare;
   final VoidCallback onPin;
   final VoidCallback onReport;
+  final VoidCallback onQuickJoin;
   final int index;
+  final bool isFeatured;
 
   const RoomCard({
     super.key,
@@ -21,7 +25,9 @@ class RoomCard extends StatefulWidget {
     required this.onShare,
     required this.onPin,
     required this.onReport,
+    required this.onQuickJoin,
     required this.index,
+    this.isFeatured = false,
   });
 
   @override
@@ -29,38 +35,69 @@ class RoomCard extends StatefulWidget {
 }
 
 class _RoomCardState extends State<RoomCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _animationController;
+  late AnimationController _pulseController;
+  late AnimationController _shineController;
+  late ConfettiController _confettiController;
+
   late Animation<double> _scaleAnimation;
   late Animation<double> _elevationAnimation;
   late Animation<Color?> _borderColorAnimation;
   late Animation<double> _glowAnimation;
   late Animation<double> _contentOpacityAnimation;
   late Animation<Offset> _contentOffsetAnimation;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _shineAnimation;
 
   bool _isHovering = false;
   bool _isTapped = false;
   bool _showFullDescription = false;
+  bool _isBookmarked = false;
+  bool _isQuickJoining = false;
+  double _dragOffset = 0.0;
+  int _reactionCount = 0;
+  DateTime? _lastTap;
 
   @override
   void initState() {
     super.initState();
+    _initializeControllers();
+    _initializeAnimations();
+    _startEntranceAnimation();
+  }
+
+  void _initializeControllers() {
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _shineController = AnimationController(
+      duration: const Duration(milliseconds: 3000),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _confettiController = ConfettiController(duration: const Duration(seconds: 1));
+  }
+
+  void _initializeAnimations() {
+    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
     );
 
-    _elevationAnimation = Tween<double>(begin: 4, end: 16).animate(
+    _elevationAnimation = Tween<double>(begin: 6, end: 20).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
     _borderColorAnimation = ColorTween(
       begin: Colors.transparent,
-      end: Colors.white.withOpacity(0.6),
+      end: Colors.white.withOpacity(0.8),
     ).animate(_animationController);
 
     _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -72,25 +109,28 @@ class _RoomCardState extends State<RoomCard>
     );
 
     _contentOffsetAnimation = Tween<Offset>(
-      begin: const Offset(0, 20),
+      begin: const Offset(0, 30),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOutCubic,
     ));
 
-    // Каскадная анимация появления
-    Future.delayed(Duration(milliseconds: widget.index * 150), () {
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _shineAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _shineController, curve: Curves.easeInOut),
+    );
+  }
+
+  void _startEntranceAnimation() {
+    Future.delayed(Duration(milliseconds: widget.index * 120), () {
       if (mounted) {
         _animationController.forward();
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
   }
 
   void _onHover(bool hovering) {
@@ -112,7 +152,14 @@ class _RoomCardState extends State<RoomCard>
   void _onTapUp(TapUpDetails details) {
     setState(() => _isTapped = false);
     _animationController.reverse();
-    widget.onTap();
+
+    final now = DateTime.now();
+    if (_lastTap != null && now.difference(_lastTap!) < const Duration(milliseconds: 300)) {
+      _handleQuickJoin();
+    } else {
+      widget.onTap();
+    }
+    _lastTap = now;
   }
 
   void _onTapCancel() {
@@ -120,16 +167,47 @@ class _RoomCardState extends State<RoomCard>
     _animationController.reverse();
   }
 
+  void _handleQuickJoin() async {
+    if (!widget.room.canJoin || widget.room.isExpired) return;
+
+    setState(() => _isQuickJoining = true);
+
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (mounted) {
+      setState(() {
+        _isQuickJoining = false;
+        _reactionCount++;
+      });
+      _confettiController.play();
+      widget.onQuickJoin();
+    }
+  }
+
+  void _toggleBookmark() {
+    setState(() => _isBookmarked = !_isBookmarked);
+  }
+
   void _toggleDescription() {
-    setState(() {
-      _showFullDescription = !_showFullDescription;
-    });
+    setState(() => _showFullDescription = !_showFullDescription);
+  }
+
+  void _addReaction() {
+    setState(() => _reactionCount++);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _pulseController.dispose();
+    _shineController.dispose();
+    _confettiController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return AnimatedBuilder(
       animation: _animationController,
@@ -146,69 +224,91 @@ class _RoomCardState extends State<RoomCard>
           onTapDown: _onTapDown,
           onTapUp: _onTapUp,
           onTapCancel: _onTapCancel,
-          onLongPress: _showEnhancedPreview,
-          child: Card(
-            elevation: _elevationAnimation.value,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            shadowColor: widget.room.category.color.withOpacity(0.4),
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: _buildGradient(theme),
-                border: Border.all(
-                  color: _borderColorAnimation.value ?? Colors.transparent,
-                  width: 2,
+          onLongPress: _toggleBookmark,
+          onDoubleTap: _handleQuickJoin,
+          child: Stack(
+            children: [
+              if (_confettiController.state == ConfettiControllerState.playing)
+                Positioned.fill(
+                  child: ConfettiWidget(
+                    confettiController: _confettiController,
+                    blastDirection: -pi / 2,
+                    emissionFrequency: 0.05,
+                    numberOfParticles: 20,
+                    gravity: 0.3,
+                    shouldLoop: false,
+                    colors: const [
+                      Colors.red,
+                      Colors.blue,
+                      Colors.green,
+                      Colors.yellow,
+                      Colors.purple,
+                    ],
+                  ),
                 ),
-                boxShadow: [
-                  if (_glowAnimation.value > 0)
-                    BoxShadow(
-                      color: widget.room.category.color
-                          .withOpacity(0.3 * _glowAnimation.value),
-                      blurRadius: 25,
-                      spreadRadius: 3,
-                      offset: const Offset(0, 4),
+
+              Card(
+                elevation: _elevationAnimation.value,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                shadowColor: widget.room.category.color.withOpacity(0.5),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: _buildEnhancedGradient(theme),
+                    border: Border.all(
+                      color: _borderColorAnimation.value ?? Colors.transparent,
+                      width: 2.5,
                     ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 2),
+                    boxShadow: [
+                      if (_glowAnimation.value > 0)
+                        BoxShadow(
+                          color: widget.room.category.color
+                              .withOpacity(0.4 * _glowAnimation.value),
+                          blurRadius: 30,
+                          spreadRadius: 5,
+                          offset: const Offset(0, 6),
+                        ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  // Фоновый узор с анимацией
-                  _buildAnimatedBackground(),
-
-                  // Градиентный оверлей
-                  _buildGradientOverlay(),
-
-                  // Стек контента с анимацией
-                  SlideTransition(
-                    position: _contentOffsetAnimation,
-                    child: FadeTransition(
-                      opacity: _contentOpacityAnimation,
-                      child: _buildContentStack(theme),
-                    ),
+                  child: Stack(
+                    children: [
+                      _buildAnimatedBackground(),
+                      if (widget.isFeatured) _buildFeaturedShineEffect(),
+                      _buildEnhancedGradientOverlay(),
+                      SlideTransition(
+                        position: _contentOffsetAnimation,
+                        child: FadeTransition(
+                          opacity: _contentOpacityAnimation,
+                          child: _buildEnhancedContent(theme),
+                        ),
+                      ),
+                      if (_isHovering) _buildHoverEffect(),
+                      if (_isTapped) _buildTapEffect(),
+                      if (_isQuickJoining) _buildQuickJoinOverlay(),
+                    ],
                   ),
-
-                  // Эффекты взаимодействия
-                  if (_isHovering) _buildHoverEffect(),
-                  if (_isTapped) _buildTapEffect(),
-                ],
+                ),
               ),
-            ),
+
+              if (widget.isFeatured) _buildFeaturedBadge(),
+              if (_isBookmarked) _buildBookmarkBadge(),
+            ],
           ),
         ),
       ),
     );
   }
 
-  LinearGradient _buildGradient(ThemeData theme) {
+  LinearGradient _buildEnhancedGradient(ThemeData theme) {
     final baseColor = widget.room.category.color;
     final isPinned = widget.room.isPinned;
 
@@ -217,11 +317,11 @@ class _RoomCardState extends State<RoomCard>
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          baseColor.withOpacity(0.95),
-          baseColor.withOpacity(0.8),
-          baseColor.withOpacity(0.7),
+          baseColor.withOpacity(0.98),
+          baseColor.withOpacity(0.85),
+          baseColor.withOpacity(0.75),
         ],
-        stops: const [0.0, 0.6, 1.0],
+        stops: const [0.0, 0.5, 1.0],
       );
     }
 
@@ -229,9 +329,9 @@ class _RoomCardState extends State<RoomCard>
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        baseColor.withOpacity(0.85),
-        baseColor.withOpacity(0.7),
-        baseColor.withOpacity(0.5),
+        baseColor.withOpacity(0.9),
+        baseColor.withOpacity(0.75),
+        baseColor.withOpacity(0.6),
       ],
       stops: const [0.0, 0.7, 1.0],
     );
@@ -240,147 +340,168 @@ class _RoomCardState extends State<RoomCard>
   Widget _buildAnimatedBackground() {
     return Positioned.fill(
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 1000),
+        duration: const Duration(milliseconds: 1500),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           gradient: RadialGradient(
             center: Alignment.topRight,
-            radius: 1.5,
+            radius: 1.8,
             colors: [
-              Colors.white.withOpacity(_isHovering ? 0.1 : 0.05),
+              Colors.white.withOpacity(_isHovering ? 0.15 : 0.08),
               Colors.transparent,
             ],
           ),
         ),
         child: CustomPaint(
           painter: _AnimatedGeometricPatternPainter(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withOpacity(0.12),
             patternType: _getPatternType(),
-            animationValue: _animationController.value,
+            animationValue: _pulseController.value,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildGradientOverlay() {
+  Widget _buildFeaturedShineEffect() {
+    return Positioned.fill(
+      child: AnimatedBuilder(
+        animation: _shineAnimation,
+        builder: (context, child) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: Transform.translate(
+              offset: Offset(_shineAnimation.value * 400 - 200, 0),
+              child: Container(
+                width: 100,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.0),
+                      Colors.white.withOpacity(0.3),
+                      Colors.white.withOpacity(0.0),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEnhancedGradientOverlay() {
     return Positioned.fill(
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.white.withOpacity(0.15),
-              Colors.black.withOpacity(0.3),
+              Colors.white.withOpacity(0.2),
+              Colors.transparent,
+              Colors.black.withOpacity(0.4),
             ],
+            stops: const [0.0, 0.3, 1.0],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContentStack(ThemeData theme) {
+  Widget _buildEnhancedContent(ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(26),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Верхняя секция с аватаром и действиями
-          _buildTopSection(),
-
-          const SizedBox(height: 20),
-
-          // Секция заголовка и описания
-          _buildTitleDescriptionSection(),
-
-          const SizedBox(height: 16),
-
-          // Секция тегов
-          _buildTagsSection(),
-
+          _buildEnhancedTopSection(),
+          const SizedBox(height: 22),
+          _buildEnhancedTitleDescription(),
+          const SizedBox(height: 18),
+          _buildEnhancedTagsSection(),
           const Spacer(),
-
-          // Секция статистики
-          _buildStatsSection(),
-
-          const SizedBox(height: 16),
-
-          // Индикатор заполненности
-          _buildCapacitySection(),
-
-          const SizedBox(height: 20),
-
-          // Кнопка присоединения
-          _buildJoinButton(theme),
+          _buildEnhancedStatsSection(),
+          const SizedBox(height: 18),
+          _buildEnhancedCapacitySection(),
+          const SizedBox(height: 22),
+          _buildEnhancedJoinButton(theme),
         ],
       ),
     );
   }
 
-  Widget _buildTopSection() {
+  Widget _buildEnhancedTopSection() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Аватар с эффектом
-        _buildEnhancedAvatar(),
-
+        GestureDetector(
+          onTap: _addReaction,
+          child: _buildEnhancedAvatar(),
+        ),
         const Spacer(),
-
-        // Правая секция с рейтингом и действиями
-        _buildRightSection(),
+        _buildEnhancedRightSection(),
       ],
     );
   }
 
   Widget _buildEnhancedAvatar() {
-    return Stack(
-      alignment: Alignment.bottomRight,
-      children: [
-        // Основной аватар с градиентной рамкой
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.4),
-                Colors.white.withOpacity(0.1),
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
+          child: child,
+        );
+      },
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.5),
+                  Colors.white.withOpacity(0.2),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.5),
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 15,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: widget.room.category.color.withOpacity(0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
               ],
             ),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.4),
-              width: 2.5,
+            child: ClipOval(
+              child: _buildEnhancedAvatarContent(),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: widget.room.category.color.withOpacity(0.4),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
-          child: ClipOval(
-            child: _buildAvatarContent(),
-          ),
-        ),
-
-        // Бейдж онлайн-участников
-        _buildOnlineBadge(),
-      ],
+          _buildEnhancedOnlineBadge(),
+          if (_reactionCount > 0) _buildReactionBadge(),
+        ],
+      ),
     );
   }
 
-  Widget _buildAvatarContent() {
+  Widget _buildEnhancedAvatarContent() {
     if (widget.room.imageUrl.isNotEmpty) {
       return Image.network(
         widget.room.imageUrl,
@@ -394,7 +515,6 @@ class _RoomCardState extends State<RoomCard>
         },
       );
     }
-
     return _buildFallbackAvatar();
   }
 
@@ -403,15 +523,15 @@ class _RoomCardState extends State<RoomCard>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.white.withOpacity(0.3),
-            Colors.white.withOpacity(0.1),
+            Colors.white.withOpacity(0.4),
+            Colors.white.withOpacity(0.2),
           ],
         ),
       ),
       child: Icon(
         widget.room.category.icon,
-        color: Colors.white.withOpacity(0.9),
-        size: 28,
+        color: Colors.white.withOpacity(0.95),
+        size: 32,
       ),
     );
   }
@@ -432,43 +552,51 @@ class _RoomCardState extends State<RoomCard>
     );
   }
 
-  Widget _buildOnlineBadge() {
+  Widget _buildEnhancedOnlineBadge() {
     return Transform.translate(
-      offset: const Offset(6, 6),
+      offset: const Offset(8, 8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: Colors.green.withOpacity(0.95),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: Colors.white.withOpacity(0.4),
-            width: 1.5,
+            color: Colors.white.withOpacity(0.5),
+            width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 500),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.8),
+                    blurRadius: 4,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               '${widget.room.currentParticipants}',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -478,21 +606,44 @@ class _RoomCardState extends State<RoomCard>
     );
   }
 
-  Widget _buildRightSection() {
+  Widget _buildReactionBadge() {
+    return Positioned(
+      top: -5,
+      left: -5,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.pink.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.pink.withOpacity(0.6),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          '$_reactionCount',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedRightSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // Рейтинг с анимацией
-        _buildRatingBadge(),
-
-        const SizedBox(height: 8),
-
-        // Бейджи приватности
-        _buildPrivacyBadges(),
-
-        const SizedBox(height: 12),
-
-        // Меню действий
+        _buildEnhancedRatingBadge(),
+        const SizedBox(height: 10),
+        _buildEnhancedPrivacyBadges(),
+        const SizedBox(height: 14),
         RoomActionsMenu(
           room: widget.room,
           onEdit: widget.onEdit,
@@ -504,23 +655,98 @@ class _RoomCardState extends State<RoomCard>
     );
   }
 
-  Widget _buildRatingBadge() {
+  Widget _buildEnhancedRatingBadge() {
     if (widget.room.rating <= 0) return const SizedBox();
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      duration: const Duration(milliseconds: 500),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.black.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.amber.withOpacity(0.5),
-          width: 1,
+          color: Colors.amber.withOpacity(0.6),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.withOpacity(0.3),
-            blurRadius: 8,
+            color: Colors.amber.withOpacity(0.4),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.star_rounded, size: 16, color: Colors.amber),
+          const SizedBox(width: 6),
+          Text(
+            widget.room.rating.toStringAsFixed(1),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Text(
+            '(${widget.room.ratingCount})',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedPrivacyBadges() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      alignment: WrapAlignment.end,
+      children: [
+        if (widget.room.isPrivate)
+          _buildEnhancedMiniBadge(
+            Icons.lock_outline_rounded,
+            'Приватная',
+            Colors.orange,
+          ),
+        if (widget.room.requiresPassword)
+          _buildEnhancedMiniBadge(
+            Icons.key_rounded,
+            'Пароль',
+            Colors.amber,
+          ),
+        if (widget.room.isVerified)
+          _buildEnhancedMiniBadge(
+            Icons.verified_rounded,
+            'Проверено',
+            Colors.blue,
+          ),
+        if (widget.room.isPinned)
+          _buildEnhancedMiniBadge(
+            Icons.push_pin_rounded,
+            'Закреплено',
+            Colors.red,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEnhancedMiniBadge(IconData icon, String text, Color color) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.5),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -528,13 +754,13 @@ class _RoomCardState extends State<RoomCard>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.star_rounded, size: 14, color: Colors.amber),
-          const SizedBox(width: 4),
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 5),
           Text(
-            widget.room.rating.toStringAsFixed(1),
+            text,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -543,100 +769,37 @@ class _RoomCardState extends State<RoomCard>
     );
   }
 
-  Widget _buildPrivacyBadges() {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      alignment: WrapAlignment.end,
-      children: [
-        if (widget.room.isPrivate)
-          _buildMiniBadge(
-            Icons.lock_outline_rounded,
-            'Приватная',
-            Colors.orange,
-          ),
-        if (widget.room.requiresPassword)
-          _buildMiniBadge(
-            Icons.key_rounded,
-            'Пароль',
-            Colors.amber,
-          ),
-        if (widget.room.isVerified)
-          _buildMiniBadge(
-            Icons.verified_rounded,
-            'Проверено',
-            Colors.blue,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildMiniBadge(IconData icon, String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.4),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: Colors.white),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTitleDescriptionSection() {
+  Widget _buildEnhancedTitleDescription() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Заголовок
         Text(
           widget.room.title,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-            letterSpacing: -0.5,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            height: 1.1,
+            letterSpacing: -0.8,
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-
-        const SizedBox(height: 8),
-
-        // Описание с возможностью развернуть
+        const SizedBox(height: 10),
         GestureDetector(
           onTap: _toggleDescription,
           child: AnimatedCrossFade(
-            duration: const Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 400),
             crossFadeState: _showFullDescription
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
             firstChild: Text(
               widget.room.description,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 14,
-                height: 1.4,
+                color: Colors.white.withOpacity(0.95),
+                fontSize: 15,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -644,52 +807,65 @@ class _RoomCardState extends State<RoomCard>
             secondChild: Text(
               widget.room.description,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 14,
-                height: 1.4,
+                color: Colors.white.withOpacity(0.95),
+                fontSize: 15,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
         ),
-
         if (widget.room.description.length > 100)
           Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              _showFullDescription ? 'Свернуть' : 'Развернуть...',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                Icon(
+                  _showFullDescription
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  color: Colors.white.withOpacity(0.7),
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _showFullDescription ? 'Свернуть' : 'Развернуть',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
       ],
     );
   }
 
-  Widget _buildTagsSection() {
+  Widget _buildEnhancedTagsSection() {
     if (widget.room.tags.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 6,
-      children: widget.room.popularTags.take(4).map((tag) {
+      spacing: 10,
+      runSpacing: 8,
+      children: widget.room.popularTags.take(5).map((tag) {
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          duration: const Duration(milliseconds: 400),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(_isHovering ? 0.25 : 0.2),
-            borderRadius: BorderRadius.circular(8),
+            color: Colors.white.withOpacity(_isHovering ? 0.3 : 0.25),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withOpacity(0.4),
+              width: 1.5,
             ),
             boxShadow: [
               if (_isHovering)
                 BoxShadow(
-                  color: Colors.white.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
+                  color: Colors.white.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
             ],
           ),
@@ -697,8 +873,8 @@ class _RoomCardState extends State<RoomCard>
             '#$tag',
             style: TextStyle(
               color: Colors.white.withOpacity(0.95),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
             ),
           ),
         );
@@ -706,39 +882,39 @@ class _RoomCardState extends State<RoomCard>
     );
   }
 
-  Widget _buildStatsSection() {
+  Widget _buildEnhancedStatsSection() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.15)),
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem(
+          _buildEnhancedStatItem(
             Icons.chat_bubble_rounded,
-            widget.room.messageCount.formatCount(),
+            _formatCount(widget.room.messageCount),
             'сообщений',
             Colors.blue,
           ),
-          _buildStatItem(
+          _buildEnhancedStatItem(
             Icons.access_time_filled_rounded,
-            widget.room.formattedLastActivity,
+            _getFormattedLastActivity(),
             'активность',
             Colors.green,
           ),
-          _buildStatItem(
+          _buildEnhancedStatItem(
             Icons.visibility_rounded,
-            widget.room.viewCount.formatCount(),
+            _formatCount(_getViewCount()),
             'просмотров',
             Colors.purple,
           ),
@@ -747,40 +923,61 @@ class _RoomCardState extends State<RoomCard>
     );
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label, Color color) {
+  // Вспомогательные методы для совместимости
+  String _formatCount(int count) {
+    if (count < 1000) return count.toString();
+    if (count < 1000000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return '${(count / 1000000).toStringAsFixed(1)}M';
+  }
+
+  int _getViewCount() => widget.room.viewCount ?? 0;
+
+  String _getFormattedLastActivity() {
+    final now = DateTime.now();
+    final difference = now.difference(widget.room.lastActivity);
+
+    if (difference.inMinutes < 1) return 'Только что';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} мин';
+    if (difference.inHours < 24) return '${difference.inHours} ч';
+    return '${difference.inDays} дн';
+  }
+
+  Widget _buildEnhancedStatItem(IconData icon, String value, String label, Color color) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withOpacity(0.25),
             shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.5), width: 1),
           ),
-          child: Icon(icon, color: color, size: 16),
+          child: Icon(icon, color: color, size: 18),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Text(
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 10,
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildCapacitySection() {
+  Widget _buildEnhancedCapacitySection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -788,129 +985,164 @@ class _RoomCardState extends State<RoomCard>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Заполненность комнаты:',
+              'Заполненность:',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                color: Colors.white.withOpacity(0.95),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
               ),
             ),
             Text(
-              '${widget.room.availableSpots} из ${widget.room.maxParticipants} мест',
+              '${_getAvailableSpots()} из ${widget.room.maxParticipants} мест',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        // Кастомный индикатор заполненности
-        _buildCustomCapacityIndicator(),
+        const SizedBox(height: 10),
+        _buildEnhancedCapacityIndicator(),
       ],
     );
   }
 
-  Widget _buildCustomCapacityIndicator() {
+  int _getAvailableSpots() => widget.room.maxParticipants - widget.room.currentParticipants;
+
+  Widget _buildEnhancedCapacityIndicator() {
     final percentage = widget.room.currentParticipants / widget.room.maxParticipants;
     final isAlmostFull = percentage > 0.8;
+    final isHalfFull = percentage > 0.5;
 
     return Stack(
       children: [
-        // Фон индикатора
         Container(
-          height: 8,
+          height: 10,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(4),
+            color: Colors.white.withOpacity(0.25),
+            borderRadius: BorderRadius.circular(5),
           ),
         ),
-
-        // Заполненная часть
         AnimatedContainer(
-          duration: const Duration(milliseconds: 800),
+          duration: const Duration(milliseconds: 1000),
           curve: Curves.easeOutCubic,
-          height: 8,
-          width: MediaQuery.of(context).size.width * percentage * 0.3,
+          height: 10,
+          width: MediaQuery.of(context).size.width * percentage * 0.35,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: isAlmostFull
-                  ? [Colors.red, Colors.orange]
-                  : [Colors.green, Colors.lightGreen],
+                  ? [Colors.red, Colors.orangeAccent]
+                  : isHalfFull
+                  ? [Colors.orange, Colors.yellow]
+                  : [Colors.green, Colors.lightGreenAccent],
             ),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(5),
             boxShadow: [
               BoxShadow(
-                color: (isAlmostFull ? Colors.red : Colors.green).withOpacity(0.4),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
+                color: (isAlmostFull ? Colors.red : isHalfFull ? Colors.orange : Colors.green)
+                    .withOpacity(0.6),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
         ),
+        if (_isHovering) _buildCapacityDots(percentage),
       ],
     );
   }
 
-  Widget _buildJoinButton(ThemeData theme) {
-    final isDisabled = !widget.room.canJoin || widget.room.isExpired;
+  Widget _buildCapacityDots(double percentage) {
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final dotCount = (constraints.maxWidth / 15).floor();
+          return Row(
+            children: List.generate(dotCount, (index) {
+              final dotPosition = index / dotCount;
+              final isActive = dotPosition <= percentage;
+
+              return Expanded(
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: 300 + index * 100),
+                    width: isActive ? 4 : 2,
+                    height: isActive ? 4 : 2,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? Colors.white.withOpacity(0.9)
+                          : Colors.white.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEnhancedJoinButton(ThemeData theme) {
+    final isDisabled = !_canJoin();
     final isJoined = widget.room.isJoined;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 500),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: _isHovering && !isDisabled
             ? [
           BoxShadow(
-            color: Colors.white.withOpacity(0.4),
-            blurRadius: 15,
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: widget.room.category.color.withOpacity(0.6),
+            color: Colors.white.withOpacity(0.5),
             blurRadius: 20,
             spreadRadius: 3,
+          ),
+          BoxShadow(
+            color: widget.room.category.color.withOpacity(0.8),
+            blurRadius: 25,
+            spreadRadius: 4,
           ),
         ]
             : [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: ElevatedButton(
         onPressed: isDisabled ? null : widget.onJoin,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _getButtonColor(isDisabled, isJoined),
-          foregroundColor: _getButtonTextColor(isDisabled, isJoined),
+          backgroundColor: _getEnhancedButtonColor(isDisabled, isJoined),
+          foregroundColor: _getEnhancedButtonTextColor(isDisabled, isJoined),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
           ),
-          minimumSize: const Size(double.infinity, 56),
+          minimumSize: const Size(double.infinity, 60),
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 28),
           shadowColor: Colors.transparent,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              child: _buildButtonIcon(isDisabled, isJoined),
+              duration: const Duration(milliseconds: 500),
+              child: _buildEnhancedButtonIcon(isDisabled, isJoined),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 500),
               child: Text(
-                _getButtonText(isDisabled, isJoined),
+                _getEnhancedButtonText(isDisabled, isJoined),
                 style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  letterSpacing: -0.3,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  letterSpacing: -0.5,
                 ),
                 key: ValueKey('${isJoined}_$isDisabled'),
               ),
@@ -921,19 +1153,31 @@ class _RoomCardState extends State<RoomCard>
     );
   }
 
-  Color _getButtonColor(bool isDisabled, bool isJoined) {
+  bool _canJoin() {
+    return widget.room.isActive &&
+        !_isFull() &&
+        !_isExpired();
+  }
+
+  bool _isFull() => widget.room.currentParticipants >= widget.room.maxParticipants;
+
+  bool _isExpired() => widget.room.lastActivity.isBefore(
+      DateTime.now().subtract(const Duration(hours: 24))
+  );
+
+  Color _getEnhancedButtonColor(bool isDisabled, bool isJoined) {
     if (isDisabled) {
-      return Colors.white.withOpacity(0.15);
+      return Colors.white.withOpacity(0.2);
     }
     if (isJoined) {
-      return Colors.white.withOpacity(0.2);
+      return Colors.white.withOpacity(0.25);
     }
     return Colors.white;
   }
 
-  Color _getButtonTextColor(bool isDisabled, bool isJoined) {
+  Color _getEnhancedButtonTextColor(bool isDisabled, bool isJoined) {
     if (isDisabled) {
-      return Colors.white.withOpacity(0.5);
+      return Colors.white.withOpacity(0.6);
     }
     if (isJoined) {
       return Colors.white;
@@ -941,22 +1185,32 @@ class _RoomCardState extends State<RoomCard>
     return widget.room.category.color;
   }
 
-  Widget _buildButtonIcon(bool isDisabled, bool isJoined) {
+  Widget _buildEnhancedButtonIcon(bool isDisabled, bool isJoined) {
     if (isDisabled) {
-      return Icon(Icons.lock_rounded, size: 20, key: const ValueKey('disabled'));
+      return const Icon(Icons.lock_rounded, size: 22, key: ValueKey('disabled'));
+    }
+    if (_isQuickJoining) {
+      return SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(widget.room.category.color),
+        ),
+      );
     }
 
     return Icon(
       isJoined ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
-      size: 20,
+      size: 22,
       key: ValueKey(isJoined ? 'joined' : 'join'),
     );
   }
 
-  String _getButtonText(bool isDisabled, bool isJoined) {
+  String _getEnhancedButtonText(bool isDisabled, bool isJoined) {
     if (isDisabled) {
-      if (widget.room.isExpired) return 'Завершена';
-      if (widget.room.isFull) return 'Заполнена';
+      if (_isExpired()) return 'Завершена';
+      if (_isFull()) return 'Заполнена';
       if (!widget.room.isActive) return 'Неактивна';
       return 'Недоступна';
     }
@@ -967,12 +1221,12 @@ class _RoomCardState extends State<RoomCard>
     return Positioned.fill(
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           gradient: RadialGradient(
             center: Alignment.center,
-            radius: 1.2,
+            radius: 1.5,
             colors: [
-              Colors.white.withOpacity(0.1),
+              Colors.white.withOpacity(0.15),
               Colors.transparent,
             ],
           ),
@@ -985,19 +1239,89 @@ class _RoomCardState extends State<RoomCard>
     return Positioned.fill(
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: Colors.black.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(28),
+          color: Colors.black.withOpacity(0.2),
         ),
       ),
     );
   }
 
-  void _showEnhancedPreview() {
-    showDialog(
-      context: context,
-      builder: (context) => _EnhancedRoomPreviewDialog(
-        room: widget.room,
-        onJoin: widget.onJoin,
+  Widget _buildQuickJoinOverlay() {
+    return Positioned.fill(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          color: Colors.black.withOpacity(0.4),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeaturedBadge() {
+    return Positioned(
+      top: 12,
+      left: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Colors.amber, Colors.orange],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withOpacity(0.6),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_rounded, size: 14, color: Colors.white),
+            const SizedBox(width: 4),
+            Text(
+              'Featured',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookmarkBadge() {
+    return Positioned(
+      top: 12,
+      right: 12,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.pink.withOpacity(0.9),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.pink.withOpacity(0.6),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.bookmark_rounded,
+          color: Colors.white,
+          size: 16,
+        ),
       ),
     );
   }
@@ -1008,87 +1332,7 @@ class _RoomCardState extends State<RoomCard>
   }
 }
 
-class _EnhancedRoomPreviewDialog extends StatelessWidget {
-  final Room room;
-  final VoidCallback onJoin;
-
-  const _EnhancedRoomPreviewDialog({required this.room, required this.onJoin});
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 500),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                room.category.color.withOpacity(0.95),
-                room.category.color.withOpacity(0.8),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.4),
-                blurRadius: 40,
-                spreadRadius: 5,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Enhanced preview content would go here
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Text(
-                      room.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: onJoin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: room.category.color,
-                        minimumSize: const Size(200, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text(
-                        'Присоединиться',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-enum PatternType { dots, lines, triangles }
+enum PatternType { dots, waves, hexagons }
 
 class _AnimatedGeometricPatternPainter extends CustomPainter {
   final Color color;
@@ -1109,23 +1353,23 @@ class _AnimatedGeometricPatternPainter extends CustomPainter {
       case PatternType.dots:
         _paintAnimatedDots(canvas, size, paint);
         break;
-      case PatternType.lines:
-        _paintAnimatedLines(canvas, size, paint);
+      case PatternType.waves:
+        _paintAnimatedWaves(canvas, size, paint);
         break;
-      case PatternType.triangles:
-        _paintAnimatedTriangles(canvas, size, paint);
+      case PatternType.hexagons:
+        _paintAnimatedHexagons(canvas, size, paint);
         break;
     }
   }
 
   void _paintAnimatedDots(Canvas canvas, Size size, Paint paint) {
-    const spacing = 25.0;
-    const dotRadius = 1.5;
+    const spacing = 30.0;
+    const dotRadius = 2.0;
 
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
-        final offset = (x / spacing + y / spacing) * 0.1;
-        final alpha = ((animationValue + offset) % 1.0) * 0.5;
+        final offset = (x / spacing + y / spacing) * 0.15;
+        final alpha = 0.05 + ((animationValue + offset) % 1.0) * 0.2;
         canvas.drawCircle(
           Offset(x, y),
           dotRadius,
@@ -1135,41 +1379,70 @@ class _AnimatedGeometricPatternPainter extends CustomPainter {
     }
   }
 
-  void _paintAnimatedLines(Canvas canvas, Size size, Paint paint) {
-    const spacing = 20.0;
+  void _paintAnimatedWaves(Canvas canvas, Size size, Paint paint) {
+    const waveCount = 8;
+    final waveHeight = size.height / waveCount;
 
-    for (double x = 0; x < size.width; x += spacing) {
-      final alpha = 0.1 + (x / size.width) * 0.2;
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
+    for (int i = 0; i < waveCount; i++) {
+      final path = Path();
+      final baseY = i * waveHeight;
+      final amplitude = waveHeight * 0.3;
+      const frequency = 0.02;
+
+      path.moveTo(0, baseY);
+
+      for (double x = 0; x < size.width; x += 1) {
+        final y = baseY + sin(x * frequency + animationValue * 2 * pi) * amplitude;
+        path.lineTo(x, y);
+      }
+
+      final alpha = 0.03 + (i / waveCount) * 0.1;
+      canvas.drawPath(
+        path,
         paint
-          ..color = color.withOpacity(alpha * animationValue)
-          ..strokeWidth = 0.8,
+          ..color = color.withOpacity(alpha)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
       );
     }
   }
 
-  void _paintAnimatedTriangles(Canvas canvas, Size size, Paint paint) {
-    const spacing = 30.0;
+  void _paintAnimatedHexagons(Canvas canvas, Size size, Paint paint) {
+    const radius = 20.0;
+    const horizontalSpacing = radius * 1.5;
+    const verticalSpacing = radius * 1.732;
 
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        final offset = (x / spacing + y / spacing) * 0.2;
-        final alpha = 0.1 + ((animationValue + offset) % 1.0) * 0.3;
+    for (double x = -radius; x < size.width + radius; x += horizontalSpacing) {
+      for (double y = -radius; y < size.height + radius; y += verticalSpacing) {
+        // ИСПРАВЛЕННАЯ СТРОКА:
+        final offsetX = ((y / verticalSpacing).floor() % 2 == 0) ? 0 : horizontalSpacing / 2;
+        final hexX = x + offsetX;
 
-        final path = Path()
-          ..moveTo(x, y)
-          ..lineTo(x + 10, y + 5)
-          ..lineTo(x, y + 10)
-          ..close();
+        final offset = (hexX / horizontalSpacing + y / verticalSpacing) * 0.1;
+        final alpha = 0.03 + ((animationValue + offset) % 1.0) * 0.15;
 
-        canvas.drawPath(
-          path,
-          paint..color = color.withOpacity(alpha),
-        );
+        _drawHexagon(canvas, Offset(hexX, y), radius, paint..color = color.withOpacity(alpha));
       }
     }
+  }
+
+  void _drawHexagon(Canvas canvas, Offset center, double radius, Paint paint) {
+    final path = Path();
+
+    for (int i = 0; i < 6; i++) {
+      final angle = 2.0 * pi * i / 6;
+      final x = center.dx + radius * cos(angle);
+      final y = center.dy + radius * sin(angle);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    path.close();
+    canvas.drawPath(path, paint);
   }
 
   @override

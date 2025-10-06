@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'theme/news_theme.dart'; // Добавляем импорт темы
 
 class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
@@ -13,11 +14,6 @@ class NewsCard extends StatefulWidget {
   final Function(String, String, Color) onTagEdit;
   final String Function(String) formatDate;
   final String Function(String) getTimeAgo;
-  final Color primaryColor;
-  final Color backgroundColor;
-  final Color cardColor;
-  final Color textColor;
-  final Color secondaryTextColor;
   final ScrollController scrollController;
 
   const NewsCard({
@@ -33,11 +29,6 @@ class NewsCard extends StatefulWidget {
     required this.onTagEdit,
     required this.formatDate,
     required this.getTimeAgo,
-    required this.primaryColor,
-    required this.backgroundColor,
-    required this.cardColor,
-    required this.textColor,
-    required this.secondaryTextColor,
     required this.scrollController,
   });
 
@@ -56,24 +47,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   bool _isBookmarked = false;
   String _editingTagId = '';
 
-  final List<Color> _availableColors = [
-    const Color(0xFFDA291C),
-    const Color(0xFF6C1D45),
-    const Color(0xFFFFD700),
-    const Color(0xFF2196F3),
-    const Color(0xFF4CAF50),
-    const Color(0xFFFF9800),
-    const Color(0xFF9C27B0),
-    const Color(0xFF607D8B),
-    const Color(0xFF795548),
-    const Color(0xFFE91E63),
-  ];
+  final List<Color> _availableColors = NewsTheme.tagColors;
 
   Color get _selectedTagColor {
     if (widget.news['tag_color'] != null) {
       return Color(widget.news['tag_color']);
     }
-    return widget.primaryColor;
+    return NewsTheme.primaryColor;
   }
 
   @override
@@ -151,7 +131,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     });
   }
 
-
   void _showTagEditDialog(String tag, String tagId, Color currentColor) {
     _tagEditController.text = tag;
     _editingTagId = tagId;
@@ -164,7 +143,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         return StatefulBuilder(
           builder: (context, setState) {
             return Dialog(
-              backgroundColor: widget.cardColor,
+              backgroundColor: NewsTheme.cardColor,
               surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Padding(
@@ -177,7 +156,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: widget.textColor,
+                        color: NewsTheme.textColor,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -185,16 +164,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     // Поле ввода названия тега
                     TextField(
                       controller: _tagEditController,
-                      style: TextStyle(color: widget.textColor, fontSize: 16),
+                      style: TextStyle(color: NewsTheme.textColor, fontSize: 16),
                       decoration: InputDecoration(
                         hintText: 'Введите название тега',
-                        hintStyle: TextStyle(color: widget.secondaryTextColor),
+                        hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: widget.primaryColor.withOpacity(0.3)),
+                          borderSide: BorderSide(color: NewsTheme.primaryColor.withOpacity(0.3)),
                         ),
                         filled: true,
-                        fillColor: widget.backgroundColor,
+                        fillColor: NewsTheme.backgroundColor,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
                       maxLength: 20,
@@ -211,7 +190,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     Text(
                       'Выберите цвет:',
                       style: TextStyle(
-                        color: widget.textColor,
+                        color: NewsTheme.textColor,
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
                       ),
@@ -289,11 +268,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              side: BorderSide(color: widget.primaryColor),
+                              side: BorderSide(color: NewsTheme.primaryColor),
                             ),
                             child: Text(
                               'Отмена',
-                              style: TextStyle(color: widget.primaryColor),
+                              style: TextStyle(color: NewsTheme.primaryColor),
                             ),
                           ),
                         ),
@@ -310,14 +289,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Тег "$text" сохранен!'),
-                                  backgroundColor: Colors.green,
+                                  backgroundColor: NewsTheme.successColor,
                                   duration: const Duration(seconds: 2),
                                 ),
                               );
                             }
                                 : null, // Кнопка неактивна если текст пустой
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: widget.primaryColor,
+                              backgroundColor: NewsTheme.primaryColor,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -337,13 +316,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-
-
-
   void _showOptionsMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: widget.cardColor,
+      backgroundColor: NewsTheme.cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -362,13 +338,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 ),
               ),
               const SizedBox(height: 20),
-              _buildMenuOption(Icons.edit, 'Редактировать', widget.primaryColor, widget.onEdit),
-              _buildMenuOption(Icons.delete, 'Удалить', Colors.red, widget.onDelete),
+              _buildMenuOption(Icons.edit, 'Редактировать', NewsTheme.primaryColor, widget.onEdit),
+              _buildMenuOption(Icons.delete, 'Удалить', NewsTheme.errorColor, widget.onDelete),
               const SizedBox(height: 16),
               OutlinedButton(
                 onPressed: () => Navigator.pop(context),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: widget.secondaryTextColor,
+                  foregroundColor: NewsTheme.secondaryTextColor,
                   side: BorderSide(color: Colors.grey.shade300),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -392,7 +368,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         ),
         child: Icon(icon, color: color, size: 20),
       ),
-      title: Text(text, style: TextStyle(color: widget.textColor, fontWeight: FontWeight.w500)),
+      title: Text(text, style: TextStyle(color: NewsTheme.textColor, fontWeight: FontWeight.w500)),
       onTap: () {
         Navigator.pop(context);
         onTap();
@@ -404,18 +380,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   Widget _buildCard({required Widget child}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: widget.cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
+      decoration: NewsTheme.cardDecoration,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: child,
@@ -435,7 +400,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           height: 48,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [widget.primaryColor.withOpacity(0.8), widget.primaryColor.withOpacity(0.4)],
+              colors: [NewsTheme.primaryColor.withOpacity(0.8), NewsTheme.primaryColor.withOpacity(0.4)],
             ),
             shape: BoxShape.circle,
             boxShadow: [
@@ -454,9 +419,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(authorName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: widget.textColor)),
+              Text(authorName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: NewsTheme.textColor)),
               const SizedBox(height: 2),
-              Text(widget.getTimeAgo(createdAt), style: TextStyle(color: widget.secondaryTextColor, fontSize: 13)),
+              Text(widget.getTimeAgo(createdAt), style: TextStyle(color: NewsTheme.secondaryTextColor, fontSize: 13)),
             ],
           ),
         ),
@@ -467,7 +432,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           ),
         if (isAuthor)
           IconButton(
-            icon: Icon(Icons.more_vert, color: widget.secondaryTextColor, size: 22),
+            icon: Icon(Icons.more_vert, color: NewsTheme.secondaryTextColor, size: 22),
             onPressed: () => _showOptionsMenu(context),
           ),
       ],
@@ -530,11 +495,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: widget.primaryColor.withOpacity(0.1),
+              color: NewsTheme.primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: widget.primaryColor.withOpacity(0.2), width: 1),
+              border: Border.all(color: NewsTheme.primaryColor.withOpacity(0.2), width: 1),
             ),
-            child: Text('#${tag.trim()}', style: TextStyle(color: widget.primaryColor, fontSize: 13, fontWeight: FontWeight.w600)),
+            child: Text('#${tag.trim()}', style: TextStyle(color: NewsTheme.primaryColor, fontSize: 13, fontWeight: FontWeight.w600)),
           ),
         );
       }).toList(),
@@ -575,7 +540,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           ),
         const Spacer(),
         IconButton(
-          icon: Icon(Icons.share_rounded, size: 22, color: widget.secondaryTextColor),
+          icon: Icon(Icons.share_rounded, size: 22, color: NewsTheme.secondaryTextColor),
           onPressed: widget.onShare,
           splashRadius: 20,
         ),
@@ -596,16 +561,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? widget.primaryColor.withOpacity(0.15) : Colors.transparent,
+          color: isActive ? NewsTheme.primaryColor.withOpacity(0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: isActive ? widget.primaryColor : widget.secondaryTextColor),
+            Icon(icon, size: 20, color: isActive ? NewsTheme.primaryColor : NewsTheme.secondaryTextColor),
             if (count > 0) const SizedBox(width: 6),
             if (count > 0)
-              Text(_formatCount(count), style: TextStyle(color: isActive ? widget.primaryColor : widget.secondaryTextColor, fontWeight: FontWeight.w600, fontSize: 14)),
+              Text(_formatCount(count), style: TextStyle(color: isActive ? NewsTheme.primaryColor : NewsTheme.secondaryTextColor, fontWeight: FontWeight.w600, fontSize: 14)),
           ],
         ),
       ),
@@ -653,7 +618,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.blue.withOpacity(0.8), Colors.blueAccent.withOpacity(0.6)]),
+              gradient: LinearGradient(colors: [NewsTheme.primaryColor.withOpacity(0.8), NewsTheme.secondaryColor.withOpacity(0.6)]),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -665,7 +630,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: widget.backgroundColor,
+                color: NewsTheme.backgroundColor,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.withOpacity(0.1)),
               ),
@@ -674,13 +639,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 children: [
                   Row(
                     children: [
-                      Text(author, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: widget.textColor)),
+                      Text(author, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: NewsTheme.textColor)),
                       const Spacer(),
-                      Text(time, style: TextStyle(fontSize: 11, color: widget.secondaryTextColor, fontWeight: FontWeight.w500)),
+                      Text(time, style: TextStyle(fontSize: 11, color: NewsTheme.secondaryTextColor, fontWeight: FontWeight.w500)),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(text, style: TextStyle(fontSize: 14, color: widget.textColor.withOpacity(0.9), height: 1.4)),
+                  Text(text, style: TextStyle(fontSize: 14, color: NewsTheme.textColor.withOpacity(0.9), height: 1.4)),
                 ],
               ),
             ),
@@ -700,7 +665,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: widget.backgroundColor,
+        color: NewsTheme.backgroundColor,
         borderRadius: BorderRadius.circular(25),
         border: Border.all(color: Colors.grey.withOpacity(0.2)),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
@@ -711,10 +676,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           Expanded(
             child: TextField(
               controller: _commentController,
-              style: TextStyle(color: widget.textColor, fontSize: 15),
+              style: TextStyle(color: NewsTheme.textColor, fontSize: 15),
               decoration: InputDecoration(
                 hintText: 'Написать комментарий...',
-                hintStyle: TextStyle(color: widget.secondaryTextColor),
+                hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
               ),
@@ -731,7 +696,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [widget.primaryColor, widget.primaryColor.withOpacity(0.8)]),
+              gradient: LinearGradient(colors: [NewsTheme.primaryColor, NewsTheme.primaryColor.withOpacity(0.8)]),
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -781,32 +746,32 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: widget.primaryColor.withOpacity(0.1),
+                  color: NewsTheme.primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.group, color: widget.primaryColor, size: 20),
+                child: Icon(Icons.group, color: NewsTheme.primaryColor, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Канальный пост', style: TextStyle(color: widget.textColor, fontWeight: FontWeight.w600, fontSize: 14)),
-                    Text(channelName, style: TextStyle(color: widget.primaryColor, fontSize: 13, fontWeight: FontWeight.w500)),
+                    Text('Канальный пост', style: TextStyle(color: NewsTheme.textColor, fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(channelName, style: TextStyle(color: NewsTheme.primaryColor, fontSize: 13, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
-              Text(widget.getTimeAgo(createdAt), style: TextStyle(color: widget.secondaryTextColor, fontSize: 12)),
+              Text(widget.getTimeAgo(createdAt), style: TextStyle(color: NewsTheme.secondaryTextColor, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 16),
           if (title.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: widget.textColor, height: 1.4)),
+              child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: NewsTheme.textColor, height: 1.4)),
             ),
           if (description.isNotEmpty)
-            Text(description, style: TextStyle(fontSize: 15, color: widget.textColor.withOpacity(0.9), height: 1.5)),
+            Text(description, style: TextStyle(fontSize: 15, color: NewsTheme.textColor.withOpacity(0.9), height: 1.5)),
           const SizedBox(height: 16),
           _buildPostActions(showBookmark: false),
         ],
@@ -837,12 +802,12 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
                       _getStringValue(widget.news['title']),
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.3, color: widget.textColor),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.3, color: NewsTheme.textColor),
                     ),
                   ),
                 Text(
                   _getStringValue(widget.news['description']),
-                  style: TextStyle(fontSize: 16, height: 1.6, color: widget.textColor.withOpacity(0.9)),
+                  style: TextStyle(fontSize: 16, height: 1.6, color: NewsTheme.textColor.withOpacity(0.9)),
                 ),
               ],
             ),

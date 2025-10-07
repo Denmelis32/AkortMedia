@@ -13,7 +13,6 @@ import '../../providers/channel_posts_provider.dart';
 import '../../services/api_service.dart';
 import '../articles_pages/models/article.dart';
 import '../articles_pages/widgets/add_article_dialog.dart';
-import '../news_page/dialogs.dart';
 import 'models/channel.dart';
 import 'models/chat_message.dart';
 

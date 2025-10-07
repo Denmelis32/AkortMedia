@@ -238,13 +238,29 @@ class _ChannelHeaderState extends State<ChannelHeader> {
   }
 
   Widget _buildHashtags(List<String> hashtags) {
+    print('🟡 CHANNEL HEADER: Building hashtags for ${widget.channel.title}');
+    print('🟡 CHANNEL HEADER Hashtags input: $hashtags');
+
+    // Очищаем хештеги от лишних решеток
+    final cleanedHashtags = hashtags
+        .map((tag) => tag.replaceAll('#', '').trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList();
+
+    print('🟡 CHANNEL HEADER Cleaned hashtags: $cleanedHashtags');
+
+    if (cleanedHashtags.isEmpty) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Wrap(
         spacing: 6,
         runSpacing: 4,
         alignment: WrapAlignment.center,
-        children: hashtags.map((tag) {
+        children: cleanedHashtags.map((tag) {
+          final displayTag = '#$tag';
+          print('🟡 CHANNEL HEADER Creating widget for: $displayTag');
+
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -253,7 +269,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
               border: Border.all(color: Colors.white.withOpacity(0.4), width: 1),
             ),
             child: Text(
-              '#$tag',
+              displayTag,
               style: const TextStyle(
                 fontSize: 11,
                 color: Colors.white,

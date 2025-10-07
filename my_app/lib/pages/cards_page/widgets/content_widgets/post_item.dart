@@ -94,14 +94,22 @@ class PostItem extends StatelessWidget {
   }
 
   Widget _buildHashtags() {
+    print('🔴 POSTITEM: Building hashtags for ${post['title']}');
+
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Wrap(
         spacing: 8,
         children: (post['hashtags'] as List).map<Widget>((hashtag) {
+          // Используем ту же логику очистки
+          final cleanHashtag = _cleanSingleHashtag(hashtag.toString());
+          if (cleanHashtag.isEmpty) return const SizedBox.shrink();
+
+          print('🔴 POSTITEM CLEAN HASHTAG: "$cleanHashtag"');
+
           return Chip(
             label: Text(
-              '#$hashtag',
+              '#$cleanHashtag',
               style: TextStyle(
                 fontSize: 12,
                 color: channel.cardColor,
@@ -113,6 +121,14 @@ class PostItem extends StatelessWidget {
         }).toList(),
       ),
     );
+  }
+
+// Добавьте этот метод в класс PostItem
+  String _cleanSingleHashtag(String tag) {
+    var cleanTag = tag.trim();
+    cleanTag = cleanTag.replaceAll(RegExp(r'^#+|#+$'), '').trim();
+    cleanTag = cleanTag.replaceAll(RegExp(r'#+'), ' ').trim();
+    return cleanTag;
   }
 
   Widget _buildFooter() {

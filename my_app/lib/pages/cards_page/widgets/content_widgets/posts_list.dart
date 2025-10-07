@@ -196,14 +196,26 @@ class PostsList extends StatelessWidget {
 
   List<String> _parseHashtags(dynamic hashtags) {
     if (hashtags is String) {
-      return hashtags.split(' ').where((tag) => tag.isNotEmpty).toList();
+      return hashtags
+          .split(RegExp(r'[,\s]+'))
+          .map((tag) => _cleanSingleHashtag(tag))
+          .where((tag) => tag.isNotEmpty)
+          .toList();
     } else if (hashtags is List) {
       return hashtags
-          .map((tag) => tag.toString())
+          .map((tag) => _cleanSingleHashtag(tag.toString()))
           .where((tag) => tag.isNotEmpty)
           .toList();
     }
     return [];
+  }
+
+// Добавьте этот метод в класс PostsList
+  String _cleanSingleHashtag(String tag) {
+    var cleanTag = tag.trim();
+    cleanTag = cleanTag.replaceAll(RegExp(r'^#+|#+$'), '').trim();
+    cleanTag = cleanTag.replaceAll(RegExp(r'#+'), ' ').trim();
+    return cleanTag;
   }
 
   Widget _buildEmptyContent(String title, String message) {

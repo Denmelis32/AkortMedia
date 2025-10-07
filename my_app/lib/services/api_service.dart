@@ -5,6 +5,7 @@ import 'auth_service.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:5001/api';
+  static const bool _useMockData = true; // Флаг для использования мок-данных
 
   // Получение headers с токеном авторизации
   static Future<Map<String, String>> _getHeaders() async {
@@ -38,6 +39,12 @@ class ApiService {
   // GET запрос для новостей
   static Future<List<dynamic>> getNews() async {
     try {
+      // Если используем мок-данные
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 500)); // Имитация задержки
+        return _getMockNews();
+      }
+
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/news'),
@@ -54,12 +61,70 @@ class ApiService {
           'user_tags': news['user_tags'] ?? {},
           'comments': news['comments'] ?? [],
           'likes': news['likes'] ?? 0,
+          'isLiked': news['isLiked'] ?? false,
+          'isBookmarked': news['isBookmarked'] ?? false,
         };
       }).toList();
     } catch (e) {
       print('API Error (getNews): $e');
-      rethrow;
+      // Fallback на мок-данные при ошибке
+      return _getMockNews();
     }
+  }
+
+  // Мок-данные для новостей
+  static List<dynamic> _getMockNews() {
+    return [
+      {
+        "id": "1",
+        "title": "Манчестер Сити выиграл Лигу Чемпионов",
+        "description": "Манчестер Сити в драматичном матче обыграл Интер со счетом 1:0",
+        "image": "⚽",
+        "likes": 45,
+        "author_name": "Администратор",
+        "created_at": "2025-09-09T16:33:18.417Z",
+        "comments": [
+          {
+            "id": "comment_1",
+            "author": "Фанат",
+            "text": "Отличная игра!",
+            "time": "2025-09-09T17:00:00.000Z"
+          }
+        ],
+        "hashtags": ["футбол", "лигачемпионов"],
+        "user_tags": {"tag1": "Фанат Манчестера"},
+        "isLiked": false,
+        "isBookmarked": false,
+      },
+      {
+        "id": "2",
+        "title": "Новый сезон Formula 1",
+        "description": "Начало нового сезона Formula 1 обещает быть захватывающим с новыми правилами и командами",
+        "image": "🏎️",
+        "likes": 23,
+        "author_name": "Спортивный обозреватель",
+        "created_at": "2025-09-08T10:15:30.123Z",
+        "comments": [],
+        "hashtags": ["formula1", "автоспорт"],
+        "user_tags": {"tag1": "Болельщик"},
+        "isLiked": false,
+        "isBookmarked": false,
+      },
+      {
+        "id": "3",
+        "title": "Привет",
+        "description": "каваф",
+        "image": "",
+        "likes": 0,
+        "author_name": "Маринцев",
+        "created_at": DateTime.now().subtract(const Duration(minutes: 6)).toIso8601String(),
+        "comments": [],
+        "hashtags": ["вфывфы", "вывыфф"],
+        "user_tags": {"tag1": "БУК"},
+        "isLiked": false,
+        "isBookmarked": false,
+      }
+    ];
   }
 
   static Future<dynamic> createNews(Map<String, dynamic> newsData) async {
@@ -67,7 +132,7 @@ class ApiService {
       print('🔄 Отправка данных на сервер...');
 
       // ИМИТАЦИЯ УСПЕШНОГО ОТВЕТА СЕРВЕРА
-      await Future.delayed(const Duration(seconds: 1)); // Имитация задержки
+      await Future.delayed(const Duration(seconds: 1));
 
       return {
         "id": "server-${DateTime.now().millisecondsSinceEpoch}",
@@ -78,7 +143,7 @@ class ApiService {
         "author_name": "Текущий пользователь",
         "created_at": DateTime.now().toIso8601String(),
         "comments": [],
-        "user_tags": {},
+        "user_tags": {"tag1": "Новый тег"},
         "isLiked": false,
         "isBookmarked": false,
       };
@@ -89,10 +154,15 @@ class ApiService {
     }
   }
 
-
   // Лайк/дизлайк новости
   static Future<void> toggleLikeNews(String newsId, bool isLiked) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        print('👍 Лайк обновлен для новости $newsId: $isLiked');
+        return;
+      }
+
       final headers = await _getHeaders();
       final endpoint = isLiked ? 'like' : 'unlike';
 
@@ -111,6 +181,12 @@ class ApiService {
   // Добавить/удалить закладку
   static Future<void> toggleBookmarkNews(String newsId, bool isBookmarked) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        print('🔖 Закладка обновлена для новости $newsId: $isBookmarked');
+        return;
+      }
+
       final headers = await _getHeaders();
       final endpoint = isBookmarked ? 'bookmark' : 'unbookmark';
 
@@ -129,6 +205,16 @@ class ApiService {
   // Получить закладки пользователя
   static Future<List<dynamic>> getBookmarks() async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        final allNews = _getMockNews();
+        // Возвращаем только некоторые новости как закладки для примера
+        return allNews.take(2).map((news) => {
+          ...news,
+          'isBookmarked': true,
+        }).toList();
+      }
+
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/user/bookmarks'),
@@ -143,18 +229,28 @@ class ApiService {
           'user_tags': news['user_tags'] ?? {},
           'comments': news['comments'] ?? [],
           'likes': news['likes'] ?? 0,
-          'isBookmarked': true, // Помечаем как закладку
+          'isBookmarked': true,
         };
       }).toList();
     } catch (e) {
       print('API Error (getBookmarks): $e');
-      rethrow;
+      return [];
     }
   }
 
   // Добавить комментарий
   static Future<dynamic> addComment(String newsId, Map<String, dynamic> comment) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        return {
+          "id": "comment_${DateTime.now().millisecondsSinceEpoch}",
+          "author": comment['author'] ?? "Пользователь",
+          "text": comment['text'],
+          "time": DateTime.now().toIso8601String(),
+        };
+      }
+
       final headers = await _getHeaders();
       final response = await http.post(
         Uri.parse('$baseUrl/news/$newsId/comments'),
@@ -172,6 +268,12 @@ class ApiService {
   // Удалить комментарий
   static Future<void> deleteComment(String newsId, String commentId) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        print('🗑️ Комментарий удален: $commentId');
+        return;
+      }
+
       final headers = await _getHeaders();
       final response = await http.delete(
         Uri.parse('$baseUrl/news/$newsId/comments/$commentId'),
@@ -188,6 +290,23 @@ class ApiService {
   // Обновить новость
   static Future<dynamic> updateNews(String newsId, Map<String, dynamic> newsData) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        return {
+          "id": newsId,
+          "title": newsData['title'],
+          "description": newsData['description'],
+          "hashtags": newsData['hashtags'] ?? [],
+          "user_tags": newsData['user_tags'] ?? {"tag1": "Обновленный тег"},
+          "likes": 0,
+          "author_name": "Текущий пользователь",
+          "created_at": DateTime.now().toIso8601String(),
+          "comments": [],
+          "isLiked": false,
+          "isBookmarked": false,
+        };
+      }
+
       final headers = await _getHeaders();
       final response = await http.put(
         Uri.parse('$baseUrl/news/$newsId'),
@@ -210,6 +329,12 @@ class ApiService {
   // Удалить новость
   static Future<void> deleteNews(String newsId) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        print('🗑️ Новость удалена: $newsId');
+        return;
+      }
+
       final headers = await _getHeaders();
       final response = await http.delete(
         Uri.parse('$baseUrl/news/$newsId'),
@@ -226,6 +351,22 @@ class ApiService {
   // Поиск новостей
   static Future<List<dynamic>> searchNews(String query) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        final allNews = _getMockNews();
+        if (query.isEmpty) return allNews;
+
+        return allNews.where((news) {
+          final title = news['title']?.toString().toLowerCase() ?? '';
+          final description = news['description']?.toString().toLowerCase() ?? '';
+          final hashtags = (news['hashtags'] as List).join(' ').toLowerCase();
+
+          return title.contains(query.toLowerCase()) ||
+              description.contains(query.toLowerCase()) ||
+              hashtags.contains(query.toLowerCase());
+        }).toList();
+      }
+
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/news/search?q=${Uri.encodeComponent(query)}'),
@@ -244,13 +385,29 @@ class ApiService {
       }).toList();
     } catch (e) {
       print('API Error (searchNews): $e');
-      rethrow;
+      return [];
     }
   }
 
   // Получить новости по фильтру
   static Future<List<dynamic>> getNewsByFilter(String filter) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        final allNews = _getMockNews();
+
+        switch (filter) {
+          case 'popular':
+            return allNews.where((news) => (news['likes'] ?? 0) > 10).toList();
+          case 'recent':
+            return allNews;
+          case 'my':
+            return allNews.where((news) => news['author_name'] == 'Маринцев').toList();
+          default:
+            return allNews;
+        }
+      }
+
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/news/filter?type=$filter'),
@@ -269,13 +426,24 @@ class ApiService {
       }).toList();
     } catch (e) {
       print('API Error (getNewsByFilter): $e');
-      rethrow;
+      return [];
     }
   }
 
   // ========== ПОЛЬЗОВАТЕЛИ ==========
   static Future<dynamic> getUser(String userId) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        return {
+          "id": userId,
+          "name": "Текущий пользователь",
+          "email": "user@example.com",
+          "avatar": "",
+          "created_at": "2025-01-01T00:00:00.000Z"
+        };
+      }
+
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/users/$userId'),
@@ -291,6 +459,17 @@ class ApiService {
 
   static Future<dynamic> updateProfile(Map<String, dynamic> userData) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        return {
+          "id": "current-user",
+          "name": userData['name'] ?? "Текущий пользователь",
+          "email": userData['email'] ?? "user@example.com",
+          "avatar": userData['avatar'] ?? "",
+          "updated_at": DateTime.now().toIso8601String()
+        };
+      }
+
       final headers = await _getHeaders();
       final response = await http.put(
         Uri.parse('$baseUrl/auth/profile'),
@@ -308,6 +487,15 @@ class ApiService {
   // ========== ХЕШТЕГИ ==========
   static Future<List<dynamic>> getNewsByHashtag(String hashtag) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        final allNews = _getMockNews();
+        return allNews.where((news) {
+          final hashtags = (news['hashtags'] as List).map((h) => h.toString().toLowerCase()).toList();
+          return hashtags.contains(hashtag.toLowerCase());
+        }).toList();
+      }
+
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/news?hashtag=${Uri.encodeComponent(hashtag)}'),
@@ -326,13 +514,31 @@ class ApiService {
       }).toList();
     } catch (e) {
       print('API Error (getNewsByHashtag): $e');
-      rethrow;
+      return [];
     }
   }
 
   // ========== КАНАЛЫ ==========
   static Future<List<Map<String, dynamic>>> getChannelPosts(String channelId) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        return [
+          {
+            'id': 'channel-post-1',
+            'title': 'Важное объявление',
+            'description': 'У нас большие новости!',
+            'hashtags': ['важное', 'объявление'],
+            'likes': 15,
+            'author_name': 'Администратор канала',
+            'created_at': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+            'channel_id': channelId,
+            'isLiked': false,
+            'isBookmarked': false,
+          }
+        ];
+      }
+
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/channels/$channelId/posts'),
@@ -356,108 +562,23 @@ class ApiService {
       }).toList();
     } catch (e) {
       print('API Error (getChannelPosts): $e');
-      rethrow;
-    }
-  }
-
-  static Future<Map<String, dynamic>> createChannelPost(Map<String, dynamic> postData) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http.post(
-        Uri.parse('$baseUrl/channels/${postData['channel_id']}/posts'),
-        headers: headers,
-        body: json.encode(postData),
-      );
-
-      final newPost = _handleResponse(response);
-      return {
-        "id": newPost['id'] ?? "channel-post-${DateTime.now().millisecondsSinceEpoch}",
-        "title": newPost['title'] ?? postData['title'],
-        "description": newPost['description'] ?? postData['description'],
-        "hashtags": newPost['hashtags'] is List ? newPost['hashtags'] : (postData['hashtags'] ?? []),
-        "likes": newPost['likes'] ?? 0,
-        "author_name": newPost['author_name'] ?? "Администратор канала",
-        "created_at": newPost['created_at'] ?? DateTime.now().toIso8601String(),
-        "channel_id": newPost['channel_id'] ?? postData['channel_id'],
-        "isLiked": false,
-        "isBookmarked": false,
-      };
-    } catch (e) {
-      print('API Error (createChannelPost): $e');
-      rethrow;
-    }
-  }
-
-  static Future<List<Map<String, dynamic>>> getChannelArticles(String channelId) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl/channels/$channelId/articles'),
-        headers: headers,
-      );
-
-      final articlesList = _handleResponse(response) as List<dynamic>;
-      return articlesList.map((article) {
-        return {
-          'id': article['id'] ?? 'unknown-id',
-          'title': article['title'] ?? '',
-          'description': article['description'] ?? '',
-          'content': article['content'] ?? '',
-          'emoji': article['emoji'] ?? '📝',
-          'category': article['category'] ?? 'Общая',
-          'views': article['views'] ?? 0,
-          'likes': article['likes'] ?? 0,
-          'author': article['author'] ?? 'Неизвестный автор',
-          'publish_date': article['publish_date'] ?? DateTime.now().toIso8601String(),
-          'image_url': article['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
-          'channel_id': article['channel_id'] ?? channelId,
-          'channel_name': article['channel_name'] ?? 'Неизвестный канал',
-          'isLiked': article['isLiked'] ?? false,
-          'isBookmarked': article['isBookmarked'] ?? false,
-        };
-      }).toList();
-    } catch (e) {
-      print('API Error (getChannelArticles): $e');
-      rethrow;
-    }
-  }
-
-  static Future<Map<String, dynamic>> createChannelArticle(Map<String, dynamic> data) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http.post(
-        Uri.parse('$baseUrl/channels/${data['channel_id']}/articles'),
-        headers: headers,
-        body: json.encode(data),
-      );
-
-      final newArticle = _handleResponse(response);
-      return {
-        'id': newArticle['id'] ?? 'article-${DateTime.now().millisecondsSinceEpoch}',
-        'title': newArticle['title'] ?? data['title'],
-        'description': newArticle['description'] ?? data['description'],
-        'content': newArticle['content'] ?? data['content'],
-        'emoji': newArticle['emoji'] ?? data['emoji'] ?? '📝',
-        'category': newArticle['category'] ?? data['category'] ?? 'Общая',
-        'views': newArticle['views'] ?? 0,
-        'likes': newArticle['likes'] ?? 0,
-        'author': newArticle['author'] ?? 'Администратор канала',
-        'publish_date': newArticle['publish_date'] ?? DateTime.now().toIso8601String(),
-        'image_url': newArticle['image_url'] ?? 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop',
-        'channel_id': newArticle['channel_id'] ?? data['channel_id'],
-        'channel_name': newArticle['channel_name'] ?? 'Название канала',
-        'isLiked': false,
-        'isBookmarked': false,
-      };
-    } catch (e) {
-      print('API Error (createChannelArticle): $e');
-      rethrow;
+      return [];
     }
   }
 
   // ========== СТАТИСТИКА ==========
   static Future<Map<String, dynamic>> getNewsStats(String newsId) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        return {
+          'views': 150,
+          'likes': 45,
+          'comments': 3,
+          'shares': 12,
+        };
+      }
+
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/news/$newsId/stats'),
@@ -467,13 +588,19 @@ class ApiService {
       return _handleResponse(response) ?? {};
     } catch (e) {
       print('API Error (getNewsStats): $e');
-      rethrow;
+      return {};
     }
   }
 
   // ========== УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЬСКИМИ ТЕГАМИ ==========
   static Future<void> updateUserTag(String newsId, String tagId, String tagName, {int? color}) async {
     try {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        print('🎨 Тег обновлен: $tagName для новости $newsId');
+        return;
+      }
+
       final headers = await _getHeaders();
       final data = {
         'tag_id': tagId,
@@ -491,6 +618,25 @@ class ApiService {
     } catch (e) {
       print('API Error (updateUserTag): $e');
       rethrow;
+    }
+  }
+
+  // ========== ПРОВЕРКА ПОДКЛЮЧЕНИЯ ==========
+  static Future<bool> checkConnection() async {
+    try {
+      if (_useMockData) {
+        return true;
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/health'),
+        headers: await _getHeaders(),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Connection check failed: $e');
+      return false;
     }
   }
 }

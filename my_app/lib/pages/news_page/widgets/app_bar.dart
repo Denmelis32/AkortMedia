@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/news_theme.dart';
 
-class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
+class NewsAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String userName;
   final String userEmail;
   final bool isSearching;
@@ -18,8 +18,8 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<String>? recentSearches;
   final ValueChanged<String>? onRecentSearchSelected;
   final int? newMessagesCount;
-  final String? profileImageUrl; // Новое: URL фото профиля
-  final File? profileImageFile; // Новое: файл с фото профиля
+  final String? profileImageUrl;
+  final File? profileImageFile;
 
   const NewsAppBar({
     super.key,
@@ -37,9 +37,81 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.recentSearches,
     this.onRecentSearchSelected,
     this.newMessagesCount = 0,
-    this.profileImageUrl, // Новое: URL фото
-    this.profileImageFile, // Новое: файл фото
+    this.profileImageUrl,
+    this.profileImageFile,
   });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
+
+  @override
+  State<NewsAppBar> createState() => _NewsAppBarState();
+}
+
+class _NewsAppBarState extends State<NewsAppBar> {
+  late TextEditingController _searchController;
+  late FocusNode _searchFocusNode;
+  bool _isControllerInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
+    _isControllerInitialized = true;
+
+    // Устанавливаем начальное значение после инициализации
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isControllerInitialized) {
+        _searchController.text = widget.searchQuery;
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(NewsAppBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Синхронизируем только если query изменился извне (например, при очистке фильтров)
+    // Но не синхронизируем при обычном вводе текста пользователем
+    if (widget.searchQuery != oldWidget.searchQuery &&
+        widget.searchQuery != _searchController.text) {
+      _searchController.text = widget.searchQuery;
+    }
+
+    // Автофокус при включении поиска
+    if (widget.isSearching && !oldWidget.isSearching) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _searchFocusNode.requestFocus();
+      });
+    }
+
+    // Сброс фокуса при выключении поиска
+    if (!widget.isSearching && oldWidget.isSearching) {
+      _searchFocusNode.unfocus();
+      _searchController.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _isControllerInitialized = false;
+    super.dispose();
+  }
+
+  void _onSearchChanged(String text) {
+    // Просто передаем изменения в родительский компонент
+    // Не обновляем контроллер здесь - он уже содержит правильный текст
+    widget.onSearchChanged(text);
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    widget.onSearchChanged('');
+    _searchFocusNode.requestFocus();
+  }
 
   // Генерация градиента для аватара на основе имени пользователя
   List<Color> _getAvatarGradient(String name) {
@@ -57,206 +129,101 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   Widget _buildUserAvatar() {
-    final gradientColors = _getAvatarGradient(userName);
-    final hasNewMessages = (newMessagesCount ?? 0) > 0;
-    final hasProfileImage = profileImageUrl != null || profileImageFile != null;
+    final gradientColors = _getAvatarGradient(widget.userName);
+    final hasNewMessages = (widget.newMessagesCount ?? 0) > 0;
+    final hasProfileImage = widget.profileImageUrl != null || widget.profileImageFile != null;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onProfilePressed,
-        child: Stack(
-          children: [
-            // Основной контейнер аватара
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                gradient: hasProfileImage ? null : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: gradientColors,
-                ),
-                image: _getProfileImageDecoration(),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: hasNewMessages ? Colors.amber : Colors.white,
-                  width: hasNewMessages ? 3.0 : 2.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (hasProfileImage ? Colors.black : gradientColors[0]).withOpacity(0.4),
-                    blurRadius: 15,
-                    offset: const Offset(0, 6),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: hasProfileImage ? null : Center(
-                child: Text(
-                  userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 4,
-                        color: Colors.black26,
-                        offset: Offset(1, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+    return GestureDetector(
+      onTap: widget.onProfilePressed,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          gradient: hasProfileImage ? null : LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors,
+          ),
+          image: _getProfileImageDecoration(),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: hasNewMessages ? Colors.amber : Colors.white,
+            width: hasNewMessages ? 1.5 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: (hasProfileImage ? Colors.black : gradientColors[0]).withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
-
-            // Бейдж онлайн-статуса
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: NewsTheme.cardColor,
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withOpacity(0.4),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Бейдж новых сообщений
-            if (hasNewMessages)
-              Positioned(
-                top: -2,
-                right: -2,
-                child: Container(
-                  width: newMessagesCount! > 9 ? 22 : 20,
-                  height: newMessagesCount! > 9 ? 22 : 20,
-                  decoration: BoxDecoration(
-                    color: Colors.amber,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: NewsTheme.cardColor,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.amber.withOpacity(0.4),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      newMessagesCount! > 9 ? '9+' : newMessagesCount.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        height: 1.0,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-            // Иконка камеры для фото профиля
-            if (hasProfileImage)
-              Positioned(
-                bottom: -2,
-                right: -2,
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: NewsTheme.primaryColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: NewsTheme.cardColor,
-                      width: 2,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.photo_camera_rounded,
-                    size: 8,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
           ],
+        ),
+        child: hasProfileImage ? null : Center(
+          child: Text(
+            widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
         ),
       ),
     );
   }
 
   DecorationImage? _getProfileImageDecoration() {
-    if (profileImageFile != null) {
+    if (widget.profileImageFile != null) {
       return DecorationImage(
-        image: FileImage(profileImageFile!),
+        image: FileImage(widget.profileImageFile!),
         fit: BoxFit.cover,
       );
-    } else if (profileImageUrl != null && profileImageUrl!.isNotEmpty) {
+    } else if (widget.profileImageUrl != null && widget.profileImageUrl!.isNotEmpty) {
       return DecorationImage(
-        image: NetworkImage(profileImageUrl!),
+        image: NetworkImage(widget.profileImageUrl!),
         fit: BoxFit.cover,
       );
     }
     return null;
   }
 
-  // Остальные методы без изменений
   Widget _buildClearFiltersButton() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.symmetric(horizontal: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 300),
-        opacity: hasActiveFilters ? 1.0 : 0.0,
+        opacity: widget.hasActiveFilters ? 1.0 : 0.0,
         child: IgnorePointer(
-          ignoring: !hasActiveFilters,
+          ignoring: !widget.hasActiveFilters,
           child: Material(
-            color: NewsTheme.primaryColor.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.transparent,
             child: InkWell(
-              onTap: onClearFilters,
-              borderRadius: BorderRadius.circular(12),
-              splashColor: NewsTheme.primaryColor.withOpacity(0.2),
+              onTap: widget.onClearFilters,
+              borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: const Row(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: NewsTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: NewsTheme.primaryColor.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.filter_alt_off_rounded,
-                      size: 16,
+                      size: 12,
                       color: NewsTheme.primaryColor,
                     ),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 3),
                     Text(
                       'Очистить',
                       style: TextStyle(
                         color: NewsTheme.primaryColor,
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -270,198 +237,133 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  Widget _buildSearchField(BuildContext context) {
-    return Container(
-      height: 42,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      child: TextField(
-        autofocus: true,
-        controller: TextEditingController(text: searchQuery),
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: NewsTheme.backgroundColor.withOpacity(0.9),
-          hintText: 'Поиск новостей, авторов, хештегов...',
-          hintStyle: TextStyle(
-            color: NewsTheme.secondaryTextColor.withOpacity(0.7),
-            fontSize: 15,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: NewsTheme.primaryColor.withOpacity(0.4),
-              width: 2.0,
+  Widget _buildSearchField() {
+    return Expanded(
+      child: Container(
+        height: 36,
+        margin: const EdgeInsets.only(right: 6),
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          autofocus: true,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: NewsTheme.backgroundColor,
+            hintText: 'Поиск новостей...',
+            hintStyle: TextStyle(
+              color: NewsTheme.secondaryTextColor.withOpacity(0.7),
+              fontSize: 13,
             ),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: NewsTheme.primaryColor,
-            size: 20,
-          ),
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (searchQuery.isNotEmpty)
-                _buildAnimatedIconButton(
-                  icon: Icons.clear_rounded,
-                  onPressed: () => onSearchChanged(''),
-                  tooltip: 'Очистить',
-                ),
-              if (searchQuery.isNotEmpty)
-                Container(
-                  width: 1,
-                  height: 20,
-                  color: NewsTheme.secondaryTextColor.withOpacity(0.2),
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                ),
-              _buildAnimatedIconButton(
-                icon: Icons.filter_list_rounded,
-                onPressed: onAdvancedSearchPressed,
-                tooltip: 'Расширенный поиск',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: NewsTheme.primaryColor.withOpacity(0.3),
+                width: 1.2,
               ),
-            ],
-          ),
-        ),
-        style: TextStyle(
-          color: NewsTheme.textColor,
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-        onChanged: onSearchChanged,
-        onSubmitted: (value) {
-          FocusScope.of(context).unfocus();
-        },
-      ),
-    );
-  }
-
-  Widget _buildAnimatedIconButton({
-    required IconData icon,
-    required VoidCallback? onPressed,
-    required String tooltip,
-  }) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: Tooltip(
-        message: tooltip,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: onPressed != null
-                ? NewsTheme.primaryColor.withOpacity(0.05)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: IconButton(
-            icon: Icon(
-              icon,
-              size: 18,
-              color: onPressed != null
-                  ? NewsTheme.primaryColor.withOpacity(0.8)
-                  : NewsTheme.secondaryTextColor.withOpacity(0.4),
             ),
-            onPressed: onPressed,
-            splashRadius: 18,
-            padding: EdgeInsets.zero,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: NewsTheme.primaryColor,
+              size: 16,
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+              icon: Icon(
+                Icons.clear_rounded,
+                size: 16,
+                color: NewsTheme.primaryColor.withOpacity(0.7),
+              ),
+              onPressed: _clearSearch,
+              splashRadius: 14,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: 32,
+                minHeight: 32,
+              ),
+            )
+                : null,
           ),
+          style: TextStyle(
+            color: NewsTheme.textColor,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+          onChanged: _onSearchChanged,
         ),
       ),
     );
   }
 
   Widget _buildNormalTitle() {
-    final hasNewMessages = (newMessagesCount ?? 0) > 0;
+    final hasNewMessages = (widget.newMessagesCount ?? 0) > 0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [
-                  NewsTheme.primaryColor,
-                  NewsTheme.primaryColor.withOpacity(0.7),
-                ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ).createShader(bounds),
-              child: const Text(
+    return Padding(
+      padding: const EdgeInsets.only(left: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Text(
                 'Лента новостей',
                 style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 24,
-                  color: Colors.white,
-                  letterSpacing: -0.8,
-                  height: 1.1,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: NewsTheme.textColor,
+                  letterSpacing: -0.3,
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    NewsTheme.primaryColor.withOpacity(0.9),
-                    NewsTheme.primaryColor.withOpacity(0.7),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: NewsTheme.primaryColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: NewsTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: NewsTheme.primaryColor.withOpacity(0.2),
                   ),
-                ],
-              ),
-              child: const Text(
-                'Beta',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+                ),
+                child: Text(
+                  'Beta',
+                  style: TextStyle(
+                    color: NewsTheme.primaryColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: onProfilePressed,
+            ],
+          ),
+          const SizedBox(height: 1),
+          GestureDetector(
+            onTap: widget.onProfilePressed,
             child: Row(
               children: [
                 Icon(
                   Icons.email_outlined,
-                  size: 12,
+                  size: 10,
                   color: NewsTheme.secondaryTextColor.withOpacity(0.7),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 3),
                 Text(
-                  userEmail,
+                  widget.userEmail,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 11,
                     color: NewsTheme.secondaryTextColor.withOpacity(0.9),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 if (hasNewMessages) ...[
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 3),
                   Container(
-                    width: 6,
-                    height: 6,
+                    width: 3,
+                    height: 3,
                     decoration: const BoxDecoration(
                       color: Colors.amber,
                       shape: BoxShape.circle,
@@ -471,71 +373,55 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
               ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _buildActionButtons() {
-    return [
-      if (!isSearching && hasActiveFilters)
-        _buildClearFiltersButton(),
-
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isSearching
-                  ? NewsTheme.primaryColor.withOpacity(0.15)
-                  : NewsTheme.primaryColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: isSearching
-                  ? Border.all(color: NewsTheme.primaryColor.withOpacity(0.3))
-                  : null,
-            ),
-            child: IconButton(
-              icon: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: Icon(
-                  isSearching ? Icons.close_rounded : Icons.search_rounded,
-                  key: ValueKey<bool>(isSearching),
-                  color: isSearching
-                      ? NewsTheme.primaryColor
-                      : NewsTheme.primaryColor.withOpacity(0.9),
-                  size: 22,
-                ),
-              ),
-              onPressed: onSearchToggled,
-              tooltip: isSearching ? 'Закрыть поиск' : 'Поиск',
-              splashRadius: 20,
-            ),
-          ),
-        ),
+        ],
       ),
-
-      if (!isSearching) ...[
-        const SizedBox(width: 8),
-        _buildUserAvatar(),
-        const SizedBox(width: 12),
-      ]
-    ];
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: isSearching ? _buildSearchField(context) : _buildNormalTitle(),
       backgroundColor: NewsTheme.cardColor,
-      elevation: 1.0,
-      shadowColor: Colors.black.withOpacity(0.1),
+      elevation: 0.5,
+      shadowColor: Colors.black.withOpacity(0.05),
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
-      actions: _buildActionButtons(),
+      title: widget.isSearching
+          ? Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Row(
+          children: [
+            _buildSearchField(),
+          ],
+        ),
+      )
+          : _buildNormalTitle(),
+      actions: [
+        if (!widget.isSearching && widget.hasActiveFilters)
+          _buildClearFiltersButton(),
+
+        // Кнопка поиска/крестика
+        Container(
+          width: 36,
+          height: 36,
+          child: IconButton(
+            icon: Icon(
+              widget.isSearching ? Icons.close_rounded : Icons.search_rounded,
+              color: NewsTheme.primaryColor,
+              size: 18,
+            ),
+            onPressed: widget.onSearchToggled,
+            tooltip: widget.isSearching ? 'Закрыть поиск' : 'Поиск',
+            splashRadius: 18,
+          ),
+        ),
+
+        // Аватар пользователя
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: _buildUserAvatar(),
+        ),
+      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(
@@ -545,24 +431,14 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                NewsTheme.primaryColor.withOpacity(0.2),
                 NewsTheme.primaryColor.withOpacity(0.1),
                 NewsTheme.primaryColor.withOpacity(0.05),
                 Colors.transparent,
               ],
-              stops: const [0.0, 0.3, 0.7, 1.0],
             ),
           ),
         ),
       ),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(0),
-        ),
-      ),
     );
   }
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
 }

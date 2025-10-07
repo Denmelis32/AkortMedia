@@ -582,15 +582,20 @@ class NewsProvider with ChangeNotifier {
         newsItem['comments'] = [];
       }
 
+      // ИСПРАВЛЕНИЕ: Используем ID комментария из параметра, а не создаем новый
       final completeComment = {
         ...comment,
-        'id': 'comment_${DateTime.now().millisecondsSinceEpoch}',
-        'time': DateTime.now().toIso8601String(),
+        'time': comment['time'] ?? DateTime.now().toIso8601String(),
       };
 
-      newsItem['comments'].insert(0, completeComment);
+      // Добавляем комментарий в начало списка
+      (newsItem['comments'] as List).insert(0, completeComment);
       notifyListeners();
+
+      // Сохраняем в хранилище
       StorageService.saveNews(_news);
+
+      print('✅ Комментарий добавлен к новости ${newsItem['id']}');
     }
   }
 
@@ -599,13 +604,21 @@ class NewsProvider with ChangeNotifier {
       final newsItem = _news[index] as Map<String, dynamic>;
 
       if (newsItem['comments'] != null) {
-        newsItem['comments'].removeWhere((comment) => comment['id'] == commentId);
-        notifyListeners();
-        StorageService.saveNews(_news);
+        final commentsList = newsItem['comments'] as List;
+        final initialLength = commentsList.length;
+
+        commentsList.removeWhere((comment) =>
+        comment['id'] == commentId
+        );
+
+        if (commentsList.length < initialLength) {
+          notifyListeners();
+          StorageService.saveNews(_news);
+          print('✅ Комментарий $commentId удален');
+        }
       }
     }
   }
-
   void removeNews(int index) async {
     if (index >= 0 && index < _news.length) {
       final newsItem = _news[index] as Map<String, dynamic>;

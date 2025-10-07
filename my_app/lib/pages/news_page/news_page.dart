@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:my_app/pages/news_page/profile_menu.dart';
+import 'package:my_app/pages/news_page/profile_menu_page.dart';
 import 'package:provider/provider.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:share_plus/share_plus.dart';
@@ -22,9 +22,6 @@ import 'widgets/empty_states.dart';
 import 'widgets/app_bar.dart';
 import 'widgets/filter_chips_row.dart';
 import 'widgets/loading_state.dart';
-
-// Импортируем ProfileMenu из отдельного файла
-
 
 class NewsPage extends StatefulWidget {
   final String userName;
@@ -64,7 +61,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Обеспечиваем сохранение данных перед загрузкой
       await _ensureDataPersistence();
       _loadNews(showLoading: true);
       Provider.of<NewsProvider>(context, listen: false).loadUserTags();
@@ -154,19 +150,13 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     final int currentLikes = news['likes'] ?? 0;
 
     try {
-      // Визуальная обратная связь
       HapticFeedback.lightImpact();
-
-      // Оптимистичное обновление UI
       newsProvider.updateNewsLikeStatus(
           index,
           !isCurrentlyLiked,
           isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1
       );
-
-      // await ApiService.toggleLikeNews(news['id'].toString(), !isCurrentlyLiked);
     } catch (e) {
-      // Откатываем изменения при ошибке
       newsProvider.updateNewsLikeStatus(index, isCurrentlyLiked, currentLikes);
       _showErrorSnackBar('Не удалось поставить лайк');
     }
@@ -179,16 +169,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
     try {
       HapticFeedback.lightImpact();
-
       newsProvider.updateNewsBookmarkStatus(index, !isCurrentlyBookmarked);
-
       _showSuccessSnackBar(
           !isCurrentlyBookmarked
               ? 'Добавлено в избранное'
               : 'Удалено из избранного'
       );
-
-      // await ApiService.toggleBookmarkNews(news['id'].toString(), !isCurrentlyBookmarked);
     } catch (e) {
       newsProvider.updateNewsBookmarkStatus(index, isCurrentlyBookmarked);
       _showErrorSnackBar('Не удалось добавить в закладки');
@@ -202,9 +188,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
     try {
       HapticFeedback.mediumImpact();
-
       newsProvider.updateNewsFollowStatus(index, !isCurrentlyFollowing);
-
       final isChannelPost = news['is_channel_post'] == true;
       final targetName = isChannelPost
           ? news['channel_name'] ?? 'канал'
@@ -215,8 +199,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       } else {
         _showSuccessSnackBar('❌ Вы отписались от $targetName');
       }
-
-      // await ApiService.toggleFollow(news['id'].toString(), !isCurrentlyFollowing);
     } catch (e) {
       newsProvider.updateNewsFollowStatus(index, isCurrentlyFollowing);
       _showErrorSnackBar('Не удалось изменить подписку');
@@ -230,19 +212,21 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
 
     try {
+      final commentId = 'comment-${DateTime.now().millisecondsSinceEpoch}-${news['id']}';
+
       final newComment = {
-        'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
+        'id': commentId,
         'author': widget.userName,
         'text': commentText.trim(),
         'time': 'Только что',
-        'author_avatar': _getUserAvatarUrl(widget.userName), // ОБЕСПЕЧИВАЕТ АКТУАЛЬНЫЙ АВАТАР
+        'author_avatar': _getUserAvatarUrl(widget.userName),
       };
 
       newsProvider.addCommentToNews(index, newComment);
       _showSuccessSnackBar('Комментарий добавлен');
 
     } catch (e) {
-      newsProvider.removeCommentFromNews(index, 'comment-${DateTime.now().millisecondsSinceEpoch}');
+      print('❌ Ошибка добавления комментария: $e');
       _showErrorSnackBar('Не удалось добавить комментарий');
     }
   }
@@ -251,15 +235,11 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final currentProfileImage = newsProvider.getCurrentProfileImage();
 
-    // ПРИОРИТЕТ: файл -> URL -> fallback
     if (currentProfileImage is File) {
-      // Для файлов возвращаем fallback, т.к. в сети нельзя использовать локальный File
       return _getFallbackAvatarUrl(userName);
     } else if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-      // Используем URL фото профиля
       return currentProfileImage;
     } else {
-      // Fallback на стандартный аватар
       return _getFallbackAvatarUrl(userName);
     }
   }
@@ -277,25 +257,21 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'hashtags': hashtagsArray,
       });
 
-      // ПОЛУЧАЕМ АКТУАЛЬНОЕ ФОТО ПРОФИЛЯ ИЗ PROVIDER С ПРАВИЛЬНОЙ ЛОГИКОЙ
       final currentProfileImage = newsProvider.getCurrentProfileImage();
       String authorAvatarUrl;
 
       if (currentProfileImage is File) {
-        // Если фото из файла - используем fallback, т.к. нельзя напрямую использовать File для сети
         authorAvatarUrl = _getFallbackAvatarUrl(widget.userName);
       } else if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-        // Если фото из URL - используем его
         authorAvatarUrl = currentProfileImage;
       } else {
-        // Если фото нет - используем fallback
         authorAvatarUrl = _getFallbackAvatarUrl(widget.userName);
       }
 
       final Map<String, dynamic> newsItem = _convertToStringDynamicMap({
         ...newNews,
         'author_name': widget.userName,
-        'author_avatar': authorAvatarUrl, // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
+        'author_avatar': authorAvatarUrl,
         'isLiked': false,
         'isBookmarked': false,
         'isFollowing': false,
@@ -311,7 +287,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     } catch (e) {
       print('❌ Ошибка создания новости: $e');
 
-      // Fallback: создаем новость локально с АКТУАЛЬНЫМ аватаром
       final currentProfileImage = newsProvider.getCurrentProfileImage();
       String authorAvatarUrl;
 
@@ -327,7 +302,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'description': description.trim(),
         'hashtags': hashtagsArray,
         'author_name': widget.userName,
-        'author_avatar': authorAvatarUrl, // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
+        'author_avatar': authorAvatarUrl,
         'likes': 0,
         'comments': [],
         'user_tags': {'tag1': 'Новый тег'},
@@ -343,13 +318,10 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     }
   }
 
-
   String _getFallbackAvatarUrl(String userName) {
     return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
   }
 
-
-  // НОВЫЙ МЕТОД: Преобразование Map<dynamic, dynamic> в Map<String, dynamic>
   Map<String, dynamic> _convertToStringDynamicMap(Map<dynamic, dynamic> input) {
     final Map<String, dynamic> result = {};
 
@@ -368,7 +340,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     return result;
   }
 
-  // Вспомогательный метод для преобразования списков
   List<dynamic> _convertList(List<dynamic> list) {
     return list.map((item) {
       if (item is Map<dynamic, dynamic>) {
@@ -401,7 +372,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         .split(RegExp(r'[,\s]+'))
         .where((tag) => tag.trim().isNotEmpty)
         .map((tag) {
-      // Убираем решетки и пробелы
       var cleanTag = tag.replaceAll(RegExp(r'#'), '').trim();
       cleanTag = cleanTag.replaceAll(RegExp(r'\s+'), '');
       return cleanTag;
@@ -436,7 +406,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
       _showSuccessSnackBar('📝 Новость обновлена');
     } catch (e) {
-      // Fallback: обновляем локально
       newsProvider.updateNews(index, {
         ...news,
         'title': title,
@@ -515,41 +484,50 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     );
   }
 
-  void _showProfileMenu(BuildContext context) {
+  // ОБНОВЛЕННЫЙ МЕТОД: Открытие страницы профиля вместо модального окна
+  void _showProfilePage(BuildContext context) {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ProfileMenu(
-        userName: widget.userName,
-        userEmail: widget.userEmail,
-        onLogout: widget.onLogout,
-        newMessagesCount: 3,
-        profileImageUrl: newsProvider.profileImageUrl,
-        profileImageFile: newsProvider.profileImageFile,
-        onProfileImageUrlChanged: (url) {
-          newsProvider.updateProfileImageUrl(url);
-        },
-        onProfileImageFileChanged: (file) {
-          newsProvider.updateProfileImageFile(file);
-        },
-        onMessagesTap: () {
-          Navigator.pop(context);
-          _showSuccessSnackBar('Переход к сообщениям');
-        },
-        onSettingsTap: () {
-          Navigator.pop(context);
-          _showSuccessSnackBar('Переход к настройкам');
-        },
-        onHelpTap: () {
-          Navigator.pop(context);
-          _showSuccessSnackBar('Переход к разделу помощи');
-        },
-        onAboutTap: () {
-          Navigator.pop(context);
-          _showSuccessSnackBar('Информация о приложении');
-        },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfilePage(
+          userName: widget.userName,
+          userEmail: widget.userEmail,
+          onLogout: () {
+            // Возвращаемся на предыдущую страницу перед выходом
+            Navigator.pop(context);
+            widget.onLogout();
+          },
+          onBack: () {
+            Navigator.pop(context);
+          },
+          newMessagesCount: 3,
+          profileImageUrl: newsProvider.profileImageUrl,
+          profileImageFile: newsProvider.profileImageFile,
+          onProfileImageUrlChanged: (url) {
+            newsProvider.updateProfileImageUrl(url);
+          },
+          onProfileImageFileChanged: (file) {
+            newsProvider.updateProfileImageFile(file);
+          },
+          onMessagesTap: () {
+            Navigator.pop(context);
+            _showSuccessSnackBar('Переход к сообщениям');
+          },
+          onSettingsTap: () {
+            Navigator.pop(context);
+            _showSuccessSnackBar('Переход к настройкам');
+          },
+          onHelpTap: () {
+            Navigator.pop(context);
+            _showSuccessSnackBar('Переход к разделу помощи');
+          },
+          onAboutTap: () {
+            Navigator.pop(context);
+            _showSuccessSnackBar('Информация о приложении');
+          },
+        ),
       ),
     );
   }
@@ -559,7 +537,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   List<dynamic> _getFilteredNews(List<dynamic> news) {
     List<dynamic> filtered = news;
 
-    // Применяем текстовый поиск
     if (_pageState.searchQuery.isNotEmpty) {
       filtered = filtered.where((item) {
         final newsItem = Map<String, dynamic>.from(item);
@@ -581,7 +558,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       }).toList();
     }
 
-    // Применяем выбранный фильтр
     switch (_pageState.currentFilter) {
       case 1: // Мои новости
         return filtered.where((item) {
@@ -669,7 +645,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                 searchQuery: pageState.searchQuery,
                 onSearchChanged: pageState.setSearchQuery,
                 onSearchToggled: () => pageState.setSearching(!pageState.isSearching),
-                onProfilePressed: () => _showProfileMenu(context),
+                // ОБНОВЛЕНО: Используем новую функцию для открытия страницы профиля
+                onProfilePressed: () => _showProfilePage(context),
                 onClearFilters: hasActiveFilters ? _clearAllFilters : null,
                 profileImageUrl: newsProvider.profileImageUrl,
                 profileImageFile: newsProvider.profileImageFile,
@@ -698,8 +675,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                     controller: pageState.scrollController,
                     physics: const BouncingScrollPhysics(),
                     slivers: [
-                      // Фильтры
-                      if (newsProvider.news.isNotEmpty && !pageState.isSearching)
+                      // Фильтры - ВСЕГДА видимы, даже при поиске
+                      if (newsProvider.news.isNotEmpty)
                         const SliverToBoxAdapter(child: FilterChipsRow()),
 
                       // Индикатор активных фильтров

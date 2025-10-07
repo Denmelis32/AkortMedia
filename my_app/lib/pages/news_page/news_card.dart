@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/news_provider.dart';
-import 'theme/news_theme.dart'; // Добавьте этот импорт
+import 'theme/news_theme.dart';
 
 class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
@@ -212,9 +212,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final currentProfileImage = newsProvider.getCurrentProfileImage();
     final authorName = _getStringValue(widget.news['author_name']);
+    final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
 
     // Если это пост текущего пользователя, используем актуальное фото профиля
-    if (authorName == widget.userName) {
+    if (!isChannelPost && authorName == widget.userName) {
       if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
         return currentProfileImage;
       }
@@ -225,11 +226,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     if (savedAvatar.isNotEmpty && savedAvatar.startsWith('http')) {
       return savedAvatar;
     }
-
     // Fallback
-    return _getFallbackAvatarUrl(authorName);
+    return _getFallbackAvatarUrl(isChannelPost ?
+    _getStringValue(widget.news['channel_name']) : authorName);
   }
-
   String _getFallbackAvatarUrl(String userName) {
     return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
   }
@@ -611,15 +611,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       }).toList(),
     );
   }
-
   Widget _buildPostActions({int commentCount = 0, bool showBookmark = true, bool isAuthor = false}) {
     final likes = _getIntValue(widget.news['likes']);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12), // Уменьшено с 16
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12), // Уменьшено с 16
         border: Border.all(
           color: Colors.black.withOpacity(0.04),
         ),
@@ -636,7 +635,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               widget.onLike();
             },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8), // Уменьшено с 12
           _buildActionButton(
             icon: Icons.chat_bubble_outline_rounded,
             count: commentCount,
@@ -644,7 +643,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             color: Colors.blue,
             onPressed: _toggleExpanded,
           ),
-          if (showBookmark) const SizedBox(width: 12),
+          if (showBookmark) const SizedBox(width: 8), // Уменьшено с 12
           if (showBookmark)
             _buildActionButton(
               icon: _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
@@ -675,29 +674,29 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       onTap: onPressed,
       child: AnimatedContainer(
         duration: Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // Уменьшено с 12,8
         decoration: BoxDecoration(
           color: isActive ? color.withOpacity(0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8), // Уменьшено с 10
           border: Border.all(
             color: isActive ? color.withOpacity(0.25) : Colors.transparent,
-            width: 1.2,
+            width: 1, // Уменьшено с 1.2
           ),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              size: 16,
+              size: 15, // Уменьшено с 16
               color: isActive ? color : NewsTheme.secondaryTextColor,
             ),
             if (count > 0) ...[
-              const SizedBox(width: 5),
+              const SizedBox(width: 4), // Уменьшено с 5
               Text(
                 _formatCount(count),
                 style: TextStyle(
                   color: isActive ? color : NewsTheme.secondaryTextColor,
-                  fontSize: 12,
+                  fontSize: 11, // Уменьшено с 12
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -708,6 +707,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+
   Widget _buildFollowButton() {
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
 
@@ -715,7 +715,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       onTap: _toggleFollow,
       child: AnimatedContainer(
         duration: Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), // Уменьшено с 16,8
         decoration: BoxDecoration(
           gradient: _isFollowing
               ? null
@@ -725,25 +725,25 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             end: Alignment.bottomRight,
           ),
           color: _isFollowing ? Colors.green.withOpacity(0.1) : null,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8), // Уменьшено с 10
           border: Border.all(
             color: _isFollowing ? Colors.green : Colors.transparent,
-            width: 1.2,
+            width: 1, // Уменьшено с 1.2
           ),
         ),
         child: Row(
           children: [
             Icon(
               _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-              size: 14,
+              size: 13, // Уменьшено с 14
               color: _isFollowing ? Colors.green : Colors.white,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5), // Уменьшено с 6
             Text(
               _isFollowing ? 'Подписан' : 'Подписаться',
               style: TextStyle(
                 color: _isFollowing ? Colors.green : Colors.white,
-                fontSize: 12,
+                fontSize: 11, // Уменьшено с 12
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1347,6 +1347,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   Widget _buildChannelPost() {
+    final comments = widget.news['comments'] ?? []; // ДОБАВЛЕНО: получаем комментарии
     final title = _getStringValue(widget.news['title']);
     final description = _getStringValue(widget.news['description']);
     final channelName = _getStringValue(widget.news['channel_name']);
@@ -1450,7 +1451,21 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           ],
           const SizedBox(height: 16),
 
-          _buildPostActions(showBookmark: true, isAuthor: false),
+          // ИСПРАВЛЕНИЕ: Добавлены комментарии и секция комментариев для каналов
+          _buildPostActions(
+              commentCount: comments.length,
+              showBookmark: true,
+              isAuthor: false
+          ),
+
+          // ДОБАВЛЕНО: Секция комментариев для каналов
+          SizeTransition(
+            sizeFactor: _expandAnimation,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildCommentsSection(comments),
+            ),
+          ),
         ],
       ),
     );

@@ -574,15 +574,15 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  void addCommentToNews(int index, Map<String, dynamic> comment) {
-    if (index >= 0 && index < _news.length) {
+  void addCommentToNews(String newsId, Map<String, dynamic> comment) {
+    final index = _news.indexWhere((item) => item['id'].toString() == newsId);
+    if (index != -1) {
       final newsItem = _news[index] as Map<String, dynamic>;
 
       if (newsItem['comments'] == null) {
         newsItem['comments'] = [];
       }
 
-      // ИСПРАВЛЕНИЕ: Используем ID комментария из параметра, а не создаем новый
       final completeComment = {
         ...comment,
         'time': comment['time'] ?? DateTime.now().toIso8601String(),
@@ -595,7 +595,24 @@ class NewsProvider with ChangeNotifier {
       // Сохраняем в хранилище
       StorageService.saveNews(_news);
 
-      print('✅ Комментарий добавлен к новости ${newsItem['id']}');
+      print('✅ Комментарий добавлен к новости $newsId');
+    }
+  }
+
+  int findNewsIndexById(String newsId) {
+    return _news.indexWhere((item) => item['id'].toString() == newsId);
+  }
+
+  void updateNewsComments(String newsId, List<dynamic> comments) {
+    final index = findNewsIndexById(newsId);
+    if (index != -1) {
+      final newsItem = _news[index] as Map<String, dynamic>;
+      _news[index] = {
+        ...newsItem,
+        'comments': comments,
+      };
+      notifyListeners();
+      StorageService.saveNews(_news);
     }
   }
 

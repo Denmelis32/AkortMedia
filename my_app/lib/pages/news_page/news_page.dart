@@ -210,6 +210,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    final newsId = news['id'].toString();
 
     try {
       final commentId = 'comment-${DateTime.now().millisecondsSinceEpoch}-${news['id']}';
@@ -222,7 +223,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'author_avatar': _getUserAvatarUrl(widget.userName),
       };
 
-      newsProvider.addCommentToNews(index, newComment);
+      // Используем новый метод с newsId для лучшей синхронизации
+      newsProvider.addCommentToNews(newsId, newComment);
       _showSuccessSnackBar('Комментарий добавлен');
 
     } catch (e) {
@@ -230,6 +232,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       _showErrorSnackBar('Не удалось добавить комментарий');
     }
   }
+
 
   String _getUserAvatarUrl(String userName) {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
@@ -499,9 +502,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
             Navigator.pop(context);
             widget.onLogout();
           },
-          onBack: () {
-            Navigator.pop(context);
-          },
           newMessagesCount: 3,
           profileImageUrl: newsProvider.profileImageUrl,
           profileImageFile: newsProvider.profileImageFile,
@@ -733,7 +733,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                             delegate: SliverChildBuilderDelegate(
                                   (context, index) {
                                 final news = Map<String, dynamic>.from(filteredNews[index]);
-                                final originalIndex = newsProvider.news.indexOf(filteredNews[index]);
+                                final newsId = news['id'].toString();
+                                final originalIndex = newsProvider.findNewsIndexById(newsId);
 
                                 return Padding(
                                   padding: EdgeInsets.fromLTRB(
@@ -746,6 +747,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                     key: ValueKey('${news['id']}-$index'),
                                     news: news,
                                     userName: widget.userName,
+                                    userEmail: widget.userEmail,
                                     onLike: () => _toggleLike(originalIndex),
                                     onBookmark: () => _toggleBookmark(originalIndex),
                                     onFollow: () => _toggleFollow(originalIndex),
@@ -758,6 +760,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                     formatDate: formatDate,
                                     getTimeAgo: getTimeAgo,
                                     scrollController: pageState.scrollController,
+                                    onLogout: widget.onLogout,
                                   ),
                                 );
                               },

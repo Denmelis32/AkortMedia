@@ -425,6 +425,39 @@ class StorageService {
     }
   }
 
+
+  // В StorageService добавьте:
+
+  static Future<void> saveProfileImageUrl(String? url) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (url == null) {
+      await prefs.remove('profile_image_url');
+    } else {
+      await prefs.setString('profile_image_url', url);
+    }
+  }
+
+  static Future<String?> loadProfileImageUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('profile_image_url');
+  }
+
+  static Future<void> saveProfileImageFilePath(String? filePath) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (filePath == null) {
+      await prefs.remove('profile_image_file_path');
+    } else {
+      await prefs.setString('profile_image_file_path', filePath);
+    }
+  }
+
+  static Future<String?> loadProfileImageFilePath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('profile_image_file_path');
+  }
+
+
+
   static Future<void> removeUserTags(String newsId) async {
     try {
       final userTags = await loadUserTags();

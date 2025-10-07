@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:my_app/pages/news_page/profile_menu.dart';
 import 'package:provider/provider.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:share_plus/share_plus.dart';
@@ -19,6 +22,9 @@ import 'widgets/empty_states.dart';
 import 'widgets/app_bar.dart';
 import 'widgets/filter_chips_row.dart';
 import 'widgets/loading_state.dart';
+
+// Импортируем ProfileMenu из отдельного файла
+
 
 class NewsPage extends StatefulWidget {
   final String userName;
@@ -229,13 +235,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'author': widget.userName,
         'text': commentText.trim(),
         'time': 'Только что',
-        'author_avatar': _getUserAvatarUrl(widget.userName),
+        'author_avatar': _getUserAvatarUrl(widget.userName), // ОБЕСПЕЧИВАЕТ АКТУАЛЬНЫЙ АВАТАР
       };
 
       newsProvider.addCommentToNews(index, newComment);
       _showSuccessSnackBar('Комментарий добавлен');
 
-      // await ApiService.addComment(news['id'].toString(), {...});
     } catch (e) {
       newsProvider.removeCommentFromNews(index, 'comment-${DateTime.now().millisecondsSinceEpoch}');
       _showErrorSnackBar('Не удалось добавить комментарий');
@@ -243,7 +248,20 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   String _getUserAvatarUrl(String userName) {
-    return 'https://ui-avatars.com/api/?name=$userName&background=${NewsTheme.primaryColor.value.toRadixString(16).substring(2)}&color=ffffff';
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final currentProfileImage = newsProvider.getCurrentProfileImage();
+
+    // ПРИОРИТЕТ: файл -> URL -> fallback
+    if (currentProfileImage is File) {
+      // Для файлов возвращаем fallback, т.к. в сети нельзя использовать локальный File
+      return _getFallbackAvatarUrl(userName);
+    } else if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+      // Используем URL фото профиля
+      return currentProfileImage;
+    } else {
+      // Fallback на стандартный аватар
+      return _getFallbackAvatarUrl(userName);
+    }
   }
 
   Future<void> _addNews(String title, String description, String hashtags) async {
@@ -259,11 +277,25 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'hashtags': hashtagsArray,
       });
 
-      // ИСПРАВЛЕНИЕ: Преобразуем Map<dynamic, dynamic> в Map<String, dynamic>
+      // ПОЛУЧАЕМ АКТУАЛЬНОЕ ФОТО ПРОФИЛЯ ИЗ PROVIDER С ПРАВИЛЬНОЙ ЛОГИКОЙ
+      final currentProfileImage = newsProvider.getCurrentProfileImage();
+      String authorAvatarUrl;
+
+      if (currentProfileImage is File) {
+        // Если фото из файла - используем fallback, т.к. нельзя напрямую использовать File для сети
+        authorAvatarUrl = _getFallbackAvatarUrl(widget.userName);
+      } else if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+        // Если фото из URL - используем его
+        authorAvatarUrl = currentProfileImage;
+      } else {
+        // Если фото нет - используем fallback
+        authorAvatarUrl = _getFallbackAvatarUrl(widget.userName);
+      }
+
       final Map<String, dynamic> newsItem = _convertToStringDynamicMap({
         ...newNews,
         'author_name': widget.userName,
-        'author_avatar': _getUserAvatarUrl(widget.userName),
+        'author_avatar': authorAvatarUrl, // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
         'isLiked': false,
         'isBookmarked': false,
         'isFollowing': false,
@@ -279,14 +311,23 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     } catch (e) {
       print('❌ Ошибка создания новости: $e');
 
-      // Fallback: создаем новость локально
+      // Fallback: создаем новость локально с АКТУАЛЬНЫМ аватаром
+      final currentProfileImage = newsProvider.getCurrentProfileImage();
+      String authorAvatarUrl;
+
+      if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+        authorAvatarUrl = currentProfileImage;
+      } else {
+        authorAvatarUrl = _getFallbackAvatarUrl(widget.userName);
+      }
+
       final Map<String, dynamic> localNewsItem = _convertToStringDynamicMap({
         'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
         'title': title.trim(),
         'description': description.trim(),
         'hashtags': hashtagsArray,
         'author_name': widget.userName,
-        'author_avatar': _getUserAvatarUrl(widget.userName),
+        'author_avatar': authorAvatarUrl, // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
         'likes': 0,
         'comments': [],
         'user_tags': {'tag1': 'Новый тег'},
@@ -301,6 +342,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       _showSuccessSnackBar('📝 Новость создана локально');
     }
   }
+
+
+  String _getFallbackAvatarUrl(String userName) {
+    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
+  }
+
 
   // НОВЫЙ МЕТОД: Преобразование Map<dynamic, dynamic> в Map<String, dynamic>
   Map<String, dynamic> _convertToStringDynamicMap(Map<dynamic, dynamic> input) {
@@ -469,26 +516,40 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   void _showProfileMenu(BuildContext context) {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: NewsTheme.cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: ProfileMenu(
-          userName: widget.userName,
-          userEmail: widget.userEmail,
-          onLogout: widget.onLogout,
-        ),
+      builder: (context) => ProfileMenu(
+        userName: widget.userName,
+        userEmail: widget.userEmail,
+        onLogout: widget.onLogout,
+        newMessagesCount: 3,
+        profileImageUrl: newsProvider.profileImageUrl,
+        profileImageFile: newsProvider.profileImageFile,
+        onProfileImageUrlChanged: (url) {
+          newsProvider.updateProfileImageUrl(url);
+        },
+        onProfileImageFileChanged: (file) {
+          newsProvider.updateProfileImageFile(file);
+        },
+        onMessagesTap: () {
+          Navigator.pop(context);
+          _showSuccessSnackBar('Переход к сообщениям');
+        },
+        onSettingsTap: () {
+          Navigator.pop(context);
+          _showSuccessSnackBar('Переход к настройкам');
+        },
+        onHelpTap: () {
+          Navigator.pop(context);
+          _showSuccessSnackBar('Переход к разделу помощи');
+        },
+        onAboutTap: () {
+          Navigator.pop(context);
+          _showSuccessSnackBar('Информация о приложении');
+        },
       ),
     );
   }
@@ -610,6 +671,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                 onSearchToggled: () => pageState.setSearching(!pageState.isSearching),
                 onProfilePressed: () => _showProfileMenu(context),
                 onClearFilters: hasActiveFilters ? _clearAllFilters : null,
+                profileImageUrl: newsProvider.profileImageUrl,
+                profileImageFile: newsProvider.profileImageFile,
               ),
               body: FadeTransition(
                 opacity: _fadeAnimation,
@@ -755,162 +818,5 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     _pageState.dispose();
     _animationController.dispose();
     super.dispose();
-  }
-}
-
-// ========== ДОБАВЛЕННЫЙ КЛАСС ProfileMenu ==========
-
-class ProfileMenu extends StatelessWidget {
-  final String userName;
-  final String userEmail;
-  final VoidCallback onLogout;
-
-  const ProfileMenu({
-    super.key,
-    required this.userName,
-    required this.userEmail,
-    required this.onLogout,
-  });
-
-  Widget _buildMenuButton(IconData icon, String text, {VoidCallback? onTap}) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: NewsTheme.primaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: NewsTheme.primaryColor, size: 20),
-      ),
-      title: Text(
-        text,
-        style: TextStyle(
-          color: NewsTheme.textColor,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      onTap: onTap,
-      contentPadding: EdgeInsets.zero,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: NewsTheme.cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 30,
-            offset: const Offset(0, -10),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: NewsTheme.secondaryTextColor.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Аватар пользователя
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [const Color(0xFF667eea), const Color(0xFF764ba2)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF667eea).withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    userName[0].toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                userName,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: NewsTheme.textColor,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                userEmail,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: NewsTheme.secondaryTextColor,
-                ),
-              ),
-              const SizedBox(height: 28),
-              _buildMenuButton(
-                  Icons.settings_rounded,
-                  'Настройки',
-                  onTap: () => Navigator.pop(context)
-              ),
-              _buildMenuButton(
-                  Icons.help_rounded,
-                  'Помощь',
-                  onTap: () => Navigator.pop(context)
-              ),
-              _buildMenuButton(
-                  Icons.info_rounded,
-                  'О приложении',
-                  onTap: () => Navigator.pop(context)
-              ),
-              const SizedBox(height: 8),
-              _buildMenuButton(
-                  Icons.logout_rounded,
-                  'Выйти',
-                  onTap: () {
-                    Navigator.pop(context);
-                    onLogout();
-                  }
-              ),
-              const SizedBox(height: 20),
-              OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: NewsTheme.secondaryTextColor,
-                  side: BorderSide(color: NewsTheme.secondaryTextColor.withOpacity(0.3)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                ),
-                child: const Text('Закрыть'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

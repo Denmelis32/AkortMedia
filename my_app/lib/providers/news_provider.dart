@@ -1,7 +1,9 @@
 // lib/providers/news_provider.dart
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../../../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -10,9 +12,17 @@ class NewsProvider with ChangeNotifier {
   bool _isLoading = true;
   String? _errorMessage;
 
+  // НОВЫЕ ПОЛЯ ДЛЯ ФОТО ПРОФИЛЯ
+  String? _profileImageUrl;
+  File? _profileImageFile;
+
   List<dynamic> get news => _news;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  // НОВЫЕ ГЕТТЕРЫ ДЛЯ ФОТО ПРОФИЛЯ
+  String? get profileImageUrl => _profileImageUrl;
+  File? get profileImageFile => _profileImageFile;
 
   void setLoading(bool loading) {
     _isLoading = loading;
@@ -24,9 +34,96 @@ class NewsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ФОТО ПРОФИЛЯ
+  // В NewsProvider обновите метод updateProfileImageUrl:
+  void updateProfileImageUrl(String? url) async {
+    if (url != null && url.isNotEmpty) {
+      // Проверяем валидность URL перед сохранением
+      try {
+        final uri = Uri.parse(url);
+        if (!uri.hasScheme) {
+          url = 'https://$url';
+        }
+
+        // Проверяем доступность изображения
+        final response = await http.head(Uri.parse(url));
+        if (response.statusCode != 200) {
+          print('❌ Image URL not accessible: ${response.statusCode}');
+          return;
+        }
+      } catch (e) {
+        print('❌ Invalid image URL: $e');
+        return;
+      }
+    }
+
+    _profileImageUrl = url;
+    _profileImageFile = null;
+    notifyListeners();
+
+    // Сохраняем в хранилище
+    await StorageService.saveProfileImageUrl(url);
+    print('✅ Profile image URL updated: $url');
+  }
+
+  void updateProfileImageFile(File? file) {
+    _profileImageFile = file;
+    _profileImageUrl = null;
+    notifyListeners();
+
+    if (file != null) {
+      // Проверяем существует ли файл
+      file.exists().then((exists) {
+        if (exists) {
+          StorageService.saveProfileImageFilePath(file.path);
+          print('✅ Profile image file updated: ${file.path}');
+        } else {
+          print('❌ File does not exist: ${file.path}');
+          _profileImageFile = null;
+          notifyListeners();
+        }
+      });
+    } else {
+      StorageService.saveProfileImageFilePath(null);
+      print('✅ Profile image file removed');
+    }
+  }
+
+  // Загрузка данных профиля из хранилища
+  Future<void> loadProfileData() async {
+    try {
+      // Загружаем URL фото профиля
+      final savedUrl = await StorageService.loadProfileImageUrl();
+      if (savedUrl != null && savedUrl.isNotEmpty) {
+        _profileImageUrl = savedUrl;
+      }
+
+      // Загружаем файл фото профиля
+      final savedFilePath = await StorageService.loadProfileImageFilePath();
+      if (savedFilePath != null && savedFilePath.isNotEmpty) {
+        final file = File(savedFilePath);
+        if (await file.exists()) {
+          _profileImageFile = file;
+        } else {
+          // Файл не существует, очищаем запись
+          await StorageService.saveProfileImageFilePath(null);
+          print('⚠️ Profile image file not found, clearing path');
+        }
+      }
+
+      print('✅ Profile data loaded: URL=$_profileImageUrl, File=${_profileImageFile?.path}');
+    } catch (e) {
+      print('❌ Error loading profile data: $e');
+    }
+  }
+
   // НОВЫЙ МЕТОД: Обеспечение сохранности данных
   Future<void> ensureDataPersistence() async {
     try {
+      // Сначала загружаем данные профиля
+      await loadProfileData();
+
+      // Затем загружаем новости
       final cachedNews = await StorageService.loadNews();
       if (cachedNews.isEmpty) {
         // Если данных нет, создаем начальные mock данные
@@ -199,6 +296,9 @@ class NewsProvider with ChangeNotifier {
     final hash = id.hashCode;
     return colors[hash.abs() % colors.length];
   }
+  String _getFallbackAvatarUrl(String userName) {
+    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
+  }
 
   List<dynamic> _getMockNews() {
     return [
@@ -217,6 +317,7 @@ class NewsProvider with ChangeNotifier {
         "isBookmarked": false,
         "tag_color": Colors.blue.value,
         "is_channel_post": true,
+        "author_avatar": _getFallbackAvatarUrl("Система"),
       },
       {
         "id": "2",
@@ -233,6 +334,7 @@ class NewsProvider with ChangeNotifier {
         "isBookmarked": false,
         "tag_color": Colors.blue.value,
         "is_channel_post": false,
+        "author_avatar": _getFallbackAvatarUrl("Система"),
       },
       {
         "id": "3",
@@ -249,6 +351,7 @@ class NewsProvider with ChangeNotifier {
         "isBookmarked": false,
         "tag_color": Colors.red.value,
         "is_channel_post": false,
+        "author_avatar": _getFallbackAvatarUrl("Система"),
       },
       {
         "id": "channel-1",
@@ -266,6 +369,7 @@ class NewsProvider with ChangeNotifier {
         "isBookmarked": false,
         "tag_color": Colors.purple.value,
         "is_channel_post": true,
+        "author_avatar": _getFallbackAvatarUrl("Система"),
       }
     ];
   }
@@ -815,6 +919,8 @@ class NewsProvider with ChangeNotifier {
     _news = [];
     _isLoading = false;
     _errorMessage = null;
+    _profileImageUrl = null;
+    _profileImageFile = null;
     await StorageService.clearAllData();
     notifyListeners();
   }
@@ -851,5 +957,31 @@ class NewsProvider with ChangeNotifier {
   // Создание резервной копии
   List<dynamic> createBackup() {
     return List<dynamic>.from(_news);
+  }
+
+  // НОВЫЙ МЕТОД: Удаление фото профиля
+  void removeProfileImage() {
+    _profileImageUrl = null;
+    _profileImageFile = null;
+    notifyListeners();
+
+    // Очищаем в хранилище
+    StorageService.saveProfileImageUrl(null);
+    StorageService.saveProfileImageFilePath(null);
+
+    print('✅ Profile image removed');
+  }
+
+  // НОВЫЙ МЕТОД: Проверка наличия фото профиля
+  bool hasProfileImage() {
+    return _profileImageUrl != null || _profileImageFile != null;
+  }
+
+  // НОВЫЙ МЕТОД: Получение текущего фото профиля (приоритет у файла)
+  dynamic getCurrentProfileImage() {
+    // Приоритет у файла, затем URL
+    if (_profileImageFile != null) return _profileImageFile;
+    if (_profileImageUrl != null && _profileImageUrl!.isNotEmpty) return _profileImageUrl;
+    return null;
   }
 }

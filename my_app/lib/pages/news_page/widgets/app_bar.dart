@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme/news_theme.dart';
 
 class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -15,6 +17,9 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int? unreadNotificationsCount;
   final List<String>? recentSearches;
   final ValueChanged<String>? onRecentSearchSelected;
+  final int? newMessagesCount;
+  final String? profileImageUrl; // Новое: URL фото профиля
+  final File? profileImageFile; // Новое: файл с фото профиля
 
   const NewsAppBar({
     super.key,
@@ -31,6 +36,9 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.unreadNotificationsCount = 0,
     this.recentSearches,
     this.onRecentSearchSelected,
+    this.newMessagesCount = 0,
+    this.profileImageUrl, // Новое: URL фото
+    this.profileImageFile, // Новое: файл фото
   });
 
   // Генерация градиента для аватара на основе имени пользователя
@@ -50,46 +58,173 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   Widget _buildUserAvatar() {
     final gradientColors = _getAvatarGradient(userName);
+    final hasNewMessages = (newMessagesCount ?? 0) > 0;
+    final hasProfileImage = profileImageUrl != null || profileImageFile != null;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onProfilePressed,
-        child: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradientColors,
-            ),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2.5),
-            boxShadow: [
-              BoxShadow(
-                color: gradientColors[0].withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+        child: Stack(
+          children: [
+            // Основной контейнер аватара
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                gradient: hasProfileImage ? null : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: gradientColors,
+                ),
+                image: _getProfileImageDecoration(),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: hasNewMessages ? Colors.amber : Colors.white,
+                  width: hasNewMessages ? 3.0 : 2.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (hasProfileImage ? Colors.black : gradientColors[0]).withOpacity(0.4),
+                    blurRadius: 15,
+                    offset: const Offset(0, 6),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                letterSpacing: 0.5,
+              child: hasProfileImage ? null : Center(
+                child: Text(
+                  userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 4,
+                        color: Colors.black26,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+
+            // Бейдж онлайн-статуса
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: NewsTheme.cardColor,
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.4),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Бейдж новых сообщений
+            if (hasNewMessages)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  width: newMessagesCount! > 9 ? 22 : 20,
+                  height: newMessagesCount! > 9 ? 22 : 20,
+                  decoration: BoxDecoration(
+                    color: Colors.amber,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: NewsTheme.cardColor,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withOpacity(0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      newMessagesCount! > 9 ? '9+' : newMessagesCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Иконка камеры для фото профиля
+            if (hasProfileImage)
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: NewsTheme.primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: NewsTheme.cardColor,
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.photo_camera_rounded,
+                    size: 8,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
+  DecorationImage? _getProfileImageDecoration() {
+    if (profileImageFile != null) {
+      return DecorationImage(
+        image: FileImage(profileImageFile!),
+        fit: BoxFit.cover,
+      );
+    } else if (profileImageUrl != null && profileImageUrl!.isNotEmpty) {
+      return DecorationImage(
+        image: NetworkImage(profileImageUrl!),
+        fit: BoxFit.cover,
+      );
+    }
+    return null;
+  }
+
+  // Остальные методы без изменений
   Widget _buildClearFiltersButton() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -241,6 +376,8 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   Widget _buildNormalTitle() {
+    final hasNewMessages = (newMessagesCount ?? 0) > 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -320,6 +457,17 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (hasNewMessages) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Colors.amber,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -330,11 +478,9 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   List<Widget> _buildActionButtons() {
     return [
-      // Кнопка очистки фильтров
       if (!isSearching && hasActiveFilters)
         _buildClearFiltersButton(),
 
-      // Кнопка поиска/закрытия поиска
       Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         child: MouseRegion(
@@ -372,7 +518,6 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
 
-      // Аватар пользователя (скрывается в режиме поиска)
       if (!isSearching) ...[
         const SizedBox(width: 8),
         _buildUserAvatar(),

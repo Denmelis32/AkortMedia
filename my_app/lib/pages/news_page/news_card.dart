@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'theme/news_theme.dart';
+import 'package:provider/provider.dart';
+import '../../providers/news_provider.dart';
+import 'theme/news_theme.dart'; // Добавьте этот импорт
 
 class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
@@ -205,6 +207,33 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     widget.onFollow();
   }
 
+  // ========== НОВЫЙ МЕТОД: ПОЛУЧЕНИЕ АКТУАЛЬНОГО АВАТАРА ==========
+  String _getCurrentUserAvatarUrl() {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final currentProfileImage = newsProvider.getCurrentProfileImage();
+    final authorName = _getStringValue(widget.news['author_name']);
+
+    // Если это пост текущего пользователя, используем актуальное фото профиля
+    if (authorName == widget.userName) {
+      if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+        return currentProfileImage;
+      }
+    }
+
+    // Для других пользователей или если нет актуального фото, используем сохраненное в новости
+    final savedAvatar = _getStringValue(widget.news['author_avatar']);
+    if (savedAvatar.isNotEmpty && savedAvatar.startsWith('http')) {
+      return savedAvatar;
+    }
+
+    // Fallback
+    return _getFallbackAvatarUrl(authorName);
+  }
+
+  String _getFallbackAvatarUrl(String userName) {
+    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
+  }
+
   // ========== УЛУЧШЕННЫЙ КОМПАКТНЫЙ ДИЗАЙН КАРТОЧЕК ==========
 
   Widget _buildCard({required Widget child, bool isChannel = false}) {
@@ -281,41 +310,21 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  // ========== КРУГЛЫЕ АВАТАРКИ КАК В ПРОФИЛЕ ==========
+
   Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
     final authorName = _getStringValue(widget.news['author_name']);
     final createdAt = _getStringValue(widget.news['created_at']);
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
     final channelName = _getStringValue(widget.news['channel_name']);
 
+    // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
+    final authorAvatar = _getCurrentUserAvatarUrl();
+
     return Row(
       children: [
-        // Улучшенный аватар с градиентом
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _cardDesign.gradient,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: _cardDesign.gradient[0].withOpacity(0.25),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Icon(
-              isChannelPost ? Icons.group_rounded : Icons.person_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-        ),
+        // КРУГЛАЯ АВАТАРКА ПОЛЬЗОВАТЕЛЯ
+        _buildUserAvatar(authorAvatar, isChannelPost, channelName, authorName),
         const SizedBox(width: 12),
 
         // Информация об авторе/канале
@@ -409,6 +418,92 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         ),
       ],
     );
+  }
+
+  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String channelName, String authorName) {
+    // Если есть URL аватарки, используем его
+    if (avatarUrl.isNotEmpty && avatarUrl.startsWith('http')) {
+      return Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: Image.network(
+            avatarUrl,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _buildGradientAvatar(isChannelPost, channelName, authorName);
+            },
+            errorBuilder: (context, error, stackTrace) {
+              // Fallback на градиентный аватар при ошибке загрузки
+              return _buildGradientAvatar(isChannelPost, channelName, authorName);
+            },
+          ),
+        ),
+      );
+    }
+
+    // Fallback на градиентный аватар если нет URL
+    return _buildGradientAvatar(isChannelPost, channelName, authorName);
+  }
+
+  Widget _buildGradientAvatar(bool isChannelPost, String channelName, String authorName) {
+    final gradientColors = _getAvatarGradient(isChannelPost ? channelName : authorName);
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors[0].withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Icon(
+          isChannelPost ? Icons.group_rounded : Icons.person_rounded,
+          color: Colors.white,
+          size: 20,
+        ),
+      ),
+    );
+  }
+
+  List<Color> _getAvatarGradient(String name) {
+    final colors = [
+      [const Color(0xFF667eea), const Color(0xFF764ba2)],
+      [const Color(0xFFf093fb), const Color(0xFFf5576c)],
+      [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
+      [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
+      [const Color(0xFFfa709a), const Color(0xFFfee140)],
+      [const Color(0xFF30cfd0), const Color(0xFF330867)],
+    ];
+
+    final index = name.isEmpty ? 0 : name.codeUnits.reduce((a, b) => a + b) % colors.length;
+    return colors[index];
   }
 
   String _getContentTypeText() {
@@ -977,31 +1072,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final author = _getStringValue(commentMap['author']);
     final text = _getStringValue(commentMap['text']);
     final time = _getStringValue(commentMap['time']);
+    final authorAvatar = _getStringValue(commentMap['author_avatar']);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _cardDesign.gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.person_rounded,
-                size: 16,
-                color: Colors.white,
-              ),
-            ),
-          ),
+          // КРУГЛАЯ АВАТАРКА ДЛЯ КОММЕНТАРИЕВ
+          _buildCommentAvatar(authorAvatar, author),
           const SizedBox(width: 10),
           Expanded(
             child: Container(
@@ -1050,6 +1129,66 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCommentAvatar(String avatarUrl, String authorName) {
+    // Если есть URL аватарки, используем его
+    if (avatarUrl.isNotEmpty && avatarUrl.startsWith('http')) {
+      return Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
+        child: ClipOval(
+          child: Image.network(
+            avatarUrl,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _buildCommentGradientAvatar(authorName);
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return _buildCommentGradientAvatar(authorName);
+            },
+          ),
+        ),
+      );
+    }
+
+    // Fallback на градиентный аватар
+    return _buildCommentGradientAvatar(authorName);
+  }
+
+  Widget _buildCommentGradientAvatar(String authorName) {
+    final gradientColors = _getAvatarGradient(authorName);
+
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -1213,6 +1352,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final channelName = _getStringValue(widget.news['channel_name']);
     final createdAt = _getStringValue(widget.news['created_at']);
     final hashtags = _parseHashtags(widget.news['hashtags']);
+    final channelAvatar = _getStringValue(widget.news['channel_avatar']);
 
     return _buildCard(
       isChannel: true,
@@ -1221,21 +1361,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         children: [
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: _cardDesign.gradient,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Icon(Icons.group_rounded, color: Colors.white, size: 20),
-                ),
-              ),
+              // КРУГЛАЯ АВАТАРКА КАНАЛА
+              _buildChannelAvatar(channelAvatar, channelName),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1325,6 +1452,77 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
           _buildPostActions(showBookmark: true, isAuthor: false),
         ],
+      ),
+    );
+  }
+
+  Widget _buildChannelAvatar(String avatarUrl, String channelName) {
+    // Если есть URL аватарки канала, используем его
+    if (avatarUrl.isNotEmpty && avatarUrl.startsWith('http')) {
+      return Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: Image.network(
+            avatarUrl,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _buildChannelGradientAvatar(channelName);
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return _buildChannelGradientAvatar(channelName);
+            },
+          ),
+        ),
+      );
+    }
+
+    // Fallback на градиентный аватар канала
+    return _buildChannelGradientAvatar(channelName);
+  }
+
+  Widget _buildChannelGradientAvatar(String channelName) {
+    final gradientColors = _getAvatarGradient(channelName);
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors[0].withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Icon(
+          Icons.group_rounded,
+          color: Colors.white,
+          size: 20,
+        ),
       ),
     );
   }

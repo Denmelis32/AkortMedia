@@ -112,23 +112,27 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   @override
   void initState() {
     super.initState();
-    // Инициализация состояния в провайдере
+    // Перенесем инициализацию в addPostFrameCallback
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
-      final channelDetailProvider = Provider.of<ChannelDetailProvider>(context, listen: false);
-
-      // Инициализируем состояние канала в ChannelStateProvider
-      _initializeChannelState(channelStateProvider);
-
-      // Синхронизируем состояние между провайдерами
-      _syncProviderStates(channelStateProvider, channelDetailProvider);
+      _initializeProviders();
     });
+  }
+
+  void _initializeProviders() {
+    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    final channelDetailProvider = Provider.of<ChannelDetailProvider>(context, listen: false);
+
+    // Инициализируем состояние канала в ChannelStateProvider
+    _initializeChannelState(channelStateProvider);
+
+    // Синхронизируем состояние между провайдерами
+    _syncProviderStates(channelStateProvider, channelDetailProvider);
   }
 
   void _initializeChannelState(ChannelStateProvider provider) {
     // Используем новый метод для инициализации
     provider.initializeChannelIfNeeded(
-      widget.channel.id,
+      widget.channel.id.toString(), // ПРЕОБРАЗУЕМ В STRING
       widget.channel.imageUrl,
       widget.channel.coverImageUrl,
       widget.channel.tags,
@@ -137,19 +141,19 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
 
   void _syncProviderStates(ChannelStateProvider stateProvider, ChannelDetailProvider detailProvider) {
     // Синхронизируем аватарку
-    final avatarUrl = stateProvider.getAvatarForChannel(widget.channel.id);
+    final avatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
     if (detailProvider.currentAvatarUrl != avatarUrl) {
       detailProvider.setAvatarUrl(avatarUrl);
     }
 
     // Синхронизируем обложку
-    final coverUrl = stateProvider.getCoverForChannel(widget.channel.id);
+    final coverUrl = stateProvider.getCoverForChannel(widget.channel.id.toString());
     if (detailProvider.currentCoverUrl != coverUrl) {
       detailProvider.setCoverUrl(coverUrl);
     }
 
     // Синхронизируем хештеги
-    final hashtags = stateProvider.getHashtagsForChannel(widget.channel.id);
+    final hashtags = stateProvider.getHashtagsForChannel(widget.channel.id.toString());
     if (!_listEquals(detailProvider.currentHashtags, hashtags)) {
       detailProvider.setHashtags(hashtags);
     }
@@ -214,17 +218,17 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
           channel: widget.channel,
           editable: true,
           onAvatarChanged: (newAvatarUrl) {
-            stateProvider.setAvatarForChannel(widget.channel.id, newAvatarUrl.isEmpty ? null : newAvatarUrl);
+            stateProvider.setAvatarForChannel(widget.channel.id.toString(), newAvatarUrl.isEmpty ? null : newAvatarUrl);
             provider.setAvatarUrl(newAvatarUrl.isEmpty ? null : newAvatarUrl);
             _saveAvatarToDatabase(newAvatarUrl);
           },
           onCoverChanged: (newCoverUrl) {
-            stateProvider.setCoverForChannel(widget.channel.id, newCoverUrl.isEmpty ? null : newCoverUrl);
+            stateProvider.setCoverForChannel(widget.channel.id.toString(), newCoverUrl.isEmpty ? null : newCoverUrl);
             provider.setCoverUrl(newCoverUrl.isEmpty ? null : newCoverUrl);
             _saveCoverToDatabase(newCoverUrl);
           },
           onHashtagsChanged: (newHashtags) {
-            stateProvider.setHashtagsForChannel(widget.channel.id, newHashtags);
+            stateProvider.setHashtagsForChannel(widget.channel.id.toString(), newHashtags);
             provider.setHashtags(newHashtags);
             _saveHashtagsToDatabase(newHashtags);
           },
@@ -407,7 +411,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       ChannelDetailProvider channelProvider,
       ChannelStateProvider stateProvider,
       ) {
-    final avatarUrl = stateProvider.getAvatarForChannel(widget.channel.id);
+    final avatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
 
     switch (index) {
       case 0:
@@ -478,6 +482,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
           child: const Icon(Icons.add, size: 32),
           elevation: 8,
           highlightElevation: 16,
+          heroTag: 'channel_fab_${widget.channel.id}', // УНИКАЛЬНЫЙ TAG
         ),
       ),
     );
@@ -497,6 +502,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         foregroundColor: Colors.white,
         mini: true,
         child: const Icon(Icons.arrow_upward),
+        heroTag: 'scroll_top_${widget.channel.id}', // УНИКАЛЬНЫЙ TAG
       ),
     );
   }
@@ -623,6 +629,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   void _addPost(BuildContext context, String title, String description, String hashtags) {
     final postsProvider = Provider.of<ChannelPostsProvider>(context, listen: false);
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final stateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
 
     final hashtagsArray = hashtags
         .split(' ')
@@ -630,6 +637,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         .toList();
 
     try {
+      // ПОЛУЧАЕМ ТЕКУЩИЙ АВАТАР ИЗ ПРОВАЙДЕРА СОСТОЯНИЯ
+      final currentAvatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
+      final avatarToUse = currentAvatarUrl ?? widget.channel.imageUrl;
+
       final newPost = {
         "id": "channel-${DateTime.now().millisecondsSinceEpoch}",
         "title": title,
@@ -641,7 +652,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         "comments": [],
         'is_channel_post': true,
         'channel_name': widget.channel.title,
-        'channel_image': widget.channel.imageUrl,
+        // ОБЯЗАТЕЛЬНО ПЕРЕДАЕМ ОБНОВЛЕННУЮ АВАТАРКУ
+        'channel_avatar': avatarToUse,
+        'channel_image': avatarToUse,
+        'channel_id': widget.channel.id.toString(),
       };
 
       // Публикуем новость и в Акорт и на Стену
@@ -683,8 +697,13 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       context,
       listen: false,
     );
+    final stateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
 
     try {
+      // ПОЛУЧАЕМ ТЕКУЩИЙ АВАТАР КАНАЛА
+      final currentAvatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
+      final avatarToUse = currentAvatarUrl ?? widget.channel.imageUrl;
+
       final newArticle = {
         "id": "article-${DateTime.now().millisecondsSinceEpoch}",
         "title": article.title,
@@ -696,10 +715,11 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         "likes": 0,
         "author": "Администратор канала",
         "publish_date": DateTime.now().toIso8601String(),
-        "image_url": widget.channel.imageUrl,
+        "image_url": avatarToUse, // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
         "channel_id": widget.channel.id,
         "channel_name": widget.channel.title,
-        "channel_image": widget.channel.imageUrl,
+        "channel_image": avatarToUse, // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
+        'is_channel_post': true,
       };
 
       articlesProvider.addArticleToChannel(widget.channel.id, newArticle);

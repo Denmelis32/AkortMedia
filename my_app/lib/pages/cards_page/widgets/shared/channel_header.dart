@@ -30,26 +30,28 @@ class _ChannelHeaderState extends State<ChannelHeader> {
   @override
   void initState() {
     super.initState();
-    // Инициализируем состояние в провайдере, если его нет
-    _initializeChannelState();
+    // Переносим инициализацию в addPostFrameCallback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeChannelState();
+    });
   }
 
   void _initializeChannelState() {
     final provider = Provider.of<ChannelStateProvider>(context, listen: false);
 
     // Инициализируем аватарку, если еще не установлена
-    if (provider.getAvatarForChannel(widget.channel.id) == null) {
-      provider.setAvatarForChannel(widget.channel.id, widget.channel.imageUrl);
+    if (provider.getAvatarForChannel(widget.channel.id.toString()) == null) {
+      provider.setAvatarForChannel(widget.channel.id.toString(), widget.channel.imageUrl);
     }
 
     // Инициализируем обложку, если еще не установлена
-    if (provider.getCoverForChannel(widget.channel.id) == null) {
-      provider.setCoverForChannel(widget.channel.id, widget.channel.coverImageUrl);
+    if (provider.getCoverForChannel(widget.channel.id.toString()) == null) {
+      provider.setCoverForChannel(widget.channel.id.toString(), widget.channel.coverImageUrl);
     }
 
     // Инициализируем хештеги, если еще не установлены
-    if (provider.getHashtagsForChannel(widget.channel.id).isEmpty) {
-      provider.setHashtagsForChannel(widget.channel.id, widget.channel.tags);
+    if (provider.getHashtagsForChannel(widget.channel.id.toString()).isEmpty) {
+      provider.setHashtagsForChannel(widget.channel.id.toString(), widget.channel.tags);
     }
   }
 
@@ -57,9 +59,9 @@ class _ChannelHeaderState extends State<ChannelHeader> {
   Widget build(BuildContext context) {
     return Consumer<ChannelStateProvider>(
       builder: (context, provider, child) {
-        final avatarUrl = provider.getAvatarForChannel(widget.channel.id);
-        final coverUrl = provider.getCoverForChannel(widget.channel.id);
-        final hashtags = provider.getHashtagsForChannel(widget.channel.id);
+        final avatarUrl = provider.getAvatarForChannel(widget.channel.id.toString());
+        final coverUrl = provider.getCoverForChannel(widget.channel.id.toString());
+        final hashtags = provider.getHashtagsForChannel(widget.channel.id.toString());
 
         return Stack(
           children: [
@@ -359,7 +361,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
   }
 
   void _changeAvatar(ChannelStateProvider provider) {
-    final currentAvatar = provider.getAvatarForChannel(widget.channel.id);
+    final currentAvatar = provider.getAvatarForChannel(widget.channel.id.toString());
     final controller = TextEditingController(text: currentAvatar ?? '');
 
     showDialog(
@@ -384,8 +386,20 @@ class _ChannelHeaderState extends State<ChannelHeader> {
                       ? Image.network(
                     controller.text,
                     fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      );
+                    },
                     errorBuilder: (context, error, stackTrace) {
-                      return const Center(child: Icon(Icons.error));
+                      return const Center(
+                          child: Icon(Icons.error, color: Colors.red));
                     },
                   )
                       : const Center(child: Icon(Icons.person, size: 40)),
@@ -400,6 +414,10 @@ class _ChannelHeaderState extends State<ChannelHeader> {
                   hintText: 'https://example.com/avatar.jpg',
                   border: OutlineInputBorder(),
                 ),
+                onChanged: (value) {
+                  // Обновляем превью при изменении текста
+                  if (mounted) setState(() {});
+                },
               ),
               const SizedBox(height: 8),
               Text(
@@ -421,7 +439,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
             onPressed: () {
               final newAvatarUrl = controller.text.trim();
               if (newAvatarUrl.isNotEmpty) {
-                provider.setAvatarForChannel(widget.channel.id, newAvatarUrl);
+                provider.setAvatarForChannel(widget.channel.id.toString(), newAvatarUrl);
                 widget.onAvatarChanged?.call(newAvatarUrl);
               }
               Navigator.pop(context);
@@ -430,7 +448,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
           ),
           TextButton(
             onPressed: () {
-              provider.setAvatarForChannel(widget.channel.id, null);
+              provider.setAvatarForChannel(widget.channel.id.toString(), null);
               widget.onAvatarChanged?.call('');
               Navigator.pop(context);
             },
@@ -442,7 +460,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
   }
 
   void _changeCoverImage(ChannelStateProvider provider) {
-    final currentCover = provider.getCoverForChannel(widget.channel.id);
+    final currentCover = provider.getCoverForChannel(widget.channel.id.toString());
     final controller = TextEditingController(text: currentCover ?? '');
 
     showDialog(
@@ -461,6 +479,10 @@ class _ChannelHeaderState extends State<ChannelHeader> {
                   hintText: 'https://example.com/cover.jpg',
                   border: OutlineInputBorder(),
                 ),
+                onChanged: (value) {
+                  // Обновляем состояние для превью
+                  if (mounted) setState(() {});
+                },
               ),
               const SizedBox(height: 16),
               if (controller.text.isNotEmpty)
@@ -470,9 +492,36 @@ class _ChannelHeaderState extends State<ChannelHeader> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey),
-                    image: DecorationImage(
-                      image: NetworkImage(controller.text),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      controller.text,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error, color: Colors.red),
+                              SizedBox(height: 8),
+                              Text('Не удалось загрузить изображение',
+                                  style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -488,7 +537,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
             onPressed: () {
               final newCoverUrl = controller.text.trim();
               provider.setCoverForChannel(
-                widget.channel.id,
+                widget.channel.id.toString(),
                 newCoverUrl.isNotEmpty ? newCoverUrl : null,
               );
               widget.onCoverChanged?.call(newCoverUrl);
@@ -502,7 +551,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
   }
 
   void _editHashtags(ChannelStateProvider provider) {
-    final currentHashtags = provider.getHashtagsForChannel(widget.channel.id);
+    final currentHashtags = provider.getHashtagsForChannel(widget.channel.id.toString());
     final tempHashtags = List<String>.from(currentHashtags);
     final controller = TextEditingController();
 
@@ -573,7 +622,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  provider.setHashtagsForChannel(widget.channel.id, tempHashtags);
+                  provider.setHashtagsForChannel(widget.channel.id.toString(), tempHashtags);
                   widget.onHashtagsChanged?.call(tempHashtags);
                   Navigator.pop(context);
                 },

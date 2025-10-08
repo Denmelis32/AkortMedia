@@ -8,12 +8,12 @@ import 'article_item.dart';
 
 class WallContent extends StatelessWidget {
   final Channel channel;
-  final String? customAvatarUrl; // ДОБАВЛЕНО: кастомная аватарка
+  final String? customAvatarUrl;
 
   const WallContent({
     super.key,
     required this.channel,
-    this.customAvatarUrl, // ДОБАВЛЕНО
+    this.customAvatarUrl,
   });
 
   @override
@@ -43,14 +43,21 @@ class WallContent extends StatelessWidget {
               getTimeAgo: _getTimeAgo,
               onLike: () => _handlePostLike(item['data']['id'], postsProvider),
               onBookmark: () => _handlePostBookmark(item['data']['id'], postsProvider),
-              onComment: (text) => _handlePostComment(item['data']['id'], text, postsProvider),
+              // ИСПРАВЛЕНИЕ: Правильная сигнатура для onComment
+              onComment: (text, userName, userAvatar) => _handlePostComment(
+                context,
+                item['data']['id'],
+                text,
+                userName,
+                userAvatar,
+                postsProvider,
+              ),
               onShare: () => _handleShare(context, item['data']),
-              customAvatarUrl: customAvatarUrl, // ПЕРЕДАЕМ КАСТОМНУЮ АВАТАРКУ
+              customAvatarUrl: customAvatarUrl,
             )
                 : ArticleItem(
               article: item['data'],
               channel: channel,
-              // Убраны onLike, onBookmark, onComment если ArticleItem их не поддерживает
             );
           },
         );
@@ -131,17 +138,50 @@ class WallContent extends StatelessWidget {
     provider.toggleBookmark(postId);
   }
 
-  void _handlePostComment(String postId, String text, ChannelPostsProvider provider) {
-    provider.addComment(postId, text);
+  // ИСПРАВЛЕНИЕ: Правильная сигнатура метода
+  void _handlePostComment(
+      BuildContext context,
+      String postId,
+      String commentText,
+      String userName,
+      String userAvatar,
+      ChannelPostsProvider postsProvider,
+      ) {
+    try {
+      final newComment = {
+        'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
+        'author': userName.isNotEmpty ? userName : 'Пользователь',
+        'text': commentText,
+        'time': 'Только что',
+        'author_avatar': userAvatar,
+      };
+
+      // Используем существующий метод addComment
+      postsProvider.addComment(postId, commentText);
+
+      // Показываем уведомление
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Комментарий добавлен'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      print('❌ Ошибка добавления комментария: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ошибка при добавлении комментария'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _handleShare(BuildContext context, Map<String, dynamic> content) {
-    print('Sharing content: ${content['title']}');
-
+  void _handleShare(BuildContext context, Map<String, dynamic> postData) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Поделиться: ${content['title']}'),
-        duration: const Duration(seconds: 2),
+      const SnackBar(
+        content: Text('Функция шаринга скоро будет доступна!'),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -152,9 +192,9 @@ class WallContent extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-              Icons.dashboard_outlined,
-              size: 80,
-              color: Colors.grey[400]
+            Icons.dashboard_outlined,
+            size: 80,
+            color: Colors.grey[400],
           ),
           const SizedBox(height: 20),
           Text(

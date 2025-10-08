@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/news_provider.dart';
 import '../../../../providers/user_provider.dart';
@@ -14,7 +15,7 @@ class PostItem extends StatefulWidget {
   final bool isAkorTab;
   final VoidCallback? onLike;
   final VoidCallback? onBookmark;
-  final Function(String)? onComment;
+  final Function(String, String, String)? onComment;
   final VoidCallback? onShare;
   final String Function(String) getTimeAgo;
   final String? customAvatarUrl;
@@ -44,9 +45,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   bool _isExpanded = false;
   bool _isLiked = false;
   bool _isBookmarked = false;
-
-  // ИСПРАВЛЕНИЕ: Убираем локальное состояние комментариев
-  // List<dynamic> _localComments = [];
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -155,12 +153,8 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
 
     _isLiked = _getBoolValue(widget.post['isLiked']);
     _isBookmarked = _getBoolValue(widget.post['isBookmarked']);
-
-    // ИСПРАВЛЕНИЕ: Убираем локальное копирование комментариев
-    // _localComments = List<dynamic>.from(widget.post['comments'] ?? []);
   }
 
-  // СЛУШАТЕЛЬ ИЗМЕНЕНИЙ В ПРОВАЙДЕРЕ
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -175,12 +169,30 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   @override
+  void didUpdateWidget(PostItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Обновляем состояние при изменении props
+    if (oldWidget.post['isLiked'] != widget.post['isLiked']) {
+      _isLiked = _getBoolValue(widget.post['isLiked']);
+    }
+    if (oldWidget.post['isBookmarked'] != widget.post['isBookmarked']) {
+      _isBookmarked = _getBoolValue(widget.post['isBookmarked']);
+    }
+  }
+
+  @override
   void dispose() {
     _commentController.dispose();
     _expandController.dispose();
 
-    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
-    channelStateProvider.removeListener(_onChannelStateChanged);
+    // ИСПРАВЛЕНИЕ: Безопасное удаление слушателя
+    try {
+      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+      channelStateProvider.removeListener(_onChannelStateChanged);
+    } catch (e) {
+      print('⚠️ ChannelStateProvider already disposed: $e');
+    }
 
     super.dispose();
   }
@@ -421,19 +433,48 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         ],
       ),
       child: ClipOval(
-        child: avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl.startsWith('http')
+        child: avatarUrl != null && avatarUrl.isNotEmpty
+            ? (avatarUrl.startsWith('http')
             ? Image.network(
           avatarUrl,
           fit: BoxFit.cover,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
+            return _buildLoadingAvatar();
+          },
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Error loading channel avatar: $error');
             return _buildChannelGradientAvatar(channelName);
           },
+        )
+            : (avatarUrl.startsWith('/') || avatarUrl.contains('assets/')
+            ? Image.asset(
+          avatarUrl,
+          fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return _buildChannelGradientAvatar(channelName);
           },
         )
+            : _buildChannelGradientAvatar(channelName)))
             : _buildChannelGradientAvatar(channelName),
+      ),
+    );
+  }
+
+  Widget _buildLoadingAvatar() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.grey[300]!, Colors.grey[400]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation(Colors.white),
+        ),
       ),
     );
   }
@@ -503,18 +544,21 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   List<String> _cleanHashtags(List<String> hashtags) {
-    final cleanedTags = <String>[];
+    final cleanedTags = <String>{};
 
     for (var tag in hashtags) {
       var cleanTag = tag.replaceAll(RegExp(r'#'), '').trim();
       cleanTag = cleanTag.replaceAll(RegExp(r'\s+'), '');
 
-      if (cleanTag.isNotEmpty && !cleanedTags.contains(cleanTag)) {
-        cleanedTags.add(cleanTag);
+      // Убираем специальные символы, оставляем только буквы и цифры
+      cleanTag = cleanTag.replaceAll(RegExp(r'[^\wа-яА-ЯёЁ]'), '');
+
+      if (cleanTag.isNotEmpty && cleanTag.length <= 20) {
+        cleanedTags.add(cleanTag.toLowerCase());
       }
     }
 
-    return cleanedTags;
+    return cleanedTags.toList();
   }
 
   Widget _buildHashtags(List<String> hashtags) {
@@ -624,9 +668,13 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     required VoidCallback onPressed,
   }) {
     return GestureDetector(
-      onTap: onPressed,
+      onTap: () {
+        // Небольшая вибрация при нажатии
+        HapticFeedback.lightImpact();
+        onPressed();
+      },
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 250),
+        duration: Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? color.withOpacity(0.12) : Colors.transparent,
@@ -638,19 +686,27 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 15,
-              color: isActive ? color : NewsTheme.secondaryTextColor,
+            AnimatedSwitcher(
+              duration: Duration(milliseconds: 200),
+              child: Icon(
+                icon,
+                key: ValueKey(isActive),
+                size: 15,
+                color: isActive ? color : NewsTheme.secondaryTextColor,
+              ),
             ),
             if (count > 0) ...[
               const SizedBox(width: 4),
-              Text(
-                _formatCount(count),
-                style: TextStyle(
-                  color: isActive ? color : NewsTheme.secondaryTextColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+              AnimatedSwitcher(
+                duration: Duration(milliseconds: 200),
+                child: Text(
+                  _formatCount(count),
+                  key: ValueKey(count),
+                  style: TextStyle(
+                    color: isActive ? color : NewsTheme.secondaryTextColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -843,6 +899,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
           ),
           child: Row(
             children: [
+              // Аватарка пользователя
               Container(
                 width: 36,
                 height: 36,
@@ -855,26 +912,19 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                   ),
                 ),
                 child: ClipOval(
-                  child: currentUserAvatar.isNotEmpty && currentUserAvatar.startsWith('http')
-                      ? Image.network(
-                    currentUserAvatar,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return _buildCommentGradientAvatar(userProvider.userName);
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildCommentGradientAvatar(userProvider.userName);
-                    },
-                  )
-                      : _buildCommentGradientAvatar(userProvider.userName),
+                  child: _buildUserAvatarForComment(currentUserAvatar, userProvider.userName),
                 ),
               ),
               const SizedBox(width: 8),
+
+              // Поле ввода
               Expanded(
                 child: TextField(
                   controller: _commentController,
                   style: TextStyle(color: NewsTheme.textColor, fontSize: 14),
+                  maxLines: null,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (text) => _submitComment(text, userProvider.userName, currentUserAvatar),
                   decoration: InputDecoration(
                     hintText: 'Напишите комментарий...',
                     hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
@@ -883,6 +933,8 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                   ),
                 ),
               ),
+
+              // Кнопка отправки
               Container(
                 margin: const EdgeInsets.only(right: 6),
                 decoration: BoxDecoration(
@@ -895,22 +947,11 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                 ),
                 child: IconButton(
                   icon: Icon(Icons.send_rounded, color: Colors.white, size: 18),
-                  onPressed: () {
-                    final text = _commentController.text.trim();
-                    if (text.isNotEmpty) {
-                      // ИСПРАВЛЕНИЕ: Не сохраняем комментарий локально, сразу передаем через callback
-                      widget.onComment?.call(text);
-                      _commentController.clear();
-
-                      // Показываем временное уведомление
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Комментарий отправлен'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: () => _submitComment(
+                      _commentController.text.trim(),
+                      userProvider.userName,
+                      currentUserAvatar
+                  ),
                   padding: const EdgeInsets.all(8),
                 ),
               ),
@@ -921,19 +962,81 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
+  // Новый метод для отправки комментария
+  void _submitComment(String text, String userName, String userAvatar) {
+    if (text.isNotEmpty) {
+      // Вызываем колбэк с данными автора
+      widget.onComment?.call(text, userName, userAvatar);
+      _commentController.clear();
+
+      // Скрываем клавиатуру
+      FocusScope.of(context).unfocus();
+
+      // Показываем уведомление
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Комментарий отправлен'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // Улучшенный метод для отображения аватарки в комментариях
+  Widget _buildUserAvatarForComment(String avatarUrl, String userName) {
+    if (avatarUrl.isNotEmpty) {
+      if (avatarUrl.startsWith('http')) {
+        return Image.network(
+          avatarUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return _buildCommentGradientAvatar(userName);
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return _buildCommentGradientAvatar(userName);
+          },
+        );
+      } else if (avatarUrl.startsWith('/') || File(avatarUrl).existsSync()) {
+        // Для локальных файлов
+        return Image.file(
+          File(avatarUrl),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildCommentGradientAvatar(userName);
+          },
+        );
+      }
+    }
+
+    return _buildCommentGradientAvatar(userName);
+  }
+
   String _getCurrentUserAvatarUrl(NewsProvider? newsProvider) {
-    if (newsProvider == null) {
-      newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    try {
+      if (newsProvider == null) {
+        newsProvider = Provider.of<NewsProvider>(context, listen: false);
+      }
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final currentProfileImage = newsProvider.getCurrentProfileImage();
+
+      if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+        return currentProfileImage;
+      }
+
+      if (currentProfileImage is File) {
+        // Для файлов возвращаем путь
+        return currentProfileImage.path;
+      }
+
+      return _getFallbackAvatarUrl(userProvider.userName);
+    } catch (e) {
+      print('❌ Error getting user avatar: $e');
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      return _getFallbackAvatarUrl(userProvider.userName);
     }
-
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final currentProfileImage = newsProvider.getCurrentProfileImage();
-
-    if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-      return currentProfileImage;
-    }
-
-    return _getFallbackAvatarUrl(userProvider.userName);
   }
 
   String _getFallbackAvatarUrl(String userName) {

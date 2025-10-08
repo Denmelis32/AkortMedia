@@ -73,7 +73,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
       await newsProvider.ensureDataPersistence();
     } catch (e) {
-      print('Error ensuring data persistence: $e');
+      print('❌ Error ensuring data persistence: $e');
     }
   }
 
@@ -211,7 +211,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _addComment(int index, String commentText) async {
+  // ИСПРАВЛЕНИЕ: Обновленный метод добавления комментария
+  Future<void> _addComment(int index, String commentText, String userName, String userAvatar) async {
     if (commentText.trim().isEmpty || !_isValidIndex(index)) return;
 
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
@@ -219,14 +220,13 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     final newsId = news['id'].toString();
 
     try {
-      final commentId = 'comment-${DateTime.now().millisecondsSinceEpoch}-${news['id']}';
-
       final newComment = {
-        'id': commentId,
-        'author': widget.userName,
+        'id': 'comment-${DateTime.now().millisecondsSinceEpoch}-${news['id']}',
+        'author': userName,
         'text': commentText.trim(),
         'time': 'Только что',
-        'author_avatar': _getUserAvatarUrl(widget.userName),
+        'author_avatar': userAvatar,
+        'created_at': DateTime.now().toIso8601String(),
       };
 
       newsProvider.addCommentToNews(newsId, newComment);
@@ -251,6 +251,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     }
   }
 
+  // ИСПРАВЛЕНИЕ: Улучшенный метод создания новости
   Future<void> _addNews(String title, String description, String hashtags) async {
     if (description.isEmpty) return;
 
@@ -779,7 +780,11 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                     onLike: () => _safeNewsAction(originalIndex, _toggleLike),
                                     onBookmark: () => _safeNewsAction(originalIndex, _toggleBookmark),
                                     onFollow: () => _safeNewsAction(originalIndex, _toggleFollow),
-                                    onComment: (comment) => _safeNewsAction(originalIndex, (idx) => _addComment(idx, comment)),
+                                    // ИСПРАВЛЕНИЕ: Передаем все параметры для комментария
+                                    onComment: (text, userName, userAvatar) => _safeNewsAction(
+                                        originalIndex,
+                                            (idx) => _addComment(idx, text, userName, userAvatar)
+                                    ),
                                     onEdit: () => _safeNewsAction(originalIndex, _showEditNewsDialog),
                                     onDelete: () => _safeNewsAction(originalIndex, _showDeleteConfirmationDialog),
                                     onShare: () => _safeNewsAction(originalIndex, _shareNews),

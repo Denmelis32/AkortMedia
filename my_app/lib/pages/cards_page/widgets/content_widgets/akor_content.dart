@@ -6,12 +6,12 @@ import 'post_item.dart';
 
 class AkorContent extends StatelessWidget {
   final Channel channel;
-  final String? customAvatarUrl; // ДОБАВЛЕНО: кастомная аватарка
+  final String? customAvatarUrl;
 
   const AkorContent({
     super.key,
     required this.channel,
-    this.customAvatarUrl, // ДОБАВЛЕНО
+    this.customAvatarUrl,
   });
 
   @override
@@ -30,12 +30,11 @@ class AkorContent extends StatelessWidget {
   }
 
   Widget _buildPostsList(BuildContext context, List<Map<String, dynamic>> posts, ChannelPostsProvider postsProvider) {
-    // Сортируем посты по дате (новые сверху)
     final sortedPosts = List<Map<String, dynamic>>.from(posts);
     sortedPosts.sort((a, b) {
       final dateA = DateTime.parse(a['created_at'] ?? DateTime.now().toIso8601String());
       final dateB = DateTime.parse(b['created_at'] ?? DateTime.now().toIso8601String());
-      return dateB.compareTo(dateA); // Новые сверху
+      return dateB.compareTo(dateA);
     });
 
     return ListView.builder(
@@ -51,16 +50,22 @@ class AkorContent extends StatelessWidget {
           getTimeAgo: _getTimeAgo,
           onLike: () => _handlePostLike(sortedPosts[index]['id'], postsProvider),
           onBookmark: () => _handlePostBookmark(sortedPosts[index]['id'], postsProvider),
-          onComment: (text) => _handlePostComment(sortedPosts[index]['id'], text, postsProvider),
+          // ИСПРАВЛЕНИЕ: Правильная сигнатура для onComment
+          onComment: (text, userName, userAvatar) => _handlePostComment(
+            context,
+            sortedPosts[index]['id'],
+            text,
+            userName,
+            userAvatar,
+            postsProvider,
+          ),
           onShare: () => _handleShare(context, sortedPosts[index]),
           customAvatarUrl: customAvatarUrl,
-         // ПЕРЕДАЕМ КАСТОМНУЮ АВАТАРКУ
         );
       },
     );
   }
 
-  // Функция для форматирования времени
   String _getTimeAgo(String dateString) {
     try {
       final date = DateTime.parse(dateString);
@@ -87,7 +92,6 @@ class AkorContent extends StatelessWidget {
     }
   }
 
-  // Вспомогательный метод для склонения русских слов
   String _getRussianWord(int number, List<String> words) {
     if (number % 10 == 1 && number % 100 != 11) {
       return words[0];
@@ -98,7 +102,6 @@ class AkorContent extends StatelessWidget {
     }
   }
 
-  // Обработчики действий для постов
   void _handlePostLike(String postId, ChannelPostsProvider provider) {
     provider.toggleLike(postId);
   }
@@ -107,14 +110,37 @@ class AkorContent extends StatelessWidget {
     provider.toggleBookmark(postId);
   }
 
-  void _handlePostComment(String postId, String text, ChannelPostsProvider provider) {
-    provider.addComment(postId, text);
+  // ИСПРАВЛЕНИЕ: Правильная сигнатура метода
+  void _handlePostComment(
+      BuildContext context,
+      String postId,
+      String commentText,
+      String userName,
+      String userAvatar,
+      ChannelPostsProvider provider,
+      ) {
+    try {
+      // Используем существующий метод addComment
+      provider.addComment(postId, commentText);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Комментарий добавлен'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      print('❌ Ошибка добавления комментария: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ошибка при добавлении комментария'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  // Обработчик шаринга
   void _handleShare(BuildContext context, Map<String, dynamic> content) {
-    print('Sharing content from Akor: ${content['title']}');
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Поделиться: ${content['title']}'),
@@ -129,9 +155,9 @@ class AkorContent extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-              Icons.newspaper_outlined,
-              size: 80,
-              color: Colors.grey[400]
+            Icons.newspaper_outlined,
+            size: 80,
+            color: Colors.grey[400],
           ),
           const SizedBox(height: 20),
           Text(

@@ -308,9 +308,9 @@ class _ProfilePageState extends State<ProfilePage> {
               borderRadius: BorderRadius.circular(12),
               border: isSelected
                   ? Border.all(
-                      color: NewsTheme.primaryColor.withOpacity(0.3),
-                      width: 1,
-                    )
+                color: NewsTheme.primaryColor.withOpacity(0.3),
+                width: 1,
+              )
                   : null,
             ),
             child: Text(
@@ -330,11 +330,9 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildSelectedSection(
-    List<dynamic> myPosts,
-    List<dynamic> likedPosts,
-    NewsProvider newsProvider,
-  ) {
+  Widget _buildSelectedSection(List<dynamic> myPosts,
+      List<dynamic> likedPosts,
+      NewsProvider newsProvider,) {
     switch (_selectedSection) {
       case 0:
         return _buildPostsSection(myPosts, newsProvider);
@@ -362,44 +360,55 @@ class _ProfilePageState extends State<ProfilePage> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: NewsCard(
-              key: ValueKey('profile-post-${posts[index]['id']}'), // ИСПРАВЛЕННЫЙ КЛЮЧ
+              key: ValueKey('profile-post-${posts[index]['id']}-$index'),
               news: Map<String, dynamic>.from(posts[index]),
-              onLike: () => _handleLike(
-                newsProvider.findNewsIndexById(posts[index]['id'].toString()),
-                newsProvider,
-              ),
-              onBookmark: () => _handleBookmark(
-                newsProvider.findNewsIndexById(posts[index]['id'].toString()),
-                newsProvider,
-              ),
-              onFollow: () => _handleFollow(
-                newsProvider.findNewsIndexById(posts[index]['id'].toString()),
-                newsProvider,
-              ),
-              onComment: (comment) => _handleComment(
-                newsProvider.findNewsIndexById(posts[index]['id'].toString()),
-                comment,
-                newsProvider,
-              ),
-              onEdit: () => _handleEdit(
-                  newsProvider.news.indexOf(posts[index]),
-                  context
-              ),
-              onDelete: () => _handleDelete(
-                newsProvider.news.indexOf(posts[index]),
-                newsProvider,
-              ),
-              onShare: () => _handleShare(
-                newsProvider.news.indexOf(posts[index]),
-                context,
-              ),
-              onTagEdit: (tagId, newTagName, color) => _handleTagEdit(
-                newsProvider.news.indexOf(posts[index]),
-                tagId,
-                newTagName,
-                color,
-                newsProvider,
-              ),
+              onLike: () =>
+                  _handleLike(
+                    _getSafeNewsIndex(posts[index], newsProvider),
+                    newsProvider,
+                  ),
+              onBookmark: () =>
+                  _handleBookmark(
+                    _getSafeNewsIndex(posts[index], newsProvider),
+                    newsProvider,
+                  ),
+              onFollow: () =>
+                  _handleFollow(
+                    _getSafeNewsIndex(posts[index], newsProvider),
+                    newsProvider,
+                  ),
+              // ИСПРАВЛЕНИЕ: Правильная сигнатура для onComment
+              onComment: (text, userName, userAvatar) =>
+                  _handleComment(
+                    _getSafeNewsIndex(posts[index], newsProvider),
+                    text,
+                    userName,
+                    userAvatar,
+                    newsProvider,
+                  ),
+              onEdit: () =>
+                  _handleEdit(
+                      _getSafeNewsIndex(posts[index], newsProvider),
+                      context
+                  ),
+              onDelete: () =>
+                  _handleDelete(
+                    _getSafeNewsIndex(posts[index], newsProvider),
+                    newsProvider,
+                  ),
+              onShare: () =>
+                  _handleShare(
+                    _getSafeNewsIndex(posts[index], newsProvider),
+                    context,
+                  ),
+              onTagEdit: (tagId, newTagName, color) =>
+                  _handleTagEdit(
+                    _getSafeNewsIndex(posts[index], newsProvider),
+                    tagId,
+                    newTagName,
+                    color,
+                    newsProvider,
+                  ),
               formatDate: formatDate,
               getTimeAgo: getTimeAgo,
               scrollController: _scrollController,
@@ -410,10 +419,8 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildLikedPostsSection(
-      List<dynamic> likedPosts,
-      NewsProvider newsProvider,
-      ) {
+  Widget _buildLikedPostsSection(List<dynamic> likedPosts,
+      NewsProvider newsProvider,) {
     if (likedPosts.isEmpty) {
       return _buildEmptyState(
         icon: Icons.favorite_border_rounded,
@@ -428,44 +435,55 @@ class _ProfilePageState extends State<ProfilePage> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: NewsCard(
-              key: ValueKey('liked-post-${likedPosts[index]['id']}'), // ИСПРАВЛЕННЫЙ КЛЮЧ
+              key: ValueKey('liked-post-${likedPosts[index]['id']}-$index'),
               news: Map<String, dynamic>.from(likedPosts[index]),
-              onLike: () => _handleLike(
-                newsProvider.findNewsIndexById(likedPosts[index]['id'].toString()),
-                newsProvider,
-              ),
-              onBookmark: () => _handleBookmark(
-                newsProvider.findNewsIndexById(likedPosts[index]['id'].toString()),
-                newsProvider,
-              ),
-              onFollow: () => _handleFollow(
-                newsProvider.findNewsIndexById(likedPosts[index]['id'].toString()),
-                newsProvider,
-              ),
-              onComment: (comment) => _handleComment(
-                newsProvider.findNewsIndexById(likedPosts[index]['id'].toString()),
-                comment,
-                newsProvider,
-              ),
-              onEdit: () => _handleEdit(
-                newsProvider.news.indexOf(likedPosts[index]),
-                context,
-              ),
-              onDelete: () => _handleDelete(
-                newsProvider.news.indexOf(likedPosts[index]),
-                newsProvider,
-              ),
-              onShare: () => _handleShare(
-                newsProvider.news.indexOf(likedPosts[index]),
-                context,
-              ),
-              onTagEdit: (tagId, newTagName, color) => _handleTagEdit(
-                newsProvider.news.indexOf(likedPosts[index]),
-                tagId,
-                newTagName,
-                color,
-                newsProvider,
-              ),
+              onLike: () =>
+                  _handleLike(
+                    _getSafeNewsIndex(likedPosts[index], newsProvider),
+                    newsProvider,
+                  ),
+              onBookmark: () =>
+                  _handleBookmark(
+                    _getSafeNewsIndex(likedPosts[index], newsProvider),
+                    newsProvider,
+                  ),
+              onFollow: () =>
+                  _handleFollow(
+                    _getSafeNewsIndex(likedPosts[index], newsProvider),
+                    newsProvider,
+                  ),
+              // ИСПРАВЛЕНИЕ: Правильная сигнатура для onComment
+              onComment: (text, userName, userAvatar) =>
+                  _handleComment(
+                    _getSafeNewsIndex(likedPosts[index], newsProvider),
+                    text,
+                    userName,
+                    userAvatar,
+                    newsProvider,
+                  ),
+              onEdit: () =>
+                  _handleEdit(
+                    _getSafeNewsIndex(likedPosts[index], newsProvider),
+                    context,
+                  ),
+              onDelete: () =>
+                  _handleDelete(
+                    _getSafeNewsIndex(likedPosts[index], newsProvider),
+                    newsProvider,
+                  ),
+              onShare: () =>
+                  _handleShare(
+                    _getSafeNewsIndex(likedPosts[index], newsProvider),
+                    context,
+                  ),
+              onTagEdit: (tagId, newTagName, color) =>
+                  _handleTagEdit(
+                    _getSafeNewsIndex(likedPosts[index], newsProvider),
+                    tagId,
+                    newTagName,
+                    color,
+                    newsProvider,
+                  ),
               formatDate: formatDate,
               getTimeAgo: getTimeAgo,
               scrollController: _scrollController,
@@ -475,7 +493,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
     );
   }
-
 
   int _getSafeNewsIndex(dynamic newsItem, NewsProvider newsProvider) {
     final newsId = newsItem['id'].toString();
@@ -495,28 +512,28 @@ class _ProfilePageState extends State<ProfilePage> {
                 'Новых: ${widget.newMessagesCount ?? 0}',
                 Icons.message_rounded,
                 Colors.blue,
-                () => _handleMessagesTap(context),
+                    () => _handleMessagesTap(context),
               ),
               _buildActionItem(
                 'Настройки',
                 'Внешний вид, уведомления',
                 Icons.settings_rounded,
                 Colors.purple,
-                () => _handleSettingsTap(context),
+                    () => _handleSettingsTap(context),
               ),
               _buildActionItem(
                 'Помощь',
                 'Частые вопросы и поддержка',
                 Icons.help_rounded,
                 Colors.orange,
-                () => _handleHelpTap(context),
+                    () => _handleHelpTap(context),
               ),
               _buildActionItem(
                 'О приложении',
                 'Версия 1.0.0 Beta',
                 Icons.info_rounded,
                 Colors.teal,
-                () => _handleAboutTap(context),
+                    () => _handleAboutTap(context),
               ),
             ],
           ),
@@ -565,7 +582,124 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Остальные методы остаются без изменений (они такие же как в предыдущем коде)
+  // Обработчики действий для NewsCard
+  void _handleLike(int index, NewsProvider newsProvider) {
+    if (index == -1) return;
+
+    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    final bool isCurrentlyLiked = news['isLiked'] ?? false;
+    final int currentLikes = news['likes'] ?? 0;
+
+    newsProvider.updateNewsLikeStatus(
+      index,
+      !isCurrentlyLiked,
+      isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
+    );
+  }
+
+  void _handleBookmark(int index, NewsProvider newsProvider) {
+    if (index == -1) return;
+
+    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    final bool isCurrentlyBookmarked = news['isBookmarked'] ?? false;
+
+    newsProvider.updateNewsBookmarkStatus(index, !isCurrentlyBookmarked);
+    _showSuccessSnackBar(
+      !isCurrentlyBookmarked
+          ? 'Добавлено в избранное'
+          : 'Удалено из избранного',
+    );
+  }
+
+  void _handleFollow(int index, NewsProvider newsProvider) {
+    if (index == -1) return;
+
+    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    final bool isCurrentlyFollowing = news['isFollowing'] ?? false;
+
+    newsProvider.updateNewsFollowStatus(index, !isCurrentlyFollowing);
+    final isChannelPost = news['is_channel_post'] == true;
+    final targetName = isChannelPost
+        ? news['channel_name'] ?? 'канал'
+        : news['author_name'] ?? 'пользователя';
+
+    if (!isCurrentlyFollowing) {
+      _showSuccessSnackBar('✅ Вы подписались на $targetName');
+    } else {
+      _showSuccessSnackBar('❌ Вы отписались от $targetName');
+    }
+  }
+
+  // ИСПРАВЛЕНИЕ: Обновленная сигнатура метода для комментариев
+  void _handleComment(int index,
+      String commentText,
+      String userName,
+      String userAvatar,
+      NewsProvider newsProvider,) {
+    if (index == -1 || commentText
+        .trim()
+        .isEmpty) return;
+
+    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    final newsId = news['id'].toString();
+
+    try {
+      final commentId = 'comment-${DateTime
+          .now()
+          .millisecondsSinceEpoch}-${newsId}';
+
+      final newComment = {
+        'id': commentId,
+        'author': userName,
+        'text': commentText.trim(),
+        'time': 'Только что',
+        'author_avatar': userAvatar,
+      };
+
+      newsProvider.addCommentToNews(newsId, newComment);
+      _showSuccessSnackBar('Комментарий добавлен');
+    } catch (e) {
+      print('❌ Ошибка добавления комментария в профиле: $e');
+      _showErrorSnackBar('Не удалось добавить комментарий');
+    }
+  }
+
+  void _handleEdit(int index, BuildContext context) {
+    if (index == -1) return;
+    _showSuccessSnackBar('Редактирование поста');
+    // TODO: Реализовать логику редактирования
+  }
+
+  void _handleDelete(int index, NewsProvider newsProvider) {
+    if (index == -1) return;
+    newsProvider.removeNews(index);
+    _showSuccessSnackBar('Пост удален');
+  }
+
+  void _handleShare(int index, BuildContext context) {
+    if (index == -1) return;
+    _showSuccessSnackBar('Поделиться постом');
+    // TODO: Реализовать логику шаринга
+  }
+
+  void _handleTagEdit(int index,
+      String tagId,
+      String newTagName,
+      Color color,
+      NewsProvider newsProvider,) {
+    if (index == -1) return;
+    newsProvider.updateNewsUserTag(index, tagId, newTagName, color: color);
+    _showSuccessSnackBar('Тег обновлен');
+  }
+
+  // Остальные методы остаются без изменений...
+  // [Здесь должны быть все остальные методы из вашего кода:
+  // _buildProfileAvatar, _buildStatsRow, _buildStatItem, _buildInfoCard,
+  // _buildActionItem, _buildEmptyState, _buildMessageBadge,
+  // методы для работы с изображениями и т.д.]
+
+  // Для краткости я не копирую все методы, но они должны остаться такими же, как в вашем исходном коде
+
   Widget _buildProfileAvatar() {
     final gradientColors = _getAvatarGradient(widget.userName);
     final hasProfileImage =
@@ -582,10 +716,10 @@ class _ProfilePageState extends State<ProfilePage> {
               gradient: hasProfileImage
                   ? null
                   : LinearGradient(
-                      colors: gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               image: _getProfileImageDecoration(),
               shape: BoxShape.circle,
               border: Border.all(color: NewsTheme.primaryColor, width: 3),
@@ -601,17 +735,17 @@ class _ProfilePageState extends State<ProfilePage> {
             child: hasProfileImage
                 ? null
                 : Center(
-                    child: Text(
-                      widget.userName.isNotEmpty
-                          ? widget.userName[0].toUpperCase()
-                          : 'U',
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
+              child: Text(
+                widget.userName.isNotEmpty
+                    ? widget.userName[0].toUpperCase()
+                    : 'U',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
           Positioned(
             bottom: 4,
@@ -738,13 +872,11 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildActionItem(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback? onTap,
-  ) {
+  Widget _buildActionItem(String title,
+      String subtitle,
+      IconData icon,
+      Color color,
+      VoidCallback? onTap,) {
     return ListTile(
       leading: Container(
         width: 40,
@@ -834,117 +966,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Обработчики действий для NewsCard
-  void _handleLike(int index, NewsProvider newsProvider) {
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyLiked = news['isLiked'] ?? false;
-    final int currentLikes = news['likes'] ?? 0;
-
-    newsProvider.updateNewsLikeStatus(
-      index,
-      !isCurrentlyLiked,
-      isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
-    );
-  }
-
-  void _handleBookmark(int index, NewsProvider newsProvider) {
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyBookmarked = news['isBookmarked'] ?? false;
-
-    newsProvider.updateNewsBookmarkStatus(index, !isCurrentlyBookmarked);
-    _showSuccessSnackBar(
-      !isCurrentlyBookmarked
-          ? 'Добавлено в избранное'
-          : 'Удалено из избранного',
-    );
-  }
-
-  void _handleFollow(int index, NewsProvider newsProvider) {
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyFollowing = news['isFollowing'] ?? false;
-
-    newsProvider.updateNewsFollowStatus(index, !isCurrentlyFollowing);
-    final isChannelPost = news['is_channel_post'] == true;
-    final targetName = isChannelPost
-        ? news['channel_name'] ?? 'канал'
-        : news['author_name'] ?? 'пользователя';
-
-    if (!isCurrentlyFollowing) {
-      _showSuccessSnackBar('✅ Вы подписались на $targetName');
-    } else {
-      _showSuccessSnackBar('❌ Вы отписались от $targetName');
-    }
-  }
-
-  void _handleComment(
-      int index,
-      String commentText,
-      NewsProvider newsProvider,
-      ) {
-    if (commentText.trim().isEmpty) return;
-
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final newsId = news['id'].toString();
-
-    try {
-      final commentId = 'comment-${DateTime.now().millisecondsSinceEpoch}-${newsId}';
-
-      final newComment = {
-        'id': commentId,
-        'author': widget.userName,
-        'text': commentText.trim(),
-        'time': 'Только что',
-        'author_avatar': _getCurrentUserAvatarUrl(),
-      };
-
-      // Используем тот же метод, что и в NewsPage
-      newsProvider.addCommentToNews(newsId, newComment);
-      _showSuccessSnackBar('Комментарий добавлен');
-
-    } catch (e) {
-      print('❌ Ошибка добавления комментария в профиле: $e');
-      _showErrorSnackBar('Не удалось добавить комментарий');
-    }
-  }
-
-  void _handleEdit(int index, BuildContext context) {
-    _showSuccessSnackBar('Редактирование поста');
-    // TODO: Реализовать логику редактирования
-  }
-
-  void _handleDelete(int index, NewsProvider newsProvider) {
-    newsProvider.removeNews(index);
-    _showSuccessSnackBar('Пост удален');
-  }
-
-  void _handleShare(int index, BuildContext context) {
-    _showSuccessSnackBar('Поделиться постом');
-    // TODO: Реализовать логику шаринга
-  }
-
-  void _handleTagEdit(
-    int index,
-    String tagId,
-    String newTagName,
-    Color color,
-    NewsProvider newsProvider,
-  ) {
-    newsProvider.updateNewsUserTag(index, tagId, newTagName, color: color);
-    _showSuccessSnackBar('Тег обновлен');
-  }
-
-  String _getCurrentUserAvatarUrl() {
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final currentProfileImage = newsProvider.getCurrentProfileImage();
-
-    if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-      return currentProfileImage;
-    } else {
-      return 'https://ui-avatars.com/api/?name=${widget.userName}&background=667eea&color=ffffff';
-    }
-  }
-
-  // Методы для работы с изображениями (остаются без изменений)
+  // Методы для работы с изображениями
   Future<void> _pickImage(ImageSource source, BuildContext context) async {
     try {
       final ImagePicker picker = ImagePicker();
@@ -977,100 +999,102 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: NewsTheme.cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Выберите фото профиля',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: NewsTheme.textColor,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              _buildImageSourceButton(
-                context,
-                Icons.link_rounded,
-                'Загрузить по ссылке',
-                Colors.purple,
-                    () => _showUrlInputDialog(context),
-              ),
-
-              const SizedBox(height: 12),
-
-              _buildImageSourceButton(
-                context,
-                Icons.photo_library_rounded,
-                'Выбрать из галереи',
-                Colors.blue,
-                    () => _pickImage(ImageSource.gallery, context),
-              ),
-
-              const SizedBox(height: 12),
-
-              _buildImageSourceButton(
-                context,
-                Icons.photo_camera_rounded,
-                'Сделать фото',
-                Colors.green,
-                    () => _pickImage(ImageSource.camera, context),
-              ),
-
-              const SizedBox(height: 12),
-
-              if (widget.profileImageUrl != null ||
-                  widget.profileImageFile != null)
-                _buildImageSourceButton(
-                  context,
-                  Icons.delete_rounded,
-                  'Удалить фото',
-                  Colors.red,
-                      () {
-                    if (widget.onProfileImageFileChanged != null) {
-                      widget.onProfileImageFileChanged!(null);
-                    }
-                    if (widget.onProfileImageUrlChanged != null) {
-                      widget.onProfileImageUrlChanged!(null);
-                    }
-                    Navigator.pop(context);
-                    if (context.mounted) {
-                      _showSuccessSnackBar('Фото профиля удалено');
-                    }
-                  },
-                ),
-
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: NewsTheme.secondaryTextColor,
-                    side: BorderSide(
-                      color: NewsTheme.secondaryTextColor.withOpacity(0.3),
+      builder: (context) =>
+          Container(
+            decoration: BoxDecoration(
+              color: NewsTheme.cardColor,
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Выберите фото профиля',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: NewsTheme.textColor,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text('Отмена'),
-                ),
+                  const SizedBox(height: 20),
+
+                  _buildImageSourceButton(
+                    context,
+                    Icons.link_rounded,
+                    'Загрузить по ссылке',
+                    Colors.purple,
+                        () => _showUrlInputDialog(context),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _buildImageSourceButton(
+                    context,
+                    Icons.photo_library_rounded,
+                    'Выбрать из галереи',
+                    Colors.blue,
+                        () => _pickImage(ImageSource.gallery, context),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _buildImageSourceButton(
+                    context,
+                    Icons.photo_camera_rounded,
+                    'Сделать фото',
+                    Colors.green,
+                        () => _pickImage(ImageSource.camera, context),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  if (widget.profileImageUrl != null ||
+                      widget.profileImageFile != null)
+                    _buildImageSourceButton(
+                      context,
+                      Icons.delete_rounded,
+                      'Удалить фото',
+                      Colors.red,
+                          () {
+                        if (widget.onProfileImageFileChanged != null) {
+                          widget.onProfileImageFileChanged!(null);
+                        }
+                        if (widget.onProfileImageUrlChanged != null) {
+                          widget.onProfileImageUrlChanged!(null);
+                        }
+                        Navigator.pop(context);
+                        if (context.mounted) {
+                          _showSuccessSnackBar('Фото профиля удалено');
+                        }
+                      },
+                    ),
+
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: NewsTheme.secondaryTextColor,
+                        side: BorderSide(
+                          color: NewsTheme.secondaryTextColor.withOpacity(0.3),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Отмена'),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     ).then((_) {
       // Принудительно обновляем состояние после закрытия модального окна
       if (mounted) {
@@ -1079,13 +1103,11 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  Widget _buildImageSourceButton(
-    BuildContext context,
-    IconData icon,
-    String text,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  Widget _buildImageSourceButton(BuildContext context,
+      IconData icon,
+      String text,
+      Color color,
+      VoidCallback onTap,) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1123,135 +1145,144 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: NewsTheme.cardColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            'Введите ссылку на фото',
-            style: TextStyle(
-              color: NewsTheme.textColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isLoading)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      NewsTheme.primaryColor,
+      builder: (context) =>
+          StatefulBuilder(
+            builder: (context, setState) =>
+                AlertDialog(
+                  backgroundColor: NewsTheme.cardColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: Text(
+                    'Введите ссылку на фото',
+                    style: TextStyle(
+                      color: NewsTheme.textColor,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
-              TextField(
-                controller: urlController,
-                decoration: InputDecoration(
-                  hintText: 'https://example.com/photo.jpg',
-                  hintStyle: TextStyle(
-                    color: NewsTheme.secondaryTextColor.withOpacity(0.6),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isLoading)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              NewsTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      TextField(
+                        controller: urlController,
+                        decoration: InputDecoration(
+                          hintText: 'https://example.com/photo.jpg',
+                          hintStyle: TextStyle(
+                            color: NewsTheme.secondaryTextColor.withOpacity(
+                                0.6),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: NewsTheme.secondaryTextColor.withOpacity(
+                                  0.3),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                                color: NewsTheme.primaryColor),
+                          ),
+                        ),
+                        style: TextStyle(color: NewsTheme.textColor),
+                      ),
+                      if (!isLoading) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Поддерживаются: JPG, PNG, WebP',
+                          style: TextStyle(
+                            color: NewsTheme.secondaryTextColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: NewsTheme.secondaryTextColor.withOpacity(0.3),
+                  actions: [
+                    TextButton(
+                      onPressed: isLoading ? null : () =>
+                          Navigator.pop(context),
+                      child: Text(
+                        'Отмена',
+                        style: TextStyle(color: NewsTheme.secondaryTextColor),
+                      ),
                     ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: NewsTheme.primaryColor),
-                  ),
-                ),
-                style: TextStyle(color: NewsTheme.textColor),
-              ),
-              if (!isLoading) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Поддерживаются: JPG, PNG, WebP',
-                  style: TextStyle(
-                    color: NewsTheme.secondaryTextColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isLoading ? null : () => Navigator.pop(context),
-              child: Text(
-                'Отмена',
-                style: TextStyle(color: NewsTheme.secondaryTextColor),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      final url = urlController.text.trim();
-                      if (url.isNotEmpty &&
-                          widget.onProfileImageUrlChanged != null) {
-                        setState(() => isLoading = true);
+                    ElevatedButton(
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                        final url = urlController.text.trim();
+                        if (url.isNotEmpty &&
+                            widget.onProfileImageUrlChanged != null) {
+                          setState(() => isLoading = true);
 
-                        try {
-                          String validatedUrl = url;
-                          if (!url.startsWith('http')) {
-                            validatedUrl = 'https://$url';
-                          }
-
-                          final testResponse = await http.get(
-                            Uri.parse(validatedUrl),
-                          );
-                          if (testResponse.statusCode == 200) {
-                            widget.onProfileImageUrlChanged!(validatedUrl);
-                            if (widget.onProfileImageFileChanged != null) {
-                              widget.onProfileImageFileChanged!(null);
+                          try {
+                            String validatedUrl = url;
+                            if (!url.startsWith('http')) {
+                              validatedUrl = 'https://$url';
                             }
 
-                            Navigator.pop(context);
-                            Navigator.pop(context);
+                            final testResponse = await http.get(
+                              Uri.parse(validatedUrl),
+                            );
+                            if (testResponse.statusCode == 200) {
+                              widget.onProfileImageUrlChanged!(validatedUrl);
+                              if (widget.onProfileImageFileChanged != null) {
+                                widget.onProfileImageFileChanged!(null);
+                              }
 
+                              Navigator.pop(context);
+                              Navigator.pop(context);
+
+                              if (context.mounted) {
+                                _showSuccessSnackBar(
+                                    'Фото загружено по ссылке');
+                              }
+                            } else {
+                              throw Exception(
+                                  'HTTP ${testResponse.statusCode}');
+                            }
+                          } catch (e) {
+                            setState(() => isLoading = false);
                             if (context.mounted) {
-                              _showSuccessSnackBar('Фото загружено по ссылке');
+                              _showErrorSnackBar('Ошибка загрузки: $e');
                             }
-                          } else {
-                            throw Exception('HTTP ${testResponse.statusCode}');
-                          }
-                        } catch (e) {
-                          setState(() => isLoading = false);
-                          if (context.mounted) {
-                            _showErrorSnackBar('Ошибка загрузки: $e');
                           }
                         }
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: NewsTheme.primaryColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: isLoading
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: NewsTheme.primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                    )
-                  : const Text(
-                      'Загрузить',
-                      style: TextStyle(color: Colors.white),
+                      child: isLoading
+                          ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white),
+                        ),
+                      )
+                          : const Text(
+                        'Загрузить',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
-            ),
-          ],
-        ),
-      ),
+                  ],
+                ),
+          ),
     );
   }
 
@@ -1316,6 +1347,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // Вспомогательные методы для уведомлений
+  // Вспомогательные методы для уведомлений
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1349,4 +1381,5 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
 }

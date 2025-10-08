@@ -386,13 +386,28 @@ class NewsProvider with ChangeNotifier {
   }
 
   // УЛУЧШЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
+  // В классе NewsProvider замените метод addNews на этот:
+
+// ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
   Future<void> addNews(Map<String, dynamic> newsItem) async {
     try {
-      // ПРОВЕРЯЕМ на дублирование по ID
+      // ПРОВЕРЯЕМ на дублирование по ID - более строгая проверка
       final newNewsId = newsItem['id']?.toString();
-      if (newNewsId != null && _news.any((item) => item['id'].toString() == newNewsId)) {
-        print('⚠️ News with ID $newNewsId already exists, skipping...');
-        return;
+      if (newNewsId != null) {
+        // Проверяем все возможные форматы ID
+        final exists = _news.any((item) {
+          final itemId = item['id']?.toString();
+          return itemId == newNewsId ||
+              itemId == 'post-$newNewsId' ||
+              itemId == 'channel-$newNewsId' ||
+              newNewsId == 'post-$itemId' ||
+              newNewsId == 'channel-$itemId';
+        });
+
+        if (exists) {
+          print('⚠️ News with similar ID already exists: $newNewsId, skipping...');
+          return;
+        }
       }
 
       final isChannelPost = newsItem['is_channel_post'] == true;
@@ -414,8 +429,11 @@ class NewsProvider with ChangeNotifier {
         }).where((tag) => tag.isNotEmpty).toList();
       }
 
+      // СОЗДАЕМ УНИКАЛЬНЫЙ ID если не предоставлен
+      final uniqueId = newsItem['id']?.toString() ?? 'news-${DateTime.now().millisecondsSinceEpoch}';
+
       final Map<String, dynamic> cleanNewsItem = {
-        'id': newsItem['id']?.toString() ?? 'local-${DateTime.now().millisecondsSinceEpoch}',
+        'id': uniqueId,
         'title': newsItem['title']?.toString() ?? '',
         'description': newsItem['description']?.toString() ?? '',
         'image': newsItem['image']?.toString() ?? '',
@@ -430,8 +448,9 @@ class NewsProvider with ChangeNotifier {
         'isLiked': newsItem['isLiked'] ?? false,
         'isBookmarked': newsItem['isBookmarked'] ?? false,
         'isFollowing': newsItem['isFollowing'] ?? false,
-        'tag_color': newsItem['tag_color'] ?? _generateColorFromId(newsItem['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString()).value,
+        'tag_color': newsItem['tag_color'] ?? _generateColorFromId(uniqueId).value,
         'is_channel_post': isChannelPost,
+        'content_type': isChannelPost ? 'channel_post' : 'regular_post', // Добавляем тип контента
       };
 
       // ДОБАВЛЯЕМ в начало списка
@@ -441,37 +460,12 @@ class NewsProvider with ChangeNotifier {
       // НЕМЕДЛЕННО сохраняем в хранилище
       await StorageService.saveNews(_news);
 
-      print('✅ Новость добавлена. Всего новостей: ${_news.length}');
+      print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Всего: ${_news.length}');
 
     } catch (e) {
-      print('❌ Ошибка при добавлении новости: $e');
+      print('❌ Ошибка при добавлении новости в NewsProvider: $e');
 
-      // УПРОЩЕННЫЙ fallback без дублирования
-      final Map<String, dynamic> fallbackNews = {
-        'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
-        'title': newsItem['title']?.toString() ?? 'Новая новость',
-        'description': newsItem['description']?.toString() ?? '',
-        'author_name': newsItem['author_name']?.toString() ?? 'Пользователь',
-        'created_at': DateTime.now().toIso8601String(),
-        'likes': 0,
-        'comments': [],
-        'hashtags': [],
-        'user_tags': {'tag1': 'Новый тег'},
-        'isLiked': false,
-        'isBookmarked': false,
-        'isFollowing': false,
-        'tag_color': Colors.blue.value,
-        'is_channel_post': false,
-      };
-
-      // ПРОВЕРЯЕМ на дублирование перед добавлением fallback
-      final fallbackId = fallbackNews['id'].toString();
-      if (!_news.any((item) => item['id'].toString() == fallbackId)) {
-        _news.insert(0, fallbackNews);
-        notifyListeners();
-        await StorageService.saveNews(_news);
-        print('✅ Новость добавлена через fallback');
-      }
+      // Только логируем ошибку, не создаем fallback чтобы избежать дублирования
     }
   }
 
@@ -644,25 +638,42 @@ class NewsProvider with ChangeNotifier {
       }
     }
   }
+  // ЗАМЕНИТЕ метод removeNews на этот:
   void removeNews(int index) async {
     if (index >= 0 && index < _news.length) {
       final newsItem = _news[index] as Map<String, dynamic>;
       final newsId = newsItem['id'].toString();
+      final isChannelPost = newsItem['is_channel_post'] == true;
+
+      print('🗑️ Removing news from NewsProvider: $newsId (channel: $isChannelPost)');
 
       try {
-        await ApiService.deleteNews(newsId);
+        // Только для API постов пытаемся удалить через API
+        if (!isChannelPost) {
+          try {
+            await ApiService.deleteNews(newsId);
+          } catch (e) {
+            print('⚠️ API delete error (expected for local posts): $e');
+          }
+        }
+
+        // Удаляем из локальных хранилищ
+        await StorageService.removeLike(newsId);
+        await StorageService.removeBookmark(newsId);
+        await StorageService.removeUserTags(newsId);
+
+        _news.removeAt(index);
+        notifyListeners();
+
+        // Сохраняем обновленный список
+        await StorageService.saveNews(_news);
+
+        print('✅ News removed from NewsProvider: $newsId');
+
       } catch (e) {
-        print('API delete error: $e');
+        print('❌ Error removing news from NewsProvider: $e');
+        rethrow;
       }
-
-      // Удаляем из локальных хранилищ
-      await StorageService.removeLike(newsId);
-      await StorageService.removeBookmark(newsId);
-      await StorageService.removeUserTags(newsId);
-
-      _news.removeAt(index);
-      notifyListeners();
-      StorageService.saveNews(_news);
     }
   }
 

@@ -17,7 +17,7 @@ class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
   final VoidCallback onLike;
   final VoidCallback onBookmark;
-  final Function(String) onComment;
+  final Function(String, String, String) onComment; // ИСПРАВЛЕНО: правильная сигнатура
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onShare;
@@ -62,8 +62,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   double _readingProgress = 0.0;
   String _editingTagId = '';
 
-  // ИСПРАВЛЕНИЕ: Убираем локальное состояние комментариев
-  // List<dynamic> _localComments = [];
+  // УДАЛЕНО: локальное состояние комментариев
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -195,23 +194,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _isBookmarked = _getBoolValue(widget.news['isBookmarked']);
     _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
     _readingProgress = (widget.news['read_progress'] ?? 0.0).toDouble();
-
-    // ИСПРАВЛЕНИЕ: Убираем локальную инициализацию комментариев
-    // _localComments = List<dynamic>.from(widget.news['comments'] ?? []);
   }
 
-  // СЛУШАТЕЛЬ ИЗМЕНЕНИЙ В ПРОВАЙДЕРЕ
+  // ИСПРАВЛЕНИЕ: Убираем слушатель провайдера, т.к. он вызывает лишние перестроения
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
-    channelStateProvider.addListener(_onChannelStateChanged);
-  }
-
-  void _onChannelStateChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+    // УДАЛЕНО: слушатель channelStateProvider
   }
 
   // ИСПРАВЛЕНИЕ: Обновляем состояние при изменении props
@@ -219,7 +208,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   void didUpdateWidget(NewsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Обновляем состояние лайков/закладок при изменении новости
+    // Обновляем состояние только если данные действительно изменились
     if (oldWidget.news['isLiked'] != widget.news['isLiked']) {
       _isLiked = _getBoolValue(widget.news['isLiked']);
     }
@@ -237,8 +226,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _tagEditController.dispose();
     _expandController.dispose();
 
-    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
-    channelStateProvider.removeListener(_onChannelStateChanged);
+    // УДАЛЕНО: удаление слушателя channelStateProvider
 
     super.dispose();
   }
@@ -263,7 +251,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final channelName = _getStringValue(widget.news['channel_name']);
     final channelId = _getStringValue(widget.news['channel_id']);
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     // ЕСЛИ ЭТО КАНАЛЬНЫЙ ПОСТ - ПЕРЕХОДИМ НА СТРАНИЦУ КАНАЛА
@@ -277,7 +264,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final isCurrentUser = authorName == userProvider.userName;
 
     if (isCurrentUser) {
-      _showProfilePage(context, newsProvider);
+      _showProfilePage(context);
     } else {
       _showOtherUserProfile(context, targetUserName);
     }
@@ -331,8 +318,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  void _showProfilePage(BuildContext context, NewsProvider newsProvider) {
+  // ИСПРАВЛЕНИЕ: Упрощенный метод профиля
+  void _showProfilePage(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
 
     Navigator.push(
       context,
@@ -501,125 +490,122 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
   // ИСПРАВЛЕНИЕ: Правильное получение аватарки для каждого типа поста
   Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
-    return Consumer<ChannelStateProvider>(
-      builder: (context, channelStateProvider, child) {
-        final authorName = _getStringValue(widget.news['author_name']);
-        final createdAt = _getStringValue(widget.news['created_at']);
-        final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
-        final channelName = _getStringValue(widget.news['channel_name']);
-        final channelId = _getStringValue(widget.news['channel_id']);
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final authorName = _getStringValue(widget.news['author_name']);
+    final createdAt = _getStringValue(widget.news['created_at']);
+    final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+    final channelName = _getStringValue(widget.news['channel_name']);
+    final channelId = _getStringValue(widget.news['channel_id']);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-        // ИСПРАВЛЕНИЕ: Правильное определение аватарки
-        String authorAvatar;
-        String displayName;
+    // ИСПРАВЛЕНИЕ: Правильное определение аватарки
+    String authorAvatar;
+    String displayName;
 
-        if (isChannelPost && channelId.isNotEmpty) {
-          // Для канальных постов используем аватарку канала
-          final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
-          authorAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']) ?? _getFallbackAvatarUrl(channelName);
-          displayName = channelName;
-        } else {
-          // Для обычных постов используем аватарку автора
-          final isCurrentUser = authorName == userProvider.userName;
-          authorAvatar = _getUserAvatarUrl(authorName, isCurrentUser: isCurrentUser);
-          displayName = authorName;
-        }
+    if (isChannelPost && channelId.isNotEmpty) {
+      // Для канальных постов используем аватарку канала
+      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+      final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
+      authorAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']) ?? _getFallbackAvatarUrl(channelName);
+      displayName = channelName;
+    } else {
+      // Для обычных постов используем аватарку автора
+      final isCurrentUser = authorName == userProvider.userName;
+      authorAvatar = _getUserAvatarUrl(authorName, isCurrentUser: isCurrentUser);
+      displayName = authorName;
+    }
 
-        return Row(
-          children: [
-            _buildUserAvatar(authorAvatar, isChannelPost, displayName),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      children: [
+        _buildUserAvatar(authorAvatar, isChannelPost, displayName),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: _openUserProfile,
+                child: Text(
+                  displayName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: NewsTheme.textColor,
+                    letterSpacing: -0.2,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
                 children: [
-                  GestureDetector(
-                    onTap: _openUserProfile,
-                    child: Text(
-                      displayName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: NewsTheme.textColor,
-                        letterSpacing: -0.2,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 12,
+                    color: NewsTheme.secondaryTextColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    widget.getTimeAgo(createdAt),
+                    style: TextStyle(
+                      color: NewsTheme.secondaryTextColor,
+                      fontSize: 12,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 12,
-                        color: NewsTheme.secondaryTextColor,
+                  if (_contentType != ContentType.general) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 3,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        widget.getTimeAgo(createdAt),
-                        style: TextStyle(
-                          color: NewsTheme.secondaryTextColor,
-                          fontSize: 12,
-                        ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      _contentIcon,
+                      size: 12,
+                      color: _contentColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _getContentTypeText(),
+                      style: TextStyle(
+                        color: _contentColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
-                      if (_contentType != ContentType.general) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: NewsTheme.secondaryTextColor.withOpacity(0.5),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          _contentIcon,
-                          size: 12,
-                          color: _contentColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _getContentTypeText(),
-                          style: TextStyle(
-                            color: _contentColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ],
               ),
+            ],
+          ),
+        ),
+        if (userTags.isNotEmpty && userTags.values.first.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildUserTag(userTags.values.first, userTags.keys.first, tagColor),
+          ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.03),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.black.withOpacity(0.06),
             ),
-            if (userTags.isNotEmpty && userTags.values.first.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _buildUserTag(userTags.values.first, userTags.keys.first, tagColor),
-              ),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.03),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.black.withOpacity(0.06),
-                ),
-              ),
-              child: IconButton(
-                icon: Icon(
-                  Icons.more_horiz_rounded,
-                  color: NewsTheme.secondaryTextColor,
-                  size: 18,
-                ),
-                onPressed: () => _showAdvancedOptionsMenu(context),
-                padding: const EdgeInsets.all(6),
-              ),
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.more_horiz_rounded,
+              color: NewsTheme.secondaryTextColor,
+              size: 18,
             ),
-          ],
-        );
-      },
+            onPressed: () => _showAdvancedOptionsMenu(context),
+            padding: const EdgeInsets.all(6),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1404,6 +1390,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return {};
   }
 
+  // ИСПРАВЛЕНИЕ: Правильная обработка комментариев
   Widget _buildCommentInput() {
     return Consumer2<NewsProvider, UserProvider>(
       builder: (context, newsProvider, userProvider, child) {
@@ -1475,13 +1462,17 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   onPressed: () {
                     final text = _commentController.text.trim();
                     if (text.isNotEmpty) {
-                      // ИСПРАВЛЕНИЕ: Не сохраняем комментарий локально
-                      widget.onComment(text);
+                      // ИСПРАВЛЕНИЕ: Передаем все три параметра в onComment
+                      widget.onComment(
+                        text,
+                        userProvider.userName, // имя пользователя
+                        currentUserAvatar, // аватар пользователя
+                      );
                       _commentController.clear();
 
                       // Показываем уведомление
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        const SnackBar(
                           content: Text('Комментарий отправлен'),
                           duration: Duration(seconds: 2),
                         ),
@@ -1529,194 +1520,188 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
   // ПОСТРОЕНИЕ КАРТОЧЕК
   Widget _buildRegularPost() {
-    return Consumer<UserProvider>(
-      builder: (context, userProvider, child) {
-        final hashtags = _parseHashtags(widget.news['hashtags']);
-        final userTags = _parseUserTags(widget.news['user_tags']);
-        final tagColor = _selectedTagColor;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final hashtags = _parseHashtags(widget.news['hashtags']);
+    final userTags = _parseUserTags(widget.news['user_tags']);
+    final tagColor = _selectedTagColor;
 
-        final authorName = _getStringValue(widget.news['author_name']);
-        final isAuthor = authorName == userProvider.userName;
+    final authorName = _getStringValue(widget.news['author_name']);
+    final isAuthor = authorName == userProvider.userName;
 
-        return _buildCard(
-          child: Column(
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPostHeader(isAuthor, userTags, tagColor),
+          const SizedBox(height: 16),
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPostHeader(isAuthor, userTags, tagColor),
-              const SizedBox(height: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_getStringValue(widget.news['title']).isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        _getStringValue(widget.news['title']),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: NewsTheme.textColor,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  Text(
-                    _getStringValue(widget.news['description']),
+              if (_getStringValue(widget.news['title']).isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _getStringValue(widget.news['title']),
                     style: TextStyle(
-                      fontSize: 14,
-                      color: NewsTheme.textColor.withOpacity(0.8),
-                      height: 1.5,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: NewsTheme.textColor,
+                      height: 1.3,
                     ),
                   ),
-                ],
-              ),
-              if (hashtags.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _buildHashtags(hashtags),
-              ],
-              const SizedBox(height: 16),
-              // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
-              _buildPostActions(commentCount: _currentComments.length, isAuthor: isAuthor),
-              SizeTransition(
-                sizeFactor: _expandAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: _buildCommentsSection(),
+                ),
+              Text(
+                _getStringValue(widget.news['description']),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: NewsTheme.textColor.withOpacity(0.8),
+                  height: 1.5,
                 ),
               ),
             ],
           ),
-        );
-      },
+          if (hashtags.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildHashtags(hashtags),
+          ],
+          const SizedBox(height: 16),
+          // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
+          _buildPostActions(commentCount: _currentComments.length, isAuthor: isAuthor),
+          SizeTransition(
+            sizeFactor: _expandAnimation,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildCommentsSection(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ КАНАЛЬНЫХ ПОСТОВ С ИСПОЛЬЗОВАНИЕМ ПРОВАЙДЕРА
   Widget _buildChannelPost() {
-    return Consumer<ChannelStateProvider>(
-      builder: (context, channelStateProvider, child) {
-        final title = _getStringValue(widget.news['title']);
-        final description = _getStringValue(widget.news['description']);
-        final channelName = _getStringValue(widget.news['channel_name']);
-        final createdAt = _getStringValue(widget.news['created_at']);
-        final hashtags = _parseHashtags(widget.news['hashtags']);
-        final channelId = _getStringValue(widget.news['channel_id']);
+    final title = _getStringValue(widget.news['title']);
+    final description = _getStringValue(widget.news['description']);
+    final channelName = _getStringValue(widget.news['channel_name']);
+    final createdAt = _getStringValue(widget.news['created_at']);
+    final hashtags = _parseHashtags(widget.news['hashtags']);
+    final channelId = _getStringValue(widget.news['channel_id']);
 
-        // ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ ИЗ ПРОВАЙДЕРА
-        final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
-        final channelAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']);
+    // ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ ИЗ ПРОВАЙДЕРА
+    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
+    final channelAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']);
 
-        return _buildCard(
-          isChannel: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: _openUserProfile,
-                child: Row(
-                  children: [
-                    _buildChannelAvatar(channelAvatar, channelName),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+    return _buildCard(
+      isChannel: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: _openUserProfile,
+            child: Row(
+              children: [
+                _buildChannelAvatar(channelAvatar, channelName),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        channelName,
+                        style: TextStyle(
+                          color: NewsTheme.textColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
                         children: [
+                          Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
+                          const SizedBox(width: 4),
                           Text(
-                            channelName,
+                            'Официальный канал',
                             style: TextStyle(
-                              color: NewsTheme.textColor,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
+                              color: Colors.blue,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Официальный канал',
-                                style: TextStyle(
-                                  color: Colors.blue,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                width: 3,
-                                height: 3,
-                                decoration: BoxDecoration(
-                                  color: NewsTheme.secondaryTextColor.withOpacity(0.5),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                widget.getTimeAgo(createdAt),
-                                style: TextStyle(
-                                  color: NewsTheme.secondaryTextColor,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 3,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            widget.getTimeAgo(createdAt),
+                            style: TextStyle(
+                              color: NewsTheme.secondaryTextColor,
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (title.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: NewsTheme.textColor,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  if (description.isNotEmpty)
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: NewsTheme.textColor.withOpacity(0.8),
-                        height: 1.4,
-                      ),
-                    ),
-                ],
-              ),
-              if (hashtags.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _buildHashtags(hashtags),
               ],
-              const SizedBox(height: 16),
-              // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
-              _buildPostActions(
-                  commentCount: _currentComments.length,
-                  showBookmark: true,
-                  isAuthor: false
-              ),
-              SizeTransition(
-                sizeFactor: _expandAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: _buildCommentsSection(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (title.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: NewsTheme.textColor,
+                      height: 1.3,
+                    ),
+                  ),
                 ),
-              ),
+              if (description.isNotEmpty)
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: NewsTheme.textColor.withOpacity(0.8),
+                    height: 1.4,
+                  ),
+                ),
             ],
           ),
-        );
-      },
+          if (hashtags.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildHashtags(hashtags),
+          ],
+          const SizedBox(height: 16),
+          // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
+          _buildPostActions(
+              commentCount: _currentComments.length,
+              showBookmark: true,
+              isAuthor: false
+          ),
+          SizeTransition(
+            sizeFactor: _expandAnimation,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildCommentsSection(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

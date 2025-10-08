@@ -133,9 +133,9 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     // Используем новый метод для инициализации
     provider.initializeChannelIfNeeded(
       widget.channel.id.toString(), // ПРЕОБРАЗУЕМ В STRING
-      widget.channel.imageUrl,
-      widget.channel.coverImageUrl,
-      widget.channel.tags,
+      defaultAvatar: widget.channel.imageUrl,
+      defaultCover: widget.channel.coverImageUrl,
+      defaultTags: widget.channel.tags,
     );
   }
 

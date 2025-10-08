@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../news_page/theme/news_theme.dart';
 import '../../models/channel.dart';
+import '../../../../providers/channel_state_provider.dart'; // ИМПОРТ ПРОВАЙДЕРА
 
 class PostItem extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -39,9 +41,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   bool _isLiked = false;
   bool _isBookmarked = false;
   List<dynamic> _localComments = [];
-
-  // СОХРАНЯЕМ АВАТАРКУ В СОСТОЯНИИ
-  String? _currentAvatarUrl;
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -151,22 +150,35 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     _isLiked = _getBoolValue(widget.post['isLiked']);
     _isBookmarked = _getBoolValue(widget.post['isBookmarked']);
     _localComments = List<dynamic>.from(widget.post['comments'] ?? []);
-
-    // ИНИЦИАЛИЗИРУЕМ АВАТАРКУ ПРИ СОЗДАНИИ
-    _currentAvatarUrl = widget.customAvatarUrl ?? widget.channel.imageUrl;
   }
 
-  // ОБНОВЛЯЕМ ПРИ ИЗМЕНЕНИИ PROPS - ТЕПЕРЬ СОХРАНЯЕМ СОСТОЯНИЕ
+  // СЛУШАТЕЛЬ ИЗМЕНЕНИЙ В ПРОВАЙДЕРЕ
   @override
-  void didUpdateWidget(PostItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Добавляем слушатель изменений в провайдере
+    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    channelStateProvider.addListener(_onChannelStateChanged);
+  }
 
-    // Если изменилась кастомная аватарка, обновляем состояние
-    if (oldWidget.customAvatarUrl != widget.customAvatarUrl) {
+  void _onChannelStateChanged() {
+    if (mounted) {
       setState(() {
-        _currentAvatarUrl = widget.customAvatarUrl ?? widget.channel.imageUrl;
+        // Принудительно обновляем состояние при изменении аватарки
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _expandController.dispose();
+
+    // Удаляем слушатель
+    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    channelStateProvider.removeListener(_onChannelStateChanged);
+
+    super.dispose();
   }
 
   bool _getBoolValue(dynamic value) {
@@ -186,13 +198,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     if (value is String) return int.tryParse(value) ?? 0;
     if (value is double) return value.toInt();
     return 0;
-  }
-
-  @override
-  void dispose() {
-    _commentController.dispose();
-    _expandController.dispose();
-    super.dispose();
   }
 
   Widget _buildCard({required Widget child}) {
@@ -264,121 +269,127 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД С ИСПОЛЬЗОВАНИЕМ ПРОВАЙДЕРА
   Widget _buildChannelHeader() {
-    final channelName = widget.channel.title;
-    final createdAt = _getStringValue(widget.post['created_at']);
+    return Consumer<ChannelStateProvider>(
+      builder: (context, channelStateProvider, child) {
+        final channelName = widget.channel.title;
+        final createdAt = _getStringValue(widget.post['created_at']);
 
-    // ИСПОЛЬЗУЕМ СОХРАНЕННУЮ АВАТАРКУ
-    final channelAvatar = _currentAvatarUrl;
+        // ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ ИЗ ПРОВАЙДЕРА
+        final currentAvatarUrl = channelStateProvider.getAvatarForChannel(widget.channel.id.toString());
+        final channelAvatar = widget.customAvatarUrl ?? currentAvatarUrl ?? widget.channel.imageUrl;
 
-    return Row(
-      children: [
-        _buildChannelAvatar(channelAvatar, channelName),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                channelName,
-                style: TextStyle(
-                  color: NewsTheme.textColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  letterSpacing: -0.2,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Row(
+        return Row(
+          children: [
+            _buildChannelAvatar(channelAvatar, channelName),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.verified_rounded,
-                    size: 12,
-                    color: Colors.blue,
-                  ),
-                  const SizedBox(width: 4),
                   Text(
-                    'Официальный канал',
+                    channelName,
                     style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      color: NewsTheme.textColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      letterSpacing: -0.2,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 3,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: NewsTheme.secondaryTextColor.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.access_time_rounded,
-                    size: 12,
-                    color: NewsTheme.secondaryTextColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    widget.getTimeAgo(createdAt),
-                    style: TextStyle(
-                      color: NewsTheme.secondaryTextColor,
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (_contentType != ContentType.general) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      width: 3,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: NewsTheme.secondaryTextColor.withOpacity(0.5),
-                        shape: BoxShape.circle,
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.verified_rounded,
+                        size: 12,
+                        color: Colors.blue,
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      _contentIcon,
-                      size: 12,
-                      color: _contentColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _getContentTypeText(),
-                      style: TextStyle(
-                        color: _contentColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(width: 4),
+                      Text(
+                        'Официальный канал',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 3,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 12,
+                        color: NewsTheme.secondaryTextColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.getTimeAgo(createdAt),
+                        style: TextStyle(
+                          color: NewsTheme.secondaryTextColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (_contentType != ContentType.general) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          _contentIcon,
+                          size: 12,
+                          color: _contentColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _getContentTypeText(),
+                          style: TextStyle(
+                            color: _contentColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.03),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.black.withOpacity(0.06),
             ),
-          ),
-          child: IconButton(
-            icon: Icon(
-              Icons.more_horiz_rounded,
-              color: NewsTheme.secondaryTextColor,
-              size: 18,
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.03),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.black.withOpacity(0.06),
+                ),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  Icons.more_horiz_rounded,
+                  color: NewsTheme.secondaryTextColor,
+                  size: 18,
+                ),
+                onPressed: _showOptionsMenu,
+                padding: const EdgeInsets.all(6),
+              ),
             ),
-            onPressed: _showOptionsMenu,
-            padding: const EdgeInsets.all(6),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -983,7 +994,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildChannelHeader(),
+          _buildChannelHeader(), // ТЕПЕРЬ ИСПОЛЬЗУЕТ ПРОВАЙДЕР
           const SizedBox(height: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,

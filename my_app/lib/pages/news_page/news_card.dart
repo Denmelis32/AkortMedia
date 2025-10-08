@@ -5,6 +5,7 @@ import '../../providers/news_provider.dart';
 import '../cards_page/channel_detail_page.dart';
 import '../cards_page/models/channel.dart';
 import 'theme/news_theme.dart';
+import '../../providers/channel_state_provider.dart'; // ИМПОРТ ПРОВАЙДЕРА
 
 // Импортируем ProfilePage
 import 'profile_menu_page.dart';
@@ -200,6 +201,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _localComments = List<dynamic>.from(widget.news['comments'] ?? []);
   }
 
+  // СЛУШАТЕЛЬ ИЗМЕНЕНИЙ В ПРОВАЙДЕРЕ
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Добавляем слушатель изменений в провайдере
+    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    channelStateProvider.addListener(_onChannelStateChanged);
+  }
+
+  void _onChannelStateChanged() {
+    if (mounted) {
+      setState(() {
+        // Принудительно обновляем состояние при изменении аватарки канала
+      });
+    }
+  }
+
   // Обновление локальных комментариев при изменении props
   @override
   void didUpdateWidget(NewsCard oldWidget) {
@@ -213,18 +231,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
-  bool _getBoolValue(dynamic value) {
-    if (value is bool) return value;
-    if (value is String) return value.toLowerCase() == 'true';
-    return false;
-  }
-
   @override
   void dispose() {
     _commentController.dispose();
     _tagEditController.dispose();
     _expandController.dispose();
+
+    // Удаляем слушатель
+    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    channelStateProvider.removeListener(_onChannelStateChanged);
+
     super.dispose();
+  }
+
+  bool _getBoolValue(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return false;
   }
 
   void _toggleFollow() {
@@ -234,7 +257,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     widget.onFollow();
   }
 
-  // ОТКРЫТИЕ ПРОФИЛЯ ПРИ НАЖАТИИ НА АВАТАР
   // ОТКРЫТИЕ ПРОФИЛЯ ПРИ НАЖАТИИ НА АВАТАР - ИСПРАВЛЕННАЯ ВЕРСИЯ
   void _openUserProfile() {
     final authorName = _getStringValue(widget.news['author_name']);
@@ -262,7 +284,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
-// НОВЫЙ МЕТОД ДЛЯ ОТКРЫТИЯ СТРАНИЦЫ КАНАЛА - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  // НОВЫЙ МЕТОД ДЛЯ ОТКРЫТИЯ СТРАНИЦЫ КАНАЛА
   void _openChannelPage(String channelId, String channelName) {
     // Проверяем, что у нас есть необходимые данные
     if (channelId.isEmpty || channelName.isEmpty) {
@@ -286,7 +308,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         context,
         MaterialPageRoute(
           builder: (context) => ChannelDetailPage(
-            channel: tempChannel, // ПРАВИЛЬНО: передаем только channel
+            channel: tempChannel,
           ),
         ),
       );
@@ -296,7 +318,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       _showChannelInfoDialog(channelName);
     }
   }
-
 
   void _showChannelInfoDialog(String channelName) {
     showDialog(
@@ -488,107 +509,119 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // КРУГЛЫЕ АВАТАРКИ КАК В ПРОФИЛЕ
+  // КРУГЛЫЕ АВАТАРКИ КАК В ПРОФИЛЕ - ОБНОВЛЕННЫЙ С ИСПОЛЬЗОВАНИЕМ ПРОВАЙДЕРА
   Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
-    final authorName = _getStringValue(widget.news['author_name']);
-    final createdAt = _getStringValue(widget.news['created_at']);
-    final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
-    final channelName = _getStringValue(widget.news['channel_name']);
+    return Consumer<ChannelStateProvider>(
+      builder: (context, channelStateProvider, child) {
+        final authorName = _getStringValue(widget.news['author_name']);
+        final createdAt = _getStringValue(widget.news['created_at']);
+        final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+        final channelName = _getStringValue(widget.news['channel_name']);
+        final channelId = _getStringValue(widget.news['channel_id']);
 
-    final authorAvatar = _getCurrentUserAvatarUrl();
+        // ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ ИЗ ПРОВАЙДЕРА ДЛЯ КАНАЛЬНЫХ ПОСТОВ
+        String authorAvatar;
+        if (isChannelPost && channelId.isNotEmpty) {
+          final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
+          authorAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']) ?? _getFallbackAvatarUrl(channelName);
+        } else {
+          authorAvatar = _getCurrentUserAvatarUrl();
+        }
 
-    return Row(
-      children: [
-        _buildUserAvatar(authorAvatar, isChannelPost, channelName, authorName),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: _openUserProfile,
-                child: Text(
-                  isChannelPost ? channelName : authorName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: NewsTheme.textColor,
-                    letterSpacing: -0.2,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Row(
+        return Row(
+          children: [
+            _buildUserAvatar(authorAvatar, isChannelPost, channelName, authorName),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.access_time_rounded,
-                    size: 12,
-                    color: NewsTheme.secondaryTextColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    widget.getTimeAgo(createdAt),
-                    style: TextStyle(
-                      color: NewsTheme.secondaryTextColor,
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (_contentType != ContentType.general) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      width: 3,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: NewsTheme.secondaryTextColor.withOpacity(0.5),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      _contentIcon,
-                      size: 12,
-                      color: _contentColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _getContentTypeText(),
+                  GestureDetector(
+                    onTap: _openUserProfile,
+                    child: Text(
+                      isChannelPost ? channelName : authorName,
                       style: TextStyle(
-                        color: _contentColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: NewsTheme.textColor,
+                        letterSpacing: -0.2,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 12,
+                        color: NewsTheme.secondaryTextColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.getTimeAgo(createdAt),
+                        style: TextStyle(
+                          color: NewsTheme.secondaryTextColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (_contentType != ContentType.general) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          _contentIcon,
+                          size: 12,
+                          color: _contentColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _getContentTypeText(),
+                          style: TextStyle(
+                            color: _contentColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-        if (userTags.isNotEmpty && userTags.values.first.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _buildUserTag(userTags.values.first, userTags.keys.first, tagColor),
-          ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.03),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.black.withOpacity(0.06),
             ),
-          ),
-          child: IconButton(
-            icon: Icon(
-              Icons.more_horiz_rounded,
-              color: NewsTheme.secondaryTextColor,
-              size: 18,
+            if (userTags.isNotEmpty && userTags.values.first.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _buildUserTag(userTags.values.first, userTags.keys.first, tagColor),
+              ),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.03),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.black.withOpacity(0.06),
+                ),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  Icons.more_horiz_rounded,
+                  color: NewsTheme.secondaryTextColor,
+                  size: 18,
+                ),
+                onPressed: () => _showAdvancedOptionsMenu(context),
+                padding: const EdgeInsets.all(6),
+              ),
             ),
-            onPressed: () => _showAdvancedOptionsMenu(context),
-            padding: const EdgeInsets.all(6),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -1515,128 +1548,136 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ КАНАЛЬНЫХ ПОСТОВ С ИСПОЛЬЗОВАНИЕМ ПРОВАЙДЕРА
   Widget _buildChannelPost() {
-    final title = _getStringValue(widget.news['title']);
-    final description = _getStringValue(widget.news['description']);
-    final channelName = _getStringValue(widget.news['channel_name']);
-    final createdAt = _getStringValue(widget.news['created_at']);
-    final hashtags = _parseHashtags(widget.news['hashtags']);
-    final channelAvatar = _getStringValue(widget.news['channel_avatar']);
+    return Consumer<ChannelStateProvider>(
+      builder: (context, channelStateProvider, child) {
+        final title = _getStringValue(widget.news['title']);
+        final description = _getStringValue(widget.news['description']);
+        final channelName = _getStringValue(widget.news['channel_name']);
+        final createdAt = _getStringValue(widget.news['created_at']);
+        final hashtags = _parseHashtags(widget.news['hashtags']);
+        final channelId = _getStringValue(widget.news['channel_id']);
 
-    return _buildCard(
-      isChannel: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ОБНОВЛЕННЫЙ ХЕДЕР КАНАЛА - ВСЕ ЭЛЕМЕНТЫ ВЕДУТ НА КАНАЛ
-          GestureDetector(
-            onTap: _openUserProfile, // Теперь ведет на канал
-            child: Row(
-              children: [
-                _buildChannelAvatar(channelAvatar, channelName),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        channelName,
-                        style: TextStyle(
-                          color: NewsTheme.textColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
+        // ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ ИЗ ПРОВАЙДЕРА
+        final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
+        final channelAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']);
+
+        return _buildCard(
+          isChannel: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ОБНОВЛЕННЫЙ ХЕДЕР КАНАЛА - ВСЕ ЭЛЕМЕНТЫ ВЕДУТ НА КАНАЛ
+              GestureDetector(
+                onTap: _openUserProfile,
+                child: Row(
+                  children: [
+                    _buildChannelAvatar(channelAvatar, channelName),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
-                          const SizedBox(width: 4),
                           Text(
-                            'Официальный канал',
+                            channelName,
                             style: TextStyle(
-                              color: Colors.blue,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                              color: NewsTheme.textColor,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 3,
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: NewsTheme.secondaryTextColor.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            widget.getTimeAgo(createdAt),
-                            style: TextStyle(
-                              color: NewsTheme.secondaryTextColor,
-                              fontSize: 11,
-                            ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Официальный канал',
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                width: 3,
+                                height: 3,
+                                decoration: BoxDecoration(
+                                  color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                widget.getTimeAgo(createdAt),
+                                style: TextStyle(
+                                  color: NewsTheme.secondaryTextColor,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Остальной код без изменений...
-          const SizedBox(height: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (title.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: NewsTheme.textColor,
-                      height: 1.3,
                     ),
-                  ),
+                  ],
                 ),
-              if (description.isNotEmpty)
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: NewsTheme.textColor.withOpacity(0.8),
-                    height: 1.4,
-                  ),
+              ),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (title.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: NewsTheme.textColor,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  if (description.isNotEmpty)
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: NewsTheme.textColor.withOpacity(0.8),
+                        height: 1.4,
+                      ),
+                    ),
+                ],
+              ),
+              if (hashtags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildHashtags(hashtags),
+              ],
+              const SizedBox(height: 16),
+              _buildPostActions(
+                  commentCount: _localComments.length,
+                  showBookmark: true,
+                  isAuthor: false
+              ),
+              SizeTransition(
+                sizeFactor: _expandAnimation,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: _buildCommentsSection(),
                 ),
+              ),
             ],
           ),
-          if (hashtags.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _buildHashtags(hashtags),
-          ],
-          const SizedBox(height: 16),
-          _buildPostActions(
-              commentCount: _localComments.length,
-              showBookmark: true,
-              isAuthor: false
-          ),
-          SizeTransition(
-            sizeFactor: _expandAnimation,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: _buildCommentsSection(),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildChannelAvatar(String avatarUrl, String channelName) {
+  Widget _buildChannelAvatar(String? avatarUrl, String channelName) {
     return GestureDetector(
       onTap: _openUserProfile,
       child: Container(
@@ -1657,7 +1698,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           ],
         ),
         child: ClipOval(
-          child: avatarUrl.isNotEmpty && avatarUrl.startsWith('http')
+          child: avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl.startsWith('http')
               ? Image.network(
             avatarUrl,
             fit: BoxFit.cover,

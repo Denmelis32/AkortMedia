@@ -637,6 +637,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         .toList();
 
     try {
+      // ВАЖНО: БЕРЕМ АВАТАРКУ ИЗ ПРОВАЙДЕРА СОСТОЯНИЯ
       final currentAvatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
       final avatarToUse = currentAvatarUrl ?? widget.channel.imageUrl;
 
@@ -651,9 +652,9 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         "comments": [],
         'is_channel_post': true,
         'channel_name': widget.channel.title,
-        'channel_avatar': avatarToUse,
-        'channel_image': avatarToUse,
-        'channel_id': widget.channel.id.toString(), // ВАЖНО: передаем ID канала
+        'channel_avatar': avatarToUse, // АКТУАЛЬНАЯ АВАТАРКА
+        'channel_image': avatarToUse,  // АКТУАЛЬНАЯ АВАТАРКА
+        'channel_id': widget.channel.id.toString(),
       };
 
       postsProvider.addPostToChannel(widget.channel.id, newPost);

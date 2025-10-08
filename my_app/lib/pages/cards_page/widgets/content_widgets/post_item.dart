@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../providers/news_provider.dart';
+import '../../../../providers/user_provider.dart';
 import '../../../news_page/theme/news_theme.dart';
 import '../../models/channel.dart';
-import '../../../../providers/channel_state_provider.dart'; // ИМПОРТ ПРОВАЙДЕРА
+import '../../../../providers/channel_state_provider.dart';
 
 class PostItem extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -40,7 +44,9 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   bool _isExpanded = false;
   bool _isLiked = false;
   bool _isBookmarked = false;
-  List<dynamic> _localComments = [];
+
+  // ИСПРАВЛЕНИЕ: Убираем локальное состояние комментариев
+  // List<dynamic> _localComments = [];
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -149,23 +155,22 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
 
     _isLiked = _getBoolValue(widget.post['isLiked']);
     _isBookmarked = _getBoolValue(widget.post['isBookmarked']);
-    _localComments = List<dynamic>.from(widget.post['comments'] ?? []);
+
+    // ИСПРАВЛЕНИЕ: Убираем локальное копирование комментариев
+    // _localComments = List<dynamic>.from(widget.post['comments'] ?? []);
   }
 
   // СЛУШАТЕЛЬ ИЗМЕНЕНИЙ В ПРОВАЙДЕРЕ
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Добавляем слушатель изменений в провайдере
     final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
     channelStateProvider.addListener(_onChannelStateChanged);
   }
 
   void _onChannelStateChanged() {
     if (mounted) {
-      setState(() {
-        // Принудительно обновляем состояние при изменении аватарки
-      });
+      setState(() {});
     }
   }
 
@@ -174,7 +179,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     _commentController.dispose();
     _expandController.dispose();
 
-    // Удаляем слушатель
     final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
     channelStateProvider.removeListener(_onChannelStateChanged);
 
@@ -198,6 +202,11 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     if (value is String) return int.tryParse(value) ?? 0;
     if (value is double) return value.toInt();
     return 0;
+  }
+
+  // ИСПРАВЛЕНИЕ: Получаем актуальные комментарии из props
+  List<dynamic> get _currentComments {
+    return List<dynamic>.from(widget.post['comments'] ?? []);
   }
 
   Widget _buildCard({required Widget child}) {
@@ -677,8 +686,9 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
           padding: const EdgeInsets.only(top: 16),
           child: Column(
             children: [
-              if (_localComments.isNotEmpty) ...[
-                ..._localComments.map((comment) => _buildCommentItem(comment)),
+              // ИСПРАВЛЕНИЕ: Используем актуальные комментарии из props
+              if (_currentComments.isNotEmpty) ...[
+                ..._currentComments.map((comment) => _buildCommentItem(comment)),
                 const SizedBox(height: 12),
               ],
               _buildCommentInput(),
@@ -819,65 +829,115 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCommentInput() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.04),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _commentController,
-              style: TextStyle(color: NewsTheme.textColor, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Напишите комментарий...',
-                hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
+    return Consumer2<NewsProvider, UserProvider>(
+      builder: (context, newsProvider, userProvider, child) {
+        final currentUserAvatar = _getCurrentUserAvatarUrl(newsProvider);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.02),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.black.withOpacity(0.04),
             ),
           ),
-          Container(
-            margin: const EdgeInsets.only(right: 6),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _cardDesign.gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                margin: const EdgeInsets.only(left: 8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: ClipOval(
+                  child: currentUserAvatar.isNotEmpty && currentUserAvatar.startsWith('http')
+                      ? Image.network(
+                    currentUserAvatar,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return _buildCommentGradientAvatar(userProvider.userName);
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildCommentGradientAvatar(userProvider.userName);
+                    },
+                  )
+                      : _buildCommentGradientAvatar(userProvider.userName),
+                ),
               ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: IconButton(
-              icon: Icon(Icons.send_rounded, color: Colors.white, size: 18),
-              onPressed: () {
-                final text = _commentController.text.trim();
-                if (text.isNotEmpty) {
-                  final newComment = {
-                    'id': 'temp-${DateTime.now().millisecondsSinceEpoch}',
-                    'author': 'Текущий пользователь',
-                    'text': text,
-                    'time': 'Только что',
-                    'author_avatar': '',
-                  };
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  style: TextStyle(color: NewsTheme.textColor, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Напишите комментарий...',
+                    hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: _cardDesign.gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                  onPressed: () {
+                    final text = _commentController.text.trim();
+                    if (text.isNotEmpty) {
+                      // ИСПРАВЛЕНИЕ: Не сохраняем комментарий локально, сразу передаем через callback
+                      widget.onComment?.call(text);
+                      _commentController.clear();
 
-                  setState(() {
-                    _localComments.insert(0, newComment);
-                  });
-
-                  widget.onComment?.call(text);
-                  _commentController.clear();
-                }
-              },
-              padding: const EdgeInsets.all(8),
-            ),
+                      // Показываем временное уведомление
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Комментарий отправлен'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  String _getCurrentUserAvatarUrl(NewsProvider? newsProvider) {
+    if (newsProvider == null) {
+      newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    }
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final currentProfileImage = newsProvider.getCurrentProfileImage();
+
+    if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+      return currentProfileImage;
+    }
+
+    return _getFallbackAvatarUrl(userProvider.userName);
+  }
+
+  String _getFallbackAvatarUrl(String userName) {
+    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
   }
 
   void _toggleExpanded() {
@@ -994,7 +1054,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildChannelHeader(), // ТЕПЕРЬ ИСПОЛЬЗУЕТ ПРОВАЙДЕР
+          _buildChannelHeader(),
           const SizedBox(height: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1028,7 +1088,8 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
             _buildHashtags(hashtags),
           ],
           const SizedBox(height: 16),
-          _buildPostActions(commentCount: _localComments.length),
+          // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
+          _buildPostActions(commentCount: _currentComments.length),
           SizeTransition(
             sizeFactor: _expandAnimation,
             child: FadeTransition(

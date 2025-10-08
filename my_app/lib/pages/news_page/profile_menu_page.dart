@@ -362,10 +362,8 @@ class _ProfilePageState extends State<ProfilePage> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: NewsCard(
-              key: ValueKey('profile-${posts[index]['id']}-$index'),
+              key: ValueKey('profile-post-${posts[index]['id']}'), // ИСПРАВЛЕННЫЙ КЛЮЧ
               news: Map<String, dynamic>.from(posts[index]),
-              userName: widget.userName,
-              userEmail: widget.userEmail,
               onLike: () => _handleLike(
                 newsProvider.findNewsIndexById(posts[index]['id'].toString()),
                 newsProvider,
@@ -383,8 +381,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 comment,
                 newsProvider,
               ),
-              onEdit: () =>
-                  _handleEdit(newsProvider.news.indexOf(posts[index]), context),
+              onEdit: () => _handleEdit(
+                  newsProvider.news.indexOf(posts[index]),
+                  context
+              ),
               onDelete: () => _handleDelete(
                 newsProvider.news.indexOf(posts[index]),
                 newsProvider,
@@ -403,7 +403,7 @@ class _ProfilePageState extends State<ProfilePage> {
               formatDate: formatDate,
               getTimeAgo: getTimeAgo,
               scrollController: _scrollController,
-              onLogout: widget.onLogout, // Добавлен недостающий аргумент
+              onLogout: widget.onLogout,
             ),
           ),
       ],
@@ -411,15 +411,14 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildLikedPostsSection(
-    List<dynamic> likedPosts,
-    NewsProvider newsProvider,
-  ) {
+      List<dynamic> likedPosts,
+      NewsProvider newsProvider,
+      ) {
     if (likedPosts.isEmpty) {
       return _buildEmptyState(
         icon: Icons.favorite_border_rounded,
         title: 'Пока нет лайков',
-        subtitle:
-            'Поставьте лайки понравившимся постам, чтобы они появились здесь',
+        subtitle: 'Поставьте лайки понравившимся постам, чтобы они появились здесь',
       );
     }
 
@@ -429,10 +428,8 @@ class _ProfilePageState extends State<ProfilePage> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: NewsCard(
-              key: ValueKey('liked-${likedPosts[index]['id']}-$index'),
+              key: ValueKey('liked-post-${likedPosts[index]['id']}'), // ИСПРАВЛЕННЫЙ КЛЮЧ
               news: Map<String, dynamic>.from(likedPosts[index]),
-              userName: widget.userName,
-              userEmail: widget.userEmail,
               onLike: () => _handleLike(
                 newsProvider.findNewsIndexById(likedPosts[index]['id'].toString()),
                 newsProvider,
@@ -472,11 +469,17 @@ class _ProfilePageState extends State<ProfilePage> {
               formatDate: formatDate,
               getTimeAgo: getTimeAgo,
               scrollController: _scrollController,
-              onLogout: widget.onLogout, // Добавлен недостающий аргумент
+              onLogout: widget.onLogout,
             ),
           ),
       ],
     );
+  }
+
+
+  int _getSafeNewsIndex(dynamic newsItem, NewsProvider newsProvider) {
+    final newsId = newsItem['id'].toString();
+    return newsProvider.findNewsIndexById(newsId);
   }
 
   Widget _buildInfoSection() {
@@ -999,7 +1002,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 Icons.link_rounded,
                 'Загрузить по ссылке',
                 Colors.purple,
-                () => _showUrlInputDialog(context),
+                    () => _showUrlInputDialog(context),
               ),
 
               const SizedBox(height: 12),
@@ -1009,7 +1012,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 Icons.photo_library_rounded,
                 'Выбрать из галереи',
                 Colors.blue,
-                () => _pickImage(ImageSource.gallery, context),
+                    () => _pickImage(ImageSource.gallery, context),
               ),
 
               const SizedBox(height: 12),
@@ -1019,7 +1022,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 Icons.photo_camera_rounded,
                 'Сделать фото',
                 Colors.green,
-                () => _pickImage(ImageSource.camera, context),
+                    () => _pickImage(ImageSource.camera, context),
               ),
 
               const SizedBox(height: 12),
@@ -1031,7 +1034,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Icons.delete_rounded,
                   'Удалить фото',
                   Colors.red,
-                  () {
+                      () {
                     if (widget.onProfileImageFileChanged != null) {
                       widget.onProfileImageFileChanged!(null);
                     }
@@ -1068,7 +1071,12 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ),
-    );
+    ).then((_) {
+      // Принудительно обновляем состояние после закрытия модального окна
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   Widget _buildImageSourceButton(

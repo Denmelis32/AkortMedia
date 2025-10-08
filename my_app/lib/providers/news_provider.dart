@@ -69,10 +69,9 @@ class NewsProvider with ChangeNotifier {
   void updateProfileImageFile(File? file) {
     _profileImageFile = file;
     _profileImageUrl = null;
-    notifyListeners();
 
+    // НЕ вызываем notifyListeners() здесь, только сохраняем
     if (file != null) {
-      // Проверяем существует ли файл
       file.exists().then((exists) {
         if (exists) {
           StorageService.saveProfileImageFilePath(file.path);
@@ -80,7 +79,6 @@ class NewsProvider with ChangeNotifier {
         } else {
           print('❌ File does not exist: ${file.path}');
           _profileImageFile = null;
-          notifyListeners();
         }
       });
     } else {
@@ -173,6 +171,12 @@ class NewsProvider with ChangeNotifier {
           final updatedNews = await Future.wait(apiNews.map((newsItem) async {
             final newsId = newsItem['id'].toString();
 
+            // ПРОВЕРЯЕМ на дублирование
+            if (_containsNewsWithId(newsId)) {
+              print('⚠️ Skipping duplicate news from API: $newsId');
+              return _news.firstWhere((item) => item['id'].toString() == newsId);
+            }
+
             // ИСПРАВЛЕНИЕ: Правильное получение user_tags
             final Map<String, String> itemUserTags;
             if (userTags.containsKey(newsId)) {
@@ -207,10 +211,17 @@ class NewsProvider with ChangeNotifier {
             };
           }));
 
-          // ОБНОВЛЯЕМ данные только если API вернул данные
-          _news = updatedNews;
-          await StorageService.saveNews(_news);
-          print('🔄 Updated news from API: ${_news.length} items');
+          // ОБНОВЛЯЕМ данные только если API вернул новые данные
+          final newItems = updatedNews.where((item) =>
+          !_containsNewsWithId(item['id'].toString())).toList();
+
+          if (newItems.isNotEmpty) {
+            _news.insertAll(0, newItems);
+            await StorageService.saveNews(_news);
+            print('🔄 Updated news from API: ${newItems.length} new items');
+          } else {
+            print('⚠️ No new items from API, keeping cached data');
+          }
         } else {
           print('⚠️ API returned empty list, keeping cached data');
         }
@@ -377,7 +388,13 @@ class NewsProvider with ChangeNotifier {
   // УЛУЧШЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
   Future<void> addNews(Map<String, dynamic> newsItem) async {
     try {
-      // СОХРАНЯЕМ оригинальные данные
+      // ПРОВЕРЯЕМ на дублирование по ID
+      final newNewsId = newsItem['id']?.toString();
+      if (newNewsId != null && _news.any((item) => item['id'].toString() == newNewsId)) {
+        print('⚠️ News with ID $newNewsId already exists, skipping...');
+        return;
+      }
+
       final isChannelPost = newsItem['is_channel_post'] == true;
       final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
       final channelName = newsItem['channel_name']?.toString() ?? '';
@@ -404,7 +421,7 @@ class NewsProvider with ChangeNotifier {
         'image': newsItem['image']?.toString() ?? '',
         'author_name': authorName,
         'channel_name': channelName,
-        'channel_id': newsItem['channel_id']?.toString() ?? '', // ВАЖНО: добавляем channel_id
+        'channel_id': newsItem['channel_id']?.toString() ?? '',
         'created_at': newsItem['created_at']?.toString() ?? DateTime.now().toIso8601String(),
         'likes': newsItem['likes'] ?? 0,
         'comments': newsItem['comments'] ?? [],
@@ -424,56 +441,46 @@ class NewsProvider with ChangeNotifier {
       // НЕМЕДЛЕННО сохраняем в хранилище
       await StorageService.saveNews(_news);
 
-      print('✅ Новость добавлена и сохранена. Всего новостей: ${_news.length}');
+      print('✅ Новость добавлена. Всего новостей: ${_news.length}');
 
     } catch (e) {
       print('❌ Ошибка при добавлении новости: $e');
-      // Повторяем попытку с упрощенными данными
-      try {
-        final Map<String, dynamic> fallbackNews = {
-          'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
-          'title': newsItem['title']?.toString() ?? 'Новая новость',
-          'description': newsItem['description']?.toString() ?? '',
-          'author_name': newsItem['author_name']?.toString() ?? 'Пользователь',
-          'created_at': DateTime.now().toIso8601String(),
-          'likes': 0,
-          'comments': [],
-          'hashtags': [],
-          'user_tags': {'tag1': 'Новый тег'},
-          'isLiked': false,
-          'isBookmarked': false,
-          'isFollowing': false,
-          'tag_color': Colors.blue.value,
-          'is_channel_post': false,
-        };
 
+      // УПРОЩЕННЫЙ fallback без дублирования
+      final Map<String, dynamic> fallbackNews = {
+        'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
+        'title': newsItem['title']?.toString() ?? 'Новая новость',
+        'description': newsItem['description']?.toString() ?? '',
+        'author_name': newsItem['author_name']?.toString() ?? 'Пользователь',
+        'created_at': DateTime.now().toIso8601String(),
+        'likes': 0,
+        'comments': [],
+        'hashtags': [],
+        'user_tags': {'tag1': 'Новый тег'},
+        'isLiked': false,
+        'isBookmarked': false,
+        'isFollowing': false,
+        'tag_color': Colors.blue.value,
+        'is_channel_post': false,
+      };
+
+      // ПРОВЕРЯЕМ на дублирование перед добавлением fallback
+      final fallbackId = fallbackNews['id'].toString();
+      if (!_news.any((item) => item['id'].toString() == fallbackId)) {
         _news.insert(0, fallbackNews);
         notifyListeners();
         await StorageService.saveNews(_news);
         print('✅ Новость добавлена через fallback');
-      } catch (e2) {
-        print('❌ Критическая ошибка при добавлении новости: $e2');
-        // Даже при критической ошибке добавляем в память
-        _news.insert(0, {
-          'id': 'emergency-${DateTime.now().millisecondsSinceEpoch}',
-          'title': 'Новая запись',
-          'description': newsItem['description']?.toString() ?? '',
-          'author_name': 'Пользователь',
-          'created_at': DateTime.now().toIso8601String(),
-          'likes': 0,
-          'comments': [],
-          'hashtags': [],
-          'user_tags': {'tag1': 'Новый тег'},
-          'isLiked': false,
-          'isBookmarked': false,
-          'isFollowing': false,
-          'tag_color': Colors.blue.value,
-          'is_channel_post': false,
-        });
-        notifyListeners();
       }
     }
   }
+
+  bool _containsNewsWithId(String newsId) {
+    return _news.any((item) => item['id'].toString() == newsId);
+  }
+
+
+
 
   void updateNews(int index, Map<String, dynamic> updatedNews) {
     if (index >= 0 && index < _news.length) {

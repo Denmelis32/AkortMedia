@@ -144,6 +144,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   // ========== УЛУЧШЕННЫЕ МЕТОДЫ ВЗАИМОДЕЙСТВИЯ С НОВОСТЯМИ ==========
 
   Future<void> _toggleLike(int index) async {
+    if (!_isValidIndex(index)) return;
+
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
     final bool isCurrentlyLiked = news['isLiked'] ?? false;
@@ -163,6 +165,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _toggleBookmark(int index) async {
+    if (!_isValidIndex(index)) return;
+
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
     final bool isCurrentlyBookmarked = news['isBookmarked'] ?? false;
@@ -182,6 +186,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _toggleFollow(int index) async {
+    if (!_isValidIndex(index)) return;
+
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
     final bool isCurrentlyFollowing = news['isFollowing'] ?? false;
@@ -206,7 +212,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _addComment(int index, String commentText) async {
-    if (commentText.trim().isEmpty) return;
+    if (commentText.trim().isEmpty || !_isValidIndex(index)) return;
 
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
@@ -223,7 +229,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'author_avatar': _getUserAvatarUrl(widget.userName),
       };
 
-      // Используем новый метод с newsId для лучшей синхронизации
       newsProvider.addCommentToNews(newsId, newComment);
       _showSuccessSnackBar('Комментарий добавлен');
 
@@ -232,7 +237,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       _showErrorSnackBar('Не удалось добавить комментарий');
     }
   }
-
 
   String _getUserAvatarUrl(String userName) {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
@@ -253,6 +257,9 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final hashtagsArray = _formatHashtags(hashtags);
 
+    // Показываем индикатор загрузки
+    newsProvider.setLoading(true);
+
     try {
       final newNews = await ApiService.createNews({
         'title': title.trim(),
@@ -260,21 +267,11 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'hashtags': hashtagsArray,
       });
 
-      final currentProfileImage = newsProvider.getCurrentProfileImage();
-      String authorAvatarUrl;
-
-      if (currentProfileImage is File) {
-        authorAvatarUrl = _getFallbackAvatarUrl(widget.userName);
-      } else if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-        authorAvatarUrl = currentProfileImage;
-      } else {
-        authorAvatarUrl = _getFallbackAvatarUrl(widget.userName);
-      }
-
+      // УБИРАЕМ дублирование - используем ТОЛЬКО данные от API
       final Map<String, dynamic> newsItem = _convertToStringDynamicMap({
         ...newNews,
         'author_name': widget.userName,
-        'author_avatar': authorAvatarUrl,
+        'author_avatar': _getUserAvatarUrl(widget.userName),
         'isLiked': false,
         'isBookmarked': false,
         'isFollowing': false,
@@ -282,30 +279,24 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'comments': [],
         'user_tags': {'tag1': 'Новый тег'},
         'tag_color': _generateColorFromId(newNews['id']?.toString() ?? '').value,
+        'is_channel_post': false, // ЯВНО указываем, что это не канальный пост
       });
 
+      // Добавляем новость только один раз
       newsProvider.addNews(newsItem);
       _showSuccessSnackBar('🎉 Новость успешно создана!');
 
     } catch (e) {
       print('❌ Ошибка создания новости: $e');
 
-      final currentProfileImage = newsProvider.getCurrentProfileImage();
-      String authorAvatarUrl;
-
-      if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-        authorAvatarUrl = currentProfileImage;
-      } else {
-        authorAvatarUrl = _getFallbackAvatarUrl(widget.userName);
-      }
-
+      // ТОЛЬКО В СЛУЧАЕ ОШИБКИ создаем локальную новость
       final Map<String, dynamic> localNewsItem = _convertToStringDynamicMap({
         'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
         'title': title.trim(),
         'description': description.trim(),
         'hashtags': hashtagsArray,
         'author_name': widget.userName,
-        'author_avatar': authorAvatarUrl,
+        'author_avatar': _getUserAvatarUrl(widget.userName),
         'likes': 0,
         'comments': [],
         'user_tags': {'tag1': 'Новый тег'},
@@ -314,10 +305,14 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'isBookmarked': false,
         'isFollowing': false,
         'tag_color': _generateColorFromId('local-${DateTime.now().millisecondsSinceEpoch}').value,
+        'is_channel_post': false, // ЯВНО указываем, что это не канальный пост
       });
 
       newsProvider.addNews(localNewsItem);
-      _showSuccessSnackBar('📝 Новость создана локально');
+      _showSuccessSnackBar('📝 Новость создана локально (ошибка сети)');
+    } finally {
+      // Всегда убираем индикатор загрузки
+      newsProvider.setLoading(false);
     }
   }
 
@@ -387,7 +382,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _editNews(int index, String title, String description, String hashtags) async {
-    if (description.isEmpty) return;
+    if (description.isEmpty || !_isValidIndex(index)) return;
 
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
@@ -420,6 +415,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _deleteNews(int index) async {
+    if (!_isValidIndex(index)) return;
+
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
 
@@ -434,6 +431,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   void _editUserTag(int newsIndex, String tagId, String newTagName, Color color) {
+    if (!_isValidIndex(newsIndex)) return;
+
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     try {
       newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
@@ -444,6 +443,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _shareNews(int index) async {
+    if (!_isValidIndex(index)) return;
+
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
 
@@ -453,6 +454,80 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
     await Share.share('$title\n\n$description\n\n$url');
     _showSuccessSnackBar('📤 Новость опубликована');
+  }
+
+  // ========== БЕЗОПАСНЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ИНДЕКСАМИ ==========
+
+  bool _isValidIndex(int index) {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    return index >= 0 && index < newsProvider.news.length;
+  }
+
+  void _safeNewsAction(int originalIndex, Function(int) action) {
+    if (_isValidIndex(originalIndex)) {
+      action(originalIndex);
+    } else {
+      print('⚠️ Invalid news index: $originalIndex');
+      _showErrorSnackBar('Ошибка: новость не найдена');
+    }
+  }
+
+  // ========== УЛУЧШЕННАЯ ФИЛЬТРАЦИЯ ==========
+
+  List<dynamic> _getFilteredNews(List<dynamic> news) {
+    List<dynamic> filtered = List.from(news); // Создаем копию для безопасности
+
+    if (_pageState.searchQuery.isNotEmpty) {
+      filtered = filtered.where((item) {
+        final newsItem = Map<String, dynamic>.from(item);
+        final title = newsItem['title']?.toString().toLowerCase() ?? '';
+        final description = newsItem['description']?.toString().toLowerCase() ?? '';
+        final hashtags = (newsItem['hashtags'] is List
+            ? (newsItem['hashtags'] as List).join(' ').toLowerCase()
+            : '');
+        final author = newsItem['author_name']?.toString().toLowerCase() ?? '';
+        final userTags = (newsItem['user_tags'] is Map
+            ? (newsItem['user_tags'] as Map).values.join(' ').toLowerCase()
+            : '');
+
+        return title.contains(_pageState.searchQuery.toLowerCase()) ||
+            description.contains(_pageState.searchQuery.toLowerCase()) ||
+            hashtags.contains(_pageState.searchQuery.toLowerCase()) ||
+            author.contains(_pageState.searchQuery.toLowerCase()) ||
+            userTags.contains(_pageState.searchQuery.toLowerCase());
+      }).toList();
+    }
+
+    switch (_pageState.currentFilter) {
+      case 1: // Мои новости
+        filtered = filtered.where((item) {
+          final newsItem = Map<String, dynamic>.from(item);
+          return newsItem['author_name'] == widget.userName;
+        }).toList();
+        break;
+      case 2: // Популярные
+        filtered = filtered.where((item) {
+          final newsItem = Map<String, dynamic>.from(item);
+          return (newsItem['likes'] ?? 0) > 5;
+        }).toList();
+        break;
+      case 3: // Избранное
+        filtered = filtered.where((item) {
+          final newsItem = Map<String, dynamic>.from(item);
+          return newsItem['isBookmarked'] == true;
+        }).toList();
+        break;
+      case 4: // Подписки
+        filtered = filtered.where((item) {
+          final newsItem = Map<String, dynamic>.from(item);
+          return newsItem['isFollowing'] == true;
+        }).toList();
+        break;
+      default: // Все новости
+        break;
+    }
+
+    return filtered;
   }
 
   // ========== УЛУЧШЕННЫЕ ДИАЛОГИ ==========
@@ -466,6 +541,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   void _showEditNewsDialog(int index) {
+    if (!_isValidIndex(index)) return;
+
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
 
@@ -532,58 +609,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     );
   }
 
-  // ========== УЛУЧШЕННАЯ ФИЛЬТРАЦИЯ ==========
-
-  List<dynamic> _getFilteredNews(List<dynamic> news) {
-    List<dynamic> filtered = news;
-
-    if (_pageState.searchQuery.isNotEmpty) {
-      filtered = filtered.where((item) {
-        final newsItem = Map<String, dynamic>.from(item);
-        final title = newsItem['title']?.toString().toLowerCase() ?? '';
-        final description = newsItem['description']?.toString().toLowerCase() ?? '';
-        final hashtags = (newsItem['hashtags'] is List
-            ? (newsItem['hashtags'] as List).join(' ').toLowerCase()
-            : '');
-        final author = newsItem['author_name']?.toString().toLowerCase() ?? '';
-        final userTags = (newsItem['user_tags'] is Map
-            ? (newsItem['user_tags'] as Map).values.join(' ').toLowerCase()
-            : '');
-
-        return title.contains(_pageState.searchQuery.toLowerCase()) ||
-            description.contains(_pageState.searchQuery.toLowerCase()) ||
-            hashtags.contains(_pageState.searchQuery.toLowerCase()) ||
-            author.contains(_pageState.searchQuery.toLowerCase()) ||
-            userTags.contains(_pageState.searchQuery.toLowerCase());
-      }).toList();
-    }
-
-    switch (_pageState.currentFilter) {
-      case 1: // Мои новости
-        return filtered.where((item) {
-          final newsItem = Map<String, dynamic>.from(item);
-          return newsItem['author_name'] == widget.userName;
-        }).toList();
-      case 2: // Популярные
-        return filtered.where((item) {
-          final newsItem = Map<String, dynamic>.from(item);
-          return (newsItem['likes'] ?? 0) > 5;
-        }).toList();
-      case 3: // Избранное
-        return filtered.where((item) {
-          final newsItem = Map<String, dynamic>.from(item);
-          return newsItem['isBookmarked'] == true;
-        }).toList();
-      case 4: // Подписки
-        return filtered.where((item) {
-          final newsItem = Map<String, dynamic>.from(item);
-          return newsItem['isFollowing'] == true;
-        }).toList();
-      default: // Все новости
-        return filtered;
-    }
-  }
-
   // ========== НОВЫЕ ФУНКЦИИ ==========
 
   void _scrollToTop() {
@@ -645,7 +670,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                 searchQuery: pageState.searchQuery,
                 onSearchChanged: pageState.setSearchQuery,
                 onSearchToggled: () => pageState.setSearching(!pageState.isSearching),
-                // ОБНОВЛЕНО: Используем новую функцию для открытия страницы профиля
                 onProfilePressed: () => _showProfilePage(context),
                 onClearFilters: hasActiveFilters ? _clearAllFilters : null,
                 profileImageUrl: newsProvider.profileImageUrl,
@@ -736,6 +760,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                 final newsId = news['id'].toString();
                                 final originalIndex = newsProvider.findNewsIndexById(newsId);
 
+                                // Безопасная проверка индекса
+                                if (originalIndex == -1) {
+                                  print('❌ Skipping news card: original index not found for $newsId');
+                                  return const SizedBox.shrink();
+                                }
+
                                 return Padding(
                                   padding: EdgeInsets.fromLTRB(
                                       16,
@@ -744,19 +774,17 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                       index == filteredNews.length - 1 ? 16 : 8
                                   ),
                                   child: NewsCard(
-                                    key: ValueKey('${news['id']}-$index'),
+                                    key: ValueKey('news-${news['id']}'), // Упрощенный ключ
                                     news: news,
-                                    userName: widget.userName,
-                                    userEmail: widget.userEmail,
-                                    onLike: () => _toggleLike(originalIndex),
-                                    onBookmark: () => _toggleBookmark(originalIndex),
-                                    onFollow: () => _toggleFollow(originalIndex),
-                                    onComment: (comment) => _addComment(originalIndex, comment),
-                                    onEdit: () => _showEditNewsDialog(originalIndex),
-                                    onDelete: () => _showDeleteConfirmationDialog(originalIndex),
-                                    onShare: () => _shareNews(originalIndex),
+                                    onLike: () => _safeNewsAction(originalIndex, _toggleLike),
+                                    onBookmark: () => _safeNewsAction(originalIndex, _toggleBookmark),
+                                    onFollow: () => _safeNewsAction(originalIndex, _toggleFollow),
+                                    onComment: (comment) => _safeNewsAction(originalIndex, (idx) => _addComment(idx, comment)),
+                                    onEdit: () => _safeNewsAction(originalIndex, _showEditNewsDialog),
+                                    onDelete: () => _safeNewsAction(originalIndex, _showDeleteConfirmationDialog),
+                                    onShare: () => _safeNewsAction(originalIndex, _shareNews),
                                     onTagEdit: (tagId, newTagName, color) =>
-                                        _editUserTag(originalIndex, tagId, newTagName, color),
+                                        _safeNewsAction(originalIndex, (idx) => _editUserTag(idx, tagId, newTagName, color)),
                                     formatDate: formatDate,
                                     getTimeAgo: getTimeAgo,
                                     scrollController: pageState.scrollController,

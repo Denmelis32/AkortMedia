@@ -1,19 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/news_provider.dart';
+import '../../providers/user_provider.dart';
 import '../cards_page/channel_detail_page.dart';
 import '../cards_page/models/channel.dart';
 import 'theme/news_theme.dart';
-import '../../providers/channel_state_provider.dart'; // ИМПОРТ ПРОВАЙДЕРА
+import '../../providers/channel_state_provider.dart';
 
 // Импортируем ProfilePage
 import 'profile_menu_page.dart';
 
 class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
-  final String userName;
-  final String userEmail;
   final VoidCallback onLike;
   final VoidCallback onBookmark;
   final Function(String) onComment;
@@ -30,8 +31,6 @@ class NewsCard extends StatefulWidget {
   const NewsCard({
     super.key,
     required this.news,
-    required this.userName,
-    required this.userEmail,
     required this.onLike,
     required this.onBookmark,
     required this.onComment,
@@ -63,8 +62,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   double _readingProgress = 0.0;
   String _editingTagId = '';
 
-  // Локальное состояние комментариев для мгновенного отображения
-  List<dynamic> _localComments = [];
+  // ИСПРАВЛЕНИЕ: Убираем локальное состояние комментариев
+  // List<dynamic> _localComments = [];
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -197,37 +196,38 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
     _readingProgress = (widget.news['read_progress'] ?? 0.0).toDouble();
 
-    // Инициализация локальных комментариев
-    _localComments = List<dynamic>.from(widget.news['comments'] ?? []);
+    // ИСПРАВЛЕНИЕ: Убираем локальную инициализацию комментариев
+    // _localComments = List<dynamic>.from(widget.news['comments'] ?? []);
   }
 
   // СЛУШАТЕЛЬ ИЗМЕНЕНИЙ В ПРОВАЙДЕРЕ
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Добавляем слушатель изменений в провайдере
     final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
     channelStateProvider.addListener(_onChannelStateChanged);
   }
 
   void _onChannelStateChanged() {
     if (mounted) {
-      setState(() {
-        // Принудительно обновляем состояние при изменении аватарки канала
-      });
+      setState(() {});
     }
   }
 
-  // Обновление локальных комментариев при изменении props
+  // ИСПРАВЛЕНИЕ: Обновляем состояние при изменении props
   @override
   void didUpdateWidget(NewsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Обновляем локальные комментарии при изменении новости
-    if (oldWidget.news['comments'] != widget.news['comments']) {
-      setState(() {
-        _localComments = List<dynamic>.from(widget.news['comments'] ?? []);
-      });
+    // Обновляем состояние лайков/закладок при изменении новости
+    if (oldWidget.news['isLiked'] != widget.news['isLiked']) {
+      _isLiked = _getBoolValue(widget.news['isLiked']);
+    }
+    if (oldWidget.news['isBookmarked'] != widget.news['isBookmarked']) {
+      _isBookmarked = _getBoolValue(widget.news['isBookmarked']);
+    }
+    if (oldWidget.news['isFollowing'] != widget.news['isFollowing']) {
+      _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
     }
   }
 
@@ -237,7 +237,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _tagEditController.dispose();
     _expandController.dispose();
 
-    // Удаляем слушатель
     final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
     channelStateProvider.removeListener(_onChannelStateChanged);
 
@@ -257,7 +256,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     widget.onFollow();
   }
 
-  // ОТКРЫТИЕ ПРОФИЛЯ ПРИ НАЖАТИИ НА АВАТАР - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  // ИСПРАВЛЕНИЕ: Правильное получение аватарки для каждого пользователя
   void _openUserProfile() {
     final authorName = _getStringValue(widget.news['author_name']);
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
@@ -265,6 +264,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final channelId = _getStringValue(widget.news['channel_id']);
 
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     // ЕСЛИ ЭТО КАНАЛЬНЫЙ ПОСТ - ПЕРЕХОДИМ НА СТРАНИЦУ КАНАЛА
     if (isChannelPost && channelId.isNotEmpty && channelName.isNotEmpty) {
@@ -274,26 +274,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     // Для обычных постов - оставляем старую логику с переходом на профиль
     final targetUserName = authorName;
-    final targetUserEmail = '$authorName@user.com';
-    final isCurrentUser = authorName == widget.userName;
+    final isCurrentUser = authorName == userProvider.userName;
 
     if (isCurrentUser) {
       _showProfilePage(context, newsProvider);
     } else {
-      _showOtherUserProfile(context, targetUserName, targetUserEmail, false, newsProvider);
+      _showOtherUserProfile(context, targetUserName);
     }
   }
 
   // НОВЫЙ МЕТОД ДЛЯ ОТКРЫТИЯ СТРАНИЦЫ КАНАЛА
   void _openChannelPage(String channelId, String channelName) {
-    // Проверяем, что у нас есть необходимые данные
     if (channelId.isEmpty || channelName.isEmpty) {
       print('❌ Missing channel data: id=$channelId, name=$channelName');
       return;
     }
 
     try {
-      // Создаем временный канал для навигации
       final tempChannel = Channel.simple(
         id: int.tryParse(channelId) ?? 0,
         title: channelName,
@@ -314,7 +311,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       );
     } catch (e) {
       print('❌ Error navigating to channel: $e');
-      // Fallback: показать информацию о канале в диалоге
       _showChannelInfoDialog(channelName);
     }
   }
@@ -336,12 +332,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   void _showProfilePage(BuildContext context, NewsProvider newsProvider) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ProfilePage(
-          userName: widget.userName,
-          userEmail: widget.userEmail,
+          userName: userProvider.userName,
+          userEmail: userProvider.userEmail,
           onLogout: () {
             Navigator.pop(context);
             widget.onLogout();
@@ -376,13 +374,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  void _showOtherUserProfile(BuildContext context, String userName, String userEmail, bool isChannel, NewsProvider newsProvider) {
+  // ИСПРАВЛЕНИЕ: Упрощенный метод для профиля другого пользователя
+  void _showOtherUserProfile(BuildContext context, String userName) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ProfilePage(
           userName: userName,
-          userEmail: userEmail,
+          userEmail: '$userName@user.com',
           onLogout: () {
             Navigator.pop(context);
           },
@@ -414,29 +413,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ПОЛУЧЕНИЕ АКТУАЛЬНОГО АВАТАРА
-  String _getCurrentUserAvatarUrl() {
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final currentProfileImage = newsProvider.getCurrentProfileImage();
-    final authorName = _getStringValue(widget.news['author_name']);
-    final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+  // ИСПРАВЛЕНИЕ: Правильное получение аватарки для каждого пользователя
+  String _getUserAvatarUrl(String userName, {bool isCurrentUser = false}) {
+    if (isCurrentUser) {
+      // Для текущего пользователя используем его аватар
+      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+      final currentProfileImage = newsProvider.getCurrentProfileImage();
 
-    if (!isChannelPost && authorName == widget.userName) {
       if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
         return currentProfileImage;
       }
     }
 
-    final savedAvatar = _getStringValue(widget.news['author_avatar']);
-    if (savedAvatar.isNotEmpty && savedAvatar.startsWith('http')) {
-      return savedAvatar;
-    }
-    return _getFallbackAvatarUrl(isChannelPost ?
-    _getStringValue(widget.news['channel_name']) : authorName);
-  }
-
-  String _getFallbackAvatarUrl(String userName) {
-    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
+    // Для других пользователей используем fallback аватар на основе их имени
+    return _getFallbackAvatarUrl(userName);
   }
 
   // УЛУЧШЕННЫЙ КОМПАКТНЫЙ ДИЗАЙН КАРТОЧЕК
@@ -509,7 +499,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // КРУГЛЫЕ АВАТАРКИ КАК В ПРОФИЛЕ - ОБНОВЛЕННЫЙ С ИСПОЛЬЗОВАНИЕМ ПРОВАЙДЕРА
+  // ИСПРАВЛЕНИЕ: Правильное получение аватарки для каждого типа поста
   Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
     return Consumer<ChannelStateProvider>(
       builder: (context, channelStateProvider, child) {
@@ -518,19 +508,27 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
         final channelName = _getStringValue(widget.news['channel_name']);
         final channelId = _getStringValue(widget.news['channel_id']);
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-        // ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ ИЗ ПРОВАЙДЕРА ДЛЯ КАНАЛЬНЫХ ПОСТОВ
+        // ИСПРАВЛЕНИЕ: Правильное определение аватарки
         String authorAvatar;
+        String displayName;
+
         if (isChannelPost && channelId.isNotEmpty) {
+          // Для канальных постов используем аватарку канала
           final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
           authorAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']) ?? _getFallbackAvatarUrl(channelName);
+          displayName = channelName;
         } else {
-          authorAvatar = _getCurrentUserAvatarUrl();
+          // Для обычных постов используем аватарку автора
+          final isCurrentUser = authorName == userProvider.userName;
+          authorAvatar = _getUserAvatarUrl(authorName, isCurrentUser: isCurrentUser);
+          displayName = authorName;
         }
 
         return Row(
           children: [
-            _buildUserAvatar(authorAvatar, isChannelPost, channelName, authorName),
+            _buildUserAvatar(authorAvatar, isChannelPost, displayName),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -539,7 +537,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   GestureDetector(
                     onTap: _openUserProfile,
                     child: Text(
-                      isChannelPost ? channelName : authorName,
+                      displayName,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
@@ -625,7 +623,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String channelName, String authorName) {
+  String _getFallbackAvatarUrl(String userName) {
+    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
+  }
+
+  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName) {
     return GestureDetector(
       onTap: _openUserProfile,
       child: Container(
@@ -652,20 +654,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             fit: BoxFit.cover,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return _buildGradientAvatar(isChannelPost, channelName, authorName);
+              return _buildGradientAvatar(isChannelPost, displayName);
             },
             errorBuilder: (context, error, stackTrace) {
-              return _buildGradientAvatar(isChannelPost, channelName, authorName);
+              return _buildGradientAvatar(isChannelPost, displayName);
             },
           )
-              : _buildGradientAvatar(isChannelPost, channelName, authorName),
+              : _buildGradientAvatar(isChannelPost, displayName),
         ),
       ),
     );
   }
 
-  Widget _buildGradientAvatar(bool isChannelPost, String channelName, String authorName) {
-    final gradientColors = _getAvatarGradient(isChannelPost ? channelName : authorName);
+  Widget _buildGradientAvatar(bool isChannelPost, String displayName) {
+    final gradientColors = _getAvatarGradient(displayName);
 
     return Container(
       width: 44,
@@ -815,6 +817,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  // ИСПРАВЛЕНИЕ: Используем актуальные комментарии из props
+  List<dynamic> get _currentComments {
+    return List<dynamic>.from(widget.news['comments'] ?? []);
+  }
+
   Widget _buildPostActions({int commentCount = 0, bool showBookmark = true, bool isAuthor = false}) {
     final likes = _getIntValue(widget.news['likes']);
 
@@ -957,6 +964,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   bool _shouldShowFollowButton(bool isAuthor) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     final authorName = _getStringValue(widget.news['author_name']);
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
 
@@ -964,7 +972,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     final shouldShow = !isAuthor &&
         authorName.isNotEmpty &&
-        authorName != widget.userName;
+        authorName != userProvider.userName;
 
     return shouldShow;
   }
@@ -1234,7 +1242,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // УЛУЧШЕННАЯ СЕКЦИЯ КОММЕНТАРИЕВ С СИНХРОНИЗАЦИЕЙ
+  // ИСПРАВЛЕНИЕ: Используем актуальные комментарии из props
   Widget _buildCommentsSection() {
     return Column(
       children: [
@@ -1255,8 +1263,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           padding: const EdgeInsets.only(top: 16),
           child: Column(
             children: [
-              if (_localComments.isNotEmpty) ...[
-                ..._localComments.map((comment) => _buildCommentItem(comment)),
+              if (_currentComments.isNotEmpty) ...[
+                ..._currentComments.map((comment) => _buildCommentItem(comment)),
                 const SizedBox(height: 12),
               ],
               _buildCommentInput(),
@@ -1397,66 +1405,96 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCommentInput() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.04),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _commentController,
-              style: TextStyle(color: NewsTheme.textColor, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Напишите комментарий...',
-                hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
+    return Consumer2<NewsProvider, UserProvider>(
+      builder: (context, newsProvider, userProvider, child) {
+        // ИСПРАВЛЕНИЕ: Для комментариев всегда используем аватарку текущего пользователя
+        final currentUserAvatar = _getUserAvatarUrl(userProvider.userName, isCurrentUser: true);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.02),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.black.withOpacity(0.04),
             ),
           ),
-          Container(
-            margin: const EdgeInsets.only(right: 6),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _cardDesign.gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                margin: const EdgeInsets.only(left: 8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: ClipOval(
+                  child: currentUserAvatar.isNotEmpty && currentUserAvatar.startsWith('http')
+                      ? Image.network(
+                    currentUserAvatar,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return _buildCommentGradientAvatar(userProvider.userName);
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildCommentGradientAvatar(userProvider.userName);
+                    },
+                  )
+                      : _buildCommentGradientAvatar(userProvider.userName),
+                ),
               ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: IconButton(
-              icon: Icon(Icons.send_rounded, color: Colors.white, size: 18),
-              onPressed: () {
-                final text = _commentController.text.trim();
-                if (text.isNotEmpty) {
-                  // Добавляем комментарий локально для мгновенного отображения
-                  final newComment = {
-                    'id': 'temp-${DateTime.now().millisecondsSinceEpoch}',
-                    'author': widget.userName,
-                    'text': text,
-                    'time': 'Только что',
-                    'author_avatar': _getCurrentUserAvatarUrl(),
-                  };
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  style: TextStyle(color: NewsTheme.textColor, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Напишите комментарий...',
+                    hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: _cardDesign.gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                  onPressed: () {
+                    final text = _commentController.text.trim();
+                    if (text.isNotEmpty) {
+                      // ИСПРАВЛЕНИЕ: Не сохраняем комментарий локально
+                      widget.onComment(text);
+                      _commentController.clear();
 
-                  setState(() {
-                    _localComments.insert(0, newComment);
-                  });
-
-                  // Отправляем комментарий через callback
-                  widget.onComment(text);
-                  _commentController.clear();
-                }
-              },
-              padding: const EdgeInsets.all(8),
-            ),
+                      // Показываем уведомление
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Комментарий отправлен'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1491,60 +1529,65 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
   // ПОСТРОЕНИЕ КАРТОЧЕК
   Widget _buildRegularPost() {
-    final hashtags = _parseHashtags(widget.news['hashtags']);
-    final userTags = _parseUserTags(widget.news['user_tags']);
-    final tagColor = _selectedTagColor;
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        final hashtags = _parseHashtags(widget.news['hashtags']);
+        final userTags = _parseUserTags(widget.news['user_tags']);
+        final tagColor = _selectedTagColor;
 
-    final authorName = _getStringValue(widget.news['author_name']);
-    final isAuthor = authorName == widget.userName;
+        final authorName = _getStringValue(widget.news['author_name']);
+        final isAuthor = authorName == userProvider.userName;
 
-    return _buildCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPostHeader(isAuthor, userTags, tagColor),
-          const SizedBox(height: 16),
-          Column(
+        return _buildCard(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_getStringValue(widget.news['title']).isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    _getStringValue(widget.news['title']),
+              _buildPostHeader(isAuthor, userTags, tagColor),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_getStringValue(widget.news['title']).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        _getStringValue(widget.news['title']),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: NewsTheme.textColor,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  Text(
+                    _getStringValue(widget.news['description']),
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: NewsTheme.textColor,
-                      height: 1.3,
+                      fontSize: 14,
+                      color: NewsTheme.textColor.withOpacity(0.8),
+                      height: 1.5,
                     ),
                   ),
-                ),
-              Text(
-                _getStringValue(widget.news['description']),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: NewsTheme.textColor.withOpacity(0.8),
-                  height: 1.5,
+                ],
+              ),
+              if (hashtags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildHashtags(hashtags),
+              ],
+              const SizedBox(height: 16),
+              // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
+              _buildPostActions(commentCount: _currentComments.length, isAuthor: isAuthor),
+              SizeTransition(
+                sizeFactor: _expandAnimation,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: _buildCommentsSection(),
                 ),
               ),
             ],
           ),
-          if (hashtags.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _buildHashtags(hashtags),
-          ],
-          const SizedBox(height: 16),
-          _buildPostActions(commentCount: _localComments.length, isAuthor: isAuthor),
-          SizeTransition(
-            sizeFactor: _expandAnimation,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: _buildCommentsSection(),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1568,7 +1611,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ОБНОВЛЕННЫЙ ХЕДЕР КАНАЛА - ВСЕ ЭЛЕМЕНТЫ ВЕДУТ НА КАНАЛ
               GestureDetector(
                 onTap: _openUserProfile,
                 child: Row(
@@ -1658,8 +1700,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 _buildHashtags(hashtags),
               ],
               const SizedBox(height: 16),
+              // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
               _buildPostActions(
-                  commentCount: _localComments.length,
+                  commentCount: _currentComments.length,
                   showBookmark: true,
                   isAuthor: false
               ),

@@ -53,7 +53,8 @@ class AkorContent extends StatelessWidget {
           onBookmark: () => _handlePostBookmark(sortedPosts[index]['id'], postsProvider),
           onComment: (text) => _handlePostComment(sortedPosts[index]['id'], text, postsProvider),
           onShare: () => _handleShare(context, sortedPosts[index]),
-          customAvatarUrl: customAvatarUrl, // ПЕРЕДАЕМ КАСТОМНУЮ АВАТАРКУ
+          customAvatarUrl: customAvatarUrl,
+         // ПЕРЕДАЕМ КАСТОМНУЮ АВАТАРКУ
         );
       },
     );

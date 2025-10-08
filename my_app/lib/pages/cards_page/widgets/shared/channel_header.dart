@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import '../../../../providers/channel_state_provider.dart';
 import '../../models/channel.dart';
 
 class ChannelHeader extends StatefulWidget {
   final Channel channel;
-  final List<String> initialHashtags;
-  final String? initialCoverImageUrl;
-  final String? initialAvatarUrl; // НОВОЕ: кастомный аватар
   final bool editable;
+  final Function(String)? onAvatarChanged;
+  final Function(String)? onCoverChanged;
+  final Function(List<String>)? onHashtagsChanged;
 
   const ChannelHeader({
     super.key,
     required this.channel,
-    this.initialHashtags = const [],
-    this.initialCoverImageUrl,
-    this.initialAvatarUrl, // НОВОЕ: кастомный аватар
     this.editable = false,
+    this.onAvatarChanged,
+    this.onCoverChanged,
+    this.onHashtagsChanged,
   });
 
   @override
@@ -23,46 +25,67 @@ class ChannelHeader extends StatefulWidget {
 }
 
 class _ChannelHeaderState extends State<ChannelHeader> {
-  late List<String> _hashtags;
-  late String? _coverImageUrl;
-  late String? _avatarUrl; // НОВОЕ: состояние аватарки
   final TextEditingController _hashtagController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _hashtags = List.from(widget.initialHashtags);
-    _coverImageUrl = widget.initialCoverImageUrl;
-    _avatarUrl = widget.initialAvatarUrl ?? widget.channel.imageUrl; // По умолчанию из канала
+    // Инициализируем состояние в провайдере, если его нет
+    _initializeChannelState();
+  }
+
+  void _initializeChannelState() {
+    final provider = Provider.of<ChannelStateProvider>(context, listen: false);
+
+    // Инициализируем аватарку, если еще не установлена
+    if (provider.getAvatarForChannel(widget.channel.id) == null) {
+      provider.setAvatarForChannel(widget.channel.id, widget.channel.imageUrl);
+    }
+
+    // Инициализируем обложку, если еще не установлена
+    if (provider.getCoverForChannel(widget.channel.id) == null) {
+      provider.setCoverForChannel(widget.channel.id, widget.channel.coverImageUrl);
+    }
+
+    // Инициализируем хештеги, если еще не установлены
+    if (provider.getHashtagsForChannel(widget.channel.id).isEmpty) {
+      provider.setHashtagsForChannel(widget.channel.id, widget.channel.tags);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final allHashtags = [...widget.channel.tags, ..._hashtags];
+    return Consumer<ChannelStateProvider>(
+      builder: (context, provider, child) {
+        final avatarUrl = provider.getAvatarForChannel(widget.channel.id);
+        final coverUrl = provider.getCoverForChannel(widget.channel.id);
+        final hashtags = provider.getHashtagsForChannel(widget.channel.id);
 
-    return Stack(
-      children: [
-        // ОБЛОЖКА КАНАЛА
-        _buildCoverImage(),
-        _buildCoverGradient(),
+        return Stack(
+          children: [
+            // ОБЛОЖКА КАНАЛА
+            _buildCoverImage(coverUrl),
+            _buildCoverGradient(),
 
-        // Градиент поверх фона
-        _buildBackgroundGradient(),
+            // Градиент поверх фона
+            _buildBackgroundGradient(),
 
-        // Контент заголовка (АВАТАРКА И ХЕШТЕГИ ВНИЗУ ПО ЦЕНТРУ)
-        _buildContent(allHashtags),
+            // Контент заголовка
+            _buildContent(avatarUrl, hashtags),
 
-        // КНОПКИ РЕДАКТИРОВАНИЯ СПРАВА СНИЗУ (3 КНОПКИ)
-        if (widget.editable) _buildEditButtons(),
-      ],
+            // КНОПКИ РЕДАКТИРОВАНИЯ
+            if (widget.editable) _buildEditButtons(provider),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildCoverImage() {
+  Widget _buildCoverImage(String? coverUrl) {
     return Positioned.fill(
-      child: _coverImageUrl != null
+      child: coverUrl != null && coverUrl.isNotEmpty
           ? CachedNetworkImage(
-        imageUrl: _coverImageUrl!,
+        imageUrl: coverUrl,
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
           color: widget.channel.cardColor,
@@ -94,7 +117,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
             Colors.black.withOpacity(0.2),
             Colors.black.withOpacity(0.6),
           ],
-          stops: [0.0, 0.3, 0.5, 0.7, 1.0],
+          stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
       ),
     );
@@ -118,7 +141,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
     );
   }
 
-  Widget _buildContent(List<String> allHashtags) {
+  Widget _buildContent(String? avatarUrl, List<String> hashtags) {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
@@ -138,23 +161,23 @@ class _ChannelHeaderState extends State<ChannelHeader> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // АВАТАРКА С ВОЗМОЖНОСТЬЮ РЕДАКТИРОВАНИЯ
-            _buildAvatar(),
+            // АВАТАРКА
+            _buildAvatar(avatarUrl),
             const SizedBox(height: 12),
 
             // Название канала
             _buildTitle(),
             const SizedBox(height: 8),
 
-            // ХЕШТЕГИ ПО ЦЕНТРУ
-            if (allHashtags.isNotEmpty) _buildHashtags(allHashtags),
+            // ХЕШТЕГИ
+            if (hashtags.isNotEmpty) _buildHashtags(hashtags),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAvatar() {
+  Widget _buildAvatar(String? avatarUrl) {
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -174,9 +197,9 @@ class _ChannelHeaderState extends State<ChannelHeader> {
             ],
           ),
           child: ClipOval(
-            child: _avatarUrl != null
+            child: avatarUrl != null && avatarUrl.isNotEmpty
                 ? CachedNetworkImage(
-              imageUrl: _avatarUrl!,
+              imageUrl: avatarUrl,
               placeholder: (context, url) => _buildAvatarPlaceholder(),
               errorWidget: (context, url, error) => _buildAvatarPlaceholder(),
               fit: BoxFit.cover,
@@ -185,7 +208,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
           ),
         ),
 
-        // ИНДИКАТОР РЕДАКТИРОВАНИЯ (если включено)
+        // ИНДИКАТОР РЕДАКТИРОВАНИЯ
         if (widget.editable)
           Positioned(
             bottom: 0,
@@ -238,16 +261,10 @@ class _ChannelHeaderState extends State<ChannelHeader> {
   }
 
   Widget _buildHashtags(List<String> hashtags) {
-    print('🟡 CHANNEL HEADER: Building hashtags for ${widget.channel.title}');
-    print('🟡 CHANNEL HEADER Hashtags input: $hashtags');
-
-    // Очищаем хештеги от лишних решеток
     final cleanedHashtags = hashtags
         .map((tag) => tag.replaceAll('#', '').trim())
         .where((tag) => tag.isNotEmpty)
         .toList();
-
-    print('🟡 CHANNEL HEADER Cleaned hashtags: $cleanedHashtags');
 
     if (cleanedHashtags.isEmpty) return const SizedBox.shrink();
 
@@ -259,8 +276,6 @@ class _ChannelHeaderState extends State<ChannelHeader> {
         alignment: WrapAlignment.center,
         children: cleanedHashtags.map((tag) {
           final displayTag = '#$tag';
-          print('🟡 CHANNEL HEADER Creating widget for: $displayTag');
-
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -282,35 +297,31 @@ class _ChannelHeaderState extends State<ChannelHeader> {
     );
   }
 
-  // КНОПКИ РЕДАКТИРОВАНИЯ СПРАВА СНИЗУ (3 КНОПКИ)
-  Widget _buildEditButtons() {
+  Widget _buildEditButtons(ChannelStateProvider provider) {
     return Positioned(
       bottom: 16,
       right: 16,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Кнопка смены аватарки
           _buildEditButton(
             icon: Icons.person,
             tooltip: 'Сменить аватарку',
-            onPressed: _changeAvatar,
+            onPressed: () => _changeAvatar(provider),
             color: Colors.purple,
           ),
           const SizedBox(height: 8),
-          // Кнопка смены обложки
           _buildEditButton(
             icon: Icons.photo,
             tooltip: 'Сменить обложку',
-            onPressed: _changeCoverImage,
+            onPressed: () => _changeCoverImage(provider),
             color: Colors.green,
           ),
           const SizedBox(height: 8),
-          // Кнопка редактирования хештегов
           _buildEditButton(
             icon: Icons.tag,
             tooltip: 'Редактировать хештеги',
-            onPressed: _editHashtags,
+            onPressed: () => _editHashtags(provider),
             color: Colors.orange,
           ),
         ],
@@ -347,9 +358,9 @@ class _ChannelHeaderState extends State<ChannelHeader> {
     );
   }
 
-  // МЕТОД РЕДАКТИРОВАНИЯ АВАТАРКИ
-  void _changeAvatar() {
-    final controller = TextEditingController(text: _avatarUrl ?? '');
+  void _changeAvatar(ChannelStateProvider provider) {
+    final currentAvatar = provider.getAvatarForChannel(widget.channel.id);
+    final controller = TextEditingController(text: currentAvatar ?? '');
 
     showDialog(
       context: context,
@@ -389,9 +400,6 @@ class _ChannelHeaderState extends State<ChannelHeader> {
                   hintText: 'https://example.com/avatar.jpg',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (value) {
-                  // Можно добавить live-preview если нужно
-                },
               ),
               const SizedBox(height: 8),
               Text(
@@ -411,10 +419,10 @@ class _ChannelHeaderState extends State<ChannelHeader> {
           ),
           ElevatedButton(
             onPressed: () {
-              if (controller.text.isNotEmpty) {
-                setState(() {
-                  _avatarUrl = controller.text;
-                });
+              final newAvatarUrl = controller.text.trim();
+              if (newAvatarUrl.isNotEmpty) {
+                provider.setAvatarForChannel(widget.channel.id, newAvatarUrl);
+                widget.onAvatarChanged?.call(newAvatarUrl);
               }
               Navigator.pop(context);
             },
@@ -422,9 +430,8 @@ class _ChannelHeaderState extends State<ChannelHeader> {
           ),
           TextButton(
             onPressed: () {
-              setState(() {
-                _avatarUrl = null; // Сброс к стандартному аватару
-              });
+              provider.setAvatarForChannel(widget.channel.id, null);
+              widget.onAvatarChanged?.call('');
               Navigator.pop(context);
             },
             child: const Text('Сбросить', style: TextStyle(color: Colors.red)),
@@ -434,8 +441,9 @@ class _ChannelHeaderState extends State<ChannelHeader> {
     );
   }
 
-  void _changeCoverImage() {
-    final controller = TextEditingController(text: _coverImageUrl ?? '');
+  void _changeCoverImage(ChannelStateProvider provider) {
+    final currentCover = provider.getCoverForChannel(widget.channel.id);
+    final controller = TextEditingController(text: currentCover ?? '');
 
     showDialog(
       context: context,
@@ -465,14 +473,8 @@ class _ChannelHeaderState extends State<ChannelHeader> {
                     image: DecorationImage(
                       image: NetworkImage(controller.text),
                       fit: BoxFit.cover,
-                      onError: (error, stackTrace) {
-                        // Игнорируем ошибки загрузки превью
-                      },
                     ),
                   ),
-                  child: controller.text.isEmpty
-                      ? const Center(child: Text('Введите URL'))
-                      : null,
                 ),
             ],
           ),
@@ -484,9 +486,12 @@ class _ChannelHeaderState extends State<ChannelHeader> {
           ),
           ElevatedButton(
             onPressed: () {
-              setState(() {
-                _coverImageUrl = controller.text.isNotEmpty ? controller.text : null;
-              });
+              final newCoverUrl = controller.text.trim();
+              provider.setCoverForChannel(
+                widget.channel.id,
+                newCoverUrl.isNotEmpty ? newCoverUrl : null,
+              );
+              widget.onCoverChanged?.call(newCoverUrl);
               Navigator.pop(context);
             },
             child: const Text('Сохранить'),
@@ -496,8 +501,9 @@ class _ChannelHeaderState extends State<ChannelHeader> {
     );
   }
 
-  void _editHashtags() {
-    final tempHashtags = List<String>.from(_hashtags);
+  void _editHashtags(ChannelStateProvider provider) {
+    final currentHashtags = provider.getHashtagsForChannel(widget.channel.id);
+    final tempHashtags = List<String>.from(currentHashtags);
     final controller = TextEditingController();
 
     showDialog(
@@ -522,15 +528,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
                             border: OutlineInputBorder(),
                           ),
                           onSubmitted: (value) {
-                            if (value.trim().isNotEmpty) {
-                              final newTag = value.trim();
-                              if (!tempHashtags.contains(newTag)) {
-                                setDialogState(() {
-                                  tempHashtags.add(newTag);
-                                });
-                              }
-                              controller.clear();
-                            }
+                            _addHashtag(value, tempHashtags, setDialogState, controller);
                           },
                         ),
                       ),
@@ -539,15 +537,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
                         icon: const Icon(Icons.add_circle, color: Colors.blue),
                         iconSize: 32,
                         onPressed: () {
-                          if (controller.text.trim().isNotEmpty) {
-                            final newTag = controller.text.trim();
-                            if (!tempHashtags.contains(newTag)) {
-                              setDialogState(() {
-                                tempHashtags.add(newTag);
-                              });
-                            }
-                            controller.clear();
-                          }
+                          _addHashtag(controller.text, tempHashtags, setDialogState, controller);
                         },
                       ),
                     ],
@@ -583,9 +573,8 @@ class _ChannelHeaderState extends State<ChannelHeader> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  setState(() {
-                    _hashtags = List.from(tempHashtags);
-                  });
+                  provider.setHashtagsForChannel(widget.channel.id, tempHashtags);
+                  widget.onHashtagsChanged?.call(tempHashtags);
                   Navigator.pop(context);
                 },
                 child: const Text('Сохранить'),
@@ -595,5 +584,17 @@ class _ChannelHeaderState extends State<ChannelHeader> {
         },
       ),
     );
+  }
+
+  void _addHashtag(String value, List<String> tempHashtags, StateSetter setDialogState, TextEditingController controller) {
+    if (value.trim().isNotEmpty) {
+      final newTag = value.trim().replaceAll('#', '');
+      if (newTag.isNotEmpty && !tempHashtags.contains(newTag)) {
+        setDialogState(() {
+          tempHashtags.add(newTag);
+        });
+      }
+      controller.clear();
+    }
   }
 }

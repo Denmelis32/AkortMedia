@@ -1,298 +1,312 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
 import '../pages/cards_page/models/channel.dart';
-import '../pages/cards_page/models/chat_message.dart';
-import '../pages/cards_page/models/discussion.dart';
-import '../pages/cards_page/models/channel_detail_state.dart'; // Новый импорт
+import '../pages/cards_page/models/channel_detail_state.dart';
+import '../pages/cards_page/models/chat_message.dart'; // Добавьте этот импорт
 
 class ChannelDetailProvider with ChangeNotifier {
-  final Channel channel;
+  final Channel _channel;
+  ChannelDetailState _state;
+  final ScrollController _scrollController = ScrollController();
 
-  // Состояние UI
-  ChannelDetailState _state = const ChannelDetailState();
-  ChannelDetailState get state => _state;
+  // Контроллеры для редактирования
+  final TextEditingController _descriptionController = TextEditingController();
 
-  // Контроллеры
-  final ScrollController scrollController = ScrollController();
-  final TextEditingController descriptionController = TextEditingController();
+  // НОВЫЕ ПОЛЯ ДЛЯ СОХРАНЕНИЯ СОСТОЯНИЯ
+  String? _currentAvatarUrl;
+  String? _currentCoverUrl;
+  List<String> _currentHashtags = [];
 
-  // Таймеры и подписки
-  Timer? _scrollTimer;
-  final List<StreamSubscription> _subscriptions = [];
+  // Дополнительные состояния для секций
+  final List<bool> _expandedSections = [false, false, false]; // Для members, playlists и других секций
 
-  ChannelDetailProvider(this.channel) {
-    _initialize();
-  }
+  ChannelDetailProvider(this._channel)
+      : _state = ChannelDetailState.initial() {
+    _scrollController.addListener(_handleScroll);
 
-  void _initialize() {
-    // Инициализация контроллеров
-    descriptionController.text = channel.description;
+    // ИНИЦИАЛИЗАЦИЯ ИЗ КАНАЛА
+    _currentAvatarUrl = _channel.imageUrl;
+    _currentCoverUrl = _channel.coverImageUrl;
+    _currentHashtags = List.from(_channel.tags);
 
-    // Настройка слушателей скролла
-    scrollController.addListener(_handleScroll);
+    // Инициализация контроллера описания
+    _descriptionController.text = _channel.description;
 
     // Загрузка начальных данных
     _loadInitialData();
-
-    // Добавление приветственного сообщения
-    _addWelcomeMessage();
-    _loadDiscussions();
   }
 
-  void _handleScroll() {
-    // Оптимизация: обновляем состояние скролла не чаще чем раз в 100ms
-    _scrollTimer?.cancel();
-    _scrollTimer = Timer(const Duration(milliseconds: 100), () {
-      final offset = scrollController.offset;
-      _updateState(_state.copyWith(
-        scrollOffset: offset,
-        showAppBarTitle: offset > 100,
-        showScrollToTop: offset > 500,
-        appBarElevation: offset > 50 ? 4.0 : 0.0,
-      ));
-    });
+  // ГЕТТЕРЫ
+  Channel get channel => _channel;
+  ChannelDetailState get state => _state;
+  ScrollController get scrollController => _scrollController;
+  TextEditingController get descriptionController => _descriptionController;
+
+  // НОВЫЕ ГЕТТЕРЫ ДЛЯ СОСТОЯНИЯ
+  String? get currentAvatarUrl => _currentAvatarUrl;
+  String? get currentCoverUrl => _currentCoverUrl;
+  List<String> get currentHashtags => _currentHashtags;
+
+  // Геттер для секций
+  bool isSectionExpanded(int index) => _expandedSections[index];
+
+  // НОВЫЕ МЕТОДЫ ДЛЯ ИЗМЕНЕНИЯ СОСТОЯНИЯ
+  void setAvatarUrl(String? avatarUrl) {
+    _currentAvatarUrl = avatarUrl;
+    notifyListeners();
   }
 
-  void _updateState(ChannelDetailState newState) {
-    if (_state != newState) {
-      _state = newState;
+  void setCoverUrl(String? coverUrl) {
+    _currentCoverUrl = coverUrl;
+    notifyListeners();
+  }
+
+  void setHashtags(List<String> hashtags) {
+    _currentHashtags = hashtags;
+    notifyListeners();
+  }
+
+  // МЕТОДЫ ДЛЯ РЕДАКТИРОВАНИЯ ОПИСАНИЯ
+  void toggleEditDescription() {
+    if (_state.isEditingDescription) {
+      // Сохраняем описание
+      // Здесь можно добавить логику сохранения в базу данных
+    }
+
+    _state = _state.copyWith(
+      isEditingDescription: !_state.isEditingDescription,
+    );
+    notifyListeners();
+  }
+
+  void toggleDescription() {
+    _state = _state.copyWith(
+      showFullDescription: !_state.showFullDescription,
+    );
+    notifyListeners();
+  }
+
+  // МЕТОД ДЛЯ ПЕРЕКЛЮЧЕНИЯ СЕКЦИЙ
+  void toggleSection(int index) {
+    if (index >= 0 && index < _expandedSections.length) {
+      _expandedSections[index] = !_expandedSections[index];
       notifyListeners();
     }
   }
 
-  Future<void> _loadInitialData() async {
-    _updateState(_state.copyWith(isLoading: true));
+  // МЕТОДЫ ДЛЯ ЧАТА - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  void addChatMessage(String message) {
+    final newMessage = ChatMessage(
+      text: message,
+      isMe: true,
+      timestamp: DateTime.now(),
+      senderName: 'Пользователь',
+      senderImageUrl: '',
+      senderId: 'current_user_id', // Замените на реальный ID пользователя
+    );
+
+    final updatedMessages = List<ChatMessage>.from(_state.chatMessages);
+    updatedMessages.add(newMessage);
+
+    _state = _state.copyWith(
+      chatMessages: updatedMessages,
+    );
+    notifyListeners();
+  }
+
+  // СУЩЕСТВУЮЩИЕ МЕТОДЫ
+  void _loadInitialData() async {
+    _state = _state.copyWith(isLoading: true);
+    notifyListeners();
 
     try {
       // Имитация загрузки данных
-      await Future.delayed(const Duration(milliseconds: 800));
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      _updateState(_state.copyWith(
+      _state = _state.copyWith(
         isLoading: false,
-        isSubscribed: channel.isSubscribed,
-        isFavorite: channel.isFavorite,
-      ));
-
-    } catch (e) {
-      _updateState(_state.copyWith(
+        isSubscribed: _channel.isSubscribed,
+        isFavorite: _channel.isFavorite,
+        notificationsEnabled: true,
+      );
+    } catch (error) {
+      _state = _state.copyWith(
         isLoading: false,
         hasError: true,
-        errorMessage: 'Ошибка загрузки данных: $e',
-      ));
+        errorMessage: error.toString(),
+      );
     }
+
+    notifyListeners();
   }
 
-  // === ОСНОВНЫЕ МЕТОДЫ УПРАВЛЕНИЯ СОСТОЯНИЕМ ===
+  void _handleScroll() {
+    final offset = _scrollController.offset;
+    final showAppBarTitle = offset > 100;
+    final appBarElevation = offset > 50 ? 4.0 : 0.0;
+    final showScrollToTop = offset > 300;
 
-  void changeContentType(int index) {
-    _updateState(_state.copyWith(currentContentType: index));
-
-    // Прокрутка к началу контента
-    if (scrollController.hasClients) {
-      scrollController.animateTo(
-        280,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
+    if (showAppBarTitle != _state.showAppBarTitle ||
+        appBarElevation != _state.appBarElevation ||
+        showScrollToTop != _state.showScrollToTop) {
+      _state = _state.copyWith(
+        scrollOffset: offset,
+        showAppBarTitle: showAppBarTitle,
+        appBarElevation: appBarElevation,
+        showScrollToTop: showScrollToTop,
       );
+      notifyListeners();
     }
   }
 
   void toggleSubscription() {
-    final newValue = !_state.isSubscribed;
-    _updateState(_state.copyWith(isSubscribed: newValue));
-
-    if (newValue) {
-      _showSubscriptionSuccess();
-    }
+    _state = _state.copyWith(
+      isSubscribed: !_state.isSubscribed,
+    );
+    notifyListeners();
   }
 
   void toggleFavorite() {
-    _updateState(_state.copyWith(isFavorite: !_state.isFavorite));
+    _state = _state.copyWith(
+      isFavorite: !_state.isFavorite,
+    );
+    notifyListeners();
   }
 
   void toggleNotifications() {
-    _updateState(_state.copyWith(
-        notificationsEnabled: !_state.notificationsEnabled
-    ));
+    _state = _state.copyWith(
+      notificationsEnabled: !_state.notificationsEnabled,
+    );
+    notifyListeners();
   }
 
-  void toggleDescription() {
-    _updateState(_state.copyWith(
-        showFullDescription: !_state.showFullDescription
-    ));
+  void changeContentType(int index) {
+    _state = _state.copyWith(
+      currentContentType: index,
+    );
+    notifyListeners();
   }
-
-  void toggleEditDescription() {
-    final newEditingState = !_state.isEditingDescription;
-    _updateState(_state.copyWith(isEditingDescription: newEditingState));
-
-    if (!newEditingState) {
-      _saveDescription();
-    }
-  }
-
-  void toggleSection(int sectionId) {
-    final newSections = Map<int, bool>.from(_state.expandedSections);
-    newSections[sectionId] = !(newSections[sectionId] ?? false);
-
-    _updateState(_state.copyWith(expandedSections: newSections));
-  }
-
-  void _saveDescription() {
-    // Логика сохранения описания
-    channel.description = descriptionController.text;
-    // Здесь можно добавить вызов API для сохранения
-  }
-
-  void _showSubscriptionSuccess() {
-    // Успешная подписка
-  }
-
-  // === ЧАТ И ОБСУЖДЕНИЯ ===
-
-  void _addWelcomeMessage() {
-    final messages = List<ChatMessage>.from(_state.chatMessages);
-    messages.add(ChatMessage(
-      text: 'Добро пожаловать в чат канала "${channel.title}"! 🎉\nЗдесь вы можете общаться с другими участниками сообщества.',
-      isMe: false,
-      timestamp: DateTime.now(),
-      senderName: 'Система',
-      senderId: 'system_welcome',
-    ));
-
-    _updateState(_state.copyWith(chatMessages: messages));
-  }
-
-  void _loadDiscussions() {
-    final discussions = [
-      Discussion(
-        id: '1',
-        title: 'Обсуждение нового функционала',
-        author: 'Алексей Петров',
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        commentsCount: 15,
-        likes: 42,
-        isPinned: true,
-      ),
-      Discussion(
-        id: '2',
-        title: 'Идеи для улучшения платформы',
-        author: 'Мария Иванова',
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        commentsCount: 8,
-        likes: 27,
-      ),
-    ];
-
-    _updateState(_state.copyWith(discussions: discussions));
-  }
-
-  void addChatMessage(String message) {
-    if (message.trim().isEmpty) return;
-
-    final messages = List<ChatMessage>.from(_state.chatMessages);
-    messages.add(ChatMessage(
-      text: message,
-      isMe: true,
-      timestamp: DateTime.now(),
-      senderName: 'Вы',
-      senderId: 'current_user',
-    ));
-
-    _updateState(_state.copyWith(chatMessages: messages));
-    _simulateResponse();
-  }
-
-  void _simulateResponse() {
-    Future.delayed(const Duration(seconds: 1), () {
-      final responses = [
-        'Отличное сообщение! 👍',
-        'Спасибо за участие в обсуждении! 💬',
-        'Интересная мысль! 🤔',
-      ];
-
-      final randomResponse = responses[DateTime.now().millisecond % responses.length];
-      final messages = List<ChatMessage>.from(_state.chatMessages);
-
-      messages.add(ChatMessage(
-        text: randomResponse,
-        isMe: false,
-        timestamp: DateTime.now(),
-        senderName: 'Модератор',
-        senderId: 'moderator_id',
-      ));
-
-      _updateState(_state.copyWith(chatMessages: messages));
-    });
-  }
-
-  void addDiscussion(Discussion discussion) {
-    final discussions = List<Discussion>.from(_state.discussions);
-    discussions.insert(0, discussion);
-
-    _updateState(_state.copyWith(
-      discussions: discussions,
-      currentContentType: 2, // Переключить на вкладку обсуждений
-    ));
-  }
-
-  // === ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ ===
 
   void scrollToTop() {
-    if (scrollController.hasClients) {
-      scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
   }
 
-  void updateDescription(String newDescription) {
-    descriptionController.text = newDescription;
-    _saveDescription();
+  void updateChannelInfo({
+    String? title,
+    String? description,
+    String? imageUrl,
+  }) {
+    // Здесь можно добавить логику обновления информации о канале
+    notifyListeners();
   }
 
-  void retryLoading() {
-    _updateState(_state.copyWith(hasError: false, errorMessage: ''));
-    _loadInitialData();
+  void joinChannel() {
+    _state = _state.copyWith(
+      isSubscribed: true,
+    );
+    notifyListeners();
   }
 
-  void clearError() {
-    _updateState(_state.copyWith(hasError: false, errorMessage: ''));
+  void leaveChannel() {
+    _state = _state.copyWith(
+      isSubscribed: false,
+    );
+    notifyListeners();
   }
 
-  // Новые методы для улучшенного управления состоянием
-  void startLoading() {
-    _updateState(_state.copyWith(isLoading: true, hasError: false));
-  }
-
-  void finishLoading() {
-    _updateState(_state.copyWith(isLoading: false));
+  void reportChannel(String reason) {
+    // Здесь можно добавить логику жалобы на канал
+    notifyListeners();
   }
 
   void setError(String error) {
-    _updateState(_state.copyWith(
+    _state = _state.copyWith(
       hasError: true,
       errorMessage: error,
-      isLoading: false,
-    ));
+    );
+    notifyListeners();
   }
 
-  // === ДИСПОЗ И ОЧИСТКА РЕСУРСОВ ===
+  void clearError() {
+    _state = _state.copyWith(
+      hasError: false,
+      errorMessage: null,
+    );
+    notifyListeners();
+  }
+
+  void refreshData() {
+    _state = _state.copyWith(
+      isLoading: true,
+      hasError: false,
+      errorMessage: null,
+    );
+    notifyListeners();
+
+    _loadInitialData();
+  }
+
+  // НОВЫЙ МЕТОД ДЛЯ СБРОСА СОСТОЯНИЯ К ИСХОДНОМУ
+  void resetToInitialState() {
+    _currentAvatarUrl = _channel.imageUrl;
+    _currentCoverUrl = _channel.coverImageUrl;
+    _currentHashtags = List.from(_channel.tags);
+    _descriptionController.text = _channel.description;
+
+    // Сбрасываем секции
+    for (int i = 0; i < _expandedSections.length; i++) {
+      _expandedSections[i] = false;
+    }
+
+    _state = ChannelDetailState.initial().copyWith(
+      isSubscribed: _channel.isSubscribed,
+      isFavorite: _channel.isFavorite,
+    );
+
+    notifyListeners();
+  }
+
+  // НОВЫЙ МЕТОД ДЛЯ ОБНОВЛЕНИЯ КАНАЛА
+  void updateChannel(Channel newChannel) {
+    if (_channel.id != newChannel.id) {
+      return;
+    }
+
+    if (_currentAvatarUrl == _channel.imageUrl) {
+      _currentAvatarUrl = newChannel.imageUrl;
+    }
+    if (_currentCoverUrl == _channel.coverImageUrl) {
+      _currentCoverUrl = newChannel.coverImageUrl;
+    }
+    if (_listEquals(_currentHashtags, _channel.tags)) {
+      _currentHashtags = List.from(newChannel.tags);
+    }
+
+    _state = _state.copyWith(
+      isSubscribed: newChannel.isSubscribed,
+      isFavorite: newChannel.isFavorite,
+    );
+
+    notifyListeners();
+  }
+
+  // Вспомогательный метод для сравнения списков
+  bool _listEquals(List<String> list1, List<String> list2) {
+    if (list1.length != list2.length) return false;
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i] != list2[i]) return false;
+    }
+    return true;
+  }
 
   @override
   void dispose() {
-    _scrollTimer?.cancel();
-
-    for (final subscription in _subscriptions) {
-      subscription.cancel();
-    }
-
-    scrollController.dispose();
-    descriptionController.dispose();
-
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 }

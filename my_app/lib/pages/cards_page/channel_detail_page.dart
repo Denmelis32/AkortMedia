@@ -10,7 +10,7 @@ import '../../providers/channel_detail_provider.dart';
 import '../../providers/articles_provider.dart';
 import '../../providers/news_provider.dart';
 import '../../providers/channel_posts_provider.dart';
-import '../../services/api_service.dart';
+import '../../providers/channel_state_provider.dart';
 import '../articles_pages/models/article.dart';
 import '../articles_pages/widgets/add_article_dialog.dart';
 import 'models/channel.dart';
@@ -105,10 +105,65 @@ class _ChannelDetailContent extends StatefulWidget {
 }
 
 class _ChannelDetailContentState extends State<_ChannelDetailContent> {
-  // Переменные для хранения введенных данных
   final TextEditingController _postTitleController = TextEditingController();
   final TextEditingController _postDescriptionController = TextEditingController();
   final TextEditingController _postHashtagsController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Инициализация состояния в провайдере
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+      final channelDetailProvider = Provider.of<ChannelDetailProvider>(context, listen: false);
+
+      // Инициализируем состояние канала в ChannelStateProvider
+      _initializeChannelState(channelStateProvider);
+
+      // Синхронизируем состояние между провайдерами
+      _syncProviderStates(channelStateProvider, channelDetailProvider);
+    });
+  }
+
+  void _initializeChannelState(ChannelStateProvider provider) {
+    // Используем новый метод для инициализации
+    provider.initializeChannelIfNeeded(
+      widget.channel.id,
+      widget.channel.imageUrl,
+      widget.channel.coverImageUrl,
+      widget.channel.tags,
+    );
+  }
+
+  void _syncProviderStates(ChannelStateProvider stateProvider, ChannelDetailProvider detailProvider) {
+    // Синхронизируем аватарку
+    final avatarUrl = stateProvider.getAvatarForChannel(widget.channel.id);
+    if (detailProvider.currentAvatarUrl != avatarUrl) {
+      detailProvider.setAvatarUrl(avatarUrl);
+    }
+
+    // Синхронизируем обложку
+    final coverUrl = stateProvider.getCoverForChannel(widget.channel.id);
+    if (detailProvider.currentCoverUrl != coverUrl) {
+      detailProvider.setCoverUrl(coverUrl);
+    }
+
+    // Синхронизируем хештеги
+    final hashtags = stateProvider.getHashtagsForChannel(widget.channel.id);
+    if (!_listEquals(detailProvider.currentHashtags, hashtags)) {
+      detailProvider.setHashtags(hashtags);
+    }
+  }
+
+  bool _listEquals(List<String>? list1, List<String>? list2) {
+    if (list1 == null && list2 == null) return true;
+    if (list1 == null || list2 == null) return false;
+    if (list1.length != list2.length) return false;
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i] != list2[i]) return false;
+    }
+    return true;
+  }
 
   @override
   void dispose() {
@@ -120,8 +175,8 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ChannelDetailProvider>(
-      builder: (context, provider, child) {
+    return Consumer2<ChannelDetailProvider, ChannelStateProvider>(
+      builder: (context, provider, stateProvider, child) {
         final state = provider.state;
         final theme = Theme.of(context);
 
@@ -131,11 +186,11 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
               controller: provider.scrollController,
               physics: const ClampingScrollPhysics(),
               slivers: [
-                _buildAppBar(context, provider, state),
+                _buildAppBar(context, provider, stateProvider, state),
                 if (state.isLoading)
                   _buildLoadingSliver()
                 else
-                  _buildContentSliver(context, provider, state, theme),
+                  _buildContentSliver(context, provider, stateProvider, state, theme),
               ],
             ),
             _buildFloatingActionButtons(context, provider, state),
@@ -149,6 +204,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   SliverAppBar _buildAppBar(
       BuildContext context,
       ChannelDetailProvider provider,
+      ChannelStateProvider stateProvider,
       ChannelDetailState state,
       ) {
     return SliverAppBar(
@@ -156,10 +212,22 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       flexibleSpace: FlexibleSpaceBar(
         background: ChannelHeader(
           channel: widget.channel,
-          initialHashtags: const ['Flutter', 'Dart', 'MobileDev'],
-          initialCoverImageUrl:
-          'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400',
           editable: true,
+          onAvatarChanged: (newAvatarUrl) {
+            stateProvider.setAvatarForChannel(widget.channel.id, newAvatarUrl.isEmpty ? null : newAvatarUrl);
+            provider.setAvatarUrl(newAvatarUrl.isEmpty ? null : newAvatarUrl);
+            _saveAvatarToDatabase(newAvatarUrl);
+          },
+          onCoverChanged: (newCoverUrl) {
+            stateProvider.setCoverForChannel(widget.channel.id, newCoverUrl.isEmpty ? null : newCoverUrl);
+            provider.setCoverUrl(newCoverUrl.isEmpty ? null : newCoverUrl);
+            _saveCoverToDatabase(newCoverUrl);
+          },
+          onHashtagsChanged: (newHashtags) {
+            stateProvider.setHashtagsForChannel(widget.channel.id, newHashtags);
+            provider.setHashtags(newHashtags);
+            _saveHashtagsToDatabase(newHashtags);
+          },
         ),
         title: AnimatedOpacity(
           opacity: state.showAppBarTitle ? 1.0 : 0.0,
@@ -249,6 +317,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   SliverToBoxAdapter _buildContentSliver(
       BuildContext context,
       ChannelDetailProvider provider,
+      ChannelStateProvider stateProvider,
       ChannelDetailState state,
       ThemeData theme,
       ) {
@@ -300,7 +369,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
               tabs: const ['Стена', 'Акорта', 'Статьи'],
             ),
 
-            _buildContentByType(context, provider, state),
+            _buildContentByType(context, provider, stateProvider, state),
 
             const SizedBox(height: 32),
           ],
@@ -312,6 +381,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   Widget _buildContentByType(
       BuildContext context,
       ChannelDetailProvider provider,
+      ChannelStateProvider stateProvider,
       ChannelDetailState state,
       ) {
     return Consumer2<ChannelPostsProvider, ArticlesProvider>(
@@ -323,6 +393,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
             postsProvider,
             articlesProvider,
             provider,
+            stateProvider,
           ),
         );
       },
@@ -334,13 +405,22 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       ChannelPostsProvider postsProvider,
       ArticlesProvider articlesProvider,
       ChannelDetailProvider channelProvider,
+      ChannelStateProvider stateProvider,
       ) {
+    final avatarUrl = stateProvider.getAvatarForChannel(widget.channel.id);
+
     switch (index) {
       case 0:
-        return WallContent(channel: widget.channel);
+        return WallContent(
+          channel: widget.channel,
+          customAvatarUrl: avatarUrl,
+        );
 
       case 1:
-        return AkorContent(channel: widget.channel);
+        return AkorContent(
+          channel: widget.channel,
+          customAvatarUrl: avatarUrl,
+        );
 
       case 2:
         return ArticlesGrid(
@@ -807,5 +887,24 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+  }
+
+  // Методы для сохранения в базу данных
+  void _saveAvatarToDatabase(String avatarUrl) {
+    // Сохранение аватарки в базу данных или провайдер
+    debugPrint('Saving avatar to database: $avatarUrl');
+    // TODO: Реализовать сохранение в базу данных
+  }
+
+  void _saveCoverToDatabase(String coverUrl) {
+    // Сохранение обложки в базу данных или провайдер
+    debugPrint('Saving cover to database: $coverUrl');
+    // TODO: Реализовать сохранение в базу данных
+  }
+
+  void _saveHashtagsToDatabase(List<String> hashtags) {
+    // Сохранение хештегов в базу данных или провайдер
+    debugPrint('Saving hashtags to database: $hashtags');
+    // TODO: Реализовать сохранение в базу данных
   }
 }

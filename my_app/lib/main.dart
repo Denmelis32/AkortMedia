@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/providers/channel_state_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/news_provider.dart';
 import 'providers/channel_posts_provider.dart';
@@ -74,6 +75,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ChannelStateProvider()),
         ChangeNotifierProvider(create: (_) => NewsProvider()),
         ChangeNotifierProvider(create: (_) => ChannelPostsProvider()),
         ChangeNotifierProvider(create: (_) => ArticlesProvider()),

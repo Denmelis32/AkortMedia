@@ -5,7 +5,7 @@ class ChannelDetailState {
   final bool isLoading;
   final bool isLoadingMore;
   final bool hasError;
-  final String errorMessage;
+  final String? errorMessage;
   final int currentContentType;
   final bool isSubscribed;
   final bool notificationsEnabled;
@@ -24,14 +24,14 @@ class ChannelDetailState {
     this.isLoading = true,
     this.isLoadingMore = false,
     this.hasError = false,
-    this.errorMessage = '',
+    this.errorMessage,
     this.currentContentType = 0,
     this.isSubscribed = false,
     this.notificationsEnabled = true,
     this.isFavorite = false,
-    this.scrollOffset = 0,
+    this.scrollOffset = 0.0,
     this.showAppBarTitle = false,
-    this.appBarElevation = 0,
+    this.appBarElevation = 0.0,
     this.showFullDescription = false,
     this.isEditingDescription = false,
     this.showScrollToTop = false,
@@ -39,6 +39,28 @@ class ChannelDetailState {
     this.chatMessages = const [],
     this.discussions = const [],
   });
+
+  factory ChannelDetailState.initial() {
+    return ChannelDetailState(
+      isLoading: false,
+      isLoadingMore: false,
+      hasError: false,
+      errorMessage: null,
+      currentContentType: 0,
+      isSubscribed: false,
+      notificationsEnabled: true,
+      isFavorite: false,
+      scrollOffset: 0.0,
+      showAppBarTitle: false,
+      appBarElevation: 0.0,
+      showFullDescription: false,
+      isEditingDescription: false,
+      showScrollToTop: false,
+      expandedSections: const {0: false, 1: false},
+      chatMessages: const [],
+      discussions: const [],
+    );
+  }
 
   ChannelDetailState copyWith({
     bool? isLoading,

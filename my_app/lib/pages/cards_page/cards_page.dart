@@ -1,14 +1,16 @@
-// lib/pages/cards_page/cards_page.dart
 import 'dart:math';
 
+import 'package:badges/badges.dart' as badges;
 import 'package:flutter/material.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
+import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../rooms_pages/models/filter_option.dart';
 import '../rooms_pages/models/room_category.dart';
 import '../rooms_pages/models/sort_option.dart';
 import 'channel_detail_page.dart';
 import 'models/channel.dart';
+import '../../providers/channel_state_provider.dart';
 
 class CardsPage extends StatefulWidget {
   final String userName;
@@ -764,268 +766,271 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      floatingActionButton: _showCreateButton ? ScaleTransition(
-        scale: _fabAnimation,
-        child: FloatingActionButton.extended(
-          onPressed: _createNewChannel,
-          backgroundColor: theme.colorScheme.primary,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          icon: const Icon(Icons.add, size: 24),
-          label: const Text('Создать канал'),
-        ),
-      ) : null,
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        color: theme.colorScheme.primary,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 140.0,
-              floating: false,
-              pinned: true,
-              backgroundColor: theme.scaffoldBackgroundColor,
-              elevation: 0,
-              title: AnimatedOpacity(
-                opacity: _showSearchBar ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Text(
-                  'Каналы',
-                  style: TextStyle(
-                    color: theme.colorScheme.onBackground,
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              centerTitle: false,
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(70),
-                child: ColoredBox(
-                  color: theme.scaffoldBackgroundColor,
-                  child: Column(
-                    children: [
-                      SingleChildScrollView(
-                        controller: _tabScrollController,
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Row(
-                          children: _categories.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final category = entry.value;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: _buildTabItem(category, index),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: Icon(_showSearchBar ? Icons.search_off : Icons.search, size: 24),
-                  onPressed: () => setState(() => _showSearchBar = !_showSearchBar),
-                  tooltip: 'Поиск',
-                ),
-                IconButton(
-                  icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view, size: 24),
-                  onPressed: () => setState(() => _isGridView = !_isGridView),
-                  tooltip: 'Сменить вид',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.sort, size: 24),
-                  onPressed: _showSortBottomSheet,
-                  tooltip: 'Сортировка',
-                ),
-                IconButton(
-                  icon: Icon(_showFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 24),
-                  onPressed: () => setState(() => _showFilters = !_showFilters),
-                  tooltip: 'Фильтры',
-                ),
-                IconButton(
-                  icon: CircleAvatar(
-                    radius: 14,
-                    backgroundImage: NetworkImage(widget.userAvatarUrl),
-                  ),
-                  onPressed: _showProfileMenu,
-                  tooltip: 'Профиль',
-                ),
-              ],
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        theme.colorScheme.primary.withOpacity(0.8),
-                        theme.colorScheme.primary.withOpacity(0.4),
-                      ],
-                    ),
-                  ),
-                  padding: const EdgeInsets.only(left: 20, bottom: 70),
-                  alignment: Alignment.bottomLeft,
-                  child: const Text(
+    return ChangeNotifierProvider(
+      create: (context) => ChannelStateProvider(),
+      child: Scaffold(
+        floatingActionButton: _showCreateButton ? ScaleTransition(
+          scale: _fabAnimation,
+          child: FloatingActionButton.extended(
+            onPressed: _createNewChannel,
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            icon: const Icon(Icons.add, size: 24),
+            label: const Text('Создать канал'),
+          ),
+        ) : null,
+        body: RefreshIndicator(
+          onRefresh: _refreshData,
+          color: theme.colorScheme.primary,
+          backgroundColor: theme.scaffoldBackgroundColor,
+          child: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 140.0,
+                floating: false,
+                pinned: true,
+                backgroundColor: theme.scaffoldBackgroundColor,
+                elevation: 0,
+                title: AnimatedOpacity(
+                  opacity: _showSearchBar ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Text(
                     'Каналы',
                     style: TextStyle(
-                      fontSize: 32,
+                      color: theme.colorScheme.onBackground,
+                      fontSize: 20.0,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
                     ),
                   ),
                 ),
-              ),
-            ),
-
-            if (_showFilters)
-              SliverToBoxAdapter(
-                child: _buildFilterSection(),
-              ),
-
-            if (_showSearchBar)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                sliver: SliverToBoxAdapter(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                centerTitle: false,
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(70),
+                  child: ColoredBox(
+                    color: theme.scaffoldBackgroundColor,
+                    child: Column(
+                      children: [
+                        SingleChildScrollView(
+                          controller: _tabScrollController,
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Row(
+                            children: _categories.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final category = entry.value;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: _buildTabItem(category, index),
+                              );
+                            }).toList(),
+                          ),
                         ),
+                        const SizedBox(height: 8),
                       ],
                     ),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Поиск каналов...',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 24),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 22),
-                          onPressed: () {
-                            setState(() {
-                              _searchController.clear();
-                              _searchQuery = '';
-                            });
-                          },
-                        )
-                            : null,
-                        filled: true,
-                        fillColor: theme.colorScheme.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  ),
+                ),
+                actions: [
+                  IconButton(
+                    icon: Icon(_showSearchBar ? Icons.search_off : Icons.search, size: 24),
+                    onPressed: () => setState(() => _showSearchBar = !_showSearchBar),
+                    tooltip: 'Поиск',
+                  ),
+                  IconButton(
+                    icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view, size: 24),
+                    onPressed: () => setState(() => _isGridView = !_isGridView),
+                    tooltip: 'Сменить вид',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.sort, size: 24),
+                    onPressed: _showSortBottomSheet,
+                    tooltip: 'Сортировка',
+                  ),
+                  IconButton(
+                    icon: Icon(_showFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 24),
+                    onPressed: () => setState(() => _showFilters = !_showFilters),
+                    tooltip: 'Фильтры',
+                  ),
+                  IconButton(
+                    icon: CircleAvatar(
+                      radius: 14,
+                      backgroundImage: NetworkImage(widget.userAvatarUrl),
+                    ),
+                    onPressed: _showProfileMenu,
+                    tooltip: 'Профиль',
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          theme.colorScheme.primary.withOpacity(0.8),
+                          theme.colorScheme.primary.withOpacity(0.4),
+                        ],
+                      ),
+                    ),
+                    padding: const EdgeInsets.only(left: 20, bottom: 70),
+                    alignment: Alignment.bottomLeft,
+                    child: const Text(
+                      'Каналы',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                 ),
               ),
 
-            if (_currentTabIndex != 0 || _searchQuery.isNotEmpty || _selectedSort != 'newest' || _activeFilters.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (_currentTabIndex != 0)
-                        FilterChip(
-                          label: Text(
-                            'Категория: ${_categories[_currentTabIndex].title}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.primary,
-                            ),
+              if (_showFilters)
+                SliverToBoxAdapter(
+                  child: _buildFilterSection(),
+                ),
+
+              if (_showSearchBar)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  sliver: SliverToBoxAdapter(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                          onSelected: (_) {
-                            setState(() {
-                              _currentTabIndex = 0;
-                              _selectedCategoryId = 'all';
-                            });
-                          },
-                          backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Поиск каналов...',
+                          prefixIcon: const Icon(Icons.search_rounded, size: 24),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 22),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                              : null,
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                         ),
-                      if (_searchQuery.isNotEmpty)
-                        FilterChip(
-                          label: Text(
-                            'Поиск: "$_searchQuery"',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.green[700],
-                            ),
-                          ),
-                          onSelected: (_) {
-                            setState(() {
-                              _searchController.clear();
-                              _searchQuery = '';
-                            });
-                          },
-                          backgroundColor: Colors.green.withOpacity(0.1),
-                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                        ),
-                      if (_selectedSort != 'newest')
-                        FilterChip(
-                          label: Text(
-                            'Сортировка: ${_sortOptions.firstWhere((opt) => opt.id == _selectedSort).title}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.orange[700],
-                            ),
-                          ),
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedSort = 'newest';
-                            });
-                          },
-                          backgroundColor: Colors.orange.withOpacity(0.1),
-                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                        ),
-                      ..._activeFilters.map((filter) {
-                        final option = _filterOptions.firstWhere((opt) => opt.id == filter);
-                        return FilterChip(
-                          label: Text(
-                            option.title,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.purple[700],
-                            ),
-                          ),
-                          onSelected: (_) {
-                            setState(() {
-                              _activeFilters.remove(filter);
-                            });
-                          },
-                          backgroundColor: Colors.purple.withOpacity(0.1),
-                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                        );
-                      }).toList(),
-                    ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
 
-            // Основной контент
-            _isLoading
-                ? SliverToBoxAdapter(child: _buildLoadingShimmer())
-                : _buildCategoryContent(),
-          ],
+              if (_currentTabIndex != 0 || _searchQuery.isNotEmpty || _selectedSort != 'newest' || _activeFilters.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (_currentTabIndex != 0)
+                          FilterChip(
+                            label: Text(
+                              'Категория: ${_categories[_currentTabIndex].title}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            onSelected: (_) {
+                              setState(() {
+                                _currentTabIndex = 0;
+                                _selectedCategoryId = 'all';
+                              });
+                            },
+                            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                          ),
+                        if (_searchQuery.isNotEmpty)
+                          FilterChip(
+                            label: Text(
+                              'Поиск: "$_searchQuery"',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green[700],
+                              ),
+                            ),
+                            onSelected: (_) {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                            backgroundColor: Colors.green.withOpacity(0.1),
+                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                          ),
+                        if (_selectedSort != 'newest')
+                          FilterChip(
+                            label: Text(
+                              'Сортировка: ${_sortOptions.firstWhere((opt) => opt.id == _selectedSort).title}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.orange[700],
+                              ),
+                            ),
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedSort = 'newest';
+                              });
+                            },
+                            backgroundColor: Colors.orange.withOpacity(0.1),
+                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                          ),
+                        ..._activeFilters.map((filter) {
+                          final option = _filterOptions.firstWhere((opt) => opt.id == filter);
+                          return FilterChip(
+                            label: Text(
+                              option.title,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.purple[700],
+                              ),
+                            ),
+                            onSelected: (_) {
+                              setState(() {
+                                _activeFilters.remove(filter);
+                              });
+                            },
+                            backgroundColor: Colors.purple.withOpacity(0.1),
+                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Основной контент
+              _isLoading
+                  ? SliverToBoxAdapter(child: _buildLoadingShimmer())
+                  : _buildCategoryContent(),
+            ],
+          ),
         ),
       ),
     );
@@ -1154,8 +1159,11 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
             ListTile(
               leading: const Icon(Icons.favorite),
               title: const Text('Избранное'),
-              trailing: Badge(
-                label: Text(_channels.where((c) => c.isFavorite).length.toString()),
+              trailing: badges.Badge(
+                badgeContent: Text(
+                  _channels.where((c) => c.isFavorite).length.toString(),
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -1168,8 +1176,11 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
             ListTile(
               leading: const Icon(Icons.subscriptions),
               title: const Text('Мои подписки'),
-              trailing: Badge(
-                label: Text(_channels.where((c) => c.isSubscribed).length.toString()),
+              trailing: badges.Badge(
+                badgeContent: Text(
+                  _channels.where((c) => c.isSubscribed).length.toString(),
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
               ),
               onTap: () {
                 Navigator.pop(context);

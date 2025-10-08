@@ -637,7 +637,6 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         .toList();
 
     try {
-      // ПОЛУЧАЕМ ТЕКУЩИЙ АВАТАР ИЗ ПРОВАЙДЕРА СОСТОЯНИЯ
       final currentAvatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
       final avatarToUse = currentAvatarUrl ?? widget.channel.imageUrl;
 
@@ -652,13 +651,11 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         "comments": [],
         'is_channel_post': true,
         'channel_name': widget.channel.title,
-        // ОБЯЗАТЕЛЬНО ПЕРЕДАЕМ ОБНОВЛЕННУЮ АВАТАРКУ
         'channel_avatar': avatarToUse,
         'channel_image': avatarToUse,
-        'channel_id': widget.channel.id.toString(),
+        'channel_id': widget.channel.id.toString(), // ВАЖНО: передаем ID канала
       };
 
-      // Публикуем новость и в Акорт и на Стену
       postsProvider.addPostToChannel(widget.channel.id, newPost);
       newsProvider.addNews(newPost);
 

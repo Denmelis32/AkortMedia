@@ -404,6 +404,7 @@ class NewsProvider with ChangeNotifier {
         'image': newsItem['image']?.toString() ?? '',
         'author_name': authorName,
         'channel_name': channelName,
+        'channel_id': newsItem['channel_id']?.toString() ?? '', // ВАЖНО: добавляем channel_id
         'created_at': newsItem['created_at']?.toString() ?? DateTime.now().toIso8601String(),
         'likes': newsItem['likes'] ?? 0,
         'comments': newsItem['comments'] ?? [],

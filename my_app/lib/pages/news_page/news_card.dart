@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/news_provider.dart';
+import '../cards_page/channel_detail_page.dart';
+import '../cards_page/models/channel.dart';
 import 'theme/news_theme.dart';
 
 // Импортируем ProfilePage
@@ -233,23 +235,83 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   // ОТКРЫТИЕ ПРОФИЛЯ ПРИ НАЖАТИИ НА АВАТАР
+  // ОТКРЫТИЕ ПРОФИЛЯ ПРИ НАЖАТИИ НА АВАТАР - ИСПРАВЛЕННАЯ ВЕРСИЯ
   void _openUserProfile() {
     final authorName = _getStringValue(widget.news['author_name']);
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
     final channelName = _getStringValue(widget.news['channel_name']);
+    final channelId = _getStringValue(widget.news['channel_id']);
 
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
 
-    final targetUserName = isChannelPost ? channelName : authorName;
-    final targetUserEmail = isChannelPost ? '$channelName@channel.com' : '$authorName@user.com';
+    // ЕСЛИ ЭТО КАНАЛЬНЫЙ ПОСТ - ПЕРЕХОДИМ НА СТРАНИЦУ КАНАЛА
+    if (isChannelPost && channelId.isNotEmpty && channelName.isNotEmpty) {
+      _openChannelPage(channelId, channelName);
+      return;
+    }
 
-    final isCurrentUser = !isChannelPost && authorName == widget.userName;
+    // Для обычных постов - оставляем старую логику с переходом на профиль
+    final targetUserName = authorName;
+    final targetUserEmail = '$authorName@user.com';
+    final isCurrentUser = authorName == widget.userName;
 
     if (isCurrentUser) {
       _showProfilePage(context, newsProvider);
     } else {
-      _showOtherUserProfile(context, targetUserName, targetUserEmail, isChannelPost, newsProvider);
+      _showOtherUserProfile(context, targetUserName, targetUserEmail, false, newsProvider);
     }
+  }
+
+// НОВЫЙ МЕТОД ДЛЯ ОТКРЫТИЯ СТРАНИЦЫ КАНАЛА - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  void _openChannelPage(String channelId, String channelName) {
+    // Проверяем, что у нас есть необходимые данные
+    if (channelId.isEmpty || channelName.isEmpty) {
+      print('❌ Missing channel data: id=$channelId, name=$channelName');
+      return;
+    }
+
+    try {
+      // Создаем временный канал для навигации
+      final tempChannel = Channel.simple(
+        id: int.tryParse(channelId) ?? 0,
+        title: channelName,
+        description: 'Официальный канал',
+        imageUrl: _getStringValue(widget.news['channel_avatar']),
+        cardColor: Colors.blue,
+        subscribers: _getIntValue(widget.news['channel_subscribers'] ?? 0),
+        videos: _getIntValue(widget.news['channel_videos'] ?? 0),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChannelDetailPage(
+            channel: tempChannel, // ПРАВИЛЬНО: передаем только channel
+          ),
+        ),
+      );
+    } catch (e) {
+      print('❌ Error navigating to channel: $e');
+      // Fallback: показать информацию о канале в диалоге
+      _showChannelInfoDialog(channelName);
+    }
+  }
+
+
+  void _showChannelInfoDialog(String channelName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Канал: $channelName'),
+        content: Text('Информация о канале "$channelName"'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Закрыть'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showProfilePage(BuildContext context, NewsProvider newsProvider) {
@@ -1466,20 +1528,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: _openUserProfile,
-                child: _buildChannelAvatar(channelAvatar, channelName),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      onTap: _openUserProfile,
-                      child: Text(
+          // ОБНОВЛЕННЫЙ ХЕДЕР КАНАЛА - ВСЕ ЭЛЕМЕНТЫ ВЕДУТ НА КАНАЛ
+          GestureDetector(
+            onTap: _openUserProfile, // Теперь ведет на канал
+            child: Row(
+              children: [
+                _buildChannelAvatar(channelAvatar, channelName),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         channelName,
                         style: TextStyle(
                           color: NewsTheme.textColor,
@@ -1487,44 +1547,45 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                           fontSize: 15,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Официальный канал',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Официальный канал',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: NewsTheme.secondaryTextColor.withOpacity(0.5),
-                            shape: BoxShape.circle,
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 3,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          widget.getTimeAgo(createdAt),
-                          style: TextStyle(
-                            color: NewsTheme.secondaryTextColor,
-                            fontSize: 11,
+                          const SizedBox(width: 6),
+                          Text(
+                            widget.getTimeAgo(createdAt),
+                            style: TextStyle(
+                              color: NewsTheme.secondaryTextColor,
+                              fontSize: 11,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          // Остальной код без изменений...
           const SizedBox(height: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -20,76 +20,101 @@ class ChannelStateProvider with ChangeNotifier {
     _loadFromStorage();
   }
 
-  // === МЕТОДЫ ДЛЯ ПОДПИСОК ===
+  // === МЕТОДЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ===
 
-  // Проверка подписки на канал
-  bool isSubscribed(String channelId) {
-    return _channelSubscriptions[channelId] ?? false;
+  /// [УСТАРЕВШИЙ] Получение аватарки канала - используйте getCurrentAvatar вместо этого
+  String? getAvatarForChannel(String channelId) => _channelAvatars[channelId];
+
+  /// [УСТАРЕВШИЙ] Получение обложки канала - используйте getCurrentCover вместо этого
+  String? getCoverForChannel(String channelId) => _channelCovers[channelId];
+
+  // === НОВЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С АВАТАРКАМИ ===
+
+  /// Получение текущей аватарки канала с приоритетом: кастомная → дефолтная
+  String? getCurrentAvatar(String channelId, {String? defaultAvatar}) {
+    return _channelAvatars[channelId] ?? defaultAvatar;
   }
 
-  // Получение количества подписчиков
-  int getSubscribers(String channelId) {
-    return _channelSubscribersCount[channelId] ?? 0;
-  }
-
-  // Обновление подписки
-  void updateChannelSubscription(String channelId, bool isSubscribed, int subscribersCount) {
-    _channelSubscriptions[channelId] = isSubscribed;
-    _channelSubscribersCount[channelId] = subscribersCount;
+  /// Установка аватарки канала
+  void setAvatarForChannel(String channelId, String? avatarUrl) {
+    if (avatarUrl == null) {
+      _channelAvatars.remove(channelId);
+    } else {
+      _channelAvatars[channelId] = avatarUrl;
+    }
     notifyListeners();
     _saveToStorage();
   }
 
-  // Переключение подписки
-  void toggleSubscription(String channelId, int currentSubscribers) {
-    final currentIsSubscribed = isSubscribed(channelId);
-    final newSubscribedState = !currentIsSubscribed;
-    final newSubscribersCount = newSubscribedState
-        ? currentSubscribers + 1
-        : currentSubscribers - 1;
-
-    updateChannelSubscription(channelId, newSubscribedState, newSubscribersCount);
+  /// Очистка аватарки канала (возврат к дефолтной)
+  void clearAvatarForChannel(String channelId) {
+    _channelAvatars.remove(channelId);
+    notifyListeners();
+    _saveToStorage();
   }
 
-  // Получение всех подписок
-  List<String> getSubscribedChannels() {
-    return _channelSubscriptions.entries
-        .where((entry) => entry.value)
-        .map((entry) => entry.key)
-        .toList();
+  /// Проверка наличия кастомной аватарки
+  bool hasCustomAvatar(String channelId) {
+    final avatar = _channelAvatars[channelId];
+    return avatar != null && avatar.isNotEmpty;
   }
 
-  // Получение количества подписок
-  int getSubscriptionsCount() {
-    return _channelSubscriptions.values.where((isSubscribed) => isSubscribed).length;
+  /// Получение всех кастомных аватарок
+  Map<String, String?> getAllCustomAvatars() {
+    return Map.from(_channelAvatars)
+      ..removeWhere((key, value) => value == null || value.isEmpty);
   }
 
-  // === СТАРЫЕ МЕТОДЫ (остаются без изменений) ===
+  // === МЕТОДЫ ДЛЯ ОБЛОЖЕК ===
 
-  // Геттеры
-  String? getAvatarForChannel(String channelId) => _channelAvatars[channelId];
-  String? getCoverForChannel(String channelId) => _channelCovers[channelId];
+  /// Получение текущей обложки канала с приоритетом: кастомная → дефолтная
+  String? getCurrentCover(String channelId, {String? defaultCover}) {
+    return _channelCovers[channelId] ?? defaultCover;
+  }
+
+  /// Установка обложки канала
+  void setCoverForChannel(String channelId, String? coverUrl) {
+    if (coverUrl == null) {
+      _channelCovers.remove(channelId);
+    } else {
+      _channelCovers[channelId] = coverUrl;
+    }
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  /// Очистка обложки канала (возврат к дефолтной)
+  void clearCoverForChannel(String channelId) {
+    _channelCovers.remove(channelId);
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  /// Проверка наличия кастомной обложки
+  bool hasCustomCover(String channelId) {
+    final cover = _channelCovers[channelId];
+    return cover != null && cover.isNotEmpty;
+  }
+
+  /// Получение всех кастомных обложек
+  Map<String, String?> getAllCustomCovers() {
+    return Map.from(_channelCovers)
+      ..removeWhere((key, value) => value == null || value.isEmpty);
+  }
+
+  // === МЕТОДЫ ДЛЯ ХЕШТЕГОВ ===
+
+  /// Получение хештегов канала
   List<String> getHashtagsForChannel(String channelId) => _channelHashtags[channelId] ?? [];
 
-  // Сеттеры
-  void setAvatarForChannel(String channelId, String? avatarUrl) {
-    _channelAvatars[channelId] = avatarUrl;
-    notifyListeners();
-    _saveToStorage();
-  }
-
-  void setCoverForChannel(String channelId, String? coverUrl) {
-    _channelCovers[channelId] = coverUrl;
-    notifyListeners();
-    _saveToStorage();
-  }
-
+  /// Установка хештегов канала
   void setHashtagsForChannel(String channelId, List<String> hashtags) {
     _channelHashtags[channelId] = List.from(hashtags);
     notifyListeners();
     _saveToStorage();
   }
 
+  /// Добавление хештега к каналу
   void addHashtagToChannel(String channelId, String hashtag) {
     if (!_channelHashtags.containsKey(channelId)) {
       _channelHashtags[channelId] = [];
@@ -102,6 +127,7 @@ class ChannelStateProvider with ChangeNotifier {
     }
   }
 
+  /// Удаление хештега из канала
   void removeHashtagFromChannel(String channelId, String hashtag) {
     if (_channelHashtags.containsKey(channelId)) {
       _channelHashtags[channelId]!.remove(hashtag);
@@ -110,18 +136,76 @@ class ChannelStateProvider with ChangeNotifier {
     }
   }
 
-  // Очистка
-  void clearAllData() {
-    _channelAvatars.clear();
-    _channelCovers.clear();
-    _channelHashtags.clear();
-    _channelSubscriptions.clear();
-    _channelSubscribersCount.clear();
+  /// Очистка всех хештегов канала
+  void clearHashtagsForChannel(String channelId) {
+    _channelHashtags.remove(channelId);
     notifyListeners();
-    _clearStorage();
+    _saveToStorage();
   }
 
-  // Инициализация канала
+  /// Получение всех кастомных хештегов
+  Map<String, List<String>> getAllCustomHashtags() {
+    return Map.from(_channelHashtags)
+      ..removeWhere((key, value) => value == null || value.isEmpty);
+  }
+
+  // === МЕТОДЫ ДЛЯ ПОДПИСОК ===
+
+  /// Проверка подписки на канал
+  bool isSubscribed(String channelId) {
+    return _channelSubscriptions[channelId] ?? false;
+  }
+
+  /// Получение количества подписчиков
+  int getSubscribers(String channelId) {
+    return _channelSubscribersCount[channelId] ?? 0;
+  }
+
+  /// Обновление подписки
+  void updateChannelSubscription(String channelId, bool isSubscribed, int subscribersCount) {
+    _channelSubscriptions[channelId] = isSubscribed;
+    _channelSubscribersCount[channelId] = subscribersCount;
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  /// Переключение подписки
+  void toggleSubscription(String channelId, int currentSubscribers) {
+    final currentIsSubscribed = isSubscribed(channelId);
+    final newSubscribedState = !currentIsSubscribed;
+    final newSubscribersCount = newSubscribedState
+        ? currentSubscribers + 1
+        : currentSubscribers - 1;
+
+    updateChannelSubscription(channelId, newSubscribedState, newSubscribersCount);
+  }
+
+  /// Получение всех подписок
+  List<String> getSubscribedChannels() {
+    return _channelSubscriptions.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toList();
+  }
+
+  /// Получение количества подписок
+  int getSubscriptionsCount() {
+    return _channelSubscriptions.values.where((isSubscribed) => isSubscribed).length;
+  }
+
+  /// Получение всех подписок
+  Map<String, bool> getAllSubscriptions() {
+    return Map.from(_channelSubscriptions);
+  }
+
+  // === ОБЩИЕ МЕТОДЫ ===
+
+  /// Проверка наличия кастомных данных у канала
+  bool hasCustomData(String channelId) {
+    return hasCustomAvatar(channelId) || hasCustomCover(channelId) || (_channelHashtags[channelId]?.isNotEmpty ?? false);
+  }
+
+  /// Инициализация канала
   void initializeChannelIfNeeded(String channelId, {String? defaultAvatar, String? defaultCover, List<String>? defaultTags, int? defaultSubscribers}) {
     if (!_channelAvatars.containsKey(channelId) && defaultAvatar != null) {
       _channelAvatars[channelId] = defaultAvatar;
@@ -137,52 +221,7 @@ class ChannelStateProvider with ChangeNotifier {
     }
   }
 
-  void clearChannelData(String channelId) {
-    _channelAvatars.remove(channelId);
-    _channelCovers.remove(channelId);
-    _channelHashtags.remove(channelId);
-    _channelSubscriptions.remove(channelId);
-    _channelSubscribersCount.remove(channelId);
-    notifyListeners();
-    _saveToStorage();
-  }
-
-  // Вспомогательные методы
-  bool hasCustomAvatar(String channelId) {
-    final avatar = _channelAvatars[channelId];
-    return avatar != null && avatar.isNotEmpty;
-  }
-
-  bool hasCustomCover(String channelId) {
-    final cover = _channelCovers[channelId];
-    return cover != null && cover.isNotEmpty;
-  }
-
-  bool hasCustomData(String channelId) {
-    return hasCustomAvatar(channelId) || hasCustomCover(channelId) || (_channelHashtags[channelId]?.isNotEmpty ?? false);
-  }
-
-  // Получение всех данных
-  Map<String, String?> getAllCustomAvatars() {
-    return Map.from(_channelAvatars)
-      ..removeWhere((key, value) => value == null || value.isEmpty);
-  }
-
-  Map<String, String?> getAllCustomCovers() {
-    return Map.from(_channelCovers)
-      ..removeWhere((key, value) => value == null || value.isEmpty);
-  }
-
-  Map<String, List<String>> getAllCustomHashtags() {
-    return Map.from(_channelHashtags)
-      ..removeWhere((key, value) => value == null || value.isEmpty);
-  }
-
-  Map<String, bool> getAllSubscriptions() {
-    return Map.from(_channelSubscriptions);
-  }
-
-  // Получение полной информации о канале
+  /// Получение полной информации о канале
   Map<String, dynamic> getChannelData(String channelId) {
     return {
       'avatar': _channelAvatars[channelId],
@@ -196,7 +235,30 @@ class ChannelStateProvider with ChangeNotifier {
     };
   }
 
-  // Работа с хранилищем
+  /// Очистка данных канала
+  void clearChannelData(String channelId) {
+    _channelAvatars.remove(channelId);
+    _channelCovers.remove(channelId);
+    _channelHashtags.remove(channelId);
+    _channelSubscriptions.remove(channelId);
+    _channelSubscribersCount.remove(channelId);
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  /// Очистка всех данных
+  void clearAllData() {
+    _channelAvatars.clear();
+    _channelCovers.clear();
+    _channelHashtags.clear();
+    _channelSubscriptions.clear();
+    _channelSubscribersCount.clear();
+    notifyListeners();
+    _clearStorage();
+  }
+
+  // === РАБОТА С ХРАНИЛИЩЕМ ===
+
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -318,7 +380,9 @@ class ChannelStateProvider with ChangeNotifier {
     }
   }
 
-  // Валидация и очистка хештегов
+  // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
+
+  /// Валидация и очистка хештегов
   String _cleanHashtag(String hashtag) {
     return hashtag.replaceAll(RegExp(r'#'), '').trim();
   }
@@ -327,7 +391,7 @@ class ChannelStateProvider with ChangeNotifier {
     return hashtags.map(_cleanHashtag).where((tag) => tag.isNotEmpty).toList();
   }
 
-  // Получение статистики
+  /// Получение статистики
   Map<String, int> getStats() {
     return {
       'channels_with_avatars': getAllCustomAvatars().length,
@@ -338,7 +402,7 @@ class ChannelStateProvider with ChangeNotifier {
     };
   }
 
-  // Поиск каналов по хештегам
+  /// Поиск каналов по хештегам
   List<String> findChannelsByHashtag(String hashtag) {
     final cleanHashtag = _cleanHashtag(hashtag);
     return _channelHashtags.entries
@@ -347,7 +411,7 @@ class ChannelStateProvider with ChangeNotifier {
         .toList();
   }
 
-  // Проверка существования канала
+  /// Проверка существования канала
   bool channelExists(String channelId) {
     return _channelAvatars.containsKey(channelId) ||
         _channelCovers.containsKey(channelId) ||
@@ -356,7 +420,9 @@ class ChannelStateProvider with ChangeNotifier {
         _channelSubscribersCount.containsKey(channelId);
   }
 
-  // Импорт/экспорт данных
+  // === ИМПОРТ/ЭКСПОРТ ДАННЫХ ===
+
+  /// Экспорт всех данных
   Map<String, dynamic> exportData() {
     return {
       'avatars': _channelAvatars,
@@ -369,6 +435,7 @@ class ChannelStateProvider with ChangeNotifier {
     };
   }
 
+  /// Импорт данных
   Future<void> importData(Map<String, dynamic> data) async {
     try {
       if (data['avatars'] is Map) {

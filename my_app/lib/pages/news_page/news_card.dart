@@ -169,6 +169,21 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
+  // Адаптивные методы как в CardsPage
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return 80;
+    return 16;
+  }
+
+  double _getContentMaxWidth(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1400) return 1200;
+    if (width > 1000) return 900;
+    if (width > 700) return 700;
+    return double.infinity;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -418,71 +433,74 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return _getFallbackAvatarUrl(userName);
   }
 
-  // УЛУЧШЕННЫЙ КОМПАКТНЫЙ ДИЗАЙН КАРТОЧЕК
+  // УЛУЧШЕННЫЙ КОМПАКТНЫЙ ДИЗАЙН КАРТОЧЕК С АДАПТИВНЫМИ ОТСТУПАМИ
   Widget _buildCard({required Widget child, bool isChannel = false}) {
+    final horizontalPadding = _getHorizontalPadding(context);
+    final contentMaxWidth = _getContentMaxWidth(context);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: NewsTheme.cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-            spreadRadius: -8,
-          ),
-          BoxShadow(
-            color: _cardDesign.gradient[0].withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.15),
-          width: 1,
-        ),
+      width: double.infinity,
+      margin: EdgeInsets.only(
+        left: horizontalPadding,
+        right: horizontalPadding,
+        bottom: 16,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -30,
-              right: -30,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      _cardDesign.gradient[0].withOpacity(0.04),
-                      _cardDesign.gradient[0].withOpacity(0.01),
-                    ],
-                  ),
-                ),
+      child: Center(
+        child: Container(
+          constraints: BoxConstraints(maxWidth: contentMaxWidth),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
-            ),
-            Column(
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
               children: [
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: _cardDesign.gradient,
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
+                Positioned(
+                  top: -30,
+                  right: -30,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          _cardDesign.gradient[0].withOpacity(0.04),
+                          _cardDesign.gradient[0].withOpacity(0.01),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: child,
+                Column(
+                  children: [
+                    Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _cardDesign.gradient,
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: child,
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -529,7 +547,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
-                    color: NewsTheme.textColor,
+                    color: Colors.black87,
                     letterSpacing: -0.2,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -541,13 +559,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   Icon(
                     Icons.access_time_rounded,
                     size: 12,
-                    color: NewsTheme.secondaryTextColor,
+                    color: Colors.grey[600],
                   ),
                   const SizedBox(width: 4),
                   Text(
                     widget.getTimeAgo(createdAt),
                     style: TextStyle(
-                      color: NewsTheme.secondaryTextColor,
+                      color: Colors.grey[600],
                       fontSize: 12,
                     ),
                   ),
@@ -557,7 +575,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       width: 3,
                       height: 3,
                       decoration: BoxDecoration(
-                        color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                        color: Colors.grey.withOpacity(0.5),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -589,16 +607,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           ),
         Container(
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.grey[100],
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.grey[300]!,
             ),
           ),
           child: IconButton(
             icon: Icon(
               Icons.more_horiz_rounded,
-              color: NewsTheme.secondaryTextColor,
+              color: Colors.grey[700],
               size: 18,
             ),
             onPressed: () => _showAdvancedOptionsMenu(context),
@@ -814,10 +832,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.02),
+        color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.black.withOpacity(0.04),
+          color: Colors.grey[200]!,
         ),
       ),
       child: Row(
@@ -885,14 +903,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             Icon(
               icon,
               size: 15,
-              color: isActive ? color : NewsTheme.secondaryTextColor,
+              color: isActive ? color : Colors.grey[700],
             ),
             if (count > 0) ...[
               const SizedBox(width: 4),
               Text(
                 _formatCount(count),
                 style: TextStyle(
-                  color: isActive ? color : NewsTheme.secondaryTextColor,
+                  color: isActive ? color : Colors.grey[700],
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -983,7 +1001,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: NewsTheme.cardColor,
+          color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           boxShadow: [
             BoxShadow(
@@ -1003,7 +1021,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: NewsTheme.secondaryTextColor.withOpacity(0.3),
+                    color: Colors.grey[400],
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1030,8 +1048,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: NewsTheme.secondaryTextColor,
-                    side: BorderSide(color: NewsTheme.secondaryTextColor.withOpacity(0.2)),
+                    foregroundColor: Colors.grey[700],
+                    side: BorderSide(color: Colors.grey[300]!),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                   ),
@@ -1059,7 +1077,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       title: Text(
         title,
         style: TextStyle(
-          color: NewsTheme.textColor,
+          color: Colors.black87,
           fontWeight: FontWeight.w600,
           fontSize: 14,
         ),
@@ -1088,7 +1106,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               insetPadding: const EdgeInsets.all(20),
               child: Container(
                 decoration: BoxDecoration(
-                  color: NewsTheme.cardColor,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
@@ -1108,19 +1126,19 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: NewsTheme.textColor,
+                          color: Colors.black87,
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: _tagEditController,
-                        style: TextStyle(color: NewsTheme.textColor, fontSize: 15),
+                        style: TextStyle(color: Colors.black87, fontSize: 15),
                         decoration: InputDecoration(
                           hintText: 'Название тега',
-                          hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
+                          hintStyle: TextStyle(color: Colors.grey[600]),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: NewsTheme.secondaryTextColor.withOpacity(0.2)),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -1133,7 +1151,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       Text(
                         'Выберите цвет:',
                         style: TextStyle(
-                          color: NewsTheme.textColor,
+                          color: Colors.black87,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
@@ -1183,8 +1201,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             child: OutlinedButton(
                               onPressed: () => Navigator.pop(context),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: NewsTheme.secondaryTextColor,
-                                side: BorderSide(color: NewsTheme.secondaryTextColor.withOpacity(0.2)),
+                                foregroundColor: Colors.grey[700],
+                                side: BorderSide(color: Colors.grey[300]!),
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
@@ -1279,10 +1297,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.grey[50],
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.grey[200]!,
                 ),
               ),
               child: Column(
@@ -1295,7 +1313,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: NewsTheme.textColor,
+                          color: Colors.black87,
                         ),
                       ),
                       const Spacer(),
@@ -1303,7 +1321,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         time,
                         style: TextStyle(
                           fontSize: 11,
-                          color: NewsTheme.secondaryTextColor,
+                          color: Colors.grey[600],
                         ),
                       ),
                     ],
@@ -1313,7 +1331,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     text,
                     style: TextStyle(
                       fontSize: 13,
-                      color: NewsTheme.textColor.withOpacity(0.8),
+                      color: Colors.black87.withOpacity(0.8),
                       height: 1.4,
                     ),
                   ),
@@ -1399,10 +1417,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
         return Container(
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.grey[50],
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.grey[200]!,
             ),
           ),
           child: Row(
@@ -1438,10 +1456,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               Expanded(
                 child: TextField(
                   controller: _commentController,
-                  style: TextStyle(color: NewsTheme.textColor, fontSize: 14),
+                  style: TextStyle(color: Colors.black87, fontSize: 14),
                   decoration: InputDecoration(
                     hintText: 'Напишите комментарий...',
-                    hintStyle: TextStyle(color: NewsTheme.secondaryTextColor),
+                    hintStyle: TextStyle(color: Colors.grey[600]),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
@@ -1545,7 +1563,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: NewsTheme.textColor,
+                      color: Colors.black87,
                       height: 1.3,
                     ),
                   ),
@@ -1554,7 +1572,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 _getStringValue(widget.news['description']),
                 style: TextStyle(
                   fontSize: 14,
-                  color: NewsTheme.textColor.withOpacity(0.8),
+                  color: Colors.black87.withOpacity(0.8),
                   height: 1.5,
                 ),
               ),
@@ -1611,7 +1629,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       Text(
                         channelName,
                         style: TextStyle(
-                          color: NewsTheme.textColor,
+                          color: Colors.black87,
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                         ),
@@ -1634,7 +1652,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             width: 3,
                             height: 3,
                             decoration: BoxDecoration(
-                              color: NewsTheme.secondaryTextColor.withOpacity(0.5),
+                              color: Colors.grey.withOpacity(0.5),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -1642,7 +1660,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                           Text(
                             widget.getTimeAgo(createdAt),
                             style: TextStyle(
-                              color: NewsTheme.secondaryTextColor,
+                              color: Colors.grey.shade600,
                               fontSize: 11,
                             ),
                           ),
@@ -1666,7 +1684,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: NewsTheme.textColor,
+                      color: Colors.black87,
                       height: 1.3,
                     ),
                   ),
@@ -1676,7 +1694,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   description,
                   style: TextStyle(
                     fontSize: 14,
-                    color: NewsTheme.textColor.withOpacity(0.8),
+                    color: Colors.black87.withOpacity(0.8),
                     height: 1.4,
                   ),
                 ),

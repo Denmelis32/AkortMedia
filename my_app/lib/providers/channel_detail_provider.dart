@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../pages/cards_page/models/channel.dart';
 import '../pages/cards_page/models/channel_detail_state.dart';
-import '../pages/cards_page/models/chat_message.dart'; // Добавьте этот импорт
+import '../pages/cards_page/models/chat_message.dart';
+import '../../providers/channel_state_provider.dart';
 
 class ChannelDetailProvider with ChangeNotifier {
   final Channel _channel;
@@ -11,22 +13,12 @@ class ChannelDetailProvider with ChangeNotifier {
   // Контроллеры для редактирования
   final TextEditingController _descriptionController = TextEditingController();
 
-  // НОВЫЕ ПОЛЯ ДЛЯ СОХРАНЕНИЯ СОСТОЯНИЯ
-  String? _currentAvatarUrl;
-  String? _currentCoverUrl;
-  List<String> _currentHashtags = [];
-
-  // Дополнительные состояния для секций
-  final List<bool> _expandedSections = [false, false, false]; // Для members, playlists и других секций
+  // ССЫЛКА НА ChannelStateProvider
+  ChannelStateProvider? _channelStateProvider;
 
   ChannelDetailProvider(this._channel)
       : _state = ChannelDetailState.initial() {
     _scrollController.addListener(_handleScroll);
-
-    // ИНИЦИАЛИЗАЦИЯ ИЗ КАНАЛА
-    _currentAvatarUrl = _channel.imageUrl;
-    _currentCoverUrl = _channel.coverImageUrl;
-    _currentHashtags = List.from(_channel.tags);
 
     // Инициализация контроллера описания
     _descriptionController.text = _channel.description;
@@ -35,33 +27,67 @@ class ChannelDetailProvider with ChangeNotifier {
     _loadInitialData();
   }
 
+  // Метод для установки ChannelStateProvider
+  void setChannelStateProvider(ChannelStateProvider provider) {
+    _channelStateProvider = provider;
+    // Инициализируем канал в состоянии если нужно
+    _channelStateProvider!.initializeChannelIfNeeded(
+      _channel.id.toString(),
+      defaultAvatar: _channel.imageUrl,
+      defaultCover: _channel.coverImageUrl,
+      defaultTags: _channel.tags,
+      defaultSubscribers: _channel.subscribers,
+    );
+    notifyListeners();
+  }
+
   // ГЕТТЕРЫ
   Channel get channel => _channel;
   ChannelDetailState get state => _state;
   ScrollController get scrollController => _scrollController;
   TextEditingController get descriptionController => _descriptionController;
 
-  // НОВЫЕ ГЕТТЕРЫ ДЛЯ СОСТОЯНИЯ
-  String? get currentAvatarUrl => _currentAvatarUrl;
-  String? get currentCoverUrl => _currentCoverUrl;
-  List<String> get currentHashtags => _currentHashtags;
+  // НОВЫЕ ГЕТТЕРЫ ДЛЯ СОСТОЯНИЯ - ИСПОЛЬЗУЕМ ChannelStateProvider
+  String? get currentAvatarUrl => _channelStateProvider?.getAvatarForChannel(_channel.id.toString()) ?? _channel.imageUrl;
 
-  // Геттер для секций
-  bool isSectionExpanded(int index) => _expandedSections[index];
+  String? get currentCoverUrl => _channelStateProvider?.getCoverForChannel(_channel.id.toString()) ?? _channel.coverImageUrl;
 
-  // НОВЫЕ МЕТОДЫ ДЛЯ ИЗМЕНЕНИЯ СОСТОЯНИЯ
+  List<String> get currentHashtags => _channelStateProvider?.getHashtagsForChannel(_channel.id.toString()).isNotEmpty ?? false
+      ? _channelStateProvider!.getHashtagsForChannel(_channel.id.toString())
+      : _channel.tags;
+
+  // Геттер для подписки
+  bool get isSubscribed => _channelStateProvider?.isSubscribed(_channel.id.toString()) ?? _channel.isSubscribed;
+
+  // Геттер для количества подписчиков
+  int get subscribersCount => _channelStateProvider?.getSubscribers(_channel.id.toString()) ?? _channel.subscribers;
+
+  // Геттер для секций - ИСПРАВЛЕНО
+  bool isSectionExpanded(int index) => _state.expandedSections[index] ?? false;
+
+  // НОВЫЕ МЕТОДЫ ДЛЯ ИЗМЕНЕНИЯ СОСТОЯНИЯ - ЧЕРЕЗ ChannelStateProvider
   void setAvatarUrl(String? avatarUrl) {
-    _currentAvatarUrl = avatarUrl;
+    _channelStateProvider?.setAvatarForChannel(_channel.id.toString(), avatarUrl);
     notifyListeners();
   }
 
   void setCoverUrl(String? coverUrl) {
-    _currentCoverUrl = coverUrl;
+    _channelStateProvider?.setCoverForChannel(_channel.id.toString(), coverUrl);
     notifyListeners();
   }
 
   void setHashtags(List<String> hashtags) {
-    _currentHashtags = hashtags;
+    _channelStateProvider?.setHashtagsForChannel(_channel.id.toString(), hashtags);
+    notifyListeners();
+  }
+
+  void addHashtag(String hashtag) {
+    _channelStateProvider?.addHashtagToChannel(_channel.id.toString(), hashtag);
+    notifyListeners();
+  }
+
+  void removeHashtag(String hashtag) {
+    _channelStateProvider?.removeHashtagFromChannel(_channel.id.toString(), hashtag);
     notifyListeners();
   }
 
@@ -85,15 +111,15 @@ class ChannelDetailProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // МЕТОД ДЛЯ ПЕРЕКЛЮЧЕНИЯ СЕКЦИЙ
+  // МЕТОД ДЛЯ ПЕРЕКЛЮЧЕНИЯ СЕКЦИЙ - ИСПРАВЛЕНО
   void toggleSection(int index) {
-    if (index >= 0 && index < _expandedSections.length) {
-      _expandedSections[index] = !_expandedSections[index];
-      notifyListeners();
-    }
+    final newSections = Map<int, bool>.from(_state.expandedSections);
+    newSections[index] = !(newSections[index] ?? false);
+    _state = _state.copyWith(expandedSections: newSections);
+    notifyListeners();
   }
 
-  // МЕТОДЫ ДЛЯ ЧАТА - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  // МЕТОДЫ ДЛЯ ЧАТА
   void addChatMessage(String message) {
     final newMessage = ChatMessage(
       text: message,
@@ -101,7 +127,7 @@ class ChannelDetailProvider with ChangeNotifier {
       timestamp: DateTime.now(),
       senderName: 'Пользователь',
       senderImageUrl: '',
-      senderId: 'current_user_id', // Замените на реальный ID пользователя
+      senderId: 'current_user_id',
     );
 
     final updatedMessages = List<ChatMessage>.from(_state.chatMessages);
@@ -124,7 +150,7 @@ class ChannelDetailProvider with ChangeNotifier {
 
       _state = _state.copyWith(
         isLoading: false,
-        isSubscribed: _channel.isSubscribed,
+        isSubscribed: isSubscribed,
         isFavorite: _channel.isFavorite,
         notificationsEnabled: true,
       );
@@ -159,9 +185,13 @@ class ChannelDetailProvider with ChangeNotifier {
   }
 
   void toggleSubscription() {
-    _state = _state.copyWith(
-      isSubscribed: !_state.isSubscribed,
-    );
+    if (_channelStateProvider != null) {
+      _channelStateProvider!.toggleSubscription(_channel.id.toString(), subscribersCount);
+    } else {
+      _state = _state.copyWith(
+        isSubscribed: !_state.isSubscribed,
+      );
+    }
     notifyListeners();
   }
 
@@ -204,16 +234,28 @@ class ChannelDetailProvider with ChangeNotifier {
   }
 
   void joinChannel() {
-    _state = _state.copyWith(
-      isSubscribed: true,
-    );
+    if (_channelStateProvider != null) {
+      _channelStateProvider!.updateChannelSubscription(
+          _channel.id.toString(),
+          true,
+          subscribersCount + 1
+      );
+    } else {
+      _state = _state.copyWith(isSubscribed: true);
+    }
     notifyListeners();
   }
 
   void leaveChannel() {
-    _state = _state.copyWith(
-      isSubscribed: false,
-    );
+    if (_channelStateProvider != null) {
+      _channelStateProvider!.updateChannelSubscription(
+          _channel.id.toString(),
+          false,
+          subscribersCount - 1
+      );
+    } else {
+      _state = _state.copyWith(isSubscribed: false);
+    }
     notifyListeners();
   }
 
@@ -249,19 +291,20 @@ class ChannelDetailProvider with ChangeNotifier {
     _loadInitialData();
   }
 
-  // НОВЫЙ МЕТОД ДЛЯ СБРОСА СОСТОЯНИЯ К ИСХОДНОМУ
+  // НОВЫЙ МЕТОД ДЛЯ СБРОСА СОСТОЯНИЯ К ИСХОДНОМУ - ИСПРАВЛЕНО
   void resetToInitialState() {
-    _currentAvatarUrl = _channel.imageUrl;
-    _currentCoverUrl = _channel.coverImageUrl;
-    _currentHashtags = List.from(_channel.tags);
+    // Сбрасываем кастомные данные в ChannelStateProvider
+    _channelStateProvider?.setAvatarForChannel(_channel.id.toString(), _channel.imageUrl);
+    _channelStateProvider?.setCoverForChannel(_channel.id.toString(), _channel.coverImageUrl);
+    _channelStateProvider?.setHashtagsForChannel(_channel.id.toString(), _channel.tags);
+
     _descriptionController.text = _channel.description;
 
     // Сбрасываем секции
-    for (int i = 0; i < _expandedSections.length; i++) {
-      _expandedSections[i] = false;
-    }
+    final newSections = <int, bool>{};
 
     _state = ChannelDetailState.initial().copyWith(
+      expandedSections: newSections,
       isSubscribed: _channel.isSubscribed,
       isFavorite: _channel.isFavorite,
     );
@@ -275,14 +318,26 @@ class ChannelDetailProvider with ChangeNotifier {
       return;
     }
 
-    if (_currentAvatarUrl == _channel.imageUrl) {
-      _currentAvatarUrl = newChannel.imageUrl;
-    }
-    if (_currentCoverUrl == _channel.coverImageUrl) {
-      _currentCoverUrl = newChannel.coverImageUrl;
-    }
-    if (_listEquals(_currentHashtags, _channel.tags)) {
-      _currentHashtags = List.from(newChannel.tags);
+    // Обновляем данные только если они не были изменены пользователем
+    if (_channelStateProvider != null) {
+      final currentAvatar = _channelStateProvider!.getAvatarForChannel(_channel.id.toString());
+      final currentCover = _channelStateProvider!.getCoverForChannel(_channel.id.toString());
+      final currentHashtags = _channelStateProvider!.getHashtagsForChannel(_channel.id.toString());
+
+      // Обновляем аватар только если он равен исходному (не был изменен пользователем)
+      if (currentAvatar == null || currentAvatar == _channel.imageUrl) {
+        _channelStateProvider!.setAvatarForChannel(_channel.id.toString(), newChannel.imageUrl);
+      }
+
+      // Обновляем обложку только если она равна исходной (не была изменена пользователем)
+      if (currentCover == null || currentCover == _channel.coverImageUrl) {
+        _channelStateProvider!.setCoverForChannel(_channel.id.toString(), newChannel.coverImageUrl);
+      }
+
+      // Обновляем хештеги только если они равны исходным (не были изменены пользователем)
+      if (currentHashtags.isEmpty || _listEquals(currentHashtags, _channel.tags)) {
+        _channelStateProvider!.setHashtagsForChannel(_channel.id.toString(), newChannel.tags);
+      }
     }
 
     _state = _state.copyWith(

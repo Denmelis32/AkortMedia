@@ -10,6 +10,7 @@ class ChannelHeader extends StatefulWidget {
   final Function(String)? onAvatarChanged;
   final Function(String)? onCoverChanged;
   final Function(List<String>)? onHashtagsChanged;
+  final Function(String)? onCurrentAvatarUrl; // НОВЫЙ КОЛБЭК ДЛЯ ПЕРЕДАЧИ ТЕКУЩЕЙ АВАТАРКИ
 
   const ChannelHeader({
     super.key,
@@ -18,6 +19,7 @@ class ChannelHeader extends StatefulWidget {
     this.onAvatarChanged,
     this.onCoverChanged,
     this.onHashtagsChanged,
+    this.onCurrentAvatarUrl, // ДОБАВЛЕН НОВЫЙ ПАРАМЕТР
   });
 
   @override
@@ -26,11 +28,11 @@ class ChannelHeader extends StatefulWidget {
 
 class _ChannelHeaderState extends State<ChannelHeader> {
   final TextEditingController _hashtagController = TextEditingController();
+  String? _currentAvatarUrl; // ЛОКАЛЬНОЕ СОСТОЯНИЕ ДЛЯ АВАТАРКИ
 
   @override
   void initState() {
     super.initState();
-    // Переносим инициализацию в addPostFrameCallback
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeChannelState();
     });
@@ -53,6 +55,18 @@ class _ChannelHeaderState extends State<ChannelHeader> {
     if (provider.getHashtagsForChannel(widget.channel.id.toString()).isEmpty) {
       provider.setHashtagsForChannel(widget.channel.id.toString(), widget.channel.tags);
     }
+
+    // Устанавливаем текущую аватарку и уведомляем родителя
+    _updateCurrentAvatar(provider);
+  }
+
+  void _updateCurrentAvatar(ChannelStateProvider provider) {
+    final avatarUrl = provider.getAvatarForChannel(widget.channel.id.toString());
+    setState(() {
+      _currentAvatarUrl = avatarUrl;
+    });
+    // Уведомляем родителя о текущей аватарке
+    widget.onCurrentAvatarUrl?.call(avatarUrl ?? widget.channel.imageUrl);
   }
 
   @override
@@ -62,6 +76,11 @@ class _ChannelHeaderState extends State<ChannelHeader> {
         final avatarUrl = provider.getAvatarForChannel(widget.channel.id.toString());
         final coverUrl = provider.getCoverForChannel(widget.channel.id.toString());
         final hashtags = provider.getHashtagsForChannel(widget.channel.id.toString());
+
+        // Обновляем текущую аватарку при изменении в провайдере
+        if (_currentAvatarUrl != avatarUrl) {
+          _updateCurrentAvatar(provider);
+        }
 
         return Stack(
           children: [
@@ -83,6 +102,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
     );
   }
 
+  // ОСТАЛЬНЫЕ МЕТОДЫ ОСТАЮТСЯ БЕЗ ИЗМЕНЕНИЙ...
   Widget _buildCoverImage(String? coverUrl) {
     return Positioned.fill(
       child: coverUrl != null && coverUrl.isNotEmpty
@@ -441,6 +461,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
               if (newAvatarUrl.isNotEmpty) {
                 provider.setAvatarForChannel(widget.channel.id.toString(), newAvatarUrl);
                 widget.onAvatarChanged?.call(newAvatarUrl);
+                _updateCurrentAvatar(provider); // ОБНОВЛЯЕМ ТЕКУЩУЮ АВАТАРКУ
               }
               Navigator.pop(context);
             },
@@ -450,6 +471,7 @@ class _ChannelHeaderState extends State<ChannelHeader> {
             onPressed: () {
               provider.setAvatarForChannel(widget.channel.id.toString(), null);
               widget.onAvatarChanged?.call('');
+              _updateCurrentAvatar(provider); // ОБНОВЛЯЕМ ТЕКУЩУЮ АВАТАРКУ
               Navigator.pop(context);
             },
             child: const Text('Сбросить', style: TextStyle(color: Colors.red)),

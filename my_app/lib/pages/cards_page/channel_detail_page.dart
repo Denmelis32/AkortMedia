@@ -548,7 +548,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       builder: (context) => ContentTypeDialog(
         channel: widget.channel,
         onAddPost: () => _showAddPostDialog(context),
-        onAddArticle: () => _showAddArticleDialog(context),
+        onAddArticle: () => _showAddArticlePage(context), // ИЗМЕНЕНО ЗДЕСЬ
         onAddDiscussion: () {}, // Убрано создание обсуждений
       ),
     );
@@ -666,24 +666,27 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       _showSuccessSnackbar(context, 'Ошибка при создании новости');
     }
   }
+  void _showAddArticlePage(BuildContext context) {
+    final stateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    final currentAvatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
 
-  void _showAddArticleDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AddArticleDialog(
-        categories: const [
-          'YouTube',
-          'Бизнес',
-          'Игры',
-          'Программирование',
-          'Спорт',
-          'Общение',
-          'Общее'
-        ],
-        emojis: const ['📊', '⭐', '🏆', '🚀', '💡', '📱', '🌐', '💻', '📈', '🎯', '🎮', '⚽'],
-        onArticleAdded: (article) => _addArticle(context, article),
-        userName: "Администратор канала",
-        channelColor: widget.channel.cardColor,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddArticlePage(
+          categories: const [
+            'YouTube',
+            'Бизнес',
+            'Игры',
+            'Программирование',
+            'Спорт',
+            'Общение',
+            'Общее'
+          ],
+          emojis: const ['📊', '⭐', '🏆', '🚀', '💡', '📱', '🌐', '💻', '📈', '🎯', '🎮', '⚽'],
+          onArticleAdded: (article) => _addArticle(context, article),
+          userName: "Администратор канала",
+          userAvatarUrl: currentAvatarUrl,
+        ),
       ),
     );
   }

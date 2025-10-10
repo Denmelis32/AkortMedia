@@ -53,6 +53,21 @@ class _NewsAppBarState extends State<NewsAppBar> {
   late FocusNode _searchFocusNode;
   bool _isControllerInitialized = false;
 
+  // Адаптивные методы как в CardsPage
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return 80;
+    return 16;
+  }
+
+  double _getContentMaxWidth(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1400) return 1200;
+    if (width > 1000) return 900;
+    if (width > 700) return 700;
+    return double.infinity;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -204,10 +219,10 @@ class _NewsAppBarState extends State<NewsAppBar> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: NewsTheme.primaryColor.withOpacity(0.1),
+                  color: Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: NewsTheme.primaryColor.withOpacity(0.2),
+                    color: Colors.blue.withOpacity(0.2),
                   ),
                 ),
                 child: Row(
@@ -216,13 +231,13 @@ class _NewsAppBarState extends State<NewsAppBar> {
                     Icon(
                       Icons.filter_alt_off_rounded,
                       size: 12,
-                      color: NewsTheme.primaryColor,
+                      color: Colors.blue,
                     ),
                     const SizedBox(width: 3),
                     Text(
                       'Очистить',
                       style: TextStyle(
-                        color: NewsTheme.primaryColor,
+                        color: Colors.blue,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -248,10 +263,10 @@ class _NewsAppBarState extends State<NewsAppBar> {
           autofocus: true,
           decoration: InputDecoration(
             filled: true,
-            fillColor: NewsTheme.backgroundColor,
+            fillColor: Colors.grey[50],
             hintText: 'Поиск новостей...',
             hintStyle: TextStyle(
-              color: NewsTheme.secondaryTextColor.withOpacity(0.7),
+              color: Colors.grey[600],
               fontSize: 13,
             ),
             border: OutlineInputBorder(
@@ -261,14 +276,14 @@ class _NewsAppBarState extends State<NewsAppBar> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
-                color: NewsTheme.primaryColor.withOpacity(0.3),
+                color: Colors.blue.withOpacity(0.3),
                 width: 1.2,
               ),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
             prefixIcon: Icon(
               Icons.search_rounded,
-              color: NewsTheme.primaryColor,
+              color: Colors.blue,
               size: 16,
             ),
             suffixIcon: _searchController.text.isNotEmpty
@@ -276,7 +291,7 @@ class _NewsAppBarState extends State<NewsAppBar> {
               icon: Icon(
                 Icons.clear_rounded,
                 size: 16,
-                color: NewsTheme.primaryColor.withOpacity(0.7),
+                color: Colors.blue.withOpacity(0.7),
               ),
               onPressed: _clearSearch,
               splashRadius: 14,
@@ -289,7 +304,7 @@ class _NewsAppBarState extends State<NewsAppBar> {
                 : null,
           ),
           style: TextStyle(
-            color: NewsTheme.textColor,
+            color: Colors.black87,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -301,9 +316,10 @@ class _NewsAppBarState extends State<NewsAppBar> {
 
   Widget _buildNormalTitle() {
     final hasNewMessages = (widget.newMessagesCount ?? 0) > 0;
+    final horizontalPadding = _getHorizontalPadding(context);
 
     return Padding(
-      padding: const EdgeInsets.only(left: 16),
+      padding: EdgeInsets.only(left: horizontalPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -315,7 +331,7 @@ class _NewsAppBarState extends State<NewsAppBar> {
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
-                  color: NewsTheme.textColor,
+                  color: Colors.black87,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -323,16 +339,16 @@ class _NewsAppBarState extends State<NewsAppBar> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
-                  color: NewsTheme.primaryColor.withOpacity(0.1),
+                  color: Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: NewsTheme.primaryColor.withOpacity(0.2),
+                    color: Colors.blue.withOpacity(0.2),
                   ),
                 ),
                 child: Text(
                   'Beta',
                   style: TextStyle(
-                    color: NewsTheme.primaryColor,
+                    color: Colors.blue,
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                   ),
@@ -348,14 +364,14 @@ class _NewsAppBarState extends State<NewsAppBar> {
                 Icon(
                   Icons.email_outlined,
                   size: 10,
-                  color: NewsTheme.secondaryTextColor.withOpacity(0.7),
+                  color: Colors.grey[600],
                 ),
                 const SizedBox(width: 3),
                 Text(
                   widget.userEmail,
                   style: TextStyle(
                     fontSize: 11,
-                    color: NewsTheme.secondaryTextColor.withOpacity(0.9),
+                    color: Colors.grey[600],
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -380,15 +396,17 @@ class _NewsAppBarState extends State<NewsAppBar> {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = _getHorizontalPadding(context);
+
     return AppBar(
-      backgroundColor: NewsTheme.cardColor,
+      backgroundColor: Colors.white,
       elevation: 0.5,
       shadowColor: Colors.black.withOpacity(0.05),
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
       title: widget.isSearching
           ? Padding(
-        padding: const EdgeInsets.only(left: 16),
+        padding: EdgeInsets.only(left: horizontalPadding),
         child: Row(
           children: [
             _buildSearchField(),
@@ -407,7 +425,7 @@ class _NewsAppBarState extends State<NewsAppBar> {
           child: IconButton(
             icon: Icon(
               widget.isSearching ? Icons.close_rounded : Icons.search_rounded,
-              color: NewsTheme.primaryColor,
+              color: Colors.blue,
               size: 18,
             ),
             onPressed: widget.onSearchToggled,
@@ -418,7 +436,7 @@ class _NewsAppBarState extends State<NewsAppBar> {
 
         // Аватар пользователя
         Padding(
-          padding: const EdgeInsets.only(right: 16),
+          padding: EdgeInsets.only(right: horizontalPadding),
           child: _buildUserAvatar(),
         ),
       ],
@@ -431,8 +449,8 @@ class _NewsAppBarState extends State<NewsAppBar> {
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                NewsTheme.primaryColor.withOpacity(0.1),
-                NewsTheme.primaryColor.withOpacity(0.05),
+                Colors.blue.withOpacity(0.1),
+                Colors.blue.withOpacity(0.05),
                 Colors.transparent,
               ],
             ),

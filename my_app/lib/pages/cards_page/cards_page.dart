@@ -1,8 +1,6 @@
 import 'dart:math';
 
-import 'package:badges/badges.dart' as badges;
 import 'package:flutter/material.dart';
-import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../rooms_pages/models/filter_option.dart';
@@ -31,299 +29,239 @@ class CardsPage extends StatefulWidget {
 }
 
 class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
-  final List<Channel> _channels = <Channel>[
-    Channel(
-      id: 1,
-      title: 'Технологии будущего',
-      description: 'Обсуждаем новейшие технологии и инновации в IT и робототехнике. Присоединяйтесь к нашему сообществу!',
-      imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400',
-      subscribers: 12450,
-      videos: 89,
-      isSubscribed: true,
-      isFavorite: false,
-      cardColor: Colors.blue.shade800,
-      categoryId: 'youtube',
-      createdAt: DateTime.now().subtract(const Duration(days: 30)),
-      isVerified: true,
-      rating: 4.8,
-      views: 1250000,
-      likes: 45000,
-      comments: 2300,
-      owner: 'Иван Технолог',
-      author: 'Иван Технолог',
-      authorImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-      tags: ['технологии', 'IT', 'инновации', 'робототехника'],
-      isLive: false,
-      liveViewers: 0,
-      websiteUrl: 'https://tech-future.ru',
-      socialMedia: '@tech_future',
-      commentsCount: 2300,
-    ),
-    Channel(
-      id: 2,
-      title: 'Бизнес стратегии',
-      description: 'Советы по ведению успешного бизнеса и инвестициям. Практические кейсы и экспертные мнения.',
-      imageUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400',
-      subscribers: 8900,
-      videos: 67,
-      isSubscribed: false,
-      isFavorite: true,
-      cardColor: Colors.purple.shade700,
-      categoryId: 'business',
-      createdAt: DateTime.now().subtract(const Duration(days: 45)),
-      isVerified: false,
-      rating: 4.5,
-      views: 890000,
-      likes: 32000,
-      comments: 1500,
-      owner: 'Мария Бизнесменова',
-      author: 'Мария Бизнесменова',
-      authorImageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
-      tags: ['бизнес', 'инвестиции', 'стратегии', 'финансы'],
-      isLive: false,
-      liveViewers: 0,
-      websiteUrl: 'https://business-strategy.ru',
-      socialMedia: '@biz_strategy',
-      commentsCount: 1500,
-    ),
-    Channel(
-      id: 3,
-      title: 'Игровые обзоры',
-      description: 'Новинки игровой индустрии и геймплей по всем платформам. Только честные обзоры!',
-      imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400',
-      subscribers: 15600,
-      videos: 120,
-      isSubscribed: true,
-      isFavorite: true,
-      cardColor: Colors.red.shade800,
-      categoryId: 'games',
-      createdAt: DateTime.now().subtract(const Duration(days: 20)),
-      isVerified: true,
-      rating: 4.9,
-      views: 2100000,
-      likes: 89000,
-      comments: 4500,
-      owner: 'Алексей Геймеров',
-      author: 'Алексей Геймеров',
-      authorImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-      tags: ['игры', 'гейминг', 'обзоры', 'стримы'],
-      isLive: false,
-      liveViewers: 0,
-      websiteUrl: 'https://game-reviews.ru',
-      socialMedia: '@game_reviews',
-      commentsCount: 4500,
-    ),
-    Channel(
-      id: 4,
-      title: 'Программирование',
-      description: 'Уроки и советы по разработке ПО для всех уровней. От новичка до профессионала.',
-      imageUrl: 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400',
-      subscribers: 23400,
-      videos: 156,
-      isSubscribed: false,
-      isFavorite: false,
-      cardColor: Colors.teal.shade700,
-      categoryId: 'programming',
-      createdAt: DateTime.now().subtract(const Duration(days: 60)),
-      isVerified: true,
-      rating: 4.7,
-      views: 3450000,
-      likes: 125000,
-      comments: 7800,
-      owner: 'Сергей Разработчик',
-      author: 'Сергей Разработчик',
-      authorImageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150',
-      tags: ['программирование', 'IT', 'разработка', 'обучение'],
-      isLive: false,
-      liveViewers: 0,
-      websiteUrl: 'https://code-master.ru',
-      socialMedia: '@code_master',
-      commentsCount: 7800,
-    ),
-    Channel(
-      id: 5,
-      title: 'Спортивные новости',
-      description: 'Последние события в мире спорта и аналитика матчей. Эксклюзивные интервью с атлетами.',
-      imageUrl: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=400',
-      subscribers: 17800,
-      videos: 95,
-      isSubscribed: true,
-      isFavorite: false,
-      cardColor: Colors.orange.shade800,
-      categoryId: 'sport',
-      createdAt: DateTime.now().subtract(const Duration(days: 15)),
-      isVerified: false,
-      rating: 4.6,
-      views: 1980000,
-      likes: 67000,
-      comments: 3200,
-      owner: 'Дмитрий Спортивный',
-      author: 'Дмитрий Спортивный',
-      authorImageUrl: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=150',
-      tags: ['спорт', 'новости', 'аналитика', 'матчи'],
-      isLive: false,
-      liveViewers: 0,
-      websiteUrl: 'https://sport-news.ru',
-      socialMedia: '@sport_news',
-      commentsCount: 3200,
-    ),
-    Channel(
-      id: 6,
-      title: 'Психология общения',
-      description: 'Как улучшить коммуникативные навыки и отношения. Практические техники и упражнения.',
-      imageUrl: 'https://images.unsplash.com/photo-1545239351-ef35f43d514b?w=400',
-      subscribers: 6700,
-      videos: 45,
-      isSubscribed: false,
-      isFavorite: true,
-      cardColor: Colors.green.shade800,
-      categoryId: 'communication',
-      createdAt: DateTime.now().subtract(const Duration(days: 90)),
-      isVerified: true,
-      rating: 4.4,
-      views: 780000,
-      likes: 28000,
-      comments: 1900,
-      owner: 'Анна Психологова',
-      author: 'Анна Психологова',
-      authorImageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
-      tags: ['психология', 'общение', 'отношения', 'развитие'],
-      isLive: false,
-      liveViewers: 0,
-      websiteUrl: 'https://psychology-talk.ru',
-      socialMedia: '@psychology_talk',
-      commentsCount: 1900,
-    ),
-  ];
+  // Константы для адаптивного дизайна
+  static const _animationDuration = Duration(milliseconds: 300);
+  static const _refreshDelay = Duration(seconds: 2);
 
-  final List<RoomCategory> _categories = [
-    RoomCategory(
-      id: 'all',
-      title: 'Все',
-      icon: Icons.all_inclusive,
-      color: Colors.blue,
-    ),
-    RoomCategory(
-      id: 'youtube',
-      title: 'YouTube',
-      description: 'Обсуждение видео и блогеров',
-      icon: Icons.video_library,
-      color: Colors.red,
-    ),
-    RoomCategory(
-      id: 'business',
-      title: 'Бизнес',
-      description: 'Стартапы и инвестиции',
-      icon: Icons.business,
-      color: Colors.orange,
-    ),
-    RoomCategory(
-      id: 'games',
-      title: 'Игры',
-      description: 'Игровая индустрия',
-      icon: Icons.sports_esports,
-      color: Colors.purple,
-    ),
-    RoomCategory(
-      id: 'programming',
-      title: 'Программирование',
-      description: 'Разработка и IT',
-      icon: Icons.code,
-      color: Colors.blue,
-    ),
-    RoomCategory(
-      id: 'sport',
-      title: 'Спорт',
-      description: 'Спортивные события',
-      icon: Icons.sports_soccer,
-      color: Colors.green,
-    ),
-    RoomCategory(
-      id: 'communication',
-      title: 'Общение',
-      description: 'Психология и отношения',
-      icon: Icons.chat,
-      color: Colors.pink,
-    ),
-  ];
-
-  final List<SortOption> _sortOptions = [
-    SortOption(id: 'newest', title: 'Сначала новые', icon: Icons.new_releases),
-    SortOption(id: 'popular', title: 'По популярности', icon: Icons.trending_up),
-    SortOption(id: 'subscribers', title: 'По подписчикам', icon: Icons.people),
-    SortOption(id: 'rating', title: 'По рейтингу', icon: Icons.star),
-    SortOption(id: 'videos', title: 'По количеству видео', icon: Icons.video_library),
-    SortOption(id: 'comments', title: 'По комментариям', icon: Icons.comment),
-  ];
-
-  final List<FilterOption> _filterOptions = [
-    FilterOption(id: 'verified', title: 'Только проверенные', icon: Icons.verified),
-    FilterOption(id: 'subscribed', title: 'Мои подписки', icon: Icons.subscriptions),
-    FilterOption(id: 'favorites', title: 'Избранное', icon: Icons.favorite),
-    FilterOption(id: 'live', title: 'Прямой эфир', icon: Icons.live_tv),
-  ];
-
+  // Контроллеры
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _tabScrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController();
 
+  // Анимации
   late AnimationController _animationController;
   late Animation<double> _fabAnimation;
-  late AnimationController _refreshController;
 
+  // Состояние
   int _currentTabIndex = 0;
   String _selectedCategoryId = 'all';
   String _searchQuery = '';
   String _selectedSort = 'newest';
-  Set<String> _activeFilters = {};
+  final Set<String> _activeFilters = {};
   bool _isGridView = true;
   bool _isLoading = false;
-  bool _isRefreshing = false;
-  bool _showFilters = false;
   bool _showSearchBar = false;
   bool _showCreateButton = true;
+  bool _showFilters = false;
+
+  // Переменные для управления состоянием создания канала
+  bool _isCreatingChannel = false;
+  String? _selectedCategoryForCreation;
+
+  // Кэшированные данные
+  late final List<Channel> _channels;
+  late final List<RoomCategory> _categories;
+  late final List<SortOption> _sortOptions;
+  late final List<FilterOption> _filterOptions;
 
   @override
   void initState() {
     super.initState();
+    _initializeData();
+    _initializeAnimations();
+    _setupListeners();
+  }
 
+  void _initializeData() {
+    _channels = _createSampleChannels();
+    _categories = _createCategories();
+    _sortOptions = _createSortOptions();
+    _filterOptions = _createFilterOptions();
+    _selectedCategoryForCreation = _categories.firstWhere((c) => c.id != 'all').id;
+  }
+
+  void _initializeAnimations() {
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-
-    _refreshController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: _animationDuration,
     );
 
     _fabAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
+    _animationController.forward();
+  }
+
+  void _setupListeners() {
     _searchController.addListener(() {
       setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
+        _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
 
-    _tabScrollController.addListener(() {
-      // Скрывать FAB при прокрутке категорий
-      if (_tabScrollController.offset > 50 && _showCreateButton) {
-        setState(() {
-          _showCreateButton = false;
-          _animationController.reverse();
-        });
-      } else if (_tabScrollController.offset <= 50 && !_showCreateButton) {
-        setState(() {
-          _showCreateButton = true;
-          _animationController.forward();
-        });
-      }
-    });
+    _titleController.addListener(_updateFormValidity);
+    _descriptionController.addListener(_updateFormValidity);
 
-    _animationController.forward();
+    _scrollController.addListener(_handleScroll);
+  }
+
+  void _updateFormValidity() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _handleScroll() {
+    // Убрана логика скрытия кнопки создания
+  }
+
+  // Создание тестовых данных
+  List<Channel> _createSampleChannels() {
+    return [
+      Channel(
+        id: 1,
+        title: 'Спортивные новости',
+        description: 'Последние события в мире спорта и аналитика матчей. Эксклюзивные интервью с атлетами.',
+        imageUrl: 'https://avatars.mds.yandex.net/i?id=856af239789ab3f5f7962897c9a69647_l-12422990-images-thumbs&n=13',
+        subscribers: 17800,
+        videos: 95,
+        isSubscribed: true,
+        isFavorite: false,
+        cardColor: Colors.blue.shade700,
+        categoryId: 'sport',
+        createdAt: DateTime.now().subtract(const Duration(days: 15)),
+        isVerified: true,
+        rating: 4.6,
+        views: 1980000,
+        likes: 67000,
+        comments: 3200,
+        owner: 'Дмитрий Спортивный',
+        author: 'Дмитрий Спортивный',
+        authorImageUrl: 'https://avatars.mds.yandex.net/i?id=856af239789ab3f5f7962897c9a69647_l-12422990-images-thumbs&n=13',
+        tags: ['спорт', 'новости', 'аналитика', 'матчи'],
+        isLive: false,
+        liveViewers: 0,
+        websiteUrl: 'https://sport-news.ru',
+        socialMedia: '@sport_news',
+        commentsCount: 3200,
+        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=ea37c708c5ce62c18b1bdd46eee2f008f7be91ac-11389740-images-thumbs&n=13',
+      ),
+      Channel(
+        id: 2,
+        title: 'Игровые обзоры',
+        description: 'Новинки игровой индустрии и геймплей по всем платформам. Только честные обзоры!',
+        imageUrl: 'https://avatars.mds.yandex.net/get-yapic/43978/i5F2TxqvHEddRcAEUmpIFyO2tL0-1/orig',
+        subscribers: 15600,
+        videos: 120,
+        isSubscribed: false,
+        isFavorite: true,
+        cardColor: Colors.green.shade700,
+        categoryId: 'games',
+        createdAt: DateTime.now().subtract(const Duration(days: 20)),
+        isVerified: true,
+        rating: 4.9,
+        views: 2100000,
+        likes: 89000,
+        comments: 4500,
+        owner: 'Алексей Геймеров',
+        author: 'Алексей Геймеров',
+        authorImageUrl: 'https://avatars.mds.yandex.net/get-yapic/43978/i5F2TxqvHEddRcAEUmpIFyO2tL0-1/orig',
+        tags: ['игры', 'гейминг', 'обзоры', 'стримы'],
+        isLive: false,
+        liveViewers: 0,
+        websiteUrl: 'https://game-reviews.ru',
+        socialMedia: '@game_reviews',
+        commentsCount: 4500,
+        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=a8645c8c94fcb35eda1d8297057c76fed507e2d4-8821845-images-thumbs&n=13',
+      ),
+      Channel(
+        id: 3,
+        title: 'Технологии будущего',
+        description: 'Обсуждаем новейшие технологии и инновации в IT и робототехнике.',
+        imageUrl: 'https://avatars.mds.yandex.net/i?id=0a26c483ce2cd02e31bf36f196e0b9ea_l-5350148-images-thumbs&n=13',
+        subscribers: 12450,
+        videos: 89,
+        isSubscribed: false,
+        isFavorite: false,
+        cardColor: Colors.orange.shade700,
+        categoryId: 'tech',
+        createdAt: DateTime.now().subtract(const Duration(days: 30)),
+        isVerified: true,
+        rating: 4.8,
+        views: 1250000,
+        likes: 45000,
+        comments: 2300,
+        owner: 'Иван Технолог',
+        author: 'Иван Технолог',
+        authorImageUrl: 'https://avatars.mds.yandex.net/i?id=0a26c483ce2cd02e31bf36f196e0b9ea_l-5350148-images-thumbs&n=13',
+        tags: ['технологии', 'IT', 'инновации', 'робототехника'],
+        isLive: false,
+        liveViewers: 0,
+        websiteUrl: 'https://tech-future.ru',
+        socialMedia: '@tech_future',
+        commentsCount: 2300,
+        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=335b4a2e3c4a0d54ad6bcf755e7569a4_l-5213980-images-thumbs&n=13',
+      ),
+      Channel(
+        id: 4,
+        title: 'Бизнес стратегии',
+        description: 'Советы по ведению успешного бизнеса и инвестициям. Практические кейсы и экспертные мнения.',
+        imageUrl: 'https://avatars.mds.yandex.net/i?id=3a067d8f05dc89fc808d473c592f2882_l-5042014-images-thumbs&n=13',
+        subscribers: 8900,
+        videos: 67,
+        isSubscribed: false,
+        isFavorite: true,
+        cardColor: Colors.purple.shade700,
+        categoryId: 'business',
+        createdAt: DateTime.now().subtract(const Duration(days: 45)),
+        isVerified: false,
+        rating: 4.5,
+        views: 890000,
+        likes: 32000,
+        comments: 1500,
+        owner: 'Мария Бизнесменова',
+        author: 'Мария Бизнесменова',
+        authorImageUrl: 'https://avatars.mds.yandex.net/i?id=3a067d8f05dc89fc808d473c592f2882_l-5042014-images-thumbs&n=13',
+        tags: ['бизнес', 'инвестиции', 'стратегии', 'финансы'],
+        isLive: false,
+        liveViewers: 0,
+        websiteUrl: 'https://business-strategy.ru',
+        socialMedia: '@biz_strategy',
+        commentsCount: 1500,
+        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=d61e4a456464cc5a8c7996728c9a4e3d_l-4835468-images-thumbs&n=13',
+      ),
+    ];
+  }
+
+  List<RoomCategory> _createCategories() {
+    return [
+      RoomCategory(id: 'all', title: 'Все', icon: Icons.explore, color: Colors.blue),
+      RoomCategory(id: 'sport', title: 'Спорт', icon: Icons.sports_soccer, color: Colors.red),
+      RoomCategory(id: 'games', title: 'Игры', icon: Icons.sports_esports, color: Colors.green),
+      RoomCategory(id: 'tech', title: 'Технологии', icon: Icons.memory, color: Colors.orange),
+      RoomCategory(id: 'business', title: 'Бизнес', icon: Icons.business_center, color: Colors.purple),
+      RoomCategory(id: 'music', title: 'Музыка', icon: Icons.music_note, color: Colors.pink),
+      RoomCategory(id: 'education', title: 'Образование', icon: Icons.school, color: Colors.teal),
+    ];
+  }
+
+  List<SortOption> _createSortOptions() {
+    return [
+      SortOption(id: 'newest', title: 'Сначала новые', icon: Icons.new_releases),
+      SortOption(id: 'popular', title: 'По популярности', icon: Icons.trending_up),
+      SortOption(id: 'subscribers', title: 'По подписчикам', icon: Icons.people),
+      SortOption(id: 'rating', title: 'По рейтингу', icon: Icons.star),
+    ];
+  }
+
+  List<FilterOption> _createFilterOptions() {
+    return [
+      FilterOption(id: 'verified', title: 'Только проверенные', icon: Icons.verified),
+      FilterOption(id: 'subscribed', title: 'Мои подписки', icon: Icons.subscriptions),
+      FilterOption(id: 'favorites', title: 'Избранное', icon: Icons.favorite),
+    ];
   }
 
   @override
@@ -331,259 +269,402 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     _titleController.dispose();
     _descriptionController.dispose();
     _searchController.dispose();
-    _tabScrollController.dispose();
+    _scrollController.dispose();
     _animationController.dispose();
-    _refreshController.dispose();
     super.dispose();
   }
 
-  List<Channel> get _filteredChannels {
-    List<Channel> filtered = List.from(_channels);
+  // Адаптивные методы
+  int _getCrossAxisCount(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1800) return 4;
+    if (width > 1400) return 4;
+    if (width > 1000) return 3;
+    if (width > 700) return 2;
+    return 1;
+  }
 
-    // Фильтрация по категории
-    if (_selectedCategoryId != 'all') {
-      filtered = filtered
-          .where((channel) => channel.categoryId == _selectedCategoryId)
-          .toList();
-    }
+  double _getCardAspectRatio(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
 
-    // Применение дополнительных фильтров
-    if (_activeFilters.contains('verified')) {
-      filtered = filtered.where((channel) => channel.isVerified).toList();
+    // УВЕЛИЧЕННОЕ соотношение сторон для более высоких карточек
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 0.85; // Более квадратная карточка
+      case 2: // Планшеты
+        return 0.9; // Более квадратная карточка
+      case 3: // Десктоп средний
+        return 0.95; // Более квадратная карточка
+      case 4: // Десктоп большой
+        return 1.0; // Более квадратная карточка
+      default:
+        return 0.9;
     }
-    if (_activeFilters.contains('subscribed')) {
-      filtered = filtered.where((channel) => channel.isSubscribed).toList();
-    }
-    if (_activeFilters.contains('favorites')) {
-      filtered = filtered.where((channel) => channel.isFavorite).toList();
-    }
-    if (_activeFilters.contains('live')) {
-      filtered = filtered.where((channel) => channel.isLive).toList();
-    }
+  }
 
-    // Фильтрация по поисковому запросу
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((channel) {
-        return channel.title.toLowerCase().contains(_searchQuery) ||
-            channel.description.toLowerCase().contains(_searchQuery) ||
-            channel.tags.any((tag) => tag.toLowerCase().contains(_searchQuery)) ||
-            channel.owner.toLowerCase().contains(_searchQuery) ||
-            channel.author.toLowerCase().contains(_searchQuery);
-      }).toList();
-    }
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return 80;
+    return 16;
+  }
 
-    // Сортировка
-    switch (_selectedSort) {
-      case 'newest':
-        filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-      case 'popular':
-        filtered.sort((a, b) => b.views.compareTo(a.views));
-        break;
-      case 'subscribers':
-        filtered.sort((a, b) => b.subscribers.compareTo(a.subscribers));
-        break;
-      case 'rating':
-        filtered.sort((a, b) => b.rating.compareTo(a.rating));
-        break;
-      case 'videos':
-        filtered.sort((a, b) => b.videos.compareTo(a.videos));
-        break;
-      case 'comments':
-        filtered.sort((a, b) => (b.commentsCount ?? 0).compareTo(a.commentsCount ?? 0));
-        break;
-    }
+  // Адаптивные размеры с увеличенными шрифтами
+  double _getCoverHeight(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
 
+    switch (crossAxisCount) {
+      case 1: // Мобильные - 1 карточка
+        return 140; // УВЕЛИЧЕНО для мобильных
+      case 2: // Планшеты - 2 карточки
+        return 130; // УВЕЛИЧЕНО для планшетов
+      case 3: // Десктоп - 3 карточки
+        return 120; // УВЕЛИЧЕНО для 3 колонок
+      case 4: // Десктоп - 4 карточки
+        return 110; // УВЕЛИЧЕНО для 4 колонок
+      default:
+        return 130;
+    }
+  }
+
+  double _getAvatarSize(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 60; // УВЕЛИЧЕНО для мобильных
+      case 2: // Планшеты
+        return 55; // УВЕЛИЧЕНО для планшетов
+      case 3: // Десктоп средний
+        return 50; // УВЕЛИЧЕНО для 3 колонок
+      case 4: // Десктоп большой
+        return 48; // УВЕЛИЧЕНО для 4 колонок
+      default:
+        return 55;
+    }
+  }
+
+  double _getTitleFontSize(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 18; // УВЕЛИЧЕНО для мобильных
+      case 2: // Планшеты
+        return 17; // УВЕЛИЧЕНО для планшетов
+      case 3: // Десктоп средний
+        return 16; // УВЕЛИЧЕНО для 3 колонок
+      case 4: // Десктоп большой
+        return 15; // УВЕЛИЧЕНО для 4 колонок
+      default:
+        return 17;
+    }
+  }
+
+  double _getDescriptionFontSize(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 14; // УВЕЛИЧЕНО для мобильных
+      case 2: // Планшеты
+        return 13; // УВЕЛИЧЕНО для планшетов
+      case 3: // Десктоп средний
+        return 12; // УВЕЛИЧЕНО для 3 колонок
+      case 4: // Десктоп большой
+        return 11; // УВЕЛИЧЕНО для 4 колонок
+      default:
+        return 13;
+    }
+  }
+
+  double _getStatFontSize(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 14; // УВЕЛИЧЕНО для мобильных
+      case 2: // Планшеты
+        return 13; // УВЕЛИЧЕНО для планшетов
+      case 3: // Десктоп средний
+        return 12; // УВЕЛИЧЕНО для 3 колонок
+      case 4: // Десктоп большой
+        return 11; // УВЕЛИЧЕНО для 4 колонок
+      default:
+        return 13;
+    }
+  }
+
+  double _getButtonPadding(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 14; // УВЕЛИЧЕНО для мобильных
+      case 2: // Планшеты
+        return 12; // УВЕЛИЧЕНО для планшетов
+      case 3: // Десктоп средний
+        return 10; // УВЕЛИЧЕНО для 3 колонок
+      case 4: // Десктоп большой
+        return 9; // УВЕЛИЧЕНО для 4 колонок
+      default:
+        return 12;
+    }
+  }
+
+  // Основные методы
+  List<Channel> _getFilteredChannels(ChannelStateProvider stateProvider) {
+    final filtered = _channels.map((channel) =>
+        _getChannelWithActualState(channel, stateProvider)
+    ).where(_matchesFilters).toList();
+
+    _sortChannels(filtered);
     return filtered;
   }
 
-  Future<void> _refreshData() async {
-    setState(() => _isRefreshing = true);
-    _refreshController.repeat(reverse: true);
+  bool _matchesFilters(Channel channel) {
+    if (_selectedCategoryId != 'all' && channel.categoryId != _selectedCategoryId) {
+      return false;
+    }
 
-    // Имитация загрузки новых данных
-    await Future.delayed(const Duration(seconds: 2));
+    if (_activeFilters.contains('verified') && !channel.isVerified) return false;
+    if (_activeFilters.contains('subscribed') && !channel.isSubscribed) return false;
+    if (_activeFilters.contains('favorites') && !channel.isFavorite) return false;
 
-    // Обновляем несколько каналов для демонстрации
-    setState(() {
-      _isRefreshing = false;
-      _refreshController.reset();
+    if (_searchQuery.isNotEmpty) {
+      return channel.title.toLowerCase().contains(_searchQuery) ||
+          channel.description.toLowerCase().contains(_searchQuery) ||
+          channel.tags.any((tag) => tag.toLowerCase().contains(_searchQuery));
+    }
 
-      // Добавляем случайные прямые эфиры
-      final random = Random();
-      for (var channel in _channels) {
-        if (random.nextBool()) {
-          channel = channel.copyWith(
-            isLive: random.nextDouble() > 0.7,
-            liveViewers: random.nextInt(1000),
-          );
-        }
-      }
-    });
+    return true;
   }
 
+  void _sortChannels(List<Channel> channels) {
+    switch (_selectedSort) {
+      case 'newest':
+        channels.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'popular':
+        channels.sort((a, b) => b.views.compareTo(a.views));
+        break;
+      case 'subscribers':
+        channels.sort((a, b) => b.subscribers.compareTo(a.subscribers));
+        break;
+      case 'rating':
+        channels.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
+    }
+  }
+
+  Channel _getChannelWithActualState(Channel channel, ChannelStateProvider stateProvider) {
+    final channelId = channel.id.toString();
+    final isSubscribed = stateProvider.isSubscribed(channelId);
+    final subscribers = stateProvider.getSubscribers(channelId) ?? channel.subscribers;
+
+    return channel.copyWith(
+      isSubscribed: isSubscribed,
+      subscribers: subscribers,
+    );
+  }
+
+  // Создание канала
   void _createNewChannel() {
+    _titleController.clear();
+    _descriptionController.clear();
+    _selectedCategoryForCreation = _categories.firstWhere((c) => c.id != 'all').id;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
+      builder: (context) => _buildCreateChannelBottomSheet(),
+    ).then((_) {
+      _titleController.clear();
+      _descriptionController.clear();
+    });
+  }
+
+  Widget _buildCreateChannelBottomSheet() {
+    return StatefulBuilder(
+      builder: (context, setModalState) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
           ),
-        ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 24,
-          right: 24,
-          top: 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Создать новый канал',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                labelText: 'Название канала',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.background,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _descriptionController,
-              decoration: InputDecoration(
-                labelText: 'Описание',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.background,
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedCategoryId == 'all' ? 'youtube' : _selectedCategoryId,
-              decoration: InputDecoration(
-                labelText: 'Категория',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.background,
-              ),
-              items: _categories.where((c) => c.id != 'all').map((category) {
-                return DropdownMenuItem<String>(
-                  value: category.id,
-                  child: Row(
-                    children: [
-                      Icon(category.icon, size: 18, color: category.color),
-                      const SizedBox(width: 8),
-                      Text(category.title),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedCategoryId = value;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () {
-                      _titleController.clear();
-                      _descriptionController.clear();
-                      Navigator.pop(context);
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Отмена'),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (_titleController.text.isNotEmpty) {
-                        _addNewChannel(
-                          _titleController.text,
-                          _descriptionController.text,
-                        );
-                        _titleController.clear();
-                        _descriptionController.clear();
-                        Navigator.pop(context);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Создать'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Создать новый канал',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              _buildChannelForm(setModalState),
+              const SizedBox(height: 24),
+              _buildFormActions(),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Future<void> _addNewChannel(String title, String description) async {
-    setState(() => _isLoading = true);
+  Widget _buildChannelForm(void Function(void Function()) setModalState) {
+    return Column(
+      children: [
+        TextField(
+          controller: _titleController,
+          decoration: InputDecoration(
+            labelText: 'Название канала',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            hintText: 'Введите название канала',
+          ),
+          onChanged: (value) {
+            setModalState(() {});
+          },
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _descriptionController,
+          decoration: InputDecoration(
+            labelText: 'Описание',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            hintText: 'Введите описание канала',
+          ),
+          maxLines: 3,
+          onChanged: (value) {
+            setModalState(() {});
+          },
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: _selectedCategoryForCreation,
+          decoration: InputDecoration(
+            labelText: 'Категория',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          items: _categories.where((c) => c.id != 'all').map((category) {
+            return DropdownMenuItem<String>(
+              value: category.id,
+              child: Row(
+                children: [
+                  Icon(category.icon, size: 18, color: category.color),
+                  const SizedBox(width: 8),
+                  Text(category.title),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() => _selectedCategoryForCreation = value);
+          },
+        ),
+      ],
+    );
+  }
 
-    // Имитация задержки сети
-    await Future.delayed(const Duration(milliseconds: 1500));
+  Widget _buildFormActions() {
+    final isValid = _titleController.text.trim().isNotEmpty &&
+        _descriptionController.text.trim().isNotEmpty;
 
-    final newChannel = Channel(
+    return Row(
+      children: [
+        Expanded(
+          child: TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Отмена'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: isValid && !_isCreatingChannel ? _submitNewChannel : null,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: isValid ? Colors.blue : Colors.grey,
+            ),
+            child: _isCreatingChannel
+                ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Text(
+              'Создать',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _submitNewChannel() {
+    setState(() => _isCreatingChannel = true);
+
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() {
+          _channels.insert(0, _createNewChannelFromData(
+            _titleController.text.trim(),
+            _descriptionController.text.trim(),
+          ));
+          _isCreatingChannel = false;
+        });
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Канал успешно создан!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+    });
+  }
+
+  Channel _createNewChannelFromData(String title, String description) {
+    return Channel(
       id: DateTime.now().millisecondsSinceEpoch,
       title: title,
       description: description,
-      imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400',
+      imageUrl: widget.userAvatarUrl,
       subscribers: 0,
       videos: 0,
       isSubscribed: false,
       isFavorite: false,
       cardColor: _getRandomColor(),
-      categoryId: _selectedCategoryId == 'all' ? 'youtube' : _selectedCategoryId,
+      categoryId: _selectedCategoryForCreation!,
       createdAt: DateTime.now(),
       isVerified: false,
       rating: 0.0,
@@ -593,866 +674,121 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       owner: widget.userName,
       author: widget.userName,
       authorImageUrl: widget.userAvatarUrl,
-      tags: ['новый', 'канал'],
+      tags: ['новый'],
       isLive: false,
       liveViewers: 0,
       websiteUrl: '',
       socialMedia: '',
       commentsCount: 0,
-    );
-
-    setState(() {
-      _channels.insert(0, newChannel);
-      _isLoading = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Канал успешно создан!'),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        backgroundColor: Colors.green,
-        action: SnackBarAction(
-          label: 'Перейти',
-          textColor: Colors.white,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChannelDetailPage(channel: newChannel),
-              ),
-            );
-          },
-        ),
-      ),
+      coverImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400',
     );
   }
 
   Color _getRandomColor() {
     final colors = [
-      Colors.blue.shade800,
+      Colors.blue.shade700,
+      Colors.green.shade700,
+      Colors.orange.shade700,
       Colors.purple.shade700,
-      Colors.red.shade800,
+      Colors.red.shade700,
       Colors.teal.shade700,
-      Colors.orange.shade800,
-      Colors.green.shade800,
-      Colors.indigo.shade700,
-      Colors.deepOrange.shade700,
-      Colors.pink.shade700,
-      Colors.cyan.shade700,
     ];
-    return colors[_channels.length % colors.length];
+    return colors[Random().nextInt(colors.length)];
   }
 
-  Future<void> _toggleSubscription(int index) async {
-    final channel = _filteredChannels[index];
-    final globalIndex = _channels.indexWhere((c) => c.id == channel.id);
+  // УЛУЧШЕННЫЙ ДИЗАЙН КАРТОЧКИ С БОЛЬШЕЙ ВЫСОТОЙ
+  Widget _buildChannelCard(Channel channel, int index, ChannelStateProvider stateProvider) {
+    final actualChannel = _getChannelWithActualState(channel, stateProvider);
 
-    if (globalIndex != -1) {
-      setState(() {
-        _channels[globalIndex] = _channels[globalIndex].copyWith(
-          isSubscribed: !_channels[globalIndex].isSubscribed,
-          subscribers: _channels[globalIndex].isSubscribed
-              ? _channels[globalIndex].subscribers - 1
-              : _channels[globalIndex].subscribers + 1,
-        );
-      });
+    // Адаптивные размеры на основе количества карточек в ряду
+    final crossAxisCount = _getCrossAxisCount(context);
+    final coverHeight = _getCoverHeight(context);
+    final avatarSize = _getAvatarSize(context);
+    final titleFontSize = _getTitleFontSize(context);
+    final descriptionFontSize = _getDescriptionFontSize(context);
+    final statFontSize = _getStatFontSize(context);
+    final buttonPadding = _getButtonPadding(context);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _channels[globalIndex].isSubscribed
-                ? '✅ Подписались на ${channel.title}'
-                : '❌ Отписались от ${channel.title}',
-          ),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: _channels[globalIndex].isSubscribed
-              ? Colors.green
-              : Colors.grey[800],
+    return Container(
+      margin: EdgeInsets.all(6),
+      child: Card(
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-      );
-    }
-  }
-
-  Future<void> _toggleFavorite(int index) async {
-    final channel = _filteredChannels[index];
-    final globalIndex = _channels.indexWhere((c) => c.id == channel.id);
-
-    if (globalIndex != -1) {
-      setState(() {
-        _channels[globalIndex] = _channels[globalIndex].copyWith(
-          isFavorite: !_channels[globalIndex].isFavorite,
-        );
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _channels[globalIndex].isFavorite
-                ? '⭐ Добавлено в избранное'
-                : '🗑️ Удалено из избранного',
-          ),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: _channels[globalIndex].isFavorite
-              ? Colors.amber[700]
-              : Colors.grey[800],
-        ),
-      );
-    }
-  }
-
-  Widget _buildTabItem(RoomCategory category, int index) {
-    final isSelected = _currentTabIndex == index;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentTabIndex = index;
-          _selectedCategoryId = category.id;
-          _searchController.clear();
-        });
-
-        // Прокрутка к выбранной категории
-        if (_tabScrollController.hasClients) {
-          final double offset = index * 120.0; // Примерная ширина элемента
-          _tabScrollController.animateTo(
-            offset.clamp(0.0, _tabScrollController.position.maxScrollExtent),
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-          );
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? category.color.withOpacity(0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? category.color : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              category.icon,
-              size: 16,
-              color: isSelected ? category.color : Colors.grey[600],
-            ),
-            const SizedBox(width: 6),
-            Text(
-              category.title,
-              style: TextStyle(
-                color: isSelected ? category.color : Colors.grey[600],
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                fontSize: 12,
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChannelDetailPage(channel: actualChannel),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return ChangeNotifierProvider(
-      create: (context) => ChannelStateProvider(),
-      child: Scaffold(
-        floatingActionButton: _showCreateButton ? ScaleTransition(
-          scale: _fabAnimation,
-          child: FloatingActionButton.extended(
-            onPressed: _createNewChannel,
-            backgroundColor: theme.colorScheme.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            icon: const Icon(Icons.add, size: 24),
-            label: const Text('Создать канал'),
-          ),
-        ) : null,
-        body: RefreshIndicator(
-          onRefresh: _refreshData,
-          color: theme.colorScheme.primary,
-          backgroundColor: theme.scaffoldBackgroundColor,
-          child: CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 140.0,
-                floating: false,
-                pinned: true,
-                backgroundColor: theme.scaffoldBackgroundColor,
-                elevation: 0,
-                title: AnimatedOpacity(
-                  opacity: _showSearchBar ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Text(
-                    'Каналы',
-                    style: TextStyle(
-                      color: theme.colorScheme.onBackground,
-                      fontSize: 20.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                centerTitle: false,
-                bottom: PreferredSize(
-                  preferredSize: const Size.fromHeight(70),
-                  child: ColoredBox(
-                    color: theme.scaffoldBackgroundColor,
-                    child: Column(
-                      children: [
-                        SingleChildScrollView(
-                          controller: _tabScrollController,
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Row(
-                            children: _categories.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final category = entry.value;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: _buildTabItem(category, index),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: [
-                  IconButton(
-                    icon: Icon(_showSearchBar ? Icons.search_off : Icons.search, size: 24),
-                    onPressed: () => setState(() => _showSearchBar = !_showSearchBar),
-                    tooltip: 'Поиск',
-                  ),
-                  IconButton(
-                    icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view, size: 24),
-                    onPressed: () => setState(() => _isGridView = !_isGridView),
-                    tooltip: 'Сменить вид',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.sort, size: 24),
-                    onPressed: _showSortBottomSheet,
-                    tooltip: 'Сортировка',
-                  ),
-                  IconButton(
-                    icon: Icon(_showFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 24),
-                    onPressed: () => setState(() => _showFilters = !_showFilters),
-                    tooltip: 'Фильтры',
-                  ),
-                  IconButton(
-                    icon: CircleAvatar(
-                      radius: 14,
-                      backgroundImage: NetworkImage(widget.userAvatarUrl),
-                    ),
-                    onPressed: _showProfileMenu,
-                    tooltip: 'Профиль',
-                  ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ОБЛОЖКА С АВАТАРКОЙ
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // ОСНОВНАЯ ОБЛОЖКА
+                  Container(
+                    height: coverHeight,
+                    width: double.infinity,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          theme.colorScheme.primary.withOpacity(0.8),
-                          theme.colorScheme.primary.withOpacity(0.4),
-                        ],
+                      image: DecorationImage(
+                        image: NetworkImage(actualChannel.coverImageUrl ?? actualChannel.imageUrl),
+                        fit: BoxFit.cover,
                       ),
                     ),
-                    padding: const EdgeInsets.only(left: 20, bottom: 70),
-                    alignment: Alignment.bottomLeft,
-                    child: const Text(
-                      'Каналы',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              if (_showFilters)
-                SliverToBoxAdapter(
-                  child: _buildFilterSection(),
-                ),
-
-              if (_showSearchBar)
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  sliver: SliverToBoxAdapter(
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Поиск каналов...',
-                          prefixIcon: const Icon(Icons.search_rounded, size: 24),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 22),
-                            onPressed: () {
-                              setState(() {
-                                _searchController.clear();
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                              : null,
-                          filled: true,
-                          fillColor: theme.colorScheme.surface,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.4),
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                     ),
                   ),
-                ),
 
-              if (_currentTabIndex != 0 || _searchQuery.isNotEmpty || _selectedSort != 'newest' || _activeFilters.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (_currentTabIndex != 0)
-                          FilterChip(
-                            label: Text(
-                              'Категория: ${_categories[_currentTabIndex].title}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _currentTabIndex = 0;
-                                _selectedCategoryId = 'all';
-                              });
-                            },
-                            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                          ),
-                        if (_searchQuery.isNotEmpty)
-                          FilterChip(
-                            label: Text(
-                              'Поиск: "$_searchQuery"',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.green[700],
-                              ),
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _searchController.clear();
-                                _searchQuery = '';
-                              });
-                            },
-                            backgroundColor: Colors.green.withOpacity(0.1),
-                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                          ),
-                        if (_selectedSort != 'newest')
-                          FilterChip(
-                            label: Text(
-                              'Сортировка: ${_sortOptions.firstWhere((opt) => opt.id == _selectedSort).title}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.orange[700],
-                              ),
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _selectedSort = 'newest';
-                              });
-                            },
-                            backgroundColor: Colors.orange.withOpacity(0.1),
-                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                          ),
-                        ..._activeFilters.map((filter) {
-                          final option = _filterOptions.firstWhere((opt) => opt.id == filter);
-                          return FilterChip(
-                            label: Text(
-                              option.title,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.purple[700],
-                              ),
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _activeFilters.remove(filter);
-                              });
-                            },
-                            backgroundColor: Colors.purple.withOpacity(0.1),
-                            deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                          );
-                        }).toList(),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // Основной контент
-              _isLoading
-                  ? SliverToBoxAdapter(child: _buildLoadingShimmer())
-                  : _buildCategoryContent(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      color: Theme.of(context).colorScheme.background,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Фильтры:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _filterOptions.map((option) {
-              final isActive = _activeFilters.contains(option.id);
-              return FilterChip(
-                label: Text(option.title),
-                selected: isActive,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _activeFilters.add(option.id);
-                    } else {
-                      _activeFilters.remove(option.id);
-                    }
-                  });
-                },
-                backgroundColor: isActive
-                    ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-                    : Colors.grey[200],
-                selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                checkmarkColor: Theme.of(context).colorScheme.primary,
-                labelStyle: TextStyle(
-                  color: isActive
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey[700],
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                ),
-                avatar: Icon(
-                  option.icon,
-                  size: 18,
-                  color: isActive
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey[600],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingShimmer() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: List.generate(6, (index) => Shimmer.fromColors(
-          baseColor: Colors.grey[300]!,
-          highlightColor: Colors.grey[100]!,
-          child: Container(
-            height: 120,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        )),
-      ),
-    );
-  }
-
-  void _showProfileMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: CircleAvatar(
-                backgroundImage: NetworkImage(widget.userAvatarUrl),
-                radius: 24,
-              ),
-              title: Text(widget.userName, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(widget.userEmail),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Мой профиль'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Переход к профилю
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.favorite),
-              title: const Text('Избранное'),
-              trailing: badges.Badge(
-                badgeContent: Text(
-                  _channels.where((c) => c.isFavorite).length.toString(),
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() {
-                  _activeFilters = {'favorites'};
-                  _showFilters = true;
-                });
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.subscriptions),
-              title: const Text('Мои подписки'),
-              trailing: badges.Badge(
-                badgeContent: Text(
-                  _channels.where((c) => c.isSubscribed).length.toString(),
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() {
-                  _activeFilters = {'subscribed'};
-                  _showFilters = true;
-                });
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text('История просмотров'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Переход к истории
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Настройки'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Переход к настройкам
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.exit_to_app, color: Colors.red),
-              title: const Text('Выйти', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                widget.onLogout();
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSortBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Сортировка каналов',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ..._sortOptions.map((option) => ListTile(
-              leading: Icon(option.icon, color: Theme.of(context).colorScheme.primary),
-              title: Text(option.title),
-              trailing: _selectedSort == option.id
-                  ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
-                  : null,
-              onTap: () {
-                setState(() {
-                  _selectedSort = option.id;
-                });
-                Navigator.pop(context);
-              },
-            )).toList(),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryContent() {
-    final categoryChannels = _filteredChannels;
-
-    if (categoryChannels.isEmpty) {
-      return SliverFillRemaining(
-        child: Center(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[400]),
-                const SizedBox(height: 20),
-                Text(
-                  'Каналы не найдены',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Попробуйте изменить параметры поиска\nили создать новый канал',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: _createNewChannel,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Создать канал'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return _isGridView
-        ? SliverPadding(
-      padding: const EdgeInsets.all(16),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.75,
-        ),
-        delegate: SliverChildBuilderDelegate(
-              (context, index) => _buildChannelCard(categoryChannels[index], index),
-          childCount: categoryChannels.length,
-        ),
-      ),
-    )
-        : SliverList(
-      delegate: SliverChildBuilderDelegate(
-            (context, index) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: _buildChannelListItem(categoryChannels[index], index),
-        ),
-        childCount: categoryChannels.length,
-      ),
-    );
-  }
-
-  Widget _buildChannelCard(Channel channel, int index) {
-    final theme = Theme.of(context);
-
-    return Card(
-      elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChannelDetailPage(channel: channel),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                channel.cardColor.withOpacity(0.9),
-                channel.cardColor.withOpacity(0.7),
-              ],
-            ),
-          ),
-          child: Stack(
-            children: [
-              // Background pattern
-              Positioned(
-                top: -20,
-                right: -20,
-                child: Icon(
-                  Icons.circle,
-                  size: 80,
-                  color: Colors.white.withOpacity(0.1),
-                ),
-              ),
-
-              // Live indicator
-              if (channel.isLive)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
+                  // АВАТАРКА - ПО ЦЕНТРУ ВНИЗУ
+                  Positioned(
+                    bottom: -avatarSize * 0.35,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        width: avatarSize,
+                        height: avatarSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
                             color: Colors.white,
-                            shape: BoxShape.circle,
+                            width: 3,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'LIVE ${_formatNumber(channel.liveViewers)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Channel header
-                    Row(
-                      children: [
-                        // Channel avatar with verification badge
-                        Stack(
+                        child: Stack(
                           children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                image: DecorationImage(
-                                  image: NetworkImage(channel.imageUrl),
-                                  fit: BoxFit.cover,
-                                ),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                  width: 2,
-                                ),
-                              ),
+                            CircleAvatar(
+                              radius: avatarSize * 0.5,
+                              backgroundImage: NetworkImage(actualChannel.imageUrl),
                             ),
-                            if (channel.isVerified)
+                            if (actualChannel.isVerified)
                               Positioned(
                                 bottom: 0,
                                 right: 0,
@@ -1462,382 +798,175 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                                     color: Colors.blue,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.verified, size: 12, color: Colors.white),
+                                  child: Icon(
+                                    Icons.verified,
+                                    color: Colors.white,
+                                    size: avatarSize * 0.25,
+                                  ),
                                 ),
                               ),
                           ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                channel.title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  height: 1.2,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // ОТСТУП ДЛЯ АВАТАРКИ
+              SizedBox(height: avatarSize * 0.35),
+
+              // КОНТЕНТ КАРТОЧКИ - ИСПОЛЬЗУЕМ FLEX ДЛЯ РАСПРЕДЕЛЕНИЯ ПРОСТРАНСТВА
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: crossAxisCount >= 3 ? 12 : 16,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // НАЗВАНИЕ КАНАЛА - ЦЕНТРИРОВАНО
+                      Container(
+                        width: double.infinity,
+                        child: Text(
+                          actualChannel.title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+
+                      // АВТОР - ЦЕНТРИРОВАНО
+                      SizedBox(height: 4),
+                      Container(
+                        width: double.infinity,
+                        child: Text(
+                          actualChannel.author,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: descriptionFontSize,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+
+                      // ОПИСАНИЕ - ЗАНИМАЕТ ВСЕ ОСТАВШЕЕСЯ ПРОСТРАНСТВО
+                      SizedBox(height: 8),
+                      Expanded(
+                        child: Container(
+                          child: Text(
+                            actualChannel.description,
+                            style: TextStyle(
+                              fontSize: descriptionFontSize,
+                              color: Colors.grey[700],
+                              height: 1.4,
+                            ),
+                            maxLines: crossAxisCount >= 3 ? 3 : 4, // БОЛЬШЕ СТРОК ДЛЯ ВЫСОКИХ КАРТОЧЕК
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+
+                      // СТАТИСТИКА
+                      SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: _buildStatItem(
+                                _formatNumber(actualChannel.subscribers),
+                                'подписчиков',
+                                fontSize: statFontSize,
+                                crossAxisCount: crossAxisCount,
                               ),
-                              const SizedBox(height: 4),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 20,
+                              color: Colors.grey[300],
+                            ),
+                            Expanded(
+                              child: _buildStatItem(
+                                actualChannel.videos.toString(),
+                                'видео',
+                                fontSize: statFontSize,
+                                crossAxisCount: crossAxisCount,
+                              ),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 20,
+                              color: Colors.grey[300],
+                            ),
+                            Expanded(
+                              child: _buildStatItem(
+                                actualChannel.rating.toStringAsFixed(1),
+                                'рейтинг',
+                                fontSize: statFontSize,
+                                crossAxisCount: crossAxisCount,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // КНОПКА ПОДПИСКИ
+                      SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => _toggleSubscription(index, stateProvider),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: actualChannel.isSubscribed
+                                ? Colors.grey[100]
+                                : Colors.blue,
+                            foregroundColor: actualChannel.isSubscribed
+                                ? Colors.grey[700]
+                                : Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: actualChannel.isSubscribed
+                                    ? Colors.grey[300]!
+                                    : Colors.blue,
+                                width: 1,
+                              ),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: buttonPadding),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                actualChannel.isSubscribed ? Icons.check : Icons.add,
+                                size: crossAxisCount >= 3 ? 16 : 18,
+                              ),
+                              SizedBox(width: crossAxisCount >= 3 ? 6 : 8),
                               Text(
-                                channel.author,
+                                actualChannel.isSubscribed ? 'Вы подписаны' : 'Подписаться',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 12,
+                                  fontSize: statFontSize,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        // Favorite button
-                        IconButton(
-                          icon: Icon(
-                            channel.isFavorite ? Icons.favorite : Icons.favorite_border,
-                            size: 20,
-                            color: channel.isFavorite ? Colors.red : Colors.white.withOpacity(0.8),
-                          ),
-                          onPressed: () => _toggleFavorite(index),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Channel stats
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatItem(
-                          Icons.people,
-                          '${_formatNumber(channel.subscribers)}',
-                          'подписчиков',
-                        ),
-                        _buildStatItem(
-                          Icons.video_library,
-                          '${channel.videos}',
-                          'видео',
-                        ),
-                        _buildStatItem(
-                          Icons.star,
-                          channel.rating.toStringAsFixed(1),
-                          'рейтинг',
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Channel description
-                    Text(
-                      channel.description,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 12,
-                        height: 1.4,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const Spacer(),
-
-                    // Tags
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: channel.tags.take(3).map((tag) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '#$tag',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 10,
-                          ),
-                        ),
-                      )).toList(),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Subscribe button and date
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _formatDate(channel.createdAt),
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 10,
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: () => _toggleSubscription(index),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: channel.isSubscribed
-                                ? Colors.white.withOpacity(0.2)
-                                : Colors.white,
-                            foregroundColor: channel.isSubscribed
-                                ? Colors.white
-                                : channel.cardColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            minimumSize: const Size(0, 36),
-                          ),
-                          child: Text(
-                            channel.isSubscribed ? 'Отписаться' : 'Подписаться',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatItem(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Icon(icon, size: 16, color: Colors.white.withOpacity(0.9)),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
-            fontSize: 10,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildChannelListItem(Channel channel, int index) {
-    final theme = Theme.of(context);
-
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChannelDetailPage(channel: channel),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Channel avatar
-              Stack(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      image: DecorationImage(
-                        image: NetworkImage(channel.imageUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                    ],
                   ),
-                  if (channel.isVerified)
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.verified, size: 12, color: Colors.white),
-                      ),
-                    ),
-                  if (channel.isLive)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'LIVE',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            channel.title,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            channel.isFavorite ? Icons.favorite : Icons.favorite_border,
-                            size: 20,
-                            color: channel.isFavorite ? Colors.red : Colors.grey,
-                          ),
-                          onPressed: () => _toggleFavorite(index),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      channel.author,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      channel.description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _buildListStatItem(
-                          Icons.people,
-                          '${_formatNumber(channel.subscribers)}',
-                        ),
-                        const SizedBox(width: 16),
-                        _buildListStatItem(
-                          Icons.video_library,
-                          '${channel.videos}',
-                        ),
-                        const SizedBox(width: 16),
-                        _buildListStatItem(
-                          Icons.star,
-                          channel.rating.toStringAsFixed(1),
-                        ),
-                        const SizedBox(width: 16),
-                        _buildListStatItem(
-                          Icons.comment,
-                          '${_formatNumber(channel.commentsCount ?? 0)}',
-                        ),
-                        const Spacer(),
-                        Text(
-                          _formatDate(channel.createdAt),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      children: channel.tags.take(2).map((tag) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '#$tag',
-                          style: TextStyle(
-                            color: theme.colorScheme.primary,
-                            fontSize: 10,
-                          ),
-                        ),
-                      )).toList(),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton(
-                        onPressed: () => _toggleSubscription(index),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: channel.isSubscribed
-                              ? theme.colorScheme.primary.withOpacity(0.1)
-                              : theme.colorScheme.primary,
-                          foregroundColor: channel.isSubscribed
-                              ? theme.colorScheme.primary
-                              : Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          minimumSize: const Size(0, 36),
-                        ),
-                        child: Text(
-                          channel.isSubscribed ? 'Отписаться' : 'Подписаться',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -1847,17 +976,73 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildListStatItem(IconData icon, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 12, color: Colors.grey),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-      ],
+  Widget _buildStatItem(String value, String label, {required double fontSize, required int crossAxisCount}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: crossAxisCount >= 3 ? fontSize - 1 : fontSize,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
+  }
+
+  // Вспомогательные методы
+  void _toggleSubscription(int index, ChannelStateProvider stateProvider) {
+    final filteredChannels = _getFilteredChannels(stateProvider);
+    final channel = filteredChannels[index];
+    final globalIndex = _channels.indexWhere((c) => c.id == channel.id);
+
+    if (globalIndex != -1) {
+      final channelId = channel.id.toString();
+      final currentSubscribers = channel.subscribers;
+
+      stateProvider.toggleSubscription(channelId, currentSubscribers);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            stateProvider.isSubscribed(channelId)
+                ? '✅ Подписались на ${channel.title}'
+                : '❌ Отписались от ${channel.title}',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _toggleFavorite(int index) {
+    setState(() {
+      _channels[index] = _channels[index].copyWith(
+        isFavorite: !_channels[index].isFavorite,
+      );
+    });
   }
 
   String _formatNumber(int number) {
@@ -1869,20 +1054,479 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     return number.toString();
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
+  // Виджет поля поиска для AppBar
+  Widget _buildSearchField() {
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: TextField(
+        controller: _searchController,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: 'Поиск каналов...',
+          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+            onPressed: () => _searchController.clear(),
+          )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        style: const TextStyle(fontSize: 16),
+      ),
+    );
+  }
 
-    if (difference.inDays > 365) {
-      return '${(difference.inDays / 365).floor()}г назад';
-    } else if (difference.inDays > 30) {
-      return '${(difference.inDays / 30).floor()}мес назад';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}д назад';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}ч назад';
-    } else {
-      return 'только что';
-    }
+  // ВИДЖЕТЫ ДЛЯ ФИЛЬТРОВ И КАТЕГОРИЙ
+  Widget _buildFiltersCard(double horizontalPadding) {
+    if (!_showFilters) return const SizedBox.shrink();
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        color: Colors.white,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Фильтры',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  shrinkWrap: true,
+                  children: _filterOptions.map(_buildFilterChip).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoriesCard(double horizontalPadding) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        color: Colors.white,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Категории',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  shrinkWrap: true,
+                  children: _categories.asMap().entries.map((entry) {
+                    final category = entry.value;
+                    return _buildCategoryChip(category);
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip(RoomCategory category) {
+    final isSelected = _selectedCategoryId == category.id;
+
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: isSelected ? category.color : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _selectedCategoryId = category.id;
+            });
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected ? category.color : Colors.grey[300]!,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  category.icon,
+                  size: 16,
+                  color: isSelected ? Colors.white : category.color,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  category.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isSelected ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(FilterOption filter) {
+    final isActive = _activeFilters.contains(filter.id);
+
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: isActive ? Colors.blue : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              if (isActive) {
+                _activeFilters.remove(filter.id);
+              } else {
+                _activeFilters.add(filter.id);
+              }
+            });
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isActive ? Colors.blue : Colors.grey[300]!,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  filter.icon,
+                  size: 16,
+                  color: isActive ? Colors.white : Colors.blue,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  filter.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isActive ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (context) => ChannelStateProvider(),
+      child: Consumer<ChannelStateProvider>(
+        builder: (context, channelStateProvider, child) {
+          final horizontalPadding = _getHorizontalPadding(context);
+
+          return Scaffold(
+            backgroundColor: Colors.transparent, // ПРОЗРАЧНЫЙ фон
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFF5F5F5),
+                    Color(0xFFE8E8E8),
+                  ],
+                ),
+              ),
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    // AppBar БЕЗ карточки - просто белый фон
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+                      decoration: const BoxDecoration(
+                        color: Colors.white, // Просто белый фон без карточки
+                      ),
+                      child: Row(
+                        children: [
+                          // Заголовок
+                          if (!_showSearchBar) ...[
+                            const Text(
+                              'Каналы',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                          ],
+
+                          // Поле поиска или кнопки
+                          if (_showSearchBar)
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildSearchField(),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.black,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    onPressed: () => setState(() {
+                                      _showSearchBar = false;
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    }),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.search,
+                                      color: Colors.black,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  onPressed: () => setState(() => _showSearchBar = true),
+                                ),
+                                IconButton(
+                                  icon: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      _showFilters ? Icons.filter_alt_off : Icons.filter_alt,
+                                      color: Colors.black,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  onPressed: () => setState(() => _showFilters = !_showFilters),
+                                ),
+                                IconButton(
+                                  icon: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.sort,
+                                      color: Colors.black,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  onPressed: _showSortBottomSheet,
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // Контент
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        child: _buildContent(channelStateProvider, horizontalPadding),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Кнопка "+" всегда видимая и только с иконкой
+            floatingActionButton: FloatingActionButton(
+              onPressed: _createNewChannel,
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add, size: 24),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildContent(ChannelStateProvider stateProvider, double horizontalPadding) {
+    final channels = _getFilteredChannels(stateProvider);
+
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        // Фильтры
+        SliverToBoxAdapter(
+          child: _buildFiltersCard(horizontalPadding),
+        ),
+
+        // Категории
+        SliverToBoxAdapter(
+          child: _buildCategoriesCard(horizontalPadding),
+        ),
+
+        // Карточки каналов или пустое состояние
+        if (channels.isEmpty)
+          SliverFillRemaining(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 40, color: Colors.grey[400]),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Каналы не найдены',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Попробуйте изменить параметры поиска',
+                    style: TextStyle(color: Colors.grey, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: _getCrossAxisCount(context),
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: _getCardAspectRatio(context),
+              ),
+              delegate: SliverChildBuilderDelegate(
+                    (context, index) => _buildChannelCard(
+                  channels[index],
+                  index,
+                  stateProvider,
+                ),
+                childCount: channels.length,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showSortBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Сортировка',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ..._sortOptions.map((option) => ListTile(
+              leading: Icon(option.icon, size: 18),
+              title: Text(
+                option.title,
+                style: const TextStyle(fontSize: 13),
+              ),
+              trailing: _selectedSort == option.id
+                  ? const Icon(Icons.check, color: Colors.blue, size: 18)
+                  : null,
+              onTap: () {
+                setState(() => _selectedSort = option.id);
+                Navigator.pop(context);
+              },
+            )).toList(),
+          ],
+        ),
+      ),
+    );
   }
 }

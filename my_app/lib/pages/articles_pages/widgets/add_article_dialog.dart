@@ -55,6 +55,15 @@ class _AddArticlePageState extends State<AddArticlePage> {
     _isImageValid = true;
   }
 
+  // Адаптивные методы как в CardsPage
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 200;
+    if (width > 800) return 100;
+    if (width > 600) return 60;
+    return 16;
+  }
+
   Color _getLevelColor(AuthorLevel level) {
     return level == AuthorLevel.expert
         ? const Color(0xFF4FC3F7)
@@ -226,7 +235,7 @@ class _AddArticlePageState extends State<AddArticlePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Черновик сохранен'),
-        duration: const Duration(seconds: 2),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -261,13 +270,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
     }
   }
 
-  // Адаптивные методы как в CardsPage
-  double _getHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 700) return 80;
-    return 16;
-  }
-
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
@@ -288,7 +290,7 @@ class _AddArticlePageState extends State<AddArticlePage> {
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar как в CardsPage
+              // AppBar как в CardsPage - БЕЗ карточки, просто белый фон
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 12),
@@ -323,17 +325,15 @@ class _AddArticlePageState extends State<AddArticlePage> {
               // Основной контент
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 20),
-
                         // Карточка с формой как в CardsPage
                         Card(
-                          elevation: 3,
+                          elevation: 4,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),

@@ -52,7 +52,7 @@ class ArticleCategory {
 class _ArticlesPageState extends State<ArticlesPage> {
   // Константы
   static const defaultImageUrl = 'https://images.unsplash.com/photo-1596510913920-85d87a1800d2?w=500&h=300&fit=crop';
-  static const defaultAvatarUrl = 'https://via.placeholder.com/150/007bff/ffffff?text=U'; // ЗАГЛУШКА ДЛЯ АВАТАРКИ
+  static const defaultAvatarUrl = 'https://via.placeholder.com/150/007bff/ffffff?text=U';
 
   final List<ArticleCategory> _categories = [
     ArticleCategory(
@@ -143,49 +143,100 @@ class _ArticlesPageState extends State<ArticlesPage> {
   bool _showSearchBar = false;
   bool _showFilters = false;
 
+  // АДАПТИВНЫЕ МЕТОДЫ КАК В CARDS_PAGE
+  int _getCrossAxisCount(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 3; // Большие экраны - 3 карточки
+    if (width > 800) return 3;  // Средние экраны - 3 карточки
+    if (width > 600) return 2;  // Планшеты - 2 карточки
+    return 1;                   // Мобильные - 1 карточка
+  }
+
+  // ОПТИМАЛЬНЫЕ ПРОПОРЦИИ ДЛЯ 3 КАРТОЧЕК
+  double _getCardAspectRatio(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные - 1 карточка в ряд
+        return 0.75; // ВЫСОКАЯ КАРТОЧКА
+      case 2: // Планшеты - 2 карточки в ряд
+        return 0.8;  // КВАДРАТНАЯ КАРТОЧКА
+      case 3: // Десктоп - 3 карточки в ряд
+        return 0.85; // ШИРОКАЯ КАРТОЧКА
+      default:
+        return 0.8;
+    }
+  }
+
+  // ТАКИЕ ЖЕ ОТСТУПЫ КАК В CARDS_PAGE
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 200; // Большие экраны
+    if (width > 800) return 100;  // Средние экраны
+    if (width > 600) return 60;   // Планшеты
+    return 16;                    // Мобильные
+  }
+
+  // ОСТАЛЬНЫЕ АДАПТИВНЫЕ МЕТОДЫ
+  double _getCoverHeight(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 140;
+      case 2: // Планшеты
+        return 130;
+      case 3: // Десктоп
+        return 120;
+      default:
+        return 130;
+    }
+  }
+
+  double _getTitleFontSize(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 17;
+      case 2: // Планшеты
+        return 16;
+      case 3: // Десктоп
+        return 15;
+      default:
+        return 16;
+    }
+  }
+
+  double _getDescriptionFontSize(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    switch (crossAxisCount) {
+      case 1: // Мобильные
+        return 13;
+      case 2: // Планшеты
+        return 12;
+      case 3: // Десктоп
+        return 11;
+      default:
+        return 12;
+    }
+  }
+
   // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
   String _getUserAvatarUrl(BuildContext context) {
     try {
       final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
 
-      // Пытаемся получить аватарку из ChannelStateProvider
       final customAvatar = channelStateProvider.getCurrentAvatar(
-        'user_${widget.userEmail}', // Используем email как идентификатор
-        defaultAvatar: defaultAvatarUrl, // ИСПОЛЬЗУЕМ ЗАГЛУШКУ
+        'user_${widget.userEmail}',
+        defaultAvatar: defaultAvatarUrl,
       );
 
-      return customAvatar ?? defaultAvatarUrl; // ВОЗВРАЩАЕМ ЗАГЛУШКУ
+      return customAvatar ?? defaultAvatarUrl;
     } catch (e) {
-      // Если произошла ошибка, возвращаем заглушку
       return defaultAvatarUrl;
     }
-  }
-
-  // Адаптивные методы
-  int _getCrossAxisCount(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1800) return 4;
-    if (width > 1400) return 4;
-    if (width > 1000) return 3;
-    if (width > 700) return 2;
-    return 1;
-  }
-
-  double _getCardAspectRatio(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-    switch (crossAxisCount) {
-      case 1: return 0.85;
-      case 2: return 0.9;
-      case 3: return 0.95;
-      case 4: return 1.0;
-      default: return 0.9;
-    }
-  }
-
-  double _getHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 700) return 80;
-    return 16;
   }
 
   @override
@@ -389,7 +440,7 @@ class _ArticlesPageState extends State<ArticlesPage> {
     });
   }
 
-  // ВИДЖЕТЫ ДЛЯ ФИЛЬТРОВ И КАТЕГОРИЙ
+  // ВИДЖЕТЫ ДЛЯ ФИЛЬТРОВ И КАТЕГОРИЙ С ТАКИМИ ЖЕ ОТСТУПАМИ
   Widget _buildFiltersCard(double horizontalPadding) {
     if (!_showFilters) return const SizedBox.shrink();
 
@@ -610,7 +661,6 @@ class _ArticlesPageState extends State<ArticlesPage> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
-    // ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ
     final currentAvatarUrl = _getUserAvatarUrl(context);
 
     return Scaffold(
@@ -629,10 +679,10 @@ class _ArticlesPageState extends State<ArticlesPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar
+              // AppBar С ТАКИМИ ЖЕ ОТСТУПАМИ
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 12),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
                 decoration: const BoxDecoration(color: Colors.white),
                 child: Row(
                   children: [
@@ -743,7 +793,6 @@ class _ArticlesPageState extends State<ArticlesPage> {
     );
   }
 
-
   Widget _buildContent(ArticlesProvider articlesProvider, double horizontalPadding) {
     return CustomScrollView(
       controller: _scrollController,
@@ -755,7 +804,7 @@ class _ArticlesPageState extends State<ArticlesPage> {
         // Категории
         SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
 
-        // Карточки статей
+        // Карточки статей С ТАКИМИ ЖЕ ОТСТУПАМИ
         _buildArticlesGrid(articlesProvider, horizontalPadding),
       ],
     );
@@ -786,8 +835,8 @@ class _ArticlesPageState extends State<ArticlesPage> {
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: _getCrossAxisCount(context),
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+          crossAxisSpacing: 12, // ТАКОЙ ЖЕ ОТСТУП МЕЖДУ КАРТОЧКАМИ
+          mainAxisSpacing: 12,  // ТАКОЙ ЖЕ ОТСТУП МЕЖДУ КАРТОЧКАМИ
           childAspectRatio: _getCardAspectRatio(context),
         ),
         delegate: SliverChildBuilderDelegate(

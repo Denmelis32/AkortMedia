@@ -100,28 +100,25 @@ class _ArticleCardState extends State<ArticleCard> {
   // Адаптивные методы
   int _getCrossAxisCount(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1800) return 4;
-    if (width > 1400) return 4;
-    if (width > 1000) return 3;
-    if (width > 700) return 2;
-    return 1;
+    if (width > 1200) return 3; // Большие экраны - 3 карточки
+    if (width > 800) return 3;  // Средние экраны - 3 карточки
+    if (width > 600) return 2;  // Планшеты - 2 карточки
+    return 1;                   // Мобильные - 1 карточка
   }
 
   double _getCoverHeight(BuildContext context) {
     final crossAxisCount = _getCrossAxisCount(context);
-    // УМЕНЬШАЕМ ВЫСОТУ ДЛЯ ДЕСКТОПА
     switch (crossAxisCount) {
-      case 1: return 160; // было 200
-      case 2: return 140; // было 180
-      case 3: return 120; // было 160
-      case 4: return 110; // было 150
+      case 1: return 160;
+      case 2: return 140;
+      case 3: return 120;
+      case 4: return 110;
       default: return 140;
     }
   }
 
   double _getContentPadding(BuildContext context) {
     final crossAxisCount = _getCrossAxisCount(context);
-    // МЕНЬШЕ ПАДДИНГ ДЛЯ ДЕСКТОПА
     switch (crossAxisCount) {
       case 1: return 16;
       case 2: return 14;
@@ -167,15 +164,13 @@ class _ArticleCardState extends State<ArticleCard> {
     final descriptionFontSize = _getDescriptionFontSize(context);
 
     return Container(
-      margin: EdgeInsets.all(crossAxisCount >= 3 ? 6 : 8), // Меньше маржин для десктопа
-      constraints: BoxConstraints(
-        maxHeight: crossAxisCount >= 3 ? 380 : 400, // ОГРАНИЧИВАЕМ МАКСИМАЛЬНУЮ ВЫСОТУ
-      ),
+      margin: EdgeInsets.all(crossAxisCount >= 3 ? 6 : 8),
       child: Card(
-        elevation: crossAxisCount >= 3 ? 4 : 8,
+        elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
+        color: Colors.white, // БЕЛЫЙ ФОН КАРТОЧКИ
         shadowColor: Colors.black.withOpacity(0.1),
         child: InkWell(
           onTap: widget.onTap,
@@ -183,9 +178,9 @@ class _ArticleCardState extends State<ArticleCard> {
           borderRadius: BorderRadius.circular(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min, // ВАЖНО: предотвращаем растягивание
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // ОБЛОЖКА СТАТЬИ
+              // ОБЛОЖКА СТАТЬИ - БЕЗ ГРАДИЕНТА, ПРОСТО ИЗОБРАЖЕНИЕ
               Stack(
                 children: [
                   // Основное изображение
@@ -204,106 +199,77 @@ class _ArticleCardState extends State<ArticleCard> {
                     ),
                   ),
 
-                  // Градиент поверх изображения
-                  Container(
-                    height: coverHeight,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
+                  // Категория в левом верхнем углу
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.6),
-                          Colors.transparent,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getCategoryIcon(widget.article.category),
+                            size: 12,
+                            color: categoryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            widget.article.category.toUpperCase(),
+                            style: TextStyle(
+                              color: categoryColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
 
-                  // Контент поверх изображения
+                  // Дата в правом верхнем углу
                   Positioned(
-                    bottom: 12,
-                    left: 12,
+                    top: 12,
                     right: 12,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Категория и дата в одной строке
-                        Row(
-                          children: [
-                            // Категория
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: categoryColor.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _getCategoryIcon(widget.article.category),
-                                    size: 12,
-                                    color: Colors.white,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    widget.article.category.toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            // Дата
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                formattedDate,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // Заголовок
-                        Text(
-                          widget.article.title,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        ],
+                      ),
+                      child: Text(
+                        formattedDate,
+                        style: const TextStyle(
+                          color: Colors.black87,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
               ),
 
-              // ОСНОВНОЙ КОНТЕНТ - УПРОЩЕННАЯ ВЕРСИЯ
+              // ОСНОВНОЙ КОНТЕНТ
               Expanded(
                 child: Container(
                   padding: EdgeInsets.all(contentPadding),
@@ -311,7 +277,22 @@ class _ArticleCardState extends State<ArticleCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Описание - КОРОЧЕ ДЛЯ ДЕСКТОПА
+                      // Заголовок
+                      Text(
+                        widget.article.title,
+                        style: TextStyle(
+                          fontSize: titleFontSize,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Описание
                       Text(
                         widget.article.description,
                         style: TextStyle(
@@ -320,13 +301,13 @@ class _ArticleCardState extends State<ArticleCard> {
                           height: 1.4,
                           fontWeight: FontWeight.w400,
                         ),
-                        maxLines: crossAxisCount >= 3 ? 2 : 3, // МЕНЬШЕ СТРОК НА ДЕСКТОПЕ
+                        maxLines: crossAxisCount >= 3 ? 2 : 3,
                         overflow: TextOverflow.ellipsis,
                       ),
 
                       const Spacer(),
 
-                      // Информация об авторе и статистика в КОМПАКТНОМ ВИДЕ
+                      // Информация об авторе и статистика
                       Row(
                         children: [
                           // Аватар автора
@@ -396,7 +377,7 @@ class _ArticleCardState extends State<ArticleCard> {
                             ),
                           ),
 
-                          // Статистика - КОМПАКТНАЯ
+                          // Статистика
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
@@ -434,7 +415,7 @@ class _ArticleCardState extends State<ArticleCard> {
 
                       const SizedBox(height: 12),
 
-                      // КНОПКИ ДЕЙСТВИЙ - КОМПАКТНЫЕ
+                      // КНОПКИ ДЕЙСТВИЙ
                       Container(
                         height: crossAxisCount >= 3 ? 36 : 40,
                         decoration: BoxDecoration(

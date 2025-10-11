@@ -17,7 +17,7 @@ class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
   final VoidCallback onLike;
   final VoidCallback onBookmark;
-  final Function(String, String, String) onComment; // ИСПРАВЛЕНО: правильная сигнатура
+  final Function(String, String, String) onComment;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onShare;
@@ -61,8 +61,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   bool _isFollowing = false;
   double _readingProgress = 0.0;
   String _editingTagId = '';
-
-  // УДАЛЕНО: локальное состояние комментариев
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -169,19 +167,39 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // Адаптивные методы как в CardsPage
+  // TWITTER-LIKE АДАПТИВНЫЕ МЕТОДЫ
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 700) return 80;
-    return 16;
+    if (width > 1000) return 280; // Twitter-like для больших экранов
+    if (width > 700) return 80;   // Для планшетов
+    return 16;                    // Для мобильных
   }
 
   double _getContentMaxWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 1200;
-    if (width > 1000) return 900;
-    if (width > 700) return 700;
+    if (width > 1400) return 600;  // Twitter-like максимальная ширина
+    if (width > 1000) return 600;
+    if (width > 700) return 600;
     return double.infinity;
+  }
+
+  // Twitter-like размеры элементов
+  double _getAvatarSize(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return 40; // Более компактные аватарки как в Twitter
+    return 44;
+  }
+
+  double _getTitleFontSize(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return 15; // Twitter-like размер шрифта
+    return 15;
+  }
+
+  double _getDescriptionFontSize(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return 15; // Twitter-like размер шрифта
+    return 14;
   }
 
   @override
@@ -211,19 +229,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _readingProgress = (widget.news['read_progress'] ?? 0.0).toDouble();
   }
 
-  // ИСПРАВЛЕНИЕ: Убираем слушатель провайдера, т.к. он вызывает лишние перестроения
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // УДАЛЕНО: слушатель channelStateProvider
   }
 
-  // ИСПРАВЛЕНИЕ: Обновляем состояние при изменении props
   @override
   void didUpdateWidget(NewsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Обновляем состояние только если данные действительно изменились
     if (oldWidget.news['isLiked'] != widget.news['isLiked']) {
       _isLiked = _getBoolValue(widget.news['isLiked']);
     }
@@ -240,9 +254,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _commentController.dispose();
     _tagEditController.dispose();
     _expandController.dispose();
-
-    // УДАЛЕНО: удаление слушателя channelStateProvider
-
     super.dispose();
   }
 
@@ -259,7 +270,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     widget.onFollow();
   }
 
-  // ИСПРАВЛЕНИЕ: Правильное получение аватарки для каждого пользователя
   void _openUserProfile() {
     final authorName = _getStringValue(widget.news['author_name']);
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
@@ -268,13 +278,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // ЕСЛИ ЭТО КАНАЛЬНЫЙ ПОСТ - ПЕРЕХОДИМ НА СТРАНИЦУ КАНАЛА
     if (isChannelPost && channelId.isNotEmpty && channelName.isNotEmpty) {
       _openChannelPage(channelId, channelName);
       return;
     }
 
-    // Для обычных постов - оставляем старую логику с переходом на профиль
     final targetUserName = authorName;
     final isCurrentUser = authorName == userProvider.userName;
 
@@ -285,7 +293,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // НОВЫЙ МЕТОД ДЛЯ ОТКРЫТИЯ СТРАНИЦЫ КАНАЛА
   void _openChannelPage(String channelId, String channelName) {
     if (channelId.isEmpty || channelName.isEmpty) {
       print('❌ Missing channel data: id=$channelId, name=$channelName');
@@ -333,7 +340,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ИСПРАВЛЕНИЕ: Упрощенный метод профиля
   void _showProfilePage(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
@@ -378,7 +384,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ИСПРАВЛЕНИЕ: Упрощенный метод для профиля другого пользователя
   void _showOtherUserProfile(BuildContext context, String userName) {
     Navigator.push(
       context,
@@ -417,10 +422,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ИСПРАВЛЕНИЕ: Правильное получение аватарки для каждого пользователя
   String _getUserAvatarUrl(String userName, {bool isCurrentUser = false}) {
     if (isCurrentUser) {
-      // Для текущего пользователя используем его аватар
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
       final currentProfileImage = newsProvider.getCurrentProfileImage();
 
@@ -429,11 +432,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       }
     }
 
-    // Для других пользователей используем fallback аватар на основе их имени
     return _getFallbackAvatarUrl(userName);
   }
 
-  // УЛУЧШЕННЫЙ КОМПАКТНЫЙ ДИЗАЙН КАРТОЧЕК С АДАПТИВНЫМИ ОТСТУПАМИ
+  // TWITTER-LIKE КАРТОЧКА С АДАПТИВНЫМИ ОТСТУПАМИ
   Widget _buildCard({required Widget child, bool isChannel = false}) {
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
@@ -443,24 +445,24 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       margin: EdgeInsets.only(
         left: horizontalPadding,
         right: horizontalPadding,
-        bottom: 16,
+        bottom: 12, // Более компактный отступ между карточками как в Twitter
       ),
       child: Center(
         child: Container(
           constraints: BoxConstraints(maxWidth: contentMaxWidth),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12), // Более скругленные углы как в Twitter
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+                color: Colors.black.withOpacity(0.08), // Более легкая тень
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
                 Positioned(
@@ -483,7 +485,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 Column(
                   children: [
                     Container(
-                      height: 4,
+                      height: 3, // Более тонкая полоска
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: _cardDesign.gradient,
@@ -493,7 +495,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16), // Более компактные отступы
                       child: child,
                     ),
                   ],
@@ -506,7 +508,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ИСПРАВЛЕНИЕ: Правильное получение аватарки для каждого типа поста
   Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
     final authorName = _getStringValue(widget.news['author_name']);
     final createdAt = _getStringValue(widget.news['created_at']);
@@ -515,26 +516,25 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final channelId = _getStringValue(widget.news['channel_id']);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // ИСПРАВЛЕНИЕ: Правильное определение аватарки
     String authorAvatar;
     String displayName;
 
     if (isChannelPost && channelId.isNotEmpty) {
-      // Для канальных постов используем аватарку канала
       final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
       final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
       authorAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']) ?? _getFallbackAvatarUrl(channelName);
       displayName = channelName;
     } else {
-      // Для обычных постов используем аватарку автора
       final isCurrentUser = authorName == userProvider.userName;
       authorAvatar = _getUserAvatarUrl(authorName, isCurrentUser: isCurrentUser);
       displayName = authorName;
     }
 
+    final avatarSize = _getAvatarSize(context);
+
     return Row(
       children: [
-        _buildUserAvatar(authorAvatar, isChannelPost, displayName),
+        _buildUserAvatar(authorAvatar, isChannelPost, displayName, avatarSize),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -546,7 +546,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   displayName,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                    fontSize: _getTitleFontSize(context),
                     color: Colors.black87,
                     letterSpacing: -0.2,
                   ),
@@ -608,7 +608,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         Container(
           decoration: BoxDecoration(
             color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8), // Более скругленные углы
             border: Border.all(
               color: Colors.grey[300]!,
             ),
@@ -617,7 +617,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             icon: Icon(
               Icons.more_horiz_rounded,
               color: Colors.grey[700],
-              size: 18,
+              size: 16, // Более компактная иконка
             ),
             onPressed: () => _showAdvancedOptionsMenu(context),
             padding: const EdgeInsets.all(6),
@@ -631,23 +631,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
   }
 
-  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName) {
+  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size) {
     return GestureDetector(
       onTap: _openUserProfile,
       child: Container(
-        width: 44,
-        height: 44,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
             color: Colors.white.withOpacity(0.3),
-            width: 2,
+            width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+              color: Colors.black.withOpacity(0.15), // Более легкая тень
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -658,24 +658,24 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             fit: BoxFit.cover,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return _buildGradientAvatar(isChannelPost, displayName);
+              return _buildGradientAvatar(isChannelPost, displayName, size);
             },
             errorBuilder: (context, error, stackTrace) {
-              return _buildGradientAvatar(isChannelPost, displayName);
+              return _buildGradientAvatar(isChannelPost, displayName, size);
             },
           )
-              : _buildGradientAvatar(isChannelPost, displayName),
+              : _buildGradientAvatar(isChannelPost, displayName, size),
         ),
       ),
     );
   }
 
-  Widget _buildGradientAvatar(bool isChannelPost, String displayName) {
+  Widget _buildGradientAvatar(bool isChannelPost, String displayName, double size) {
     final gradientColors = _getAvatarGradient(displayName);
 
     return Container(
-      width: 44,
-      height: 44,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: gradientColors,
@@ -685,9 +685,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: gradientColors[0].withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: gradientColors[0].withOpacity(0.25),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -695,7 +695,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         child: Icon(
           isChannelPost ? Icons.group_rounded : Icons.person_rounded,
           color: Colors.white,
-          size: 20,
+          size: size * 0.45, // Адаптивный размер иконки
         ),
       ),
     );
@@ -744,12 +744,12 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return GestureDetector(
       onTap: () => _showTagEditDialog(tag, tagId, color),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Более компактный
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
+          color: color.withOpacity(0.08), // Более прозрачный
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: color.withOpacity(0.25),
+            color: color.withOpacity(0.2), // Более прозрачная граница
             width: 1,
           ),
         ),
@@ -757,8 +757,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 5,
-              height: 5,
+              width: 4,
+              height: 4,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -769,7 +769,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               tag,
               style: TextStyle(
                 color: color,
-                fontSize: 11,
+                fontSize: 10, // Более мелкий шрифт
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -799,20 +799,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     if (cleanedHashtags.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 6,
+      spacing: 6, // Более компактный spacing
+      runSpacing: 4,
       children: cleanedHashtags.map((tag) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Более компактный
           decoration: BoxDecoration(
-            color: _contentColor.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(8),
+            color: _contentColor.withOpacity(0.06), // Более прозрачный
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             '#$tag',
             style: TextStyle(
               color: _contentColor,
-              fontSize: 12,
+              fontSize: 11, // Более мелкий шрифт
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -821,7 +821,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ИСПРАВЛЕНИЕ: Используем актуальные комментарии из props
   List<dynamic> get _currentComments {
     return List<dynamic>.from(widget.news['comments'] ?? []);
   }
@@ -830,10 +829,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final likes = _getIntValue(widget.news['likes']);
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10), // Более компактный
       decoration: BoxDecoration(
         color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10), // Более скругленные углы
         border: Border.all(
           color: Colors.grey[200]!,
         ),
@@ -850,7 +849,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               widget.onLike();
             },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6), // Более компактный spacing
           _buildActionButton(
             icon: Icons.chat_bubble_outline_rounded,
             count: commentCount,
@@ -858,7 +857,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             color: Colors.blue,
             onPressed: _toggleExpanded,
           ),
-          if (showBookmark) const SizedBox(width: 8),
+          if (showBookmark) const SizedBox(width: 6),
           if (showBookmark)
             _buildActionButton(
               icon: _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
@@ -888,13 +887,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return GestureDetector(
       onTap: onPressed,
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        duration: Duration(milliseconds: 200), // Более быстрая анимация
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5), // Более компактный
         decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isActive ? color.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6), // Более скругленные углы
           border: Border.all(
-            color: isActive ? color.withOpacity(0.25) : Colors.transparent,
+            color: isActive ? color.withOpacity(0.2) : Colors.transparent,
             width: 1,
           ),
         ),
@@ -902,7 +901,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           children: [
             Icon(
               icon,
-              size: 15,
+              size: 14, // Более компактные иконки
               color: isActive ? color : Colors.grey[700],
             ),
             if (count > 0) ...[
@@ -911,7 +910,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 _formatCount(count),
                 style: TextStyle(
                   color: isActive ? color : Colors.grey[700],
-                  fontSize: 11,
+                  fontSize: 10, // Более мелкий шрифт
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -928,8 +927,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return GestureDetector(
       onTap: _toggleFollow,
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        duration: Duration(milliseconds: 250), // Более быстрая анимация
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // Более компактный
         decoration: BoxDecoration(
           gradient: _isFollowing
               ? null
@@ -938,10 +937,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          color: _isFollowing ? Colors.green.withOpacity(0.1) : null,
-          borderRadius: BorderRadius.circular(8),
+          color: _isFollowing ? Colors.green.withOpacity(0.08) : null, // Более прозрачный
+          borderRadius: BorderRadius.circular(6), // Более скругленные углы
           border: Border.all(
-            color: _isFollowing ? Colors.green : Colors.transparent,
+            color: _isFollowing ? Colors.green.withOpacity(0.3) : Colors.transparent,
             width: 1,
           ),
         ),
@@ -949,15 +948,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           children: [
             Icon(
               _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-              size: 13,
+              size: 12, // Более компактные иконки
               color: _isFollowing ? Colors.green : Colors.white,
             ),
-            const SizedBox(width: 5),
+            const SizedBox(width: 4),
             Text(
               _isFollowing ? 'Подписан' : 'Подписаться',
               style: TextStyle(
                 color: _isFollowing ? Colors.green : Colors.white,
-                fontSize: 11,
+                fontSize: 10, // Более мелкий шрифт
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -994,7 +993,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return count.toString();
   }
 
-  // УЛУЧШЕННЫЕ ДИАЛОГИ
   void _showAdvancedOptionsMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -1002,30 +1000,30 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       builder: (context) => Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), // Более скругленные углы
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
+              color: Colors.black.withOpacity(0.12), // Более легкая тень
+              blurRadius: 16,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16), // Более компактные отступы
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40,
-                  height: 4,
+                  width: 32, // Более компактный
+                  height: 3,
                   decoration: BoxDecoration(
                     color: Colors.grey[400],
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 _buildMenuOption(
                   Icons.edit_rounded,
                   'Редактировать',
@@ -1044,14 +1042,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   Colors.red,
                   widget.onDelete,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.grey[700],
                     side: BorderSide(color: Colors.grey[300]!),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), // Более компактный
                   ),
                   child: const Text('Закрыть'),
                 ),
@@ -1066,20 +1064,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   Widget _buildMenuOption(IconData icon, String title, Color color, VoidCallback onTap) {
     return ListTile(
       leading: Container(
-        width: 36,
-        height: 36,
+        width: 32, // Более компактный
+        height: 32,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+          color: color.withOpacity(0.08), // Более прозрачный
+          borderRadius: BorderRadius.circular(6), // Более скругленные углы
         ),
-        child: Icon(icon, color: color, size: 18),
+        child: Icon(icon, color: color, size: 16), // Более компактные иконки
       ),
       title: Text(
         title,
         style: TextStyle(
           color: Colors.black87,
           fontWeight: FontWeight.w600,
-          fontSize: 14,
+          fontSize: 13, // Более мелкий шрифт
         ),
       ),
       onTap: () {
@@ -1107,58 +1105,58 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16), // Более скругленные углы
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 25,
-                      offset: const Offset(0, 8),
+                      color: Colors.black.withOpacity(0.15), // Более легкая тень
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16), // Более компактные отступы
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Редактировать тег',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 16, // Более мелкий шрифт
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: _tagEditController,
-                        style: TextStyle(color: Colors.black87, fontSize: 15),
+                        style: TextStyle(color: Colors.black87, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'Название тега',
                           hintStyle: TextStyle(color: Colors.grey[600]),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8), // Более скругленные углы
                             borderSide: BorderSide(color: Colors.grey[300]!),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(color: _contentColor, width: 1.5),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), // Более компактный
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Text(
                         'Выберите цвет:',
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: 13, // Более мелкий шрифт
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       SizedBox(
-                        height: 50,
+                        height: 40, // Более компактный
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: _availableColors.length,
@@ -1167,34 +1165,34 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             return GestureDetector(
                               onTap: () => setState(() => dialogSelectedColor = color),
                               child: AnimatedContainer(
-                                duration: Duration(milliseconds: 200),
-                                width: 40,
-                                height: 40,
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                duration: Duration(milliseconds: 150), // Более быстрая анимация
+                                width: 32, // Более компактный
+                                height: 32,
+                                margin: const EdgeInsets.symmetric(horizontal: 3), // Более компактный spacing
                                 decoration: BoxDecoration(
                                   color: color,
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(8), // Более скругленные углы
                                   border: Border.all(
                                     color: dialogSelectedColor == color ? Colors.white : Colors.transparent,
-                                    width: 2.5,
+                                    width: 2,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: color.withOpacity(0.3),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 3),
+                                      color: color.withOpacity(0.25),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
                                 child: dialogSelectedColor == color
-                                    ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                    ? const Icon(Icons.check, color: Colors.white, size: 16) // Более компактная иконка
                                     : null,
                               ),
                             );
                           },
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
@@ -1203,15 +1201,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.grey[700],
                                 side: BorderSide(color: Colors.grey[300]!),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 10), // Более компактный
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(8), // Более скругленные углы
                                 ),
                               ),
                               child: const Text('Отмена', style: TextStyle(fontWeight: FontWeight.w600)),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8), // Более компактный spacing
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _tagEditController.text.trim().isNotEmpty ? () {
@@ -1221,9 +1219,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               } : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _contentColor,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 10), // Более компактный
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(8), // Более скругленные углы
                                 ),
                                 elevation: 0,
                               ),
@@ -1246,30 +1244,29 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ИСПРАВЛЕНИЕ: Используем актуальные комментарии из props
   Widget _buildCommentsSection() {
     return Column(
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 12), // Более компактный
         Container(
           height: 1,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
                 Colors.transparent,
-                _cardDesign.gradient[0].withOpacity(0.15),
+                _cardDesign.gradient[0].withOpacity(0.1), // Более прозрачный
                 Colors.transparent,
               ],
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(top: 16),
+          padding: const EdgeInsets.only(top: 12), // Более компактный
           child: Column(
             children: [
               if (_currentComments.isNotEmpty) ...[
                 ..._currentComments.map((comment) => _buildCommentItem(comment)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8), // Более компактный
               ],
               _buildCommentInput(),
             ],
@@ -1287,18 +1284,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final authorAvatar = _getStringValue(commentMap['author_avatar']);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8), // Более компактный
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCommentAvatar(authorAvatar, author),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8), // Более компактный
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10), // Более компактный
               decoration: BoxDecoration(
                 color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10), // Более скругленные углы
                 border: Border.all(
                   color: Colors.grey[200]!,
                 ),
@@ -1312,7 +1309,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         author,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          fontSize: 12, // Более мелкий шрифт
                           color: Colors.black87,
                         ),
                       ),
@@ -1320,17 +1317,17 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       Text(
                         time,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10, // Более мелкий шрифт
                           color: Colors.grey[600],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3), // Более компактный
                   Text(
                     text,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12, // Более мелкий шрифт
                       color: Colors.black87.withOpacity(0.8),
                       height: 1.4,
                     ),
@@ -1347,13 +1344,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   Widget _buildCommentAvatar(String avatarUrl, String authorName) {
     if (avatarUrl.isNotEmpty && avatarUrl.startsWith('http')) {
       return Container(
-        width: 36,
-        height: 36,
+        width: 32, // Более компактный
+        height: 32,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
             color: Colors.white.withOpacity(0.3),
-            width: 1.5,
+            width: 1,
           ),
         ),
         child: ClipOval(
@@ -1379,8 +1376,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final gradientColors = _getAvatarGradient(authorName);
 
     return Container(
-      width: 36,
-      height: 36,
+      width: 32, // Более компактный
+      height: 32,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: gradientColors,
@@ -1394,7 +1391,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 14,
+            fontSize: 12, // Более мелкий шрифт
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1408,17 +1405,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return {};
   }
 
-  // ИСПРАВЛЕНИЕ: Правильная обработка комментариев
   Widget _buildCommentInput() {
     return Consumer2<NewsProvider, UserProvider>(
       builder: (context, newsProvider, userProvider, child) {
-        // ИСПРАВЛЕНИЕ: Для комментариев всегда используем аватарку текущего пользователя
         final currentUserAvatar = _getUserAvatarUrl(userProvider.userName, isCurrentUser: true);
 
         return Container(
           decoration: BoxDecoration(
             color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10), // Более скругленные углы
             border: Border.all(
               color: Colors.grey[200]!,
             ),
@@ -1426,14 +1421,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           child: Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
-                margin: const EdgeInsets.only(left: 8),
+                width: 32, // Более компактный
+                height: 32,
+                margin: const EdgeInsets.only(left: 6), // Более компактный
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: Colors.white.withOpacity(0.3),
-                    width: 1.5,
+                    width: 1,
                   ),
                 ),
                 child: ClipOval(
@@ -1452,43 +1447,41 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       : _buildCommentGradientAvatar(userProvider.userName),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6), // Более компактный
               Expanded(
                 child: TextField(
                   controller: _commentController,
-                  style: TextStyle(color: Colors.black87, fontSize: 14),
+                  style: TextStyle(color: Colors.black87, fontSize: 13), // Более мелкий шрифт
                   decoration: InputDecoration(
                     hintText: 'Напишите комментарий...',
                     hintStyle: TextStyle(color: Colors.grey[600]),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // Более компактный
                   ),
                 ),
               ),
               Container(
-                margin: const EdgeInsets.only(right: 6),
+                margin: const EdgeInsets.only(right: 4), // Более компактный
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: _cardDesign.gradient,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8), // Более скругленные углы
                 ),
                 child: IconButton(
-                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 16), // Более компактная иконка
                   onPressed: () {
                     final text = _commentController.text.trim();
                     if (text.isNotEmpty) {
-                      // ИСПРАВЛЕНИЕ: Передаем все три параметра в onComment
                       widget.onComment(
                         text,
-                        userProvider.userName, // имя пользователя
-                        currentUserAvatar, // аватар пользователя
+                        userProvider.userName,
+                        currentUserAvatar,
                       );
                       _commentController.clear();
 
-                      // Показываем уведомление
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Комментарий отправлен'),
@@ -1497,7 +1490,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       );
                     }
                   },
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6), // Более компактный
                 ),
               ),
             ],
@@ -1507,7 +1500,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
   List<String> _parseHashtags(dynamic hashtags) {
     if (hashtags is List) {
       return List<String>.from(hashtags).map((tag) => tag.toString().trim()).where((tag) => tag.isNotEmpty).toList();
@@ -1536,7 +1528,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     });
   }
 
-  // ПОСТРОЕНИЕ КАРТОЧЕК
   Widget _buildRegularPost() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final hashtags = _parseHashtags(widget.news['hashtags']);
@@ -1551,17 +1542,17 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildPostHeader(isAuthor, userTags, tagColor),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12), // Более компактный
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_getStringValue(widget.news['title']).isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 6), // Более компактный
                   child: Text(
                     _getStringValue(widget.news['title']),
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: _getTitleFontSize(context),
                       fontWeight: FontWeight.w700,
                       color: Colors.black87,
                       height: 1.3,
@@ -1571,7 +1562,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               Text(
                 _getStringValue(widget.news['description']),
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: _getDescriptionFontSize(context),
                   color: Colors.black87.withOpacity(0.8),
                   height: 1.5,
                 ),
@@ -1579,11 +1570,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             ],
           ),
           if (hashtags.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8), // Более компактный
             _buildHashtags(hashtags),
           ],
-          const SizedBox(height: 16),
-          // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
+          const SizedBox(height: 12), // Более компактный
           _buildPostActions(commentCount: _currentComments.length, isAuthor: isAuthor),
           SizeTransition(
             sizeFactor: _expandAnimation,
@@ -1597,7 +1587,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ КАНАЛЬНЫХ ПОСТОВ С ИСПОЛЬЗОВАНИЕМ ПРОВАЙДЕРА
   Widget _buildChannelPost() {
     final title = _getStringValue(widget.news['title']);
     final description = _getStringValue(widget.news['description']);
@@ -1606,10 +1595,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final hashtags = _parseHashtags(widget.news['hashtags']);
     final channelId = _getStringValue(widget.news['channel_id']);
 
-    // ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ ИЗ ПРОВАЙДЕРА
     final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
     final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
     final channelAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']);
+
+    final avatarSize = _getAvatarSize(context);
 
     return _buildCard(
       isChannel: true,
@@ -1620,7 +1610,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             onTap: _openUserProfile,
             child: Row(
               children: [
-                _buildChannelAvatar(channelAvatar, channelName),
+                _buildChannelAvatar(channelAvatar, channelName, avatarSize),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1631,7 +1621,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                          fontSize: _getTitleFontSize(context),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1672,17 +1662,17 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12), // Более компактный
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (title.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 6), // Более компактный
                   child: Text(
                     title,
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: _getTitleFontSize(context),
                       fontWeight: FontWeight.w700,
                       color: Colors.black87,
                       height: 1.3,
@@ -1693,7 +1683,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 Text(
                   description,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: _getDescriptionFontSize(context),
                     color: Colors.black87.withOpacity(0.8),
                     height: 1.4,
                   ),
@@ -1701,11 +1691,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             ],
           ),
           if (hashtags.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8), // Более компактный
             _buildHashtags(hashtags),
           ],
-          const SizedBox(height: 16),
-          // ИСПРАВЛЕНИЕ: Используем актуальное количество комментариев
+          const SizedBox(height: 12), // Более компактный
           _buildPostActions(
               commentCount: _currentComments.length,
               showBookmark: true,
@@ -1723,23 +1712,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildChannelAvatar(String? avatarUrl, String channelName) {
+  Widget _buildChannelAvatar(String? avatarUrl, String channelName, double size) {
     return GestureDetector(
       onTap: _openUserProfile,
       child: Container(
-        width: 44,
-        height: 44,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
             color: Colors.white.withOpacity(0.3),
-            width: 2,
+            width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -1750,24 +1739,24 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             fit: BoxFit.cover,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return _buildChannelGradientAvatar(channelName);
+              return _buildChannelGradientAvatar(channelName, size);
             },
             errorBuilder: (context, error, stackTrace) {
-              return _buildChannelGradientAvatar(channelName);
+              return _buildChannelGradientAvatar(channelName, size);
             },
           )
-              : _buildChannelGradientAvatar(channelName),
+              : _buildChannelGradientAvatar(channelName, size),
         ),
       ),
     );
   }
 
-  Widget _buildChannelGradientAvatar(String channelName) {
+  Widget _buildChannelGradientAvatar(String channelName, double size) {
     final gradientColors = _getAvatarGradient(channelName);
 
     return Container(
-      width: 44,
-      height: 44,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: gradientColors,
@@ -1777,9 +1766,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: gradientColors[0].withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: gradientColors[0].withOpacity(0.25),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -1787,7 +1776,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         child: Icon(
           Icons.group_rounded,
           color: Colors.white,
-          size: 20,
+          size: size * 0.45,
         ),
       ),
     );

@@ -53,18 +53,19 @@ class _NewsAppBarState extends State<NewsAppBar> {
   late FocusNode _searchFocusNode;
   bool _isControllerInitialized = false;
 
-  // Адаптивные методы как в CardsPage
+  // TWITTER-LIKE АДАПТИВНЫЕ МЕТОДЫ
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 700) return 80;
-    return 16;
+    if (width > 1000) return 120; // Уменьшено для лучшего выравнивания
+    if (width > 700) return 60;   // Для планшетов
+    return 16;                    // Для мобильных
   }
 
   double _getContentMaxWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 1200;
-    if (width > 1000) return 900;
-    if (width > 700) return 700;
+    if (width > 1400) return 600;
+    if (width > 1000) return 600;
+    if (width > 700) return 600;
     return double.infinity;
   }
 
@@ -75,7 +76,6 @@ class _NewsAppBarState extends State<NewsAppBar> {
     _searchFocusNode = FocusNode();
     _isControllerInitialized = true;
 
-    // Устанавливаем начальное значение после инициализации
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_isControllerInitialized) {
         _searchController.text = widget.searchQuery;
@@ -87,21 +87,17 @@ class _NewsAppBarState extends State<NewsAppBar> {
   void didUpdateWidget(NewsAppBar oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Синхронизируем только если query изменился извне (например, при очистке фильтров)
-    // Но не синхронизируем при обычном вводе текста пользователем
     if (widget.searchQuery != oldWidget.searchQuery &&
         widget.searchQuery != _searchController.text) {
       _searchController.text = widget.searchQuery;
     }
 
-    // Автофокус при включении поиска
     if (widget.isSearching && !oldWidget.isSearching) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _searchFocusNode.requestFocus();
       });
     }
 
-    // Сброс фокуса при выключении поиска
     if (!widget.isSearching && oldWidget.isSearching) {
       _searchFocusNode.unfocus();
       _searchController.clear();
@@ -117,8 +113,6 @@ class _NewsAppBarState extends State<NewsAppBar> {
   }
 
   void _onSearchChanged(String text) {
-    // Просто передаем изменения в родительский компонент
-    // Не обновляем контроллер здесь - он уже содержит правильный текст
     widget.onSearchChanged(text);
   }
 
@@ -128,7 +122,6 @@ class _NewsAppBarState extends State<NewsAppBar> {
     _searchFocusNode.requestFocus();
   }
 
-  // Генерация градиента для аватара на основе имени пользователя
   List<Color> _getAvatarGradient(String name) {
     final colors = [
       [const Color(0xFF667eea), const Color(0xFF764ba2)],
@@ -151,8 +144,8 @@ class _NewsAppBarState extends State<NewsAppBar> {
     return GestureDetector(
       onTap: widget.onProfilePressed,
       child: Container(
-        width: 36,
-        height: 36,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           gradient: hasProfileImage ? null : LinearGradient(
             begin: Alignment.topLeft,
@@ -163,12 +156,12 @@ class _NewsAppBarState extends State<NewsAppBar> {
           shape: BoxShape.circle,
           border: Border.all(
             color: hasNewMessages ? Colors.amber : Colors.white,
-            width: hasNewMessages ? 1.5 : 1.0,
+            width: hasNewMessages ? 1.2 : 0.8,
           ),
           boxShadow: [
             BoxShadow(
-              color: (hasProfileImage ? Colors.black : gradientColors[0]).withOpacity(0.3),
-              blurRadius: 4,
+              color: (hasProfileImage ? Colors.black : gradientColors[0]).withOpacity(0.2),
+              blurRadius: 3,
               offset: const Offset(0, 1),
             ),
           ],
@@ -178,8 +171,8 @@ class _NewsAppBarState extends State<NewsAppBar> {
             widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U',
             style: const TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
             ),
           ),
         ),
@@ -204,10 +197,10 @@ class _NewsAppBarState extends State<NewsAppBar> {
 
   Widget _buildClearFiltersButton() {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      duration: const Duration(milliseconds: 250),
+      margin: const EdgeInsets.symmetric(horizontal: 3),
       child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 250),
         opacity: widget.hasActiveFilters ? 1.0 : 0.0,
         child: IgnorePointer(
           ignoring: !widget.hasActiveFilters,
@@ -215,14 +208,14 @@ class _NewsAppBarState extends State<NewsAppBar> {
             color: Colors.transparent,
             child: InkWell(
               onTap: widget.onClearFilters,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.blue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: Colors.blue.withOpacity(0.2),
+                    color: Colors.blue.withOpacity(0.15),
                   ),
                 ),
                 child: Row(
@@ -230,15 +223,15 @@ class _NewsAppBarState extends State<NewsAppBar> {
                   children: [
                     Icon(
                       Icons.filter_alt_off_rounded,
-                      size: 12,
+                      size: 11,
                       color: Colors.blue,
                     ),
-                    const SizedBox(width: 3),
+                    const SizedBox(width: 2),
                     Text(
                       'Очистить',
                       style: TextStyle(
                         color: Colors.blue,
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -255,8 +248,8 @@ class _NewsAppBarState extends State<NewsAppBar> {
   Widget _buildSearchField() {
     return Expanded(
       child: Container(
-        height: 36,
-        margin: const EdgeInsets.only(right: 6),
+        height: 32,
+        margin: const EdgeInsets.only(right: 4),
         child: TextField(
           controller: _searchController,
           focusNode: _searchFocusNode,
@@ -267,45 +260,45 @@ class _NewsAppBarState extends State<NewsAppBar> {
             hintText: 'Поиск новостей...',
             hintStyle: TextStyle(
               color: Colors.grey[600],
-              fontSize: 13,
+              fontSize: 12,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
-                color: Colors.blue.withOpacity(0.3),
-                width: 1.2,
+                color: Colors.blue.withOpacity(0.25),
+                width: 1.0,
               ),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
             prefixIcon: Icon(
               Icons.search_rounded,
               color: Colors.blue,
-              size: 16,
+              size: 14,
             ),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
               icon: Icon(
                 Icons.clear_rounded,
-                size: 16,
-                color: Colors.blue.withOpacity(0.7),
+                size: 14,
+                color: Colors.blue.withOpacity(0.6),
               ),
               onPressed: _clearSearch,
-              splashRadius: 14,
+              splashRadius: 12,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(
-                minWidth: 32,
-                minHeight: 32,
+                minWidth: 28,
+                minHeight: 28,
               ),
             )
                 : null,
           ),
           style: TextStyle(
             color: Colors.black87,
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
           onChanged: _onSearchChanged,
@@ -316,81 +309,77 @@ class _NewsAppBarState extends State<NewsAppBar> {
 
   Widget _buildNormalTitle() {
     final hasNewMessages = (widget.newMessagesCount ?? 0) > 0;
-    final horizontalPadding = _getHorizontalPadding(context);
 
-    return Padding(
-      padding: EdgeInsets.only(left: horizontalPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Лента новостей',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Лента новостей',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: Colors.black87,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: Colors.blue.withOpacity(0.15),
+                ),
+              ),
+              child: Text(
+                'Beta',
                 style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 8,
                   fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                  color: Colors.black87,
-                  letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: Colors.blue.withOpacity(0.2),
-                  ),
-                ),
-                child: Text(
-                  'Beta',
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 1),
+        GestureDetector(
+          onTap: widget.onProfilePressed,
+          child: Row(
+            children: [
+              Icon(
+                Icons.email_outlined,
+                size: 9,
+                color: Colors.grey[600],
+              ),
+              const SizedBox(width: 2),
+              Text(
+                widget.userEmail,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
                 ),
               ),
+              if (hasNewMessages) ...[
+                const SizedBox(width: 2),
+                Container(
+                  width: 2.5,
+                  height: 2.5,
+                  decoration: const BoxDecoration(
+                    color: Colors.amber,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 1),
-          GestureDetector(
-            onTap: widget.onProfilePressed,
-            child: Row(
-              children: [
-                Icon(
-                  Icons.email_outlined,
-                  size: 10,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  widget.userEmail,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (hasNewMessages) ...[
-                  const SizedBox(width: 3),
-                  Container(
-                    width: 3,
-                    height: 3,
-                    decoration: const BoxDecoration(
-                      color: Colors.amber,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -400,18 +389,15 @@ class _NewsAppBarState extends State<NewsAppBar> {
 
     return AppBar(
       backgroundColor: Colors.white,
-      elevation: 0.5,
-      shadowColor: Colors.black.withOpacity(0.05),
+      elevation: 0.3,
+      shadowColor: Colors.black.withOpacity(0.03),
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
       title: widget.isSearching
-          ? Padding(
-        padding: EdgeInsets.only(left: horizontalPadding),
-        child: Row(
-          children: [
-            _buildSearchField(),
-          ],
-        ),
+          ? Row(
+        children: [
+          _buildSearchField(),
+        ],
       )
           : _buildNormalTitle(),
       actions: [
@@ -420,37 +406,37 @@ class _NewsAppBarState extends State<NewsAppBar> {
 
         // Кнопка поиска/крестика
         Container(
-          width: 36,
-          height: 36,
+          width: 32,
+          height: 32,
           child: IconButton(
             icon: Icon(
               widget.isSearching ? Icons.close_rounded : Icons.search_rounded,
               color: Colors.blue,
-              size: 18,
+              size: 16,
             ),
             onPressed: widget.onSearchToggled,
             tooltip: widget.isSearching ? 'Закрыть поиск' : 'Поиск',
-            splashRadius: 18,
+            splashRadius: 16,
           ),
         ),
 
         // Аватар пользователя
         Padding(
-          padding: EdgeInsets.only(right: horizontalPadding),
+          padding: const EdgeInsets.only(right: 8), // Фиксированный отступ справа
           child: _buildUserAvatar(),
         ),
       ],
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
+        preferredSize: const Size.fromHeight(0.5),
         child: Container(
-          height: 1,
+          height: 0.5,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                Colors.blue.withOpacity(0.1),
-                Colors.blue.withOpacity(0.05),
+                Colors.blue.withOpacity(0.08),
+                Colors.blue.withOpacity(0.03),
                 Colors.transparent,
               ],
             ),

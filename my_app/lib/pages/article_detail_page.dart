@@ -6,25 +6,61 @@ class ArticleDetailPage extends StatelessWidget {
 
   const ArticleDetailPage({super.key, required this.article});
 
-  // Адаптивные методы как в CardsPage
+  // АДАПТИВНЫЕ МЕТОДЫ КАК В ПЕРВОМ ФАЙЛЕ
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 700) return 80;
-    return 16;
+    if (width > 1200) return 200; // Большие экраны
+    if (width > 800) return 100;  // Средние экраны
+    if (width > 600) return 60;   // Планшеты
+    return 16;                    // Мобильные
   }
 
   double _getContentMaxWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 1200;
-    if (width > 1000) return 900;
-    if (width > 700) return 700;
+    if (width > 1400) return 800;
+    if (width > 1000) return 700;
+    if (width > 700) return 600;
     return double.infinity;
+  }
+
+  // Адаптивные размеры как в первом файле
+  double _getTitleFontSize(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 28;
+    if (width > 800) return 26;
+    if (width > 600) return 24;
+    return 22;
+  }
+
+  double _getDescriptionFontSize(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 16;
+    if (width > 800) return 15;
+    if (width > 600) return 14;
+    return 13;
+  }
+
+  double _getContentFontSize(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 15;
+    if (width > 800) return 14;
+    if (width > 600) return 13;
+    return 12;
+  }
+
+  double _getCoverHeight(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 280;
+    if (width > 800) return 240;
+    if (width > 600) return 200;
+    return 180;
   }
 
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
+    final coverHeight = _getCoverHeight(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -40,14 +76,15 @@ class ArticleDetailPage extends StatelessWidget {
           ),
         ),
         child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
           slivers: [
-            // AppBar как в CardsPage - без карточки, просто белый фон
+            // AppBar КАК В ПЕРВОМ ФАЙЛЕ - БЕЗ КАРТОЧКИ
             SliverAppBar(
-              expandedHeight: 100.0,
+              expandedHeight: 60.0,
               floating: false,
               pinned: true,
-              backgroundColor: Colors.white, // Просто белый фон
-              elevation: 1,
+              backgroundColor: Colors.white,
+              elevation: 2,
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: const BoxDecoration(
@@ -79,9 +116,41 @@ class ArticleDetailPage extends StatelessWidget {
                 ),
                 onPressed: () => Navigator.pop(context),
               ),
+              actions: [
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.share,
+                      color: Colors.black,
+                      size: 18,
+                    ),
+                  ),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.bookmark_border,
+                      color: Colors.black,
+                      size: 18,
+                    ),
+                  ),
+                  onPressed: () {},
+                ),
+              ],
             ),
 
-            // Основной контент
+            // Основной контент С АДАПТИВНЫМИ ОТСТУПАМИ КАК В ПЕРВОМ ФАЙЛЕ
             SliverToBoxAdapter(
               child: Container(
                 width: double.infinity,
@@ -92,176 +161,169 @@ class ArticleDetailPage extends StatelessWidget {
                 child: Center(
                   child: Container(
                     constraints: BoxConstraints(maxWidth: contentMaxWidth),
-                    child: Card(
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      color: Colors.white,
-                      shadowColor: Colors.black.withOpacity(0.1),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Изображение статьи
-                          Stack(
+                    child: Column(
+                      children: [
+                        // Карточка статьи - ДИЗАЙН КАК В ПЕРВОМ ФАЙЛЕ
+                        Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          color: Colors.white,
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                height: 280,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(16),
-                                    topRight: Radius.circular(16),
+                              // ОБЛОЖКА СТАТЬИ С ГРАДИЕНТОМ
+                              Stack(
+                                children: [
+                                  Container(
+                                    height: coverHeight,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      image: DecorationImage(
+                                        image: NetworkImage(article.imageUrl),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.bottomCenter,
+                                          end: Alignment.topCenter,
+                                          colors: [
+                                            Colors.black.withOpacity(0.4),
+                                            Colors.transparent,
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(16),
-                                    topRight: Radius.circular(16),
-                                  ),
-                                  child: Image.network(
-                                    article.imageUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: [
-                                              Colors.purple[100]!,
-                                              Colors.blue[100]!,
+
+                                  // МЕТА-ИНФОРМАЦИЯ НА ОБЛОЖКЕ
+                                  Positioned(
+                                    bottom: 16,
+                                    left: 16,
+                                    right: 16,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // КАТЕГОРИЯ
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.withOpacity(0.9),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                article.emoji,
+                                                style: const TextStyle(fontSize: 14),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                article.category,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
                                             ],
                                           ),
                                         ),
-                                        child: Icon(Icons.article, size: 64, color: Colors.white),
-                                      );
-                                    },
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Colors.grey[200]!,
-                                              Colors.grey[300]!,
-                                            ],
+                                        const SizedBox(height: 8),
+
+                                        // ЗАГОЛОВОК НА ОБЛОЖКЕ
+                                        Text(
+                                          article.title,
+                                          style: TextStyle(
+                                            fontSize: _getTitleFontSize(context) + 2,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            height: 1.2,
                                           ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        child: Center(
-                                          child: CircularProgressIndicator(
-                                            value: loadingProgress.expectedTotalBytes != null
-                                                ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
-                                                : null,
-                                            color: Colors.blue,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: Container(
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.bottomCenter,
-                                      end: Alignment.topCenter,
-                                      colors: [
-                                        Colors.black.withOpacity(0.6),
-                                        Colors.transparent,
                                       ],
                                     ),
                                   ),
+                                ],
+                              ),
+
+                              // КОНТЕНТ СТАТЬИ
+                              Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // МЕТА-ИНФОРМАЦИЯ ПОД ОБЛОЖКОЙ
+                                    _buildMetaInfo(context),
+                                    const SizedBox(height: 20),
+
+                                    // ОПИСАНИЕ СТАТЬИ
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.withOpacity(0.05),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.blue.withOpacity(0.1),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        article.description,
+                                        style: TextStyle(
+                                          fontSize: _getDescriptionFontSize(context),
+                                          color: Colors.black87.withOpacity(0.8),
+                                          height: 1.5,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+
+                                    // РАЗДЕЛИТЕЛЬ
+                                    Container(
+                                      height: 1,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.transparent,
+                                            Colors.grey.withOpacity(0.2),
+                                            Colors.transparent,
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+
+                                    // СОДЕРЖАНИЕ СТАТЬИ
+                                    _buildArticleContent(context),
+                                    const SizedBox(height: 24),
+
+                                    // ИНФОРМАЦИЯ ОБ АВТОРЕ - СТИЛЬ КАК В КАРТОЧКАХ КАНАЛОВ
+                                    _buildAuthorSection(context),
+                                    const SizedBox(height: 20),
+
+                                    // СТАТИСТИКА - КОМПАКТНЫЙ ДИЗАЙН КАК В КАРТОЧКАХ
+                                    _buildStatsSection(context),
+                                    const SizedBox(height: 12),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
+                        ),
 
-                          // Контент карточки
-                          Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Мета-информация
-                                _buildMetaInfo(context),
-                                const SizedBox(height: 24),
-
-                                // Заголовок
-                                Text(
-                                  article.title,
-                                  style: const TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.2,
-                                    color: Colors.black87,
-                                    letterSpacing: -0.8,
-                                    fontFamily: 'Georgia',
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-
-                                // Описание
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.05),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.blue.withOpacity(0.1),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    article.description,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.black87.withOpacity(0.8),
-                                      height: 1.6,
-                                      fontWeight: FontWeight.w400,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Разделитель
-                                Container(
-                                  height: 1,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.grey.withOpacity(0.3),
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Содержание статьи
-                                _buildArticleContent(context),
-                                const SizedBox(height: 28),
-
-                                // Информация об авторе
-                                _buildAuthorSection(context),
-                                const SizedBox(height: 24),
-
-                                // Статистика
-                                _buildStatsSection(context),
-                                const SizedBox(height: 16),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                        // ДОПОЛНИТЕЛЬНЫЕ ДЕЙСТВИЯ (если нужно)
+                        const SizedBox(height: 16),
+                        _buildActionButtons(context),
+                      ],
                     ),
                   ),
                 ),
@@ -276,51 +338,84 @@ class ArticleDetailPage extends StatelessWidget {
   Widget _buildMetaInfo(BuildContext context) {
     return Row(
       children: [
-        // Категория
+        // АВАТАР АВТОРА КАК В КАРТОЧКАХ КАНАЛОВ
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.blue.withOpacity(0.3),
-              width: 1,
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.blue,
+                Colors.lightBlue,
+              ],
             ),
           ),
-          child: Row(
+          child: Center(
+            child: Text(
+              article.author.isNotEmpty ? article.author[0] : 'A',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // ИНФОРМАЦИЯ ОБ АВТОРЕ И ДАТЕ
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                article.emoji,
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                article.category,
+                article.author,
                 style: TextStyle(
-                  color: Colors.blue,
-                  fontSize: 14,
+                  fontSize: _getContentFontSize(context),
                   fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Опубликовано ${article.formattedDate}',
+                style: TextStyle(
+                  fontSize: _getContentFontSize(context) - 2,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
         ),
-        const Spacer(),
 
-        // Дата публикации
+        // ВРЕМЯ ЧТЕНИЯ
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.grey[100],
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(
-            article.formattedDate,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w600,
-            ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 14,
+                color: Colors.grey[600],
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${_calculateReadingTime(article.content)} мин',
+                style: TextStyle(
+                  fontSize: _getContentFontSize(context) - 2,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -331,30 +426,35 @@ class ArticleDetailPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Заголовок содержания
+        // ЗАГОЛОВОК СОДЕРЖАНИЯ
         Row(
           children: [
-            Icon(
-              Icons.menu_book_rounded,
-              color: Colors.blue,
-              size: 24,
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.menu_book_rounded,
+                color: Colors.blue,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Содержание',
+            Text(
+              'Содержание статьи',
               style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
+                fontSize: _getTitleFontSize(context) - 4,
+                fontWeight: FontWeight.w700,
                 color: Colors.black87,
-                letterSpacing: -0.5,
-                fontFamily: 'Georgia',
               ),
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
-        // Текст статьи
+        // ТЕКСТ СТАТЬИ
         Container(
           decoration: BoxDecoration(
             color: Colors.grey[50],
@@ -364,14 +464,13 @@ class ArticleDetailPage extends StatelessWidget {
               width: 1,
             ),
           ),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(18),
           child: Text(
             article.content,
-            style: const TextStyle(
-              fontSize: 16,
-              height: 1.8,
+            style: TextStyle(
+              fontSize: _getContentFontSize(context),
+              height: 1.6,
               color: Colors.black87,
-              fontFamily: 'Merriweather',
             ),
             textAlign: TextAlign.justify,
           ),
@@ -382,7 +481,7 @@ class ArticleDetailPage extends StatelessWidget {
 
   Widget _buildAuthorSection(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
@@ -393,10 +492,10 @@ class ArticleDetailPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Аватар автора
+          // АВАТАР АВТОРА КАК В КАРТОЧКАХ КАНАЛОВ
           Container(
-            width: 60,
-            height: 60,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -407,21 +506,28 @@ class ArticleDetailPage extends StatelessWidget {
                   Colors.lightBlue,
                 ],
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: Center(
               child: Text(
                 article.author.isNotEmpty ? article.author[0] : 'A',
                 style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 16),
 
-          // Информация об авторе
+          // ИНФОРМАЦИЯ ОБ АВТОРЕ
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,29 +535,55 @@ class ArticleDetailPage extends StatelessWidget {
                 Text(
                   'АВТОР СТАТЬИ',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: _getContentFontSize(context) - 3,
                     fontWeight: FontWeight.w700,
                     color: Colors.blue.withOpacity(0.7),
-                    letterSpacing: 1.2,
+                    letterSpacing: 1.0,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   article.author,
-                  style: const TextStyle(
-                    fontSize: 18,
+                  style: TextStyle(
+                    fontSize: _getContentFontSize(context) + 2,
                     fontWeight: FontWeight.w700,
                     color: Colors.black87,
-                    fontFamily: 'Georgia',
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  'Опубликовано ${article.formattedDate}',
+                  'Эксперт в области ${article.category}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: _getContentFontSize(context) - 2,
                     color: Colors.black87.withOpacity(0.6),
-                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // КНОПКА ПОДПИСКИ КАК В КАРТОЧКАХ КАНАЛОВ
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.add,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Подписаться',
+                  style: TextStyle(
+                    fontSize: _getContentFontSize(context) - 2,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
               ],
@@ -464,7 +596,7 @@ class ArticleDetailPage extends StatelessWidget {
 
   Widget _buildStatsSection(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
@@ -481,63 +613,161 @@ class ArticleDetailPage extends StatelessWidget {
             'Просмотры',
             article.views.toString(),
             Colors.blue,
+            context,
           ),
           _buildStatItem(
             Icons.favorite_rounded,
             'Лайки',
             article.likes.toString(),
             Colors.red,
+            context,
           ),
           _buildStatItem(
             Icons.chat_bubble_rounded,
             'Комментарии',
             '24',
             Colors.green,
+            context,
+          ),
+          _buildStatItem(
+            Icons.share_rounded,
+            'Репосты',
+            '8',
+            Colors.purple,
+            context,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(IconData icon, String label, String value, Color color) {
+  Widget _buildStatItem(IconData icon, String label, String value, Color color, BuildContext context) {
     return Column(
       children: [
         Container(
-          width: 52,
-          height: 52,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color.withOpacity(0.1),
             border: Border.all(
               color: color.withOpacity(0.3),
-              width: 2,
+              width: 1.5,
             ),
           ),
           child: Icon(
             icon,
-            size: 24,
+            size: 20,
             color: color,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Text(
-          value,
+          _formatNumber(int.tryParse(value) ?? 0),
           style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
+            fontSize: _getContentFontSize(context),
+            fontWeight: FontWeight.w700,
             color: color,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: _getContentFontSize(context) - 3,
             fontWeight: FontWeight.w600,
             color: Colors.grey[700],
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildActionButtons(BuildContext context) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.favorite_border, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Нравится',
+                      style: TextStyle(
+                        fontSize: _getContentFontSize(context),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[100],
+                  foregroundColor: Colors.black87,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.chat_bubble_outline, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Комментировать',
+                      style: TextStyle(
+                        fontSize: _getContentFontSize(context),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ИЗ ПЕРВОГО ФАЙЛА
+  String _formatNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
+  }
+
+  int _calculateReadingTime(String content) {
+    final words = content.split(' ').length;
+    final readingTime = (words / 200).ceil(); // 200 слов в минуту
+    return readingTime < 1 ? 1 : readingTime;
   }
 }

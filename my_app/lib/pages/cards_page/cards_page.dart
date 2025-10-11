@@ -178,9 +178,9 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       ),
       Channel(
         id: 3,
-        title: 'Технологии будущего',
-        description: 'Обсуждаем новейшие технологии и инновации в IT и робототехнике.',
-        imageUrl: 'https://avatars.mds.yandex.net/i?id=0a26c483ce2cd02e31bf36f196e0b9ea_l-5350148-images-thumbs&n=13',
+        title: 'Акортовский Мемасник',
+        description: 'Обсуждаем мемы и разные новости о МЮ.',
+        imageUrl: 'https://avatars.mds.yandex.net/i?id=62ba1b69e7eacb8bfab63982c958d61b_l-5221158-images-thumbs&n=13',
         subscribers: 12450,
         videos: 89,
         isSubscribed: false,
@@ -195,14 +195,14 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
         comments: 2300,
         owner: 'Иван Технолог',
         author: 'Иван Технолог',
-        authorImageUrl: 'https://avatars.mds.yandex.net/i?id=0a26c483ce2cd02e31bf36f196e0b9ea_l-5350148-images-thumbs&n=13',
+        authorImageUrl: 'https://avatars.mds.yandex.net/i?id=b6988c99b85abf799a69c5470867357b_l-5235116-images-thumbs&n=13',
         tags: ['технологии', 'IT', 'инновации', 'робототехника'],
         isLive: false,
         liveViewers: 0,
         websiteUrl: 'https://tech-future.ru',
         socialMedia: '@tech_future',
         commentsCount: 2300,
-        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=335b4a2e3c4a0d54ad6bcf755e7569a4_l-5213980-images-thumbs&n=13',
+        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=b6988c99b85abf799a69c5470867357b_l-5235116-images-thumbs&n=13',
       ),
       Channel(
         id: 4,
@@ -274,53 +274,50 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // Адаптивные методы
+  // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ 3 КАРТОЧЕК В РЯД
   int _getCrossAxisCount(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1800) return 4;
-    if (width > 1400) return 4;
-    if (width > 1000) return 3;
-    if (width > 700) return 2;
-    return 1;
+    if (width > 1200) return 3; // Большие экраны - 3 карточки
+    if (width > 800) return 3;  // Средние экраны - 3 карточки
+    if (width > 600) return 2;  // Планшеты - 2 карточки
+    return 1;                   // Мобильные - 1 карточка
   }
 
+  // ОПТИМАЛЬНЫЕ ПРОПОРЦИИ ДЛЯ 3 КАРТОЧЕК
   double _getCardAspectRatio(BuildContext context) {
     final crossAxisCount = _getCrossAxisCount(context);
 
-    // УВЕЛИЧЕННОЕ соотношение сторон для более высоких карточек
     switch (crossAxisCount) {
-      case 1: // Мобильные
-        return 0.85; // Более квадратная карточка
-      case 2: // Планшеты
-        return 0.9; // Более квадратная карточка
-      case 3: // Десктоп средний
-        return 0.95; // Более квадратная карточка
-      case 4: // Десктоп большой
-        return 1.0; // Более квадратная карточка
+      case 1: // Мобильные - 1 карточка в ряд
+        return 0.75; // ВЫСОКАЯ КАРТОЧКА
+      case 2: // Планшеты - 2 карточки в ряд
+        return 0.8;  // КВАДРАТНАЯ КАРТОЧКА
+      case 3: // Десктоп - 3 карточки в ряд
+        return 0.85; // ШИРОКАЯ КАРТОЧКА
       default:
-        return 0.9;
+        return 0.8;
     }
   }
 
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 700) return 80;
-    return 16;
+    if (width > 1200) return 200; // Большие экраны
+    if (width > 800) return 100;  // Средние экраны
+    if (width > 600) return 60;   // Планшеты
+    return 16;                    // Мобильные
   }
 
-  // Адаптивные размеры с увеличенными шрифтами
+  // Адаптивные размеры для карточек
   double _getCoverHeight(BuildContext context) {
     final crossAxisCount = _getCrossAxisCount(context);
 
     switch (crossAxisCount) {
-      case 1: // Мобильные - 1 карточка
-        return 140; // УВЕЛИЧЕНО для мобильных
-      case 2: // Планшеты - 2 карточки
-        return 130; // УВЕЛИЧЕНО для планшетов
-      case 3: // Десктоп - 3 карточки
-        return 120; // УВЕЛИЧЕНО для 3 колонок
-      case 4: // Десктоп - 4 карточки
-        return 110; // УВЕЛИЧЕНО для 4 колонок
+      case 1: // Мобильные
+        return 140;
+      case 2: // Планшеты
+        return 130;
+      case 3: // Десктоп
+        return 120;
       default:
         return 130;
     }
@@ -331,15 +328,13 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
 
     switch (crossAxisCount) {
       case 1: // Мобильные
-        return 60; // УВЕЛИЧЕНО для мобильных
-      case 2: // Планшеты
-        return 55; // УВЕЛИЧЕНО для планшетов
-      case 3: // Десктоп средний
-        return 50; // УВЕЛИЧЕНО для 3 колонок
-      case 4: // Десктоп большой
-        return 48; // УВЕЛИЧЕНО для 4 колонок
-      default:
         return 55;
+      case 2: // Планшеты
+        return 50;
+      case 3: // Десктоп
+        return 45;
+      default:
+        return 50;
     }
   }
 
@@ -348,15 +343,13 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
 
     switch (crossAxisCount) {
       case 1: // Мобильные
-        return 18; // УВЕЛИЧЕНО для мобильных
-      case 2: // Планшеты
-        return 17; // УВЕЛИЧЕНО для планшетов
-      case 3: // Десктоп средний
-        return 16; // УВЕЛИЧЕНО для 3 колонок
-      case 4: // Десктоп большой
-        return 15; // УВЕЛИЧЕНО для 4 колонок
-      default:
         return 17;
+      case 2: // Планшеты
+        return 16;
+      case 3: // Десктоп
+        return 15;
+      default:
+        return 16;
     }
   }
 
@@ -365,15 +358,13 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
 
     switch (crossAxisCount) {
       case 1: // Мобильные
-        return 14; // УВЕЛИЧЕНО для мобильных
-      case 2: // Планшеты
-        return 13; // УВЕЛИЧЕНО для планшетов
-      case 3: // Десктоп средний
-        return 12; // УВЕЛИЧЕНО для 3 колонок
-      case 4: // Десктоп большой
-        return 11; // УВЕЛИЧЕНО для 4 колонок
-      default:
         return 13;
+      case 2: // Планшеты
+        return 12;
+      case 3: // Десктоп
+        return 11;
+      default:
+        return 12;
     }
   }
 
@@ -382,15 +373,13 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
 
     switch (crossAxisCount) {
       case 1: // Мобильные
-        return 14; // УВЕЛИЧЕНО для мобильных
+        return 11;
       case 2: // Планшеты
-        return 13; // УВЕЛИЧЕНО для планшетов
-      case 3: // Десктоп средний
-        return 12; // УВЕЛИЧЕНО для 3 колонок
-      case 4: // Десктоп большой
-        return 11; // УВЕЛИЧЕНО для 4 колонок
+        return 10;
+      case 3: // Десктоп
+        return 9;
       default:
-        return 13;
+        return 10;
     }
   }
 
@@ -399,15 +388,13 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
 
     switch (crossAxisCount) {
       case 1: // Мобильные
-        return 14; // УВЕЛИЧЕНО для мобильных
-      case 2: // Планшеты
-        return 12; // УВЕЛИЧЕНО для планшетов
-      case 3: // Десктоп средний
-        return 10; // УВЕЛИЧЕНО для 3 колонок
-      case 4: // Десктоп большой
-        return 9; // УВЕЛИЧЕНО для 4 колонок
-      default:
         return 12;
+      case 2: // Планшеты
+        return 10;
+      case 3: // Десктоп
+        return 8;
+      default:
+        return 10;
     }
   }
 
@@ -692,15 +679,16 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
       Colors.purple.shade700,
       Colors.red.shade700,
       Colors.teal.shade700,
+      Colors.pink.shade700,
     ];
     return colors[Random().nextInt(colors.length)];
   }
 
-  // УЛУЧШЕННЫЙ ДИЗАЙН КАРТОЧКИ С БОЛЬШЕЙ ВЫСОТОЙ
+  // СОВЕРШЕННЫЙ ДИЗАЙН КАРТОЧКИ ДЛЯ 3 В РЯД
   Widget _buildChannelCard(Channel channel, int index, ChannelStateProvider stateProvider) {
     final actualChannel = _getChannelWithActualState(channel, stateProvider);
 
-    // Адаптивные размеры на основе количества карточек в ряду
+    // Адаптивные размеры
     final crossAxisCount = _getCrossAxisCount(context);
     final coverHeight = _getCoverHeight(context);
     final avatarSize = _getAvatarSize(context);
@@ -710,9 +698,9 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     final buttonPadding = _getButtonPadding(context);
 
     return Container(
-      margin: EdgeInsets.all(6),
+      margin: const EdgeInsets.all(8),
       child: Card(
-        elevation: 3,
+        elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -761,7 +749,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
 
                   // АВАТАРКА - ПО ЦЕНТРУ ВНИЗУ
                   Positioned(
-                    bottom: -avatarSize * 0.35,
+                    bottom: -avatarSize * 0.3,
                     left: 0,
                     right: 0,
                     child: Center(
@@ -814,73 +802,64 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
               ),
 
               // ОТСТУП ДЛЯ АВАТАРКИ
-              SizedBox(height: avatarSize * 0.35),
+              SizedBox(height: avatarSize * 0.3),
 
-              // КОНТЕНТ КАРТОЧКИ - ИСПОЛЬЗУЕМ FLEX ДЛЯ РАСПРЕДЕЛЕНИЯ ПРОСТРАНСТВА
+              // КОНТЕНТ КАРТОЧКИ - ИДЕАЛЬНОЕ РАСПРЕДЕЛЕНИЕ ПРОСТРАНСТВА
               Expanded(
                 child: Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: crossAxisCount >= 3 ? 12 : 16,
+                    horizontal: crossAxisCount >= 2 ? 12 : 16,
                     vertical: 8,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // НАЗВАНИЕ КАНАЛА - ЦЕНТРИРОВАНО
-                      Container(
-                        width: double.infinity,
-                        child: Text(
-                          actualChannel.title,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                            height: 1.2,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                      // НАЗВАНИЕ КАНАЛА
+                      Text(
+                        actualChannel.title,
+                        style: TextStyle(
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          height: 1.2,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
 
-                      // АВТОР - ЦЕНТРИРОВАНО
-                      SizedBox(height: 4),
-                      Container(
-                        width: double.infinity,
+                      // АВТОР
+                      const SizedBox(height: 4),
+                      Text(
+                        actualChannel.author,
+                        style: TextStyle(
+                          fontSize: descriptionFontSize,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                      // ОПИСАНИЕ
+                      const SizedBox(height: 8),
+                      Expanded(
                         child: Text(
-                          actualChannel.author,
-                          textAlign: TextAlign.center,
+                          actualChannel.description,
                           style: TextStyle(
                             fontSize: descriptionFontSize,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[700],
+                            height: 1.4,
                           ),
-                          maxLines: 1,
+                          maxLines: _getDescriptionMaxLines(crossAxisCount),
                           overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-
-                      // ОПИСАНИЕ - ЗАНИМАЕТ ВСЕ ОСТАВШЕЕСЯ ПРОСТРАНСТВО
-                      SizedBox(height: 8),
-                      Expanded(
-                        child: Container(
-                          child: Text(
-                            actualChannel.description,
-                            style: TextStyle(
-                              fontSize: descriptionFontSize,
-                              color: Colors.grey[700],
-                              height: 1.4,
-                            ),
-                            maxLines: crossAxisCount >= 3 ? 3 : 4, // БОЛЬШЕ СТРОК ДЛЯ ВЫСОКИХ КАРТОЧЕК
-                            overflow: TextOverflow.ellipsis,
-                          ),
                         ),
                       ),
 
                       // СТАТИСТИКА
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       Container(
                         width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -889,7 +868,6 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                                 _formatNumber(actualChannel.subscribers),
                                 'подписчиков',
                                 fontSize: statFontSize,
-                                crossAxisCount: crossAxisCount,
                               ),
                             ),
                             Container(
@@ -902,7 +880,6 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                                 actualChannel.videos.toString(),
                                 'видео',
                                 fontSize: statFontSize,
-                                crossAxisCount: crossAxisCount,
                               ),
                             ),
                             Container(
@@ -915,7 +892,6 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                                 actualChannel.rating.toStringAsFixed(1),
                                 'рейтинг',
                                 fontSize: statFontSize,
-                                crossAxisCount: crossAxisCount,
                               ),
                             ),
                           ],
@@ -923,7 +899,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                       ),
 
                       // КНОПКА ПОДПИСКИ
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -936,7 +912,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                                 ? Colors.grey[700]
                                 : Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                               side: BorderSide(
                                 color: actualChannel.isSubscribed
                                     ? Colors.grey[300]!
@@ -951,9 +927,9 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                             children: [
                               Icon(
                                 actualChannel.isSubscribed ? Icons.check : Icons.add,
-                                size: crossAxisCount >= 3 ? 16 : 18,
+                                size: crossAxisCount >= 2 ? 16 : 18,
                               ),
-                              SizedBox(width: crossAxisCount >= 3 ? 6 : 8),
+                              SizedBox(width: crossAxisCount >= 2 ? 6 : 8),
                               Text(
                                 actualChannel.isSubscribed ? 'Вы подписаны' : 'Подписаться',
                                 style: TextStyle(
@@ -976,7 +952,16 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildStatItem(String value, String label, {required double fontSize, required int crossAxisCount}) {
+  int _getDescriptionMaxLines(int crossAxisCount) {
+    switch (crossAxisCount) {
+      case 1: return 3;  // Мобильные - больше места
+      case 2: return 2;  // Планшеты - среднее
+      case 3: return 2;  // Десктоп - компактно
+      default: return 2;
+    }
+  }
+
+  Widget _buildStatItem(String value, String label, {required double fontSize}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Column(
@@ -995,13 +980,13 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          SizedBox(height: 2),
+          const SizedBox(height: 2),
           Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey[600],
-              fontSize: crossAxisCount >= 3 ? fontSize - 1 : fontSize,
+              fontSize: fontSize - 1,
               fontWeight: FontWeight.w500,
             ),
             maxLines: 1,
@@ -1279,7 +1264,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
           final horizontalPadding = _getHorizontalPadding(context);
 
           return Scaffold(
-            backgroundColor: Colors.transparent, // ПРОЗРАЧНЫЙ фон
+            backgroundColor: Colors.transparent,
             body: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -1299,7 +1284,7 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                       width: double.infinity,
                       padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
                       decoration: const BoxDecoration(
-                        color: Colors.white, // Просто белый фон без карточки
+                        color: Colors.white,
                       ),
                       child: Row(
                         children: [
@@ -1470,8 +1455,8 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
             sliver: SliverGrid(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: _getCrossAxisCount(context),
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
                 childAspectRatio: _getCardAspectRatio(context),
               ),
               delegate: SliverChildBuilderDelegate(

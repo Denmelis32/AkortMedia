@@ -1,18 +1,16 @@
+// pages/league_detail_page.dart
 import 'package:flutter/material.dart';
-import 'models/league_model.dart';
-import 'models/match_model.dart';
-import 'package:flutter/foundation.dart';
-import 'league_detail_design.dart';
-import 'league_detail_management.dart';
+import 'package:intl/intl.dart';
+import 'package:my_app/pages/predictions_league_page/prediction_league_card.dart';
+import 'models/enums.dart';
+import 'models/prediction_league.dart';
 
 class LeagueDetailPage extends StatefulWidget {
-  final League league;
-  final Function(League) onLeagueUpdated;
+  final PredictionLeague league;
 
   const LeagueDetailPage({
     super.key,
     required this.league,
-    required this.onLeagueUpdated,
   });
 
   @override
@@ -20,529 +18,1257 @@ class LeagueDetailPage extends StatefulWidget {
 }
 
 class _LeagueDetailPageState extends State<LeagueDetailPage> {
-  int _selectedTab = 0;
-  final List<String> _tabs = ['Матчи', 'Мои прогнозы', 'Рейтинг', 'Управление'];
+  final ScrollController _scrollController = ScrollController();
+  final PageController _imagePageController = PageController();
+  final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _predictionController = TextEditingController();
 
-  // Используем копию матчей для работы на этой странице
-  List<Match> _matches = [];
+  int _currentImageIndex = 0;
+  int _selectedTabIndex = 0;
+  bool _isLoading = false;
+  bool _isSubscribed = false;
+  bool _isLiked = false;
+  int _likeCount = 0;
+  List<String> _comments = [];
+  List<Map<String, dynamic>> _predictions = [];
+  double _userPoints = 0.0;
 
-  bool get _isCreator => widget.league.creatorId == 'user@example.com';
+  // Демо данные для прогнозов
+  final List<Map<String, dynamic>> _predictionOptions = [
+    {
+      'id': '1',
+      'title': 'Победа команды A',
+      'probability': 0.35,
+      'odds': 2.85,
+      'votes': 450,
+    },
+    {
+      'id': '2',
+      'title': 'Победа команды B',
+      'probability': 0.45,
+      'odds': 2.22,
+      'votes': 580,
+    },
+    {
+      'id': '3',
+      'title': 'Ничья',
+      'probability': 0.20,
+      'odds': 5.00,
+      'votes': 220,
+    },
+  ];
+
+  // Демо комментарии
+  final List<Map<String, dynamic>> _demoComments = [
+    {
+      'id': '1',
+      'author': 'Алексей Петров',
+      'avatar': 'АП',
+      'text': 'Отличная лига! Уже сделал несколько прогнозов. Призовой фонд впечатляет!',
+      'time': '2 часа назад',
+      'likes': 12,
+      'isLiked': false,
+    },
+    {
+      'id': '2',
+      'author': 'Мария Иванова',
+      'avatar': 'МИ',
+      'text': 'Интересные условия участия. Жду начала основных событий!',
+      'time': '5 часов назад',
+      'likes': 8,
+      'isLiked': true,
+    },
+    {
+      'id': '3',
+      'author': 'Дмитрий Сидоров',
+      'avatar': 'ДС',
+      'text': 'Участвую не первый раз. Организаторы на высоте!',
+      'time': '1 день назад',
+      'likes': 25,
+      'isLiked': false,
+    },
+  ];
+
+  // Демо статистика
+  final Map<String, dynamic> _leagueStats = {
+    'totalPredictions': 1250,
+    'activeUsers': 890,
+    'successRate': 0.68,
+    'averageOdds': 3.2,
+  };
 
   @override
   void initState() {
     super.initState();
+    _likeCount = widget.league.participants ~/ 10;
+    _loadComments();
+    _checkSubscription();
+    _loadUserStats();
+  }
 
-    // Проверяем и исправляем дубликаты ID
-    _matches = LeagueDetailManagement.fixDuplicateMatchIds(widget.league.matches);
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _imagePageController.dispose();
+    _commentController.dispose();
+    _predictionController.dispose();
+    super.dispose();
+  }
 
-    if (kDebugMode) {
-      _debugPrintMatches('После инициализации');
+  Future<void> _loadComments() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    setState(() {
+      _comments = _demoComments.map((comment) => comment['text'] as String).toList();
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _checkSubscription() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    setState(() {
+      _isSubscribed = false;
+    });
+  }
+
+  Future<void> _loadUserStats() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    setState(() {
+      _userPoints = 1250.0;
+      _predictions = [
+        {
+          'id': '1',
+          'option': 'Победа команды A',
+          'amount': 100.0,
+          'potentialWin': 285.0,
+          'status': 'active',
+          'date': DateTime.now().subtract(const Duration(hours: 2)),
+        },
+        {
+          'id': '2',
+          'option': 'Ничья',
+          'amount': 50.0,
+          'potentialWin': 250.0,
+          'status': 'active',
+          'date': DateTime.now().subtract(const Duration(days: 1)),
+        },
+      ];
+    });
+  }
+
+  void _toggleSubscription() {
+    setState(() {
+      _isSubscribed = !_isSubscribed;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isSubscribed ? 'Вы присоединились к лиге!' : 'Вы покинули лигу'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _toggleLike() {
+    setState(() {
+      _isLiked = !_isLiked;
+      _isLiked ? _likeCount++ : _likeCount--;
+    });
+  }
+
+  void _shareLeague() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Поделиться лигой',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildShareOption(Icons.message, 'Сообщение', Colors.blue),
+                _buildShareOption(Icons.link, 'Ссылка', Colors.green),
+                _buildShareOption(Icons.email, 'Email', Colors.orange),
+                _buildShareOption(Icons.file_copy, 'Копировать', Colors.purple),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShareOption(IconData icon, String label, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+
+  void _addComment() {
+    if (_commentController.text.trim().isEmpty) return;
+
+    setState(() {
+      _comments.insert(0, _commentController.text);
+      _commentController.clear();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Комментарий добавлен'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showPredictionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Сделать прогноз'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Выберите вариант прогноза:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  ..._predictionOptions.map((option) => _buildPredictionOption(option, setDialogState)).toList(),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Сумма ставки:',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _predictionController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: 'Введите сумму',
+                      suffixText: '₽',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_predictionController.text.isNotEmpty)
+                    Text(
+                      'Потенциальный выигрыш: ${(double.tryParse(_predictionController.text) ?? 0) * 2.5}₽',
+                      style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Отмена'),
+              ),
+              ElevatedButton(
+                onPressed: _predictionController.text.isNotEmpty
+                    ? () {
+                  _placePrediction();
+                  Navigator.pop(context);
+                }
+                    : null,
+                child: const Text('Подтвердить ставку'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _placePrediction() {
+    final amount = double.tryParse(_predictionController.text) ?? 0;
+    if (amount > 0) {
+      setState(() {
+        _predictions.insert(0, {
+          'id': '${DateTime.now().millisecondsSinceEpoch}',
+          'option': 'Победа команды B',
+          'amount': amount,
+          'potentialWin': amount * 2.22,
+          'status': 'active',
+          'date': DateTime.now(),
+        });
+        _userPoints -= amount;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ставка на ${amount}₽ успешно размещена!'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      _predictionController.clear();
     }
   }
 
-  void _updateLeagueMatches(List<Match> newMatches) {
-    setState(() {
-      // Создаем ГЛУБОКУЮ копию каждого матча
-      _matches = newMatches.map((match) => match.copyWith()).toList();
-    });
-
-    // Также создаем глубокую копию для родительского компонента
-    final updatedLeague = widget.league.copyWithMatches(
-      newMatches.map((match) => match.copyWith()).toList(),
+  Widget _buildPredictionOption(Map<String, dynamic> option, StateSetter setDialogState) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  option['title'],
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Коэффициент: ${option['odds']}',
+                  style: const TextStyle(color: Colors.blue, fontSize: 12),
+                ),
+                Text(
+                  '${option['votes']} ставок',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${(option['probability'] * 100).toInt()}%',
+              style: const TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
-    widget.onLeagueUpdated(updatedLeague);
+  }
+
+  void _showStatistics() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Статистика лиги',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            _buildStatCard('Общее количество прогнозов', _leagueStats['totalPredictions'].toString(), Icons.analytics),
+            _buildStatCard('Активных пользователей', _leagueStats['activeUsers'].toString(), Icons.people),
+            _buildStatCard('Успешность прогнозов', '${(_leagueStats['successRate'] * 100).toInt()}%', Icons.trending_up),
+            _buildStatCard('Средний коэффициент', _leagueStats['averageOdds'].toStringAsFixed(2), Icons.show_chart),
+            const Spacer(),
+            Center(
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Закрыть'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: Icon(icon, color: Colors.blue),
+        title: Text(title),
+        trailing: Text(
+          value,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+        ),
+      ),
+    );
+  }
+
+  // АДАПТИВНЫЕ МЕТОДЫ
+  int _getCrossAxisCount(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 3;
+    if (width > 800) return 3;
+    if (width > 600) return 2;
+    return 1;
+  }
+
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 200;
+    if (width > 800) return 100;
+    if (width > 600) return 60;
+    return 16;
   }
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = _getHorizontalPadding(context);
+
     return Scaffold(
-      backgroundColor: LeagueDetailDesign.backgroundColor,
-      appBar: AppBar(
-        title: Text(
-          widget.league.title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-            color: LeagueDetailDesign.textColor,
-          ),
-        ),
-        backgroundColor: LeagueDetailDesign.cardColor,
-        elevation: 1,
-        centerTitle: false,
-        iconTheme: IconThemeData(color: LeagueDetailDesign.primaryColor),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.leaderboard),
-            onPressed: _showFinalResults,
-          ),
-          if (_isCreator)
-            IconButton(icon: const Icon(Icons.share), onPressed: _shareLeague),
-        ],
-      ),
-      floatingActionButton: _isCreator && _selectedTab == 3
-          ? FloatingActionButton(
-        onPressed: _showAddMatchDialog,
-        backgroundColor: LeagueDetailDesign.primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
-      )
-          : null,
-      body: Column(
-        children: [
-          LeagueDetailDesign.buildTabSection(_tabs, _selectedTab, _isCreator, _onTabChanged),
-          const SizedBox(height: 8),
-          LeagueDetailDesign.buildLeagueStats(_matches),
-          const SizedBox(height: 8),
-          Expanded(child: _buildTabContent()),
-        ],
-      ),
-    );
-  }
-
-  void _onTabChanged(int index) {
-    setState(() {
-      _selectedTab = index;
-    });
-  }
-
-  Widget _buildTabContent() {
-    switch (_selectedTab) {
-      case 0:
-        return _buildMatchesContent();
-      case 1:
-        return _buildPredictionsContent();
-      case 2:
-        return _buildRatingContent();
-      case 3:
-        return _buildManagementContent();
-      default:
-        return _buildMatchesContent();
-    }
-  }
-
-  Widget _buildMatchesContent() {
-    if (_matches.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.sports_soccer,
-              size: 64,
-              color: LeagueDetailDesign.primaryColor.withOpacity(0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Матчей пока нет',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: LeagueDetailDesign.textColor,
-              ),
-            ),
-            if (_isCreator) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Добавьте матчи во вкладке "Управление"',
-                style: TextStyle(fontSize: 14, color: LeagueDetailDesign.secondaryTextColor),
-                textAlign: TextAlign.center,
-              ),
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFF5F5F5),
+              Color(0xFFE8E8E8),
             ],
-          ],
-        ),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: _matches.map((match) {
-        return LeagueDetailDesign.buildMatchCard(
-          match,
-          _isCreator,
-          _showPredictionDialog,
-          _showResultInputDialog,
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildPredictionsContent() {
-    final userPredictions = _matches
-        .where((match) => match.userPrediction.isNotEmpty)
-        .toList();
-
-    if (userPredictions.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.analytics,
-              size: 64,
-              color: LeagueDetailDesign.primaryColor.withOpacity(0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Прогнозов пока нет',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: LeagueDetailDesign.textColor,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Сделайте прогноз на предстоящий матч!',
-              style: TextStyle(fontSize: 16, color: LeagueDetailDesign.secondaryTextColor),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: userPredictions.map((match) {
-        return LeagueDetailDesign.buildPredictionCard(match);
-      }).toList(),
-    );
-  }
-
-  Widget _buildRatingContent() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.leaderboard,
-              size: 64,
-              color: LeagueDetailDesign.primaryColor.withOpacity(0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Рейтинг участников',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: LeagueDetailDesign.textColor,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Топ-10 игроков лиги',
-              style: TextStyle(fontSize: 16, color: LeagueDetailDesign.secondaryTextColor),
-            ),
-            const SizedBox(height: 20),
-            LeagueDetailDesign.buildRatingList(_matches),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildManagementContent() {
-    if (!_isCreator) {
-      return Center(
-        child: Text(
-          'Доступно только создателю лиги',
-          style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Управление лигой',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: LeagueDetailDesign.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(Icons.people, color: Colors.grey[600], size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Участников: ${widget.league.participants}',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.sports, color: Colors.grey[600], size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Матчей: ${_matches.length}',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _calculateResults,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                    child: const Text('Рассчитать результаты'),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
-        Expanded(
-          child: _matches.isEmpty
-              ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.sports_soccer,
-                  size: 64,
-                  color: LeagueDetailDesign.primaryColor.withOpacity(0.3),
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // АППБАР С ИЗОБРАЖЕНИЕМ
+            SliverAppBar(
+              expandedHeight: 300,
+              stretch: true,
+              flexibleSpace: FlexibleSpaceBar(
+                stretchModes: const [StretchMode.zoomBackground],
+                background: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Основное изображение
+                    Image.network(
+                      widget.league.imageUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.emoji_events, size: 60, color: Colors.grey),
+                        );
+                      },
+                    ),
+
+                    // Градиент поверх изображения
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.7),
+                            Colors.transparent,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Контент поверх изображения
+                    Positioned(
+                      bottom: 16,
+                      left: horizontalPadding,
+                      right: horizontalPadding,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Эмодзи и категория
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  widget.league.emoji,
+                                  style: const TextStyle(fontSize: 20),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  widget.league.category.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Заголовок
+                          Text(
+                            widget.league.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // Призовой фонд и участники
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  widget.league.formattedPrizePool,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${_formatNumber(widget.league.participants)} участников',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Матчей пока нет',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: LeagueDetailDesign.textColor,
+              ),
+              pinned: true,
+              backgroundColor: Colors.transparent,
+              leading: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
                   ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Добавьте первый матч',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: LeagueDetailDesign.secondaryTextColor,
+                onPressed: () => Navigator.pop(context),
+              ),
+              actions: [
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.share, color: Colors.white, size: 20),
                   ),
+                  onPressed: _shareLeague,
+                ),
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isLiked ? Icons.favorite : Icons.favorite_border,
+                      color: _isLiked ? Colors.red : Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  onPressed: _toggleLike,
                 ),
               ],
             ),
-          )
-              : ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _matches.length,
-            itemBuilder: (context, index) {
-              final match = _matches[index];
-              return _buildManageableMatchCard(match);
-            },
+
+            // ОСНОВНОЙ КОНТЕНТ
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    // КНОПКА УЧАСТИЯ И ДЕЙСТВИЯ
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isSubscribed ? _showPredictionDialog : _toggleSubscription,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _isSubscribed ? Colors.blue : Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _isSubscribed ? Icons.emoji_events : Icons.person_add,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _isSubscribed ? 'Сделать прогноз' : 'Присоединиться к лиге',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            onPressed: _showStatistics,
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.grey[100],
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.analytics, color: Colors.blue),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // БАЛАНС ПОЛЬЗОВАТЕЛЯ
+                    if (_isSubscribed)
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Ваш баланс',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_userPoints.toStringAsFixed(2)}₽',
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    // Пополнение баланса
+                                  },
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text('Пополнить'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 16),
+
+                    // СТАТИСТИКА ЛИГИ
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Заголовок раздела
+                              const Text(
+                                'Статистика лиги',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Показатели
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildStatItem('Участники', widget.league.participants, Icons.people),
+                                  _buildStatItem('Прогнозы', widget.league.predictions, Icons.analytics),
+                                  _buildStatItem('Просмотры', widget.league.views, Icons.remove_red_eye),
+                                ],
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              // Прогресс до окончания
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'До завершения лиги',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      Text(
+                                        widget.league.timeLeft,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  LinearProgressIndicator(
+                                    value: widget.league.progress,
+                                    backgroundColor: Colors.grey[200],
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      widget.league.isActive ? Colors.blue : Colors.green,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ТАБЫ
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          children: [
+                            // Заголовки табов
+                            Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(color: Colors.grey[300]!),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  _buildTabItem(0, 'Описание'),
+                                  _buildTabItem(1, 'Мои прогнозы'),
+                                  _buildTabItem(2, 'Обсуждение'),
+                                  _buildTabItem(3, 'Статистика'),
+                                ],
+                              ),
+                            ),
+
+                            // Контент табов
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              child: _buildTabContent(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, int value, IconData icon) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 20, color: Colors.blue),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _formatNumber(value),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildManageableMatchCard(Match match) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Icon(Icons.sports, color: LeagueDetailDesign.primaryColor),
-        title: Text('${match.teamHome} - ${match.teamAway}'),
-        subtitle: Text(
-          '${LeagueDetailDesign.formatMatchDate(match.date)} • ${match.league}',
-          style: TextStyle(fontSize: 12),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (match.status == MatchStatus.upcoming)
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-                onPressed: () => _showEditMatchDialog(match),
+  Widget _buildTabItem(int index, String title) {
+    final isSelected = _selectedTabIndex == index;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _selectedTabIndex = index;
+            });
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: isSelected ? Colors.blue : Colors.transparent,
+                  width: 2,
+                ),
               ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-              onPressed: () => _deleteMatch(match.id),
+            ),
+            child: Center(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? Colors.blue : Colors.grey[600],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent() {
+    switch (_selectedTabIndex) {
+      case 0: // Описание
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.league.description,
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.black87,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Детальное описание:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.league.detailedDescription,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Правила участия:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildRuleItem('Минимальная ставка: 10₽'),
+            _buildRuleItem('Максимальная ставка: 1000₽'),
+            _buildRuleItem('Комиссия платформы: 5%'),
+            _buildRuleItem('Вывод средств: от 100₽'),
+          ],
+        );
+
+      case 1: // Мои прогнозы
+        return _predictions.isEmpty
+            ? const Column(
+          children: [
+            Icon(Icons.analytics, size: 60, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'У вас пока нет активных прогнозов',
+              style: TextStyle(color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Сделайте первую ставку!',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _deleteMatch(int matchId) {
-    LeagueDetailManagement.showDeleteMatchDialog(
-      context: context,
-      matchId: matchId,
-      onMatchDeleted: (id) {
-        final updatedMatches = _matches
-            .where((m) => m.id != id)
-            .toList();
-        _updateLeagueMatches(updatedMatches);
-      },
-    );
-  }
-
-  void _calculateResults() {
-    LeagueDetailManagement.showCalculateResultsDialog(
-      context: context,
-      onCalculate: _performCalculation,
-    );
-  }
-
-  void _showAddMatchDialog() {
-    LeagueDetailManagement.showAddMatchDialog(
-      context: context,
-      leagueTitle: widget.league.title,
-      existingMatches: _matches, // Добавлен недостающий аргумент
-      onMatchAdded: (newMatch) {
-        final updatedMatches = [..._matches, newMatch];
-        _updateLeagueMatches(updatedMatches);
-      },
-    );
-  }
-
-  void _showEditMatchDialog(Match match) {
-    LeagueDetailManagement.showEditMatchDialog(
-      context: context,
-      match: match,
-      existingMatches: _matches, // Добавлен недостающий аргумент
-      onMatchUpdated: (updatedMatch) {
-        final updatedMatches = _matches
-            .map((m) => m.id == match.id ? updatedMatch : m.copyWith())
-            .toList();
-        _updateLeagueMatches(updatedMatches);
-      },
-    );
-  }
-
-  void _showPredictionDialog(Match match) {
-    LeagueDetailManagement.showPredictionDialog(
-      context: context,
-      match: match,
-      onPredictionSaved: (prediction) {
-        _savePrediction(match, prediction);
-      },
-    );
-  }
-
-  void _savePrediction(Match match, String prediction) {
-    final updatedMatches = _matches.map((m) {
-      if (m.id == match.id) {
-        return m.copyWith(userPrediction: prediction);
-      }
-      return m.copyWith();
-    }).toList();
-
-    _updateLeagueMatches(updatedMatches);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Прогноз сохранен!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _showResultInputDialog(Match match) {
-    LeagueDetailManagement.showResultInputDialog(
-      context: context,
-      match: match,
-      onResultSaved: (result) {
-        _saveMatchResult(match.id, result);
-      },
-    );
-  }
-
-  void _saveMatchResult(int matchId, String result) {
-    final updatedMatches = _matches.map((match) {
-      if (match.id == matchId) {
-        int points = 0;
-        if (match.userPrediction.isNotEmpty) {
-          points = Match.calculatePoints(match.userPrediction, result);
-        }
-
-        return match.copyWith(
-          actualScore: result,
-          status: MatchStatus.finished,
-          points: points,
-        );
-      }
-      return match.copyWith();
-    }).toList();
-
-    _updateLeagueMatches(updatedMatches);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Результат матча сохранен!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _performCalculation() {
-    final updatedMatches = _matches.map((match) {
-      if (match.status == MatchStatus.finished &&
-          match.actualScore.isNotEmpty &&
-          match.userPrediction.isNotEmpty) {
-        final points = Match.calculatePoints(
-          match.userPrediction,
-          match.actualScore,
+        )
+            : Column(
+          children: [
+            ..._predictions.map((prediction) => _buildPredictionHistoryItem(prediction)).toList(),
+          ],
         );
 
-        if (match.points != points) {
-          return match.copyWith(points: points);
-        }
-      }
-      return match;
-    }).toList();
+      case 2: // Обсуждение
+        return Column(
+          children: [
+            // Поле ввода комментария
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _commentController,
+                      decoration: const InputDecoration(
+                        hintText: 'Написать комментарий...',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.blue),
+                    onPressed: _addComment,
+                  ),
+                ],
+              ),
+            ),
 
-    _updateLeagueMatches(updatedMatches);
+            const SizedBox(height: 16),
 
-    final totalPoints = updatedMatches.fold(
-      0,
-          (sum, match) => sum + match.points,
-    );
+            // Список комментариев
+            ..._demoComments.map((comment) => _buildCommentItem(comment)).toList(),
+          ],
+        );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Результаты рассчитаны! Общее количество очков: $totalPoints',
-        ),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
+      case 3: // Статистика
+        return Column(
+          children: [
+            _buildStatCard('Общее количество прогнозов', _leagueStats['totalPredictions'].toString(), Icons.analytics),
+            _buildStatCard('Активных пользователей', _leagueStats['activeUsers'].toString(), Icons.people),
+            _buildStatCard('Успешность прогнозов', '${(_leagueStats['successRate'] * 100).toInt()}%', Icons.trending_up),
+            _buildStatCard('Средний коэффициент', _leagueStats['averageOdds'].toStringAsFixed(2), Icons.show_chart),
+          ],
+        );
 
-  void _showFinalResults() {
-    LeagueDetailManagement.showFinalResultsDialog(
-      context: context,
-      matches: _matches,
-    );
-  }
-
-  void _shareLeague() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ссылка на лигу скопирована')),
-    );
-  }
-
-  void _debugPrintMatches(String operation) {
-    if (kDebugMode) {
-      print('=== $operation ===');
-      for (var match in _matches) {
-        print('ID: ${match.id}, Prediction: "${match.userPrediction}", Hash: ${match.hashCode}');
-      }
-      print('===================');
+      default:
+        return const SizedBox();
     }
+  }
+
+  Widget _buildRuleItem(String rule) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const SizedBox(width: 8),
+          Text(rule),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPredictionHistoryItem(Map<String, dynamic> prediction) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                prediction['option'],
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: prediction['status'] == 'active' ? Colors.orange : Colors.green,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  prediction['status'] == 'active' ? 'Активна' : 'Завершена',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Сумма: ${prediction['amount']}₽',
+                style: const TextStyle(color: Colors.grey),
+              ),
+              Text(
+                'Потенциальный выигрыш: ${prediction['potentialWin']}₽',
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Размещено: ${DateFormat('dd.MM.yyyy HH:mm').format(prediction['date'])}',
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentItem(Map<String, dynamic> comment) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Аватар
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                comment['avatar'],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Контент комментария
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      comment['author'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      comment['time'],
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  comment['text'],
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        comment['isLiked'] ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: comment['isLiked'] ? Colors.red : Colors.grey,
+                      ),
+                      onPressed: () {},
+                    ),
+                    Text(
+                      '${comment['likes']}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
   }
 }

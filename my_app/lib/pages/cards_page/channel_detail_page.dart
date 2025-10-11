@@ -81,10 +81,22 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
     return ChangeNotifierProvider(
       create: (context) => ChannelDetailProvider(widget.channel),
       child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.background,
-        body: _ChannelDetailContent(
-          channel: widget.channel,
-          animationController: _animationController,
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFF5F5F5),
+                Color(0xFFE8E8E8),
+              ],
+            ),
+          ),
+          child: _ChannelDetailContent(
+            channel: widget.channel,
+            animationController: _animationController,
+          ),
         ),
       ),
     );
@@ -109,10 +121,25 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   final TextEditingController _postDescriptionController = TextEditingController();
   final TextEditingController _postHashtagsController = TextEditingController();
 
+  // ТАКИЕ ЖЕ ОТСТУПЫ КАК В ПРОФИЛЕ
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1000) return 280; // Twitter-like для больших экранов
+    if (width > 700) return 80;   // Для планшетов
+    return 16;                    // Для мобильных
+  }
+
+  double _getContentMaxWidth(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1400) return 600;  // Twitter-like максимальная ширина
+    if (width > 1000) return 600;
+    if (width > 700) return 600;
+    return double.infinity;
+  }
+
   @override
   void initState() {
     super.initState();
-    // Перенесем инициализацию в addPostFrameCallback
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeProviders();
     });
@@ -122,17 +149,13 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
     final channelDetailProvider = Provider.of<ChannelDetailProvider>(context, listen: false);
 
-    // Инициализируем состояние канала в ChannelStateProvider
     _initializeChannelState(channelStateProvider);
-
-    // Синхронизируем состояние между провайдерами
     _syncProviderStates(channelStateProvider, channelDetailProvider);
   }
 
   void _initializeChannelState(ChannelStateProvider provider) {
-    // Используем новый метод для инициализации
     provider.initializeChannelIfNeeded(
-      widget.channel.id.toString(), // ПРЕОБРАЗУЕМ В STRING
+      widget.channel.id.toString(),
       defaultAvatar: widget.channel.imageUrl,
       defaultCover: widget.channel.coverImageUrl,
       defaultTags: widget.channel.tags,
@@ -140,19 +163,16 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   }
 
   void _syncProviderStates(ChannelStateProvider stateProvider, ChannelDetailProvider detailProvider) {
-    // Синхронизируем аватарку
     final avatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
     if (detailProvider.currentAvatarUrl != avatarUrl) {
       detailProvider.setAvatarUrl(avatarUrl);
     }
 
-    // Синхронизируем обложку
     final coverUrl = stateProvider.getCoverForChannel(widget.channel.id.toString());
     if (detailProvider.currentCoverUrl != coverUrl) {
       detailProvider.setCoverUrl(coverUrl);
     }
 
-    // Синхронизируем хештеги
     final hashtags = stateProvider.getHashtagsForChannel(widget.channel.id.toString());
     if (!_listEquals(detailProvider.currentHashtags, hashtags)) {
       detailProvider.setHashtags(hashtags);
@@ -183,6 +203,8 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       builder: (context, provider, stateProvider, child) {
         final state = provider.state;
         final theme = Theme.of(context);
+        final horizontalPadding = _getHorizontalPadding(context);
+        final contentMaxWidth = _getContentMaxWidth(context);
 
         return Stack(
           children: [
@@ -194,7 +216,15 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
                 if (state.isLoading)
                   _buildLoadingSliver()
                 else
-                  _buildContentSliver(context, provider, stateProvider, state, theme),
+                  _buildContentSliver(
+                    context,
+                    provider,
+                    stateProvider,
+                    state,
+                    theme,
+                    horizontalPadding,
+                    contentMaxWidth,
+                  ),
               ],
             ),
             _buildFloatingActionButtons(context, provider, state),
@@ -324,59 +354,100 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       ChannelStateProvider stateProvider,
       ChannelDetailState state,
       ThemeData theme,
+      double horizontalPadding,
+      double contentMaxWidth,
       ) {
     return SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 32,
-              offset: const Offset(0, 16),
-            ),
-          ],
+        margin: EdgeInsets.only(
+          left: horizontalPadding,
+          right: horizontalPadding,
+          top: 8, // КОМПАКТНЫЙ ОТСТУП КАК В ПРОФИЛЕ
+          bottom: 16,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ChannelInfoSection(
-              channel: widget.channel,
-              provider: provider,
-              state: state,
-            ),
+        child: Container(
+          constraints: BoxConstraints(maxWidth: contentMaxWidth),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12), // ТАКОЙ ЖЕ RADIUS КАК В ПРОФИЛЕ
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08), // ТАКАЯ ЖЕ ТЕНЬ КАК В ПРОФИЛЕ
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // КАЖДЫЙ СЕКЦИЯ С ТАКИМИ ЖЕ ОТСТУПАМИ КАК В ПРОФИЛЕ
+              Padding(
+                padding: const EdgeInsets.all(16), // ТАКИЕ ЖЕ ОТСТУПЫ КАК В ПРОФИЛЕ
+                child: ChannelInfoSection(
+                  channel: widget.channel,
+                  provider: provider,
+                  state: state,
+                ),
+              ),
 
-            MembersSection(
-              channel: widget.channel,
-              provider: provider,
-              state: state,
-            ),
+              const SizedBox(height: 16), // ТАКОЙ ЖЕ ОТСТУП МЕЖДУ СЕКЦИЯМИ
 
-            PlaylistsSection(
-              channel: widget.channel,
-              provider: provider,
-              state: state,
-            ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16), // ГОРИЗОНТАЛЬНЫЕ ОТСТУПЫ КАК В ПРОФИЛЕ
+                child: MembersSection(
+                  channel: widget.channel,
+                  provider: provider,
+                  state: state,
+                ),
+              ),
 
-            ActionButtonsSection(
-              channel: widget.channel,
-              provider: provider,
-              state: state,
-            ),
+              const SizedBox(height: 16),
 
-            ContentTabs(
-              currentIndex: state.currentContentType,
-              onTabChanged: provider.changeContentType,
-              channelColor: widget.channel.cardColor,
-              tabs: const ['Стена', 'Акорта', 'Статьи'],
-            ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: PlaylistsSection(
+                  channel: widget.channel,
+                  provider: provider,
+                  state: state,
+                ),
+              ),
 
-            _buildContentByType(context, provider, stateProvider, state),
+              const SizedBox(height: 16),
 
-            const SizedBox(height: 32),
-          ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ActionButtonsSection(
+                  channel: widget.channel,
+                  provider: provider,
+                  state: state,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ContentTabs с такими же отступами
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ContentTabs(
+                  currentIndex: state.currentContentType,
+                  onTabChanged: provider.changeContentType,
+                  channelColor: widget.channel.cardColor,
+                  tabs: const ['Стена', 'Акорта', 'Статьи'],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Контент с такими же отступами
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildContentByType(context, provider, stateProvider, state),
+              ),
+
+              const SizedBox(height: 16), // КОМПАКТНЫЙ ОТСТУП КАК В ПРОФИЛЕ
+            ],
+          ),
         ),
       ),
     );
@@ -415,24 +486,33 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
 
     switch (index) {
       case 0:
-        return WallContent(
-          channel: widget.channel,
-          customAvatarUrl: avatarUrl,
+        return Container(
+          constraints: BoxConstraints(maxWidth: _getContentMaxWidth(context)),
+          child: WallContent(
+            channel: widget.channel,
+            customAvatarUrl: avatarUrl,
+          ),
         );
 
       case 1:
-        return AkorContent(
-          channel: widget.channel,
-          customAvatarUrl: avatarUrl,
+        return Container(
+          constraints: BoxConstraints(maxWidth: _getContentMaxWidth(context)),
+          child: AkorContent(
+            channel: widget.channel,
+            customAvatarUrl: avatarUrl,
+          ),
         );
 
       case 2:
-        return ArticlesGrid(
-          key: const ValueKey('articles'),
-          articles: articlesProvider.getArticlesForChannel(widget.channel.id),
-          channel: widget.channel,
-          emptyMessage:
-          'Пока нет статей. Создайте первую статью для этого канала!',
+        return Container(
+          constraints: BoxConstraints(maxWidth: _getContentMaxWidth(context)),
+          child: ArticlesGrid(
+            key: const ValueKey('articles'),
+            articles: articlesProvider.getArticlesForChannel(widget.channel.id),
+            channel: widget.channel,
+            emptyMessage:
+            'Пока нет статей. Создайте первую статью для этого канала!',
+          ),
         );
 
       default:
@@ -482,7 +562,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
           child: const Icon(Icons.add, size: 32),
           elevation: 8,
           highlightElevation: 16,
-          heroTag: 'channel_fab_${widget.channel.id}', // УНИКАЛЬНЫЙ TAG
+          heroTag: 'channel_fab_${widget.channel.id}',
         ),
       ),
     );
@@ -502,7 +582,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         foregroundColor: Colors.white,
         mini: true,
         child: const Icon(Icons.arrow_upward),
-        heroTag: 'scroll_top_${widget.channel.id}', // УНИКАЛЬНЫЙ TAG
+        heroTag: 'scroll_top_${widget.channel.id}',
       ),
     );
   }
@@ -548,14 +628,13 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       builder: (context) => ContentTypeDialog(
         channel: widget.channel,
         onAddPost: () => _showAddPostDialog(context),
-        onAddArticle: () => _showAddArticlePage(context), // ИЗМЕНЕНО ЗДЕСЬ
-        onAddDiscussion: () {}, // Убрано создание обсуждений
+        onAddArticle: () => _showAddArticlePage(context),
+        onAddDiscussion: () {},
       ),
     );
   }
 
   void _showAddPostDialog(BuildContext context) {
-    // Сброс контроллеров при открытии диалога
     _postTitleController.clear();
     _postDescriptionController.clear();
     _postHashtagsController.clear();
@@ -637,7 +716,6 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         .toList();
 
     try {
-      // ВАЖНО: БЕРЕМ АВАТАРКУ ИЗ ПРОВАЙДЕРА СОСТОЯНИЯ
       final currentAvatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
       final avatarToUse = currentAvatarUrl ?? widget.channel.imageUrl;
 
@@ -652,8 +730,8 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         "comments": [],
         'is_channel_post': true,
         'channel_name': widget.channel.title,
-        'channel_avatar': avatarToUse, // АКТУАЛЬНАЯ АВАТАРКА
-        'channel_image': avatarToUse,  // АКТУАЛЬНАЯ АВАТАРКА
+        'channel_avatar': avatarToUse,
+        'channel_image': avatarToUse,
         'channel_id': widget.channel.id.toString(),
       };
 
@@ -666,6 +744,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       _showSuccessSnackbar(context, 'Ошибка при создании новости');
     }
   }
+
   void _showAddArticlePage(BuildContext context) {
     final stateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
     final currentAvatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
@@ -701,7 +780,6 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     final stateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
 
     try {
-      // ПОЛУЧАЕМ ТЕКУЩИЙ АВАТАР КАНАЛА
       final currentAvatarUrl = stateProvider.getAvatarForChannel(widget.channel.id.toString());
       final avatarToUse = currentAvatarUrl ?? widget.channel.imageUrl;
 
@@ -716,10 +794,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         "likes": 0,
         "author": "Администратор канала",
         "publish_date": DateTime.now().toIso8601String(),
-        "image_url": avatarToUse, // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
+        "image_url": avatarToUse,
         "channel_id": widget.channel.id,
         "channel_name": widget.channel.title,
-        "channel_image": avatarToUse, // ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ АВАТАР
+        "channel_image": avatarToUse,
         'is_channel_post': true,
       };
 
@@ -910,22 +988,15 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  // Методы для сохранения в базу данных
   void _saveAvatarToDatabase(String avatarUrl) {
-    // Сохранение аватарки в базу данных или провайдер
     debugPrint('Saving avatar to database: $avatarUrl');
-    // TODO: Реализовать сохранение в базу данных
   }
 
   void _saveCoverToDatabase(String coverUrl) {
-    // Сохранение обложки в базу данных или провайдер
     debugPrint('Saving cover to database: $coverUrl');
-    // TODO: Реализовать сохранение в базу данных
   }
 
   void _saveHashtagsToDatabase(List<String> hashtags) {
-    // Сохранение хештегов в базу данных или провайдер
     debugPrint('Saving hashtags to database: $hashtags');
-    // TODO: Реализовать сохранение в базу данных
   }
 }

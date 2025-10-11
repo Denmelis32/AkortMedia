@@ -663,144 +663,223 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
           return Theme(
             data: NewsTheme.themeData,
             child: Scaffold(
-              backgroundColor: NewsTheme.backgroundColor,
-              appBar: NewsAppBar(
-                userName: widget.userName,
-                userEmail: widget.userEmail,
-                isSearching: pageState.isSearching,
-                searchQuery: pageState.searchQuery,
-                onSearchChanged: pageState.setSearchQuery,
-                onSearchToggled: () => pageState.setSearching(!pageState.isSearching),
-                onProfilePressed: () => _showProfilePage(context),
-                onClearFilters: hasActiveFilters ? _clearAllFilters : null,
-                profileImageUrl: newsProvider.profileImageUrl,
-                profileImageFile: newsProvider.profileImageFile,
-              ),
-              body: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SmartRefresher(
-                  enablePullDown: true,
-                  enablePullUp: false,
-                  header: const ClassicHeader(
-                    completeText: 'Обновлено',
-                    refreshingText: 'Обновление...',
-                    releaseText: 'Отпустите для обновления',
-                    idleText: 'Потяните для обновления',
-                    completeIcon: Icon(Icons.check_rounded, color: Colors.green),
-                    refreshingIcon: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+              backgroundColor: Colors.transparent,
+              body: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFFF5F5F5),
+                      Color(0xFFE8E8E8),
+                    ],
                   ),
-                  controller: _refreshController,
-                  onRefresh: _onRefresh,
-                  onLoading: () => _refreshController.loadComplete(),
-                  child: CustomScrollView(
-                    controller: pageState.scrollController,
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      // Фильтры - ВСЕГДА видимы, даже при поиске
-                      if (newsProvider.news.isNotEmpty)
-                        const SliverToBoxAdapter(child: FilterChipsRow()),
-
-                      // Индикатор активных фильтров
-                      if (hasActiveFilters && filteredNews.isNotEmpty)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(Icons.filter_alt_rounded,
-                                    size: 16, color: NewsTheme.primaryColor),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Найдено: ${filteredNews.length}',
-                                  style: TextStyle(
-                                    color: NewsTheme.primaryColor,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                ),
+                child: SafeArea(
+                  child: SmartRefresher(
+                    enablePullDown: true,
+                    enablePullUp: false,
+                    header: const ClassicHeader(
+                      completeText: 'Обновлено',
+                      refreshingText: 'Обновление...',
+                      releaseText: 'Отпустите для обновления',
+                      idleText: 'Потяните для обновления',
+                      completeIcon: Icon(Icons.check_rounded, color: Colors.green),
+                      refreshingIcon: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                    controller: _refreshController,
+                    onRefresh: _onRefresh,
+                    onLoading: () => _refreshController.loadComplete(),
+                    child: CustomScrollView(
+                      controller: pageState.scrollController,
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        // AppBar как SliverAppBar
+                        SliverAppBar(
+                          backgroundColor: Colors.white,
+                          elevation: 0,
+                          pinned: true,
+                          floating: true,
+                          title: pageState.isSearching
+                              ? TextField(
+                            controller: TextEditingController(text: pageState.searchQuery),
+                            onChanged: pageState.setSearchQuery,
+                            decoration: InputDecoration(
+                              hintText: 'Поиск новостей...',
+                              border: InputBorder.none,
+                              hintStyle: TextStyle(color: Colors.grey[600]),
+                            ),
+                            style: const TextStyle(fontSize: 16),
+                          )
+                              : const Text(
+                            'Новости',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          leading: pageState.isSearching
+                              ? IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.black),
+                            onPressed: () => pageState.setSearching(false),
+                          )
+                              : null,
+                          actions: [
+                            if (!pageState.isSearching)
+                              IconButton(
+                                icon: const Icon(Icons.search, color: Colors.black),
+                                onPressed: () => pageState.setSearching(true),
+                              ),
+                            // Кнопка профиля
+                            GestureDetector(
+                              onTap: () => _showProfilePage(context),
+                              child: Container(
+                                margin: const EdgeInsets.all(8),
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  image: newsProvider.profileImageUrl != null || newsProvider.profileImageFile != null
+                                      ? DecorationImage(
+                                    image: newsProvider.profileImageFile != null
+                                        ? FileImage(newsProvider.profileImageFile!)
+                                        : NetworkImage(newsProvider.profileImageUrl!) as ImageProvider,
+                                    fit: BoxFit.cover,
+                                  )
+                                      : null,
+                                  color: (newsProvider.profileImageUrl == null && newsProvider.profileImageFile == null)
+                                      ? Colors.blue
+                                      : null,
                                 ),
-                                const Spacer(),
-                                GestureDetector(
-                                  onTap: _clearAllFilters,
+                                child: (newsProvider.profileImageUrl == null && newsProvider.profileImageFile == null)
+                                    ? Center(
                                   child: Text(
-                                    'Очистить',
-                                    style: TextStyle(
-                                      color: NewsTheme.secondaryTextColor,
-                                      fontSize: 12,
-                                      decoration: TextDecoration.underline,
+                                    widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                ),
-                              ],
+                                )
+                                    : null,
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                          ],
+                        ),
+
+                        // Основной контент - используем SliverToBoxAdapter для не-sliver виджетов
+                        SliverToBoxAdapter(
+                          child: Column(
+                            children: [
+                              // Фильтры
+                              if (newsProvider.news.isNotEmpty)
+                                const FilterChipsRow(),
+
+                              // Индикатор активных фильтров
+                              if (hasActiveFilters && filteredNews.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.filter_alt_rounded,
+                                          size: 16, color: NewsTheme.primaryColor),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Найдено: ${filteredNews.length}',
+                                        style: TextStyle(
+                                          color: NewsTheme.primaryColor,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      GestureDetector(
+                                        onTap: _clearAllFilters,
+                                        child: Text(
+                                          'Очистить',
+                                          style: TextStyle(
+                                            color: NewsTheme.secondaryTextColor,
+                                            fontSize: 12,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
 
-                      // Состояния загрузки
-                      if (newsProvider.isLoading && newsProvider.news.isEmpty)
-                        const SliverFillRemaining(child: NewsLoadingState())
-                      else if (newsProvider.news.isEmpty)
-                        SliverFillRemaining(
-                          child: EmptyNewsState(onCreateNews: _showAddNewsDialog),
-                        )
-                      else if (filteredNews.isEmpty)
-                          SliverFillRemaining(
-                            child: NoResultsState(
-                              searchQuery: pageState.searchQuery,
-                              onClearSearch: pageState.clearSearch,
-                            ),
+                        // Состояния загрузки и новости
+                        if (newsProvider.isLoading && newsProvider.news.isEmpty)
+                          const SliverFillRemaining(
+                            child: NewsLoadingState(),
                           )
-                        else
-                          SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                                  (context, index) {
-                                final news = Map<String, dynamic>.from(filteredNews[index]);
-                                final newsId = news['id'].toString();
-                                final originalIndex = newsProvider.findNewsIndexById(newsId);
+                        else if (newsProvider.news.isEmpty)
+                          SliverFillRemaining(
+                            child: EmptyNewsState(onCreateNews: _showAddNewsDialog),
+                          )
+                        else if (filteredNews.isEmpty)
+                            SliverFillRemaining(
+                              child: NoResultsState(
+                                searchQuery: pageState.searchQuery,
+                                onClearSearch: pageState.clearSearch,
+                              ),
+                            )
+                          else
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                    (context, index) {
+                                  final news = Map<String, dynamic>.from(filteredNews[index]);
+                                  final newsId = news['id'].toString();
+                                  final originalIndex = newsProvider.findNewsIndexById(newsId);
 
-                                // Безопасная проверка индекса
-                                if (originalIndex == -1) {
-                                  print('❌ Skipping news card: original index not found for $newsId');
-                                  return const SizedBox.shrink();
-                                }
+                                  if (originalIndex == -1) {
+                                    return const SizedBox.shrink();
+                                  }
 
-                                return Padding(
-                                  padding: EdgeInsets.fromLTRB(
+                                  return Padding(
+                                    padding: EdgeInsets.fromLTRB(
                                       16,
                                       8,
                                       16,
-                                      index == filteredNews.length - 1 ? 16 : 8
-                                  ),
-                                  child: NewsCard(
-                                    key: ValueKey('news-${news['id']}'), // Упрощенный ключ
-                                    news: news,
-                                    onLike: () => _safeNewsAction(originalIndex, _toggleLike),
-                                    onBookmark: () => _safeNewsAction(originalIndex, _toggleBookmark),
-                                    onFollow: () => _safeNewsAction(originalIndex, _toggleFollow),
-                                    // ИСПРАВЛЕНИЕ: Передаем все параметры для комментария
-                                    onComment: (text, userName, userAvatar) => _safeNewsAction(
-                                        originalIndex,
-                                            (idx) => _addComment(idx, text, userName, userAvatar)
+                                      index == filteredNews.length - 1 ? 16 : 8,
                                     ),
-                                    onEdit: () => _safeNewsAction(originalIndex, _showEditNewsDialog),
-                                    onDelete: () => _safeNewsAction(originalIndex, _showDeleteConfirmationDialog),
-                                    onShare: () => _safeNewsAction(originalIndex, _shareNews),
-                                    onTagEdit: (tagId, newTagName, color) =>
-                                        _safeNewsAction(originalIndex, (idx) => _editUserTag(idx, tagId, newTagName, color)),
-                                    formatDate: formatDate,
-                                    getTimeAgo: getTimeAgo,
-                                    scrollController: pageState.scrollController,
-                                    onLogout: widget.onLogout,
-                                  ),
-                                );
-                              },
-                              childCount: filteredNews.length,
+                                    child: NewsCard(
+                                      key: ValueKey('news-${news['id']}'),
+                                      news: news,
+                                      onLike: () => _safeNewsAction(originalIndex, _toggleLike),
+                                      onBookmark: () => _safeNewsAction(originalIndex, _toggleBookmark),
+                                      onFollow: () => _safeNewsAction(originalIndex, _toggleFollow),
+                                      onComment: (text, userName, userAvatar) => _safeNewsAction(
+                                        originalIndex,
+                                            (idx) => _addComment(idx, text, userName, userAvatar),
+                                      ),
+                                      onEdit: () => _safeNewsAction(originalIndex, _showEditNewsDialog),
+                                      onDelete: () => _safeNewsAction(originalIndex, _showDeleteConfirmationDialog),
+                                      onShare: () => _safeNewsAction(originalIndex, _shareNews),
+                                      onTagEdit: (tagId, newTagName, color) =>
+                                          _safeNewsAction(originalIndex, (idx) => _editUserTag(idx, tagId, newTagName, color)),
+                                      formatDate: formatDate,
+                                      getTimeAgo: getTimeAgo,
+                                      scrollController: pageState.scrollController,
+                                      onLogout: widget.onLogout,
+                                    ),
+                                  );
+                                },
+                                childCount: filteredNews.length,
+                              ),
                             ),
-                          ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

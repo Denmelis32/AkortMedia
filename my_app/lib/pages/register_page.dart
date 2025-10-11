@@ -20,6 +20,16 @@ class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Устанавливаем значения по умолчанию для всех полей
+    _nameController.text = 'Иван Иванов';
+    _emailController.text = 'ivan@example.com';
+    _passwordController.text = '123456';
+    _confirmPasswordController.text = '123456';
+  }
+
   void _register() {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);

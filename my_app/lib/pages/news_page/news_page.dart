@@ -19,9 +19,9 @@ import 'search_delegate.dart';
 import 'state/news_state.dart';
 import 'theme/news_theme.dart';
 import 'widgets/empty_states.dart';
-import 'widgets/app_bar.dart';
-import 'widgets/filter_chips_row.dart';
 import 'widgets/loading_state.dart';
+import 'widgets/filter_chips_row.dart';
+import 'widgets/app_bar.dart'; // Импортируем NewsAppBar
 
 class NewsPage extends StatefulWidget {
   final String userName;
@@ -75,6 +75,23 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     } catch (e) {
       print('❌ Error ensuring data persistence: $e');
     }
+  }
+
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return 16.0; // Для компьютеров и планшетов
+    return 0.0;                   // Для телефонов - БЕЗ ОТСТУПОВ
+  }
+
+  EdgeInsets _getNewsCardPadding(BuildContext context, int index, int totalCount) {
+    final horizontalPadding = _getHorizontalPadding(context);
+
+    return EdgeInsets.fromLTRB(
+      horizontalPadding,
+      0, // ВЕРХНИЙ отступ 0
+      horizontalPadding,
+      0, // НИЖНИЙ отступ 0 - полностью убираем все отступы
+    );
   }
 
   Future<void> _loadNews({bool showLoading = false}) async {
@@ -318,7 +335,24 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   String _getFallbackAvatarUrl(String userName) {
-    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
+    // Используем локальный генератор аватаров вместо внешнего сервиса
+    final name = userName.isNotEmpty ? userName : 'User';
+    final firstLetter = name[0].toUpperCase();
+
+    // Создаем цвет на основе имени
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+    ];
+    final colorIndex = name.codeUnits.reduce((a, b) => a + b) % colors.length;
+    final color = colors[colorIndex];
+
+    // Возвращаем прозрачный цвет, так как будем использовать Text аватар
+    return ''; // Пустая строка, будем использовать Text виджет
   }
 
   Map<String, dynamic> _convertToStringDynamicMap(Map<dynamic, dynamic> input) {
@@ -664,6 +698,25 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
             data: NewsTheme.themeData,
             child: Scaffold(
               backgroundColor: Colors.transparent,
+              appBar: NewsAppBar(
+                userName: widget.userName,
+                userEmail: widget.userEmail,
+                isSearching: pageState.isSearching,
+                searchQuery: pageState.searchQuery,
+                onSearchChanged: (query) {
+                  pageState.setSearchQuery(query);
+                  if (query.isNotEmpty) {
+                    pageState.addToRecentSearches(query);
+                  }
+                },
+                onSearchToggled: () => pageState.setSearching(!pageState.isSearching),
+                onProfilePressed: () => _showProfilePage(context),
+                onClearFilters: _clearAllFilters,
+                hasActiveFilters: hasActiveFilters,
+                newMessagesCount: 3,
+                profileImageUrl: newsProvider.profileImageUrl,
+                profileImageFile: newsProvider.profileImageFile,
+              ),
               body: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -698,82 +751,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                       controller: pageState.scrollController,
                       physics: const BouncingScrollPhysics(),
                       slivers: [
-                        // AppBar как SliverAppBar
-                        SliverAppBar(
-                          backgroundColor: Colors.white,
-                          elevation: 0,
-                          pinned: true,
-                          floating: true,
-                          title: pageState.isSearching
-                              ? TextField(
-                            controller: TextEditingController(text: pageState.searchQuery),
-                            onChanged: pageState.setSearchQuery,
-                            decoration: InputDecoration(
-                              hintText: 'Поиск новостей...',
-                              border: InputBorder.none,
-                              hintStyle: TextStyle(color: Colors.grey[600]),
-                            ),
-                            style: const TextStyle(fontSize: 16),
-                          )
-                              : const Text(
-                            'Новости',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          leading: pageState.isSearching
-                              ? IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.black),
-                            onPressed: () => pageState.setSearching(false),
-                          )
-                              : null,
-                          actions: [
-                            if (!pageState.isSearching)
-                              IconButton(
-                                icon: const Icon(Icons.search, color: Colors.black),
-                                onPressed: () => pageState.setSearching(true),
-                              ),
-                            // Кнопка профиля
-                            GestureDetector(
-                              onTap: () => _showProfilePage(context),
-                              child: Container(
-                                margin: const EdgeInsets.all(8),
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  image: newsProvider.profileImageUrl != null || newsProvider.profileImageFile != null
-                                      ? DecorationImage(
-                                    image: newsProvider.profileImageFile != null
-                                        ? FileImage(newsProvider.profileImageFile!)
-                                        : NetworkImage(newsProvider.profileImageUrl!) as ImageProvider,
-                                    fit: BoxFit.cover,
-                                  )
-                                      : null,
-                                  color: (newsProvider.profileImageUrl == null && newsProvider.profileImageFile == null)
-                                      ? Colors.blue
-                                      : null,
-                                ),
-                                child: (newsProvider.profileImageUrl == null && newsProvider.profileImageFile == null)
-                                    ? Center(
-                                  child: Text(
-                                    widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                )
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                        ),
-
                         // Основной контент - используем SliverToBoxAdapter для не-sliver виджетов
                         SliverToBoxAdapter(
                           child: Column(
@@ -785,7 +762,10 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                               // Индикатор активных фильтров
                               if (hasActiveFilters && filteredNews.isNotEmpty)
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: _getHorizontalPadding(context), // Адаптивный отступ
+                                    vertical: 8,
+                                  ),
                                   child: Row(
                                     children: [
                                       Icon(Icons.filter_alt_rounded,
@@ -847,12 +827,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                   }
 
                                   return Padding(
-                                    padding: EdgeInsets.fromLTRB(
-                                      16,
-                                      8,
-                                      16,
-                                      index == filteredNews.length - 1 ? 16 : 8,
-                                    ),
+                                    padding: _getNewsCardPadding(context, index, filteredNews.length),
                                     child: NewsCard(
                                       key: ValueKey('news-${news['id']}'),
                                       news: news,

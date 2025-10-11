@@ -814,30 +814,38 @@ class _CardsPageState extends State<CardsPage> with TickerProviderStateMixin {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // НАЗВАНИЕ КАНАЛА
-                      Text(
-                        actualChannel.title,
-                        style: TextStyle(
-                          fontSize: titleFontSize,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                          height: 1.2,
+                      // НАЗВАНИЕ КАНАЛА - ПО ЦЕНТРУ
+                      Container(
+                        width: double.infinity,
+                        child: Text(
+                          actualChannel.title,
+                          style: TextStyle(
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                            height: 1.2,
+                          ),
+                          textAlign: TextAlign.center, // ВЫРАВНИВАНИЕ ПО ЦЕНТРУ
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
 
-                      // АВТОР
+                      // АВТОР - ПО ЦЕНТРУ
                       const SizedBox(height: 4),
-                      Text(
-                        actualChannel.author,
-                        style: TextStyle(
-                          fontSize: descriptionFontSize,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
+                      Container(
+                        width: double.infinity,
+                        child: Text(
+                          actualChannel.author,
+                          style: TextStyle(
+                            fontSize: descriptionFontSize,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center, // ВЫРАВНИВАНИЕ ПО ЦЕНТРУ
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
 
                       // ОПИСАНИЕ

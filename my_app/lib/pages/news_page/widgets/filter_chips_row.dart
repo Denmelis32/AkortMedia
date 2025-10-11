@@ -6,17 +6,17 @@ import '../theme/news_theme.dart';
 class FilterChipsRow extends StatelessWidget {
   const FilterChipsRow({super.key});
 
-  // TWITTER-LIKE АДАПТИВНЫЕ МЕТОДЫ
+  // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ - НА ТЕЛЕФОНЕ БЕЗ БОКОВЫХ ОТСТУПОВ
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1000) return 280; // Twitter-like для больших экранов
+    if (width > 1000) return 280; // Для больших экранов
     if (width > 700) return 80;   // Для планшетов
-    return 16;                    // Для мобильных
+    return 0;                     // Для мобильных - БЕЗ БОКОВЫХ ОТСТУПОВ
   }
 
   double _getContentMaxWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 600;  // Twitter-like максимальная ширина
+    if (width > 1400) return 600;
     if (width > 1000) return 600;
     if (width > 700) return 600;
     return double.infinity;
@@ -27,6 +27,7 @@ class FilterChipsRow extends StatelessWidget {
     final pageState = Provider.of<NewsPageState>(context);
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
+    final isMobile = MediaQuery.of(context).size.width <= 700;
 
     const filterOptions = ['Все новости', 'Популярные', 'Избранное', 'Подписки'];
     const filterIcons = [
@@ -45,17 +46,22 @@ class FilterChipsRow extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: EdgeInsets.fromLTRB(horizontalPadding, 6, horizontalPadding, 10), // Более компактные отступы
+      margin: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        8, // ОСТАВЛЯЕМ ВЕРХНИЙ ОТСТУП НА ВСЕХ УСТРОЙСТВАХ
+        horizontalPadding,
+        8, // ОСТАВЛЯЕМ НИЖНИЙ ОТСТУП НА ВСЕХ УСТРОЙСТВАХ
+      ),
       child: Center(
         child: Container(
           constraints: BoxConstraints(maxWidth: contentMaxWidth),
-          padding: const EdgeInsets.all(8), // Более компактный
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12), // Более скругленные углы
+            borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12), // На телефоне без закругления
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04), // Более легкая тень
+                color: Colors.black.withOpacity(0.04),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -69,7 +75,7 @@ class FilterChipsRow extends StatelessWidget {
               return Expanded(
                 child: Container(
                   margin: EdgeInsets.only(
-                    right: index < filterOptions.length - 1 ? 3 : 0, // Более компактный spacing
+                    right: index < filterOptions.length - 1 ? 4 : 0,
                   ),
                   child: Material(
                     color: Colors.transparent,
@@ -77,15 +83,15 @@ class FilterChipsRow extends StatelessWidget {
                       onTap: () {
                         pageState.setFilter(isSelected ? 0 : index);
                       },
-                      borderRadius: BorderRadius.circular(8), // Более скругленные углы
+                      borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8), // На телефоне без закругления
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 5), // Более компактный
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                         decoration: BoxDecoration(
                           color: isSelected ? color : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8), // На телефоне без закругления
                           border: Border.all(
-                            color: isSelected ? color : Colors.grey.withOpacity(0.15), // Более прозрачная граница
-                            width: 1, // Более тонкая граница
+                            color: isSelected ? color : Colors.grey.withOpacity(0.15),
+                            width: 1,
                           ),
                         ),
                         child: Column(
@@ -94,15 +100,15 @@ class FilterChipsRow extends StatelessWidget {
                           children: [
                             Icon(
                               filterIcons[index],
-                              size: 14, // Более компактная иконка
+                              size: 14,
                               color: isSelected ? Colors.white : Colors.grey[600],
                             ),
-                            const SizedBox(height: 1), // Более компактный spacing
+                            const SizedBox(height: 2),
                             Text(
                               filterOptions[index],
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 9, // Более мелкий шрифт
+                                fontSize: 9,
                                 fontWeight: FontWeight.w600,
                                 color: isSelected ? Colors.white : Colors.black87,
                               ),
@@ -128,17 +134,17 @@ class FilterChipsRow extends StatelessWidget {
 class EqualWidthFilterChipsRow extends StatelessWidget {
   const EqualWidthFilterChipsRow({super.key});
 
-  // TWITTER-LIKE АДАПТИВНЫЕ МЕТОДЫ
+  // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ - НА ТЕЛЕФОНЕ БЕЗ БОКОВЫХ ОТСТУПОВ
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1000) return 280; // Twitter-like для больших экранов
+    if (width > 1000) return 280; // Для больших экранов
     if (width > 700) return 80;   // Для планшетов
-    return 16;                    // Для мобильных
+    return 0;                     // Для мобильных - БЕЗ БОКОВЫХ ОТСТУПОВ
   }
 
   double _getContentMaxWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 600;  // Twitter-like максимальная ширина
+    if (width > 1400) return 600;
     if (width > 1000) return 600;
     if (width > 700) return 600;
     return double.infinity;
@@ -149,6 +155,7 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
     final pageState = Provider.of<NewsPageState>(context);
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
+    final isMobile = MediaQuery.of(context).size.width <= 700;
 
     const filterOptions = ['Все', 'Популярные', 'Избранное', 'Подписки'];
     const filterIcons = [
@@ -167,17 +174,22 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: EdgeInsets.fromLTRB(horizontalPadding, 6, horizontalPadding, 10), // Более компактные отступы
+      margin: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        8, // ОСТАВЛЯЕМ ВЕРХНИЙ ОТСТУП НА ВСЕХ УСТРОЙСТВАХ
+        horizontalPadding,
+        8, // ОСТАВЛЯЕМ НИЖНИЙ ОТСТУП НА ВСЕХ УСТРОЙСТВАХ
+      ),
       child: Center(
         child: Container(
           constraints: BoxConstraints(maxWidth: contentMaxWidth),
-          padding: const EdgeInsets.all(8), // Более компактный
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12), // Более скругленные углы
+            borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12), // На телефоне без закругления
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04), // Более легкая тень
+                color: Colors.black.withOpacity(0.04),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -190,9 +202,9 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
 
               return Expanded(
                 child: Container(
-                  height: 40, // Более компактный
+                  height: 40,
                   margin: EdgeInsets.only(
-                    right: index < filterOptions.length - 1 ? 3 : 0, // Более компактный spacing
+                    right: index < filterOptions.length - 1 ? 4 : 0,
                   ),
                   child: Material(
                     color: Colors.transparent,
@@ -200,14 +212,14 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
                       onTap: () {
                         pageState.setFilter(isSelected ? 0 : index);
                       },
-                      borderRadius: BorderRadius.circular(6), // Более скругленные углы
+                      borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8), // На телефоне без закругления
                       child: Container(
                         decoration: BoxDecoration(
                           color: isSelected ? color : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8), // На телефоне без закругления
                           border: Border.all(
-                            color: isSelected ? color : Colors.grey.withOpacity(0.12), // Более прозрачная граница
-                            width: 1, // Более тонкая граница
+                            color: isSelected ? color : Colors.grey.withOpacity(0.12),
+                            width: 1,
                           ),
                         ),
                         child: Column(
@@ -215,15 +227,15 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
                           children: [
                             Icon(
                               filterIcons[index],
-                              size: 12, // Более компактная иконка
+                              size: 12,
                               color: isSelected ? Colors.white : Colors.grey[600],
                             ),
-                            const SizedBox(height: 1), // Более компактный spacing
+                            const SizedBox(height: 2),
                             Text(
                               filterOptions[index],
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 8, // Более мелкий шрифт
+                                fontSize: 8,
                                 fontWeight: FontWeight.w600,
                                 color: isSelected ? Colors.white : Colors.black87,
                               ),

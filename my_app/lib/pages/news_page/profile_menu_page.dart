@@ -423,7 +423,7 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         for (int index = 0; index < posts.length; index++)
           NewsCard(
-            key: ValueKey('profile-post-${posts[index]['id']}-$index'),
+            key: ValueKey('profile-post-${posts[index]['id']}-$index-${DateTime.now().millisecondsSinceEpoch}'),
             news: Map<String, dynamic>.from(posts[index]),
             onLike: () => _handleLike(_getSafeNewsIndex(posts[index], newsProvider), newsProvider),
             onBookmark: () => _handleBookmark(_getSafeNewsIndex(posts[index], newsProvider), newsProvider),

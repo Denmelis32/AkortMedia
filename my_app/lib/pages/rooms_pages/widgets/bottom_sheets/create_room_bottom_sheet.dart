@@ -3,9 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../chat/chat_page.dart';
 import '../../models/room.dart';
+import '../../models/room_category.dart';
 import '../../../../providers/room_provider.dart';
 import '../../../../providers/user_provider.dart';
-
 
 class CreateRoomBottomSheet extends StatefulWidget {
   final Function(Room)? onRoomCreated;
@@ -25,7 +25,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
   final _maxParticipantsController = TextEditingController(text: '100');
   final _tagsController = TextEditingController();
 
-  RoomCategory _selectedCategory = RoomCategory.technology;
+  RoomCategory _selectedCategory = RoomCategory.programming;
   RoomAccessLevel _accessLevel = RoomAccessLevel.public;
   bool _isLoading = false;
   int _maxParticipants = 100;
@@ -56,28 +56,19 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery
-            .of(context)
-            .viewInsets
-            .bottom,
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Theme
-              .of(context)
-              .colorScheme
-              .surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
           ),
         ),
         constraints: BoxConstraints(
-          maxHeight: MediaQuery
-              .of(context)
-              .size
-              .height * 0.9,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         child: Form(
           key: _formKey,
@@ -115,22 +106,14 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.add_circle_rounded, color: Theme
-            .of(context)
-            .primaryColor, size: 28),
+        Icon(Icons.add_circle_rounded,
+            color: Theme.of(context).primaryColor, size: 28),
         const SizedBox(width: 12),
         Text(
           'Создать новое обсуждение',
-          style: Theme
-              .of(context)
-              .textTheme
-              .headlineSmall
-              ?.copyWith(
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Theme
-                .of(context)
-                .colorScheme
-                .onSurface,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const Spacer(),
@@ -153,15 +136,13 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
           children: [
             Text(
               'Основная информация',
-              style: Theme
-                  .of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 16),
+
+            // Название комнаты
             TextFormField(
               controller: _titleController,
               decoration: InputDecoration(
@@ -169,18 +150,14 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                hintText: 'Введите краткое название',
-                prefixIcon: const Icon(Icons.title_rounded),
+                hintText: 'Введите название обсуждения',
+                prefixIcon: const Icon(Icons.chat_rounded),
                 filled: true,
-                fillColor: Theme
-                    .of(context)
-                    .colorScheme
-                    .surfaceVariant
-                    .withOpacity(0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Введите название обсуждения';
+                  return 'Введите название комнаты';
                 }
                 if (value.length < 3) {
                   return 'Название должно быть не менее 3 символов';
@@ -191,7 +168,10 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+
+            const SizedBox(height: 16),
+
+            // Описание
             TextFormField(
               controller: _descriptionController,
               decoration: InputDecoration(
@@ -199,19 +179,15 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                hintText: 'О чем будет это обсуждение?',
+                hintText: 'Опишите тему обсуждения',
                 prefixIcon: const Icon(Icons.description_rounded),
                 filled: true,
-                fillColor: Theme
-                    .of(context)
-                    .colorScheme
-                    .surfaceVariant
-                    .withOpacity(0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
               ),
               maxLines: 3,
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Введите описание обсуждения';
+                  return 'Введите описание комнаты';
                 }
                 if (value.length < 10) {
                   return 'Описание должно быть не менее 10 символов';
@@ -222,58 +198,40 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<RoomCategory>(
-              value: _selectedCategory,
-              decoration: InputDecoration(
-                labelText: 'Категория *',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.category_rounded),
-                filled: true,
-                fillColor: Theme
-                    .of(context)
-                    .colorScheme
-                    .surfaceVariant
-                    .withOpacity(0.3),
-              ),
-              items: RoomCategory.values
-                  .where((c) => c != RoomCategory.all)
-                  .map((category) {
-                return DropdownMenuItem<RoomCategory>(
-                  value: category,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: category.color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                            category.icon, color: category.color, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(category.title),
-                    ],
+
+            const SizedBox(height: 16),
+
+            // Категория
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Категория *',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
                   ),
-                );
-              }).toList(),
-              onChanged: (category) {
-                if (category != null) {
-                  setState(() {
-                    _selectedCategory = category;
-                  });
-                }
-              },
-              validator: (value) {
-                if (value == null) {
-                  return 'Выберите категорию';
-                }
-                return null;
-              },
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: RoomCategory.allCategories.map((category) {
+                    return FilterChip(
+                      label: Text(category.title),
+                      selected: _selectedCategory.id == category.id,
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedCategory = category;
+                        });
+                      },
+                      avatar: Icon(category.icon, size: 16, color: category.color),
+                      backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                      selectedColor: category.color.withOpacity(0.2),
+                      checkmarkColor: category.color,
+                    );
+                  }).toList(),
+                ),
+              ],
             ),
           ],
         ),
@@ -291,11 +249,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
           children: [
             Text(
               'Настройки доступа',
-              style: Theme
-                  .of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -307,11 +261,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
               children: [
                 Text(
                   'Уровень доступа *',
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -319,23 +269,20 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: RoomAccessLevel.values.map((level) {
+                  children: RoomAccessLevel.allLevels.map((level) {
                     return FilterChip(
                       label: Text(level.title),
-                      selected: _accessLevel == level,
+                      selected: _accessLevel.id == level.id,
                       onSelected: (selected) {
                         setState(() {
                           _accessLevel = level;
-                          if (level != RoomAccessLevel.protected) {
+                          if (level.id != 'protected') {
                             _passwordController.clear();
                           }
                         });
                       },
                       avatar: Icon(level.icon, size: 16, color: level.color),
-                      backgroundColor: Theme
-                          .of(context)
-                          .colorScheme
-                          .surfaceVariant,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
                       selectedColor: level.color.withOpacity(0.2),
                       checkmarkColor: level.color,
                       tooltip: level.description,
@@ -346,18 +293,10 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme
-                        .of(context)
-                        .colorScheme
-                        .primary
-                        .withOpacity(0.05),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Theme
-                          .of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.1),
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                     ),
                   ),
                   child: Row(
@@ -371,16 +310,8 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                       Expanded(
                         child: Text(
                           _accessLevel.description,
-                          style: Theme
-                              .of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(
-                            color: Theme
-                                .of(context)
-                                .colorScheme
-                                .onSurface
-                                .withOpacity(0.7),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                           ),
                         ),
                       ),
@@ -393,7 +324,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
             const SizedBox(height: 16),
 
             // Пароль для защищенных комнат
-            if (_accessLevel == RoomAccessLevel.protected)
+            if (_accessLevel.id == 'protected')
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
@@ -405,15 +336,10 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                   hintText: 'Введите пароль (мин. 4 символа)',
                   prefixIcon: const Icon(Icons.lock_rounded),
                   filled: true,
-                  fillColor: Theme
-                      .of(context)
-                      .colorScheme
-                      .surfaceVariant
-                      .withOpacity(0.3),
+                  fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                 ),
                 validator: (value) {
-                  if (_accessLevel == RoomAccessLevel.protected &&
-                      (value == null || value.isEmpty)) {
+                  if (_accessLevel.id == 'protected' && (value == null || value.isEmpty)) {
                     return 'Введите пароль для защищенной комнаты';
                   }
                   if (value != null && value.length < 4) {
@@ -423,8 +349,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 },
               ),
 
-            if (_accessLevel == RoomAccessLevel.protected) const SizedBox(
-                height: 16),
+            if (_accessLevel.id == 'protected') const SizedBox(height: 16),
 
             // Максимум участников
             TextFormField(
@@ -437,11 +362,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 hintText: 'От 2 до 1000',
                 prefixIcon: const Icon(Icons.people_rounded),
                 filled: true,
-                fillColor: Theme
-                    .of(context)
-                    .colorScheme
-                    .surfaceVariant
-                    .withOpacity(0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) {
@@ -452,9 +373,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
               },
               validator: (value) {
                 final participants = int.tryParse(value ?? '');
-                if (participants == null ||
-                    participants < 2 ||
-                    participants > 1000) {
+                if (participants == null || participants < 2 || participants > 1000) {
                   return 'Введите число от 2 до 1000';
                 }
                 return null;
@@ -476,11 +395,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
           children: [
             Text(
               'Дополнительные настройки',
-              style: Theme
-                  .of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -497,11 +412,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 hintText: 'Опишите правила поведения в комнате',
                 prefixIcon: const Icon(Icons.rule_rounded),
                 filled: true,
-                fillColor: Theme
-                    .of(context)
-                    .colorScheme
-                    .surfaceVariant
-                    .withOpacity(0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
               ),
               maxLines: 2,
             ),
@@ -522,11 +433,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                     hintText: 'Введите теги через запятую',
                     prefixIcon: const Icon(Icons.tag_rounded),
                     filled: true,
-                    fillColor: Theme
-                        .of(context)
-                        .colorScheme
-                        .surfaceVariant
-                        .withOpacity(0.3),
+                    fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.add_rounded),
                       onPressed: _addTag,
@@ -545,11 +452,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                         label: Text(tag),
                         onDeleted: () => _removeTag(tag),
                         deleteIcon: const Icon(Icons.close_rounded, size: 16),
-                        backgroundColor: Theme
-                            .of(context)
-                            .colorScheme
-                            .primary
-                            .withOpacity(0.1),
+                        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                       );
                     }).toList(),
                   ),
@@ -564,11 +467,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: Theme
-                      .of(context)
-                      .colorScheme
-                      .outline
-                      .withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -583,10 +482,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                         ? Text(
                       'На ${_formatDateTime()}',
                       style: TextStyle(
-                        color: Theme
-                            .of(context)
-                            .colorScheme
-                            .primary,
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w500,
                       ),
                     )
@@ -605,10 +501,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                     },
                     secondary: Icon(
                       Icons.schedule_rounded,
-                      color: Theme
-                          .of(context)
-                          .colorScheme
-                          .primary,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -617,18 +510,13 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                     ListTile(
                       leading: Icon(
                         Icons.timer_rounded,
-                        color: Theme
-                            .of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         size: 20,
                       ),
                       title: const Text('Продолжительность'),
                       subtitle: _duration != null
                           ? Text(
-                        '${_duration!.inHours} ч ${_duration!.inMinutes
-                            .remainder(60)} мин',
+                        '${_duration!.inHours} ч ${_duration!.inMinutes.remainder(60)} мин',
                       )
                           : const Text('Не установлена'),
                       trailing: FilledButton.tonal(
@@ -657,11 +545,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
           children: [
             Text(
               'Медиа и дополнительные опции',
-              style: Theme
-                  .of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -670,8 +554,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
             // Медиафайлы
             SwitchListTile(
               title: const Text('Разрешить медиафайлы'),
-              subtitle: const Text(
-                  'Участники смогут делиться изображениями и видео'),
+              subtitle: const Text('Участники смогут делиться изображениями и видео'),
               value: _hasMedia,
               onChanged: (value) => setState(() => _hasMedia = value),
               secondary: const Icon(Icons.photo_library_rounded),
@@ -700,43 +583,25 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme
-                    .of(context)
-                    .colorScheme
-                    .primary
-                    .withOpacity(0.05),
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Theme
-                      .of(context)
-                      .colorScheme
-                      .primary
-                      .withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
                     Icons.info_rounded,
-                    color: Theme
-                        .of(context)
-                        .primaryColor,
+                    color: Theme.of(context).primaryColor,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'После создания комната будет доступна для участия. Вы сможете изменить настройки позже.',
-                      style: Theme
-                          .of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(
-                        color: Theme
-                            .of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.7),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ),
@@ -755,10 +620,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: Theme
-                .of(context)
-                .dividerColor
-                .withOpacity(0.5),
+            color: Theme.of(context).dividerColor.withOpacity(0.5),
           ),
         ),
       ),
@@ -783,10 +645,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 width: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Theme
-                      .of(context)
-                      .colorScheme
-                      .onPrimary,
+                  color: Theme.of(context).colorScheme.onPrimary,
                 ),
               )
                   : const Icon(Icons.add_rounded),
@@ -830,9 +689,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
-              primary: Theme
-                  .of(context)
-                  .primaryColor,
+              primary: Theme.of(context).primaryColor,
             ),
           ),
           child: child!,
@@ -848,9 +705,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
           return Theme(
             data: Theme.of(context).copyWith(
               colorScheme: ColorScheme.light(
-                primary: Theme
-                    .of(context)
-                    .primaryColor,
+                primary: Theme.of(context).primaryColor,
               ),
             ),
             child: child!,
@@ -882,11 +737,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
             children: [
               Text(
                 'Продолжительность комнаты',
-                style: Theme
-                    .of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -903,11 +754,10 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                 ),
                 items: List.generate(24, (index) => index + 1)
                     .map(
-                      (hours) =>
-                      DropdownMenuItem<int>(
-                        value: hours,
-                        child: Text('$hours ${_getHoursText(hours)}'),
-                      ),
+                      (hours) => DropdownMenuItem<int>(
+                    value: hours,
+                    child: Text('$hours ${_getHoursText(hours)}'),
+                  ),
                 )
                     .toList(),
                 onChanged: (value) {
@@ -928,8 +778,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      onPressed: () =>
-                          Navigator.pop(context, _duration?.inHours ?? 1),
+                      onPressed: () => Navigator.pop(context, _duration?.inHours ?? 1),
                       child: const Text('Сохранить'),
                     ),
                   ),
@@ -950,9 +799,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
 
   String _getHoursText(int hours) {
     if (hours % 10 == 1 && hours % 100 != 11) return 'час';
-    if (hours % 10 >= 2 &&
-        hours % 10 <= 4 &&
-        (hours % 100 < 10 || hours % 100 >= 20)) {
+    if (hours % 10 >= 2 && hours % 10 <= 4 && (hours % 100 < 10 || hours % 100 >= 20)) {
       return 'часа';
     }
     return 'часов';
@@ -994,15 +841,12 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
         );
       }
 
-      // УБИРАЕМ локальное создание комнаты - создаем только через provider
-      // final newRoom = Room(...); // УДАЛИТЬ ЭТОТ БЛОК
-
-      // Создаем комнату ТОЛЬКО через provider
+      // Создаем комнату через provider
       await roomProvider.createRoom(
         title: _titleController.text,
         description: _descriptionController.text,
         category: _selectedCategory,
-        isPrivate: _accessLevel == RoomAccessLevel.private,
+        isPrivate: _accessLevel.id == 'private',
         tags: _tags,
         maxParticipants: _maxParticipants,
         rules: _rulesController.text,
@@ -1034,7 +878,7 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
             category: RoomCategory.all,
             creatorId: '',
             creatorName: '',
-          ),// Запасной вариант
+          ),
         );
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1055,21 +899,15 @@ class _CreateRoomBottomSheetState extends State<CreateRoomBottomSheet> {
               onPressed: () {
                 Navigator.of(context).push(
                   PageRouteBuilder(
-                    pageBuilder: (context, animation, secondaryAnimation) =>
-                        ChatPage(
-                          room: createdRoom,
-                          userName: userProvider.userName,
-                        ),
-                    transitionsBuilder: (context, animation, secondaryAnimation,
-                        child) {
+                    pageBuilder: (context, animation, secondaryAnimation) => ChatPage(
+                    ),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
                       const begin = Offset(1.0, 0.0);
                       const end = Offset.zero;
                       const curve = Curves.easeInOutQuart;
-                      var tween = Tween(begin: begin, end: end).chain(
-                          CurveTween(curve: curve));
+                      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
                       var offsetAnimation = animation.drive(tween);
-                      return SlideTransition(
-                          position: offsetAnimation, child: child);
+                      return SlideTransition(position: offsetAnimation, child: child);
                     },
                   ),
                 );

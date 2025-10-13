@@ -17,6 +17,7 @@ class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
   final VoidCallback onLike;
   final VoidCallback onBookmark;
+  final VoidCallback onRepost;
   final Function(String, String, String) onComment;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -33,6 +34,7 @@ class NewsCard extends StatefulWidget {
     required this.news,
     required this.onLike,
     required this.onBookmark,
+    required this.onRepost,
     required this.onComment,
     required this.onEdit,
     required this.onDelete,
@@ -58,6 +60,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   bool _isExpanded = false;
   bool _isLiked = false;
   bool _isBookmarked = false;
+  bool _isReposted = false;
   bool _isFollowing = false;
   double _readingProgress = 0.0;
   String _editingTagId = '';
@@ -74,12 +77,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       pattern: PatternStyle.geometric,
       decoration: DecorationStyle.modern,
       accentColor: Color(0xFF4facfe),
-    ),
-    CardDesign(
-      gradient: [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
-      pattern: PatternStyle.minimal,
-      decoration: DecorationStyle.modern,
-      accentColor: Color(0xFF43e97b),
     ),
     CardDesign(
       gradient: [const Color(0xFFfa709a), const Color(0xFFfee140)],
@@ -154,14 +151,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         return Color(0xFFE74C3C);
       case ContentType.news:
         return Color(0xFF3498DB);
-      case ContentType.sports:
-        return Color(0xFF2ECC71);
       case ContentType.tech:
         return Color(0xFF9B59B6);
       case ContentType.entertainment:
         return Color(0xFFE67E22);
-      case ContentType.education:
-        return Color(0xFF1ABC9C);
       default:
         return _cardDesign.accentColor;
     }
@@ -202,6 +195,24 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return 14;
   }
 
+  // АДАПТИВНЫЕ СТИЛИ ДЛЯ КАРТОЧЕК
+  double _getCardBorderRadius(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return 16.0; // Увеличил закругления на компьютере
+    return 0.0; // Без закруглений на телефоне
+  }
+
+  EdgeInsets _getCardMargin(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 700) return EdgeInsets.only(bottom: 16.0); // Увеличил отступы между карточками
+    return EdgeInsets.only(bottom: 0.0); // Без отступов на телефоне
+  }
+
+  bool _shouldShowTopLine(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    return width <= 700; // Показываем линию только на телефоне
+  }
+
   @override
   void initState() {
     super.initState();
@@ -225,6 +236,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     _isLiked = _getBoolValue(widget.news['isLiked']);
     _isBookmarked = _getBoolValue(widget.news['isBookmarked']);
+    _isReposted = _getBoolValue(widget.news['isReposted'] ?? false);
     _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
     _readingProgress = (widget.news['read_progress'] ?? 0.0).toDouble();
   }
@@ -243,6 +255,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
     if (oldWidget.news['isBookmarked'] != widget.news['isBookmarked']) {
       _isBookmarked = _getBoolValue(widget.news['isBookmarked']);
+    }
+    if (oldWidget.news['isReposted'] != widget.news['isReposted']) {
+      _isReposted = _getBoolValue(widget.news['isReposted'] ?? false);
     }
     if (oldWidget.news['isFollowing'] != widget.news['isFollowing']) {
       _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
@@ -268,6 +283,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       _isFollowing = !_isFollowing;
     });
     widget.onFollow();
+  }
+
+  void _toggleRepost() {
+    setState(() {
+      _isReposted = !_isReposted;
+    });
+    widget.onRepost();
   }
 
   void _openUserProfile() {
@@ -303,7 +325,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       final tempChannel = Channel.simple(
         id: int.tryParse(channelId) ?? 0,
         title: channelName,
-        description: 'Официальный канал',
+        description: 'Канал',
         imageUrl: _getStringValue(widget.news['channel_avatar']),
         cardColor: Colors.blue,
         subscribers: _getIntValue(widget.news['channel_subscribers'] ?? 0),
@@ -436,68 +458,88 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   // АДАПТИВНАЯ КАРТОЧКА С ОТСТУПАМИ ТОЛЬКО НА КОМПЬЮТЕРЕ
-  // АДАПТИВНАЯ КАРТОЧКА С ОТСТУПАМИ ТОЛЬКО НА КОМПЬЮТЕРЕ
-  // АДАПТИВНАЯ КАРТОЧКА С ОТСТУПАМИ ТОЛЬКО НА КОМПЬЮТЕРЕ
   Widget _buildCard({required Widget child, bool isChannel = false}) {
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
+    final borderRadius = _getCardBorderRadius(context);
+    final margin = _getCardMargin(context);
+    final showTopLine = _shouldShowTopLine(context);
 
     return Container(
       width: double.infinity,
       margin: EdgeInsets.only(
         left: horizontalPadding,
         right: horizontalPadding,
-        bottom: 0, // УБИРАЕМ нижний margin полностью
-      ),
+      ).add(margin),
       child: Center(
         child: Container(
           constraints: BoxConstraints(maxWidth: contentMaxWidth),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(0), // УБИРАЕМ закругление
+            borderRadius: BorderRadius.circular(borderRadius),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(0), // УБИРАЕМ закругление
+            borderRadius: BorderRadius.circular(borderRadius),
             child: Stack(
               children: [
-                Positioned(
-                  top: -30,
-                  right: -30,
+                // Фоновая градиентная текстура
+                Positioned.fill(
                   child: Container(
-                    width: 100,
-                    height: 100,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
+                      gradient: LinearGradient(
                         colors: [
-                          _cardDesign.gradient[0].withOpacity(0.04),
-                          _cardDesign.gradient[0].withOpacity(0.01),
+                          _cardDesign.gradient[0].withOpacity(0.02),
+                          _cardDesign.gradient[1].withOpacity(0.01),
                         ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
                     ),
                   ),
                 ),
-                Column(
-                  children: [
-                    Container(
-                      height: 3,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: _cardDesign.gradient,
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
+
+                // Акцентный элемент в углу
+                Positioned(
+                  top: -40,
+                  right: -40,
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          _cardDesign.gradient[0].withOpacity(0.08),
+                          _cardDesign.gradient[0].withOpacity(0.02),
+                        ],
+                        stops: [0.1, 1.0],
                       ),
                     ),
+                  ),
+                ),
+
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ТОНКАЯ ТЕМНО-СЕРАЯ ЛИНИЯ ТОЛЬКО НА ТЕЛЕФОНЕ
+                    if (showTopLine)
+                      Container(
+                        height: 1, // Тонкая линия
+                        margin: const EdgeInsets.symmetric(horizontal: 16), // Отступы от краев
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300], // Темно-серый цвет
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
                     Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                       child: child,
                     ),
                   ],
@@ -534,129 +576,180 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     final avatarSize = _getAvatarSize(context);
 
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            _buildUserAvatar(authorAvatar, isChannelPost, displayName, avatarSize),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+        _buildUserAvatar(authorAvatar, isChannelPost, displayName, avatarSize),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Первая строка: имя пользователя и кнопка меню
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: _openUserProfile,
-                    child: Text(
-                      displayName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: _getTitleFontSize(context),
-                        color: Colors.black87,
-                        letterSpacing: -0.2,
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _openUserProfile,
+                      child: Text(
+                        displayName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: _getTitleFontSize(context),
+                          color: Colors.black87,
+                          letterSpacing: -0.3,
+                          height: 1.1,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 4), // Увеличил отступ между именем и временем
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 12,
+                  // Кнопка трех точек
+                  Container(
+                    width: 28,
+                    height: 28,
+                    child: PopupMenuButton<String>(
+                      icon: Icon(
+                        Icons.more_vert_rounded,
                         color: Colors.grey[600],
+                        size: 18,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        widget.getTimeAgo(createdAt),
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                      if (_contentType != ContentType.general) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.5),
-                            shape: BoxShape.circle,
+                      onSelected: (value) {
+                        _handleMenuSelection(value);
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        PopupMenuItem<String>(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_rounded, color: _contentColor, size: 18),
+                              const SizedBox(width: 8),
+                              Text('Редактировать', style: TextStyle(fontSize: 13)),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          _contentIcon,
-                          size: 12,
-                          color: _contentColor,
+                        PopupMenuItem<String>(
+                          value: 'share',
+                          child: Row(
+                            children: [
+                              Icon(Icons.share_rounded, color: Colors.blue, size: 18),
+                              const SizedBox(width: 8),
+                              Text('Поделиться', style: TextStyle(fontSize: 13)),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _getContentTypeText(),
-                          style: TextStyle(
-                            color: _contentColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                        PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_rounded, color: Colors.red, size: 18),
+                              const SizedBox(width: 8),
+                              Text('Удалить', style: TextStyle(fontSize: 13)),
+                            ],
                           ),
                         ),
                       ],
-                    ],
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(minWidth: 140),
+                    ),
                   ),
                 ],
               ),
-            ),
-            // ИСПРАВЛЕННАЯ КНОПКА ТРЕХ ТОЧЕК - ВЕРТИКАЛЬНАЯ
-            PopupMenuButton<String>(
-              icon: Icon(
-                Icons.more_vert_rounded, // Вертикальные три точки
-                color: Colors.grey[700],
-                size: 20,
+              const SizedBox(height: 2),
+              // Вторая строка: мета-информация
+              Container(
+                height: 16,
+                child: Row(
+                  children: [
+                    // Время
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 12,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          widget.getTimeAgo(createdAt),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Канал (если пост из канала)
+                    if (isChannelPost) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 3,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.group_rounded,
+                        size: 12,
+                        color: Colors.blue,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Канал',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                    // Тип контента (если есть и не канал)
+                    if (_contentType != ContentType.general && !isChannelPost) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 3,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        _contentIcon,
+                        size: 12,
+                        color: _contentColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _getContentTypeText(),
+                        style: TextStyle(
+                          color: _contentColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                    // Тег (если есть)
+                    if (userTags.isNotEmpty && userTags.values.first.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      _buildUserTag(userTags.values.first, userTags.keys.first, tagColor),
+                    ],
+                  ],
+                ),
               ),
-              onSelected: (value) {
-                _handleMenuSelection(value);
-              },
-              itemBuilder: (BuildContext context) => [
-                PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_rounded, color: _contentColor, size: 18),
-                      const SizedBox(width: 8),
-                      Text('Редактировать'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem<String>(
-                  value: 'share',
-                  child: Row(
-                    children: [
-                      Icon(Icons.share_rounded, color: Colors.blue, size: 18),
-                      const SizedBox(width: 8),
-                      Text('Поделиться'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_rounded, color: Colors.red, size: 18),
-                      const SizedBox(width: 8),
-                      Text('Удалить'),
-                    ],
-                  ),
-                ),
-              ],
-              padding: EdgeInsets.zero,
-              constraints: BoxConstraints(minWidth: 140),
-            ),
-          ],
+            ],
+          ),
         ),
-        // ТЕГ ВЫНЕСЕН ОТДЕЛЬНО ПОД ИМЕНЕМ И ВРЕМЕНЕМ
-        if (userTags.isNotEmpty && userTags.values.first.isNotEmpty) ...[
-          const SizedBox(height: 8), // Отступ между временем и тегом
-          _buildUserTag(userTags.values.first, userTags.keys.first, tagColor),
-        ],
       ],
     );
   }
@@ -676,7 +769,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   String _getFallbackAvatarUrl(String userName) {
-    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
+    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff&bold=true';
   }
 
   Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size) {
@@ -688,14 +781,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1.5,
+            color: Colors.white.withOpacity(0.4),
+            width: 2.0,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -733,9 +826,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: gradientColors[0].withOpacity(0.25),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: gradientColors[0].withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -743,7 +836,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         child: Icon(
           isChannelPost ? Icons.group_rounded : Icons.person_rounded,
           color: Colors.white,
-          size: size * 0.45,
+          size: size * 0.4,
         ),
       ),
     );
@@ -792,7 +885,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return GestureDetector(
       onTap: () => _showTagEditDialog(tag, tagId, color),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(8),
@@ -805,8 +898,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 4,
-              height: 4,
+              width: 6,
+              height: 6,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -817,8 +910,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               tag,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -847,21 +940,25 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     if (cleanedHashtags.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
-      spacing: 6,
-      runSpacing: 4,
+      spacing: 8,
+      runSpacing: 6,
       children: cleanedHashtags.map((tag) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _contentColor.withOpacity(0.06),
+            color: _contentColor.withOpacity(0.08),
             borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: _contentColor.withOpacity(0.15),
+              width: 1,
+            ),
           ),
           child: Text(
             '#$tag',
             style: TextStyle(
               color: _contentColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         );
@@ -875,9 +972,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
   Widget _buildPostActions({int commentCount = 0, bool showBookmark = true, bool isAuthor = false}) {
     final likes = _getIntValue(widget.news['likes']);
+    final reposts = _getIntValue(widget.news['reposts'] ?? 0);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0), // Убрали горизонтальные отступы
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -891,7 +989,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               widget.onLike();
             },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 8), // Уменьшил отступ
           _buildActionButton(
             icon: Icons.chat_bubble_outline_rounded,
             count: commentCount,
@@ -899,7 +997,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             color: Colors.blue,
             onPressed: _toggleExpanded,
           ),
-          if (showBookmark) const SizedBox(width: 8),
+          const SizedBox(width: 8), // Уменьшил отступ
+          _buildActionButton(
+            icon: _isReposted ? Icons.repeat_on_rounded : Icons.repeat_rounded,
+            count: reposts,
+            isActive: _isReposted,
+            color: Colors.green,
+            onPressed: _toggleRepost,
+          ),
+          if (showBookmark) const SizedBox(width: 8), // Уменьшил отступ
           if (showBookmark)
             _buildActionButton(
               icon: _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
@@ -929,19 +1035,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return GestureDetector(
       onTap: onPressed,
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), // Минимальные вертикальные отступы
+        duration: Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Уменьшил паддинг
         decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isActive ? color.withOpacity(0.12) : Colors.grey.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(8), // Уменьшил радиус
+          border: Border.all(
+            color: isActive ? color.withOpacity(0.3) : Colors.transparent,
+            width: 1,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center, // Центрирование по вертикали
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 16,
+              size: 16, // Уменьшил размер иконки
               color: isActive ? color : Colors.grey[700],
             ),
             if (count > 0) ...[
@@ -950,9 +1060,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 _formatCount(count),
                 style: TextStyle(
                   color: isActive ? color : Colors.grey[700],
-                  fontSize: 12,
+                  fontSize: 12, // Уменьшил размер шрифта
                   fontWeight: FontWeight.w600,
-                  height: 1.0, // Убрал лишнюю высоту текста
+                  height: 1.0,
                 ),
               ),
             ],
@@ -968,8 +1078,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return GestureDetector(
       onTap: _toggleFollow,
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        duration: Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), // Уменьшил паддинг
         decoration: BoxDecoration(
           gradient: _isFollowing
               ? null
@@ -978,25 +1088,30 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          color: _isFollowing ? Colors.green.withOpacity(0.08) : null,
-          borderRadius: BorderRadius.circular(8),
+          color: _isFollowing ? Colors.green.withOpacity(0.1) : null,
+          borderRadius: BorderRadius.circular(8), // Уменьшил радиус
+          border: Border.all(
+            color: _isFollowing ? Colors.green.withOpacity(0.3) : Colors.transparent,
+            width: 1,
+          ),
+          boxShadow: _isFollowing
+              ? []
+              : [
+            BoxShadow(
+              color: _cardDesign.gradient[0].withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Icon(
               _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-              size: 14,
+              size: 14, // Уменьшил размер иконки
               color: _isFollowing ? Colors.green : Colors.white,
             ),
-            const SizedBox(width: 6),
-            Text(
-              _isFollowing ? 'Подписан' : 'Подписаться',
-              style: TextStyle(
-                color: _isFollowing ? Colors.green : Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            // Убрал текст "Подписан"/"Подписаться" - оставил только иконку
           ],
         ),
       ),
@@ -1037,30 +1152,30 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       builder: (context) => Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 20,
+              offset: const Offset(0, -6),
             ),
           ],
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 32,
-                  height: 3,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: Colors.grey[400],
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 _buildMenuOption(
                   Icons.edit_rounded,
                   'Редактировать',
@@ -1079,16 +1194,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   Colors.red,
                   widget.onDelete,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.grey[700],
-                    side: BorderSide(color: Colors.grey[300]!),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    side: BorderSide(color: Colors.grey[400]!),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
-                  child: const Text('Закрыть'),
+                  child: const Text('Закрыть', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -1101,20 +1216,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   Widget _buildMenuOption(IconData icon, String title, Color color, VoidCallback onTap) {
     return ListTile(
       leading: Container(
-        width: 32,
-        height: 32,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(6),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: color, size: 16),
+        child: Icon(icon, color: color, size: 20),
       ),
       title: Text(
         title,
         style: TextStyle(
           color: Colors.black87,
           fontWeight: FontWeight.w600,
-          fontSize: 13,
+          fontSize: 14,
         ),
       ),
       onTap: () {
@@ -1138,62 +1253,62 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           builder: (context, setState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.all(20),
+              insetPadding: const EdgeInsets.all(24),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 25,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Редактировать тег',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: _tagEditController,
-                        style: TextStyle(color: Colors.black87, fontSize: 14),
+                        style: TextStyle(color: Colors.black87, fontSize: 15),
                         decoration: InputDecoration(
                           hintText: 'Название тега',
                           hintStyle: TextStyle(color: Colors.grey[600]),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey[400]!),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: _contentColor, width: 1.5),
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: _contentColor, width: 2),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       Text(
                         'Выберите цвет:',
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          fontSize: 14,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       SizedBox(
-                        height: 40,
+                        height: 45,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: _availableColors.length,
@@ -1202,34 +1317,34 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             return GestureDetector(
                               onTap: () => setState(() => dialogSelectedColor = color),
                               child: AnimatedContainer(
-                                duration: Duration(milliseconds: 150),
-                                width: 32,
-                                height: 32,
-                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                duration: Duration(milliseconds: 200),
+                                width: 36,
+                                height: 36,
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
                                 decoration: BoxDecoration(
                                   color: color,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: dialogSelectedColor == color ? Colors.white : Colors.transparent,
-                                    width: 2,
+                                    width: 3,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: color.withOpacity(0.25),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
+                                      color: color.withOpacity(0.4),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
                                     ),
                                   ],
                                 ),
                                 child: dialogSelectedColor == color
-                                    ? const Icon(Icons.check, color: Colors.white, size: 16)
+                                    ? const Icon(Icons.check, color: Colors.white, size: 18)
                                     : null,
                               ),
                             );
                           },
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       Row(
                         children: [
                           Expanded(
@@ -1237,16 +1352,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               onPressed: () => Navigator.pop(context),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.grey[700],
-                                side: BorderSide(color: Colors.grey[300]!),
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                side: BorderSide(color: Colors.grey[400]!),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
                               child: const Text('Отмена', style: TextStyle(fontWeight: FontWeight.w600)),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _tagEditController.text.trim().isNotEmpty ? () {
@@ -1256,11 +1371,12 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               } : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _contentColor,
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 elevation: 0,
+                                shadowColor: _contentColor.withOpacity(0.4),
                               ),
                               child: const Text(
                                 'Сохранить',
@@ -1284,26 +1400,26 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   Widget _buildCommentsSection() {
     return Column(
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Container(
           height: 1,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
                 Colors.transparent,
-                _cardDesign.gradient[0].withOpacity(0.1),
+                _cardDesign.gradient[0].withOpacity(0.2),
                 Colors.transparent,
               ],
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(top: 16),
+          padding: const EdgeInsets.only(top: 20),
           child: Column(
             children: [
               if (_currentComments.isNotEmpty) ...[
                 ..._currentComments.map((comment) => _buildCommentItem(comment)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
               _buildCommentInput(),
             ],
@@ -1321,7 +1437,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final authorAvatar = _getStringValue(commentMap['author_avatar']);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1329,10 +1445,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           const SizedBox(width: 12),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.grey[200]!,
+                  width: 1,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1342,8 +1462,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       Text(
                         author,
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
                           color: Colors.black87,
                         ),
                       ),
@@ -1351,17 +1471,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       Text(
                         time,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
                     text,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       color: Colors.black87.withOpacity(0.8),
                       height: 1.4,
                     ),
@@ -1378,14 +1499,21 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   Widget _buildCommentAvatar(String avatarUrl, String authorName) {
     if (avatarUrl.isNotEmpty && avatarUrl.startsWith('http')) {
       return Container(
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
+            color: Colors.white.withOpacity(0.4),
+            width: 2,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: ClipOval(
           child: Image.network(
@@ -1410,8 +1538,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final gradientColors = _getAvatarGradient(authorName);
 
     return Container(
-      width: 36,
-      height: 36,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: gradientColors,
@@ -1419,14 +1547,21 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           end: Alignment.bottomRight,
         ),
         shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors[0].withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Center(
         child: Text(
           authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -1447,19 +1582,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         return Container(
           decoration: BoxDecoration(
             color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.grey[200]!,
+              width: 1,
+            ),
           ),
           child: Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
-                margin: const EdgeInsets.only(left: 8),
+                width: 40,
+                height: 40,
+                margin: const EdgeInsets.only(left: 12),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
-                    width: 1,
+                    color: Colors.white.withOpacity(0.4),
+                    width: 2,
                   ),
                 ),
                 child: ClipOval(
@@ -1478,7 +1617,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       : _buildCommentGradientAvatar(userProvider.userName),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
                 child: TextField(
                   controller: _commentController,
@@ -1487,7 +1626,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     hintText: 'Напишите комментарий...',
                     hintStyle: TextStyle(color: Colors.grey[600]),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                 ),
               ),
@@ -1499,10 +1638,17 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _cardDesign.gradient[0].withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: IconButton(
-                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 20),
                   onPressed: () {
                     final text = _commentController.text.trim();
                     if (text.isNotEmpty) {
@@ -1514,14 +1660,17 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       _commentController.clear();
 
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text('Комментарий отправлен'),
+                          backgroundColor: Colors.green,
                           duration: Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       );
                     }
                   },
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                 ),
               ),
             ],
@@ -1571,41 +1720,50 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _buildPostHeader(isAuthor, userTags, tagColor),
-          const SizedBox(height: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_getStringValue(widget.news['title']).isNotEmpty)
+          // ВСЕГДА одинаковый отступ для всего контента
+          Padding(
+            padding: EdgeInsets.only(left: _getAvatarSize(context) + 12), // Фиксированный отступ под аватаром
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_getStringValue(widget.news['title']).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8, top: 8),
+                    child: Text(
+                      _getStringValue(widget.news['title']),
+                      style: TextStyle(
+                        fontSize: _getTitleFontSize(context),
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black87,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    _getStringValue(widget.news['title']),
+                    _getStringValue(widget.news['description']),
                     style: TextStyle(
-                      fontSize: _getTitleFontSize(context),
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                      height: 1.3,
+                      fontSize: _getDescriptionFontSize(context),
+                      color: Colors.black87.withOpacity(0.8),
+                      height: 1.4,
                     ),
                   ),
                 ),
-              Text(
-                _getStringValue(widget.news['description']),
-                style: TextStyle(
-                  fontSize: _getDescriptionFontSize(context),
-                  color: Colors.black87.withOpacity(0.8),
-                  height: 1.5,
-                ),
-              ),
-            ],
+                if (hashtags.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildHashtags(hashtags),
+                  ),
+                ],
+                _buildPostActions(commentCount: _currentComments.length, isAuthor: isAuthor),
+              ],
+            ),
           ),
-          if (hashtags.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _buildHashtags(hashtags),
-          ],
-          const SizedBox(height: 16),
-          _buildPostActions(commentCount: _currentComments.length, isAuthor: isAuthor),
           SizeTransition(
             sizeFactor: _expandAnimation,
             child: FadeTransition(
@@ -1630,151 +1788,58 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
     final channelAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']);
 
-    final avatarSize = _getAvatarSize(context);
-
     return _buildCard(
       isChannel: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(
-            onTap: _openUserProfile,
-            child: Row(
+          _buildPostHeader(false, {}, _cardDesign.accentColor),
+          // ВСЕГДА одинаковый отступ для всего контента
+          Padding(
+            padding: EdgeInsets.only(left: _getAvatarSize(context) + 12), // Фиксированный отступ под аватаром
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _buildChannelAvatar(channelAvatar, channelName, avatarSize),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        channelName,
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w700,
-                          fontSize: _getTitleFontSize(context),
-                        ),
+                if (title.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8, top: 8),
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: _getTitleFontSize(context),
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black87,
+                        height: 1.2,
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
-                          const SizedBox(width: 4),
-                          Text(
-                            'канал',
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 3,
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            widget.getTimeAgo(createdAt),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                // ИСПРАВЛЕННАЯ КНОПКА ТРЕХ ТОЧЕК ДЛЯ КАНАЛЬНОГО ПОСТА - ВЕРТИКАЛЬНАЯ
-                PopupMenuButton<String>(
-                  icon: Icon(
-                    Icons.more_vert_rounded, // Вертикальные три точки
-                    color: Colors.grey[700],
-                    size: 20,
+                if (description.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: _getDescriptionFontSize(context),
+                        color: Colors.black87.withOpacity(0.8),
+                        height: 1.4,
+                      ),
+                    ),
                   ),
-                  onSelected: (value) {
-                    _handleMenuSelection(value);
-                  },
-                  itemBuilder: (BuildContext context) => [
-                    PopupMenuItem<String>(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_rounded, color: _contentColor, size: 18),
-                          const SizedBox(width: 8),
-                          Text('Редактировать'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'share',
-                      child: Row(
-                        children: [
-                          Icon(Icons.share_rounded, color: Colors.blue, size: 18),
-                          const SizedBox(width: 8),
-                          Text('Поделиться'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_rounded, color: Colors.red, size: 18),
-                          const SizedBox(width: 8),
-                          Text('Удалить'),
-                        ],
-                      ),
-                    ),
-                  ],
-                  padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(minWidth: 140),
+                if (hashtags.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildHashtags(hashtags),
+                  ),
+                ],
+                _buildPostActions(
+                    commentCount: _currentComments.length,
+                    showBookmark: true,
+                    isAuthor: false
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (title.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: _getTitleFontSize(context),
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-              if (description.isNotEmpty)
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: _getDescriptionFontSize(context),
-                    color: Colors.black87.withOpacity(0.8),
-                    height: 1.4,
-                  ),
-                ),
-            ],
-          ),
-          if (hashtags.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _buildHashtags(hashtags),
-          ],
-          const SizedBox(height: 16),
-          _buildPostActions(
-              commentCount: _currentComments.length,
-              showBookmark: true,
-              isAuthor: false
           ),
           SizeTransition(
             sizeFactor: _expandAnimation,
@@ -1797,14 +1862,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1.5,
+            color: Colors.white.withOpacity(0.4),
+            width: 2.0,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -1842,9 +1907,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: gradientColors[0].withOpacity(0.25),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: gradientColors[0].withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -1852,7 +1917,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         child: Icon(
           Icons.group_rounded,
           color: Colors.white,
-          size: size * 0.45,
+          size: size * 0.4,
         ),
       ),
     );
@@ -1900,5 +1965,3 @@ enum ContentType {
   education,
   general,
 }
-
-

@@ -37,13 +37,6 @@ class FilterChipsRow extends StatelessWidget {
       Icons.subscriptions_rounded
     ];
 
-    final List<Color> colors = [
-      NewsTheme.primaryColor,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-    ];
-
     return Container(
       width: double.infinity,
       margin: EdgeInsets.fromLTRB(
@@ -55,7 +48,7 @@ class FilterChipsRow extends StatelessWidget {
       child: Center(
         child: Container(
           constraints: BoxConstraints(maxWidth: contentMaxWidth),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), // УМЕНЬШИЛИ ВЕРТИКАЛЬНЫЙ ОТСТУП
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12), // На телефоне без закругления
@@ -70,12 +63,11 @@ class FilterChipsRow extends StatelessWidget {
           child: Row(
             children: List.generate(filterOptions.length, (index) {
               final isSelected = pageState.currentFilter == index;
-              final color = colors[index % colors.length];
 
               return Expanded(
                 child: Container(
                   margin: EdgeInsets.only(
-                    right: index < filterOptions.length - 1 ? 4 : 0,
+                    right: index < filterOptions.length - 1 ? 8 : 0, // Увеличили отступ между кнопками
                   ),
                   child: Material(
                     color: Colors.transparent,
@@ -85,14 +77,11 @@ class FilterChipsRow extends StatelessWidget {
                       },
                       borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8), // На телефоне без закругления
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), // УМЕНЬШИЛИ ВЕРТИКАЛЬНЫЙ ОТСТУП
                         decoration: BoxDecoration(
-                          color: isSelected ? color : Colors.transparent,
+                          color: Colors.transparent, // Убрали фон
                           borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8), // На телефоне без закругления
-                          border: Border.all(
-                            color: isSelected ? color : Colors.grey.withOpacity(0.15),
-                            width: 1,
-                          ),
+                          // Убрали border
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -100,17 +89,17 @@ class FilterChipsRow extends StatelessWidget {
                           children: [
                             Icon(
                               filterIcons[index],
-                              size: 14,
-                              color: isSelected ? Colors.white : Colors.grey[600],
+                              size: 18, // Увеличили размер иконки
+                              color: isSelected ? NewsTheme.primaryColor : Colors.grey[600], // Только иконка красится в синий
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 3), // УМЕНЬШИЛИ ОТСТУП МЕЖДУ ИКОНКОЙ И ТЕКСТОМ
                             Text(
                               filterOptions[index],
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 9,
+                                fontSize: 10, // Увеличили размер текста
                                 fontWeight: FontWeight.w600,
-                                color: isSelected ? Colors.white : Colors.black87,
+                                color: isSelected ? NewsTheme.primaryColor : Colors.black87, // Текст тоже красится в синий при выборе
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -165,13 +154,6 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
       Icons.subscriptions_rounded
     ];
 
-    final List<Color> colors = [
-      NewsTheme.primaryColor,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-    ];
-
     return Container(
       width: double.infinity,
       margin: EdgeInsets.fromLTRB(
@@ -183,7 +165,7 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
       child: Center(
         child: Container(
           constraints: BoxConstraints(maxWidth: contentMaxWidth),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12), // УМЕНЬШИЛИ ВЕРТИКАЛЬНЫЙ ОТСТУП
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12), // На телефоне без закругления
@@ -198,13 +180,12 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
           child: Row(
             children: List.generate(filterOptions.length, (index) {
               final isSelected = pageState.currentFilter == index;
-              final color = colors[index % colors.length];
 
               return Expanded(
                 child: Container(
-                  height: 40,
+                  height: 42, // УМЕНЬШИЛИ ВЫСОТУ КНОПОК
                   margin: EdgeInsets.only(
-                    right: index < filterOptions.length - 1 ? 4 : 0,
+                    right: index < filterOptions.length - 1 ? 8 : 0, // Увеличили отступ между кнопками
                   ),
                   child: Material(
                     color: Colors.transparent,
@@ -215,29 +196,26 @@ class EqualWidthFilterChipsRow extends StatelessWidget {
                       borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8), // На телефоне без закругления
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected ? color : Colors.transparent,
+                          color: Colors.transparent, // Убрали фон
                           borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8), // На телефоне без закругления
-                          border: Border.all(
-                            color: isSelected ? color : Colors.grey.withOpacity(0.12),
-                            width: 1,
-                          ),
+                          // Убрали border
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               filterIcons[index],
-                              size: 12,
-                              color: isSelected ? Colors.white : Colors.grey[600],
+                              size: 16, // Увеличили размер иконки
+                              color: isSelected ? NewsTheme.primaryColor : Colors.grey[600], // Только иконка красится в синий
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 2), // УМЕНЬШИЛИ ОТСТУП МЕЖДУ ИКОНКОЙ И ТЕКСТОМ
                             Text(
                               filterOptions[index],
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: 9, // Увеличили размер текста
                                 fontWeight: FontWeight.w600,
-                                color: isSelected ? Colors.white : Colors.black87,
+                                color: isSelected ? NewsTheme.primaryColor : Colors.black87, // Текст тоже красится в синий при выборе
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

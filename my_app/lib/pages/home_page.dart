@@ -52,7 +52,7 @@ class _HomePageState extends State<HomePage> {
         onLogout: widget.onLogout,
         userAvatarUrl: '',
       ),
-      RoomsPage(
+      AdaptiveRoomsPage(
         onLogout: widget.onLogout,
       ),
       PredictionsLeaguePage(

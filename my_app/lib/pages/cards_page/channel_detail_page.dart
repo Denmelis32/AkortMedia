@@ -22,14 +22,11 @@ import 'widgets/shared/content_tabs.dart';
 import 'widgets/content_widgets/posts_list.dart';
 import 'widgets/content_widgets/articles_grid.dart';
 import 'widgets/shared/channel_members.dart';
-import 'widgets/page_sections/playlist_section.dart';
 import 'dialogs/notification_settings_bottom_sheet.dart';
 import 'dialogs/chat_dialog.dart';
 
 // Импорты новых компонентов
 import 'widgets/page_sections/channel_info_section.dart';
-import 'widgets/page_sections/members_section.dart';
-import 'widgets/page_sections/playlists_section.dart';
 import 'widgets/page_sections/action_buttons_section.dart';
 import 'dialogs/content_type_dialog.dart';
 import 'dialogs/channel_options_dialog.dart';
@@ -51,6 +48,9 @@ class ChannelDetailPage extends StatefulWidget {
 class _ChannelDetailPageState extends State<ChannelDetailPage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late AnimationController _animationController;
+  final TextEditingController _searchController = TextEditingController();
+  bool _showSearchBar = false;
+  String _searchQuery = '';
 
   @override
   bool get wantKeepAlive => true;
@@ -63,6 +63,12 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
       duration: const Duration(milliseconds: 800),
     );
 
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase().trim();
+      });
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _animationController.forward();
     });
@@ -71,7 +77,52 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
   @override
   void dispose() {
     _animationController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1000) return 280;
+    if (width > 700) return 80;
+    return 16;
+  }
+
+  double _getContentMaxWidth(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1400) return 600;
+    if (width > 1000) return 600;
+    if (width > 700) return 600;
+    return double.infinity;
+  }
+
+  // Виджет поля поиска для AppBar
+  Widget _buildSearchField() {
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: TextField(
+        controller: _searchController,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: 'Поиск в канале...',
+          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+            onPressed: () => _searchController.clear(),
+          )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        style: const TextStyle(fontSize: 16),
+      ),
+    );
   }
 
   @override
@@ -96,6 +147,10 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
           child: _ChannelDetailContent(
             channel: widget.channel,
             animationController: _animationController,
+            showSearchBar: _showSearchBar,
+            searchController: _searchController,
+            searchQuery: _searchQuery,
+            onToggleSearch: () => setState(() => _showSearchBar = !_showSearchBar),
           ),
         ),
       ),
@@ -106,10 +161,18 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
 class _ChannelDetailContent extends StatefulWidget {
   final Channel channel;
   final AnimationController animationController;
+  final bool showSearchBar;
+  final TextEditingController searchController;
+  final String searchQuery;
+  final VoidCallback onToggleSearch;
 
   const _ChannelDetailContent({
     required this.channel,
     required this.animationController,
+    required this.showSearchBar,
+    required this.searchController,
+    required this.searchQuery,
+    required this.onToggleSearch,
   });
 
   @override
@@ -124,17 +187,21 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
   // ТАКИЕ ЖЕ ОТСТУПЫ КАК В ПРОФИЛЕ
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1000) return 280; // Twitter-like для больших экранов
-    if (width > 700) return 80;   // Для планшетов
-    return 16;                    // Для мобильных
+    if (width > 1000) return 280;
+    if (width > 700) return 80;
+    return 16;
   }
 
   double _getContentMaxWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 600;  // Twitter-like максимальная ширина
+    if (width > 1400) return 600;
     if (width > 1000) return 600;
     if (width > 700) return 600;
     return double.infinity;
+  }
+
+  bool _isMobile(BuildContext context) {
+    return MediaQuery.of(context).size.width <= 600;
   }
 
   @override
@@ -212,7 +279,16 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
               controller: provider.scrollController,
               physics: const ClampingScrollPhysics(),
               slivers: [
-                _buildAppBar(context, provider, stateProvider, state),
+                // APP BAR КАК В CARDS PAGE
+                SliverToBoxAdapter(
+                  child: _buildAppBar(context, provider, state, horizontalPadding),
+                ),
+
+                // ОБЛОЖКА С АВАТАРКОЙ
+                SliverToBoxAdapter(
+                  child: _buildCoverWithAvatar(context, provider, state, horizontalPadding),
+                ),
+
                 if (state.isLoading)
                   _buildLoadingSliver()
                 else
@@ -235,97 +311,309 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  SliverAppBar _buildAppBar(
+  // APP BAR КАК В CARDS PAGE
+  // APP BAR КАК В CARDS PAGE
+  Widget _buildAppBar(
       BuildContext context,
       ChannelDetailProvider provider,
-      ChannelStateProvider stateProvider,
       ChannelDetailState state,
+      double horizontalPadding,
       ) {
-    return SliverAppBar(
-      expandedHeight: 280,
-      flexibleSpace: FlexibleSpaceBar(
-        background: ChannelHeader(
-          channel: widget.channel,
-          editable: true,
-          onAvatarChanged: (newAvatarUrl) {
-            stateProvider.setAvatarForChannel(widget.channel.id.toString(), newAvatarUrl.isEmpty ? null : newAvatarUrl);
-            provider.setAvatarUrl(newAvatarUrl.isEmpty ? null : newAvatarUrl);
-            _saveAvatarToDatabase(newAvatarUrl);
-          },
-          onCoverChanged: (newCoverUrl) {
-            stateProvider.setCoverForChannel(widget.channel.id.toString(), newCoverUrl.isEmpty ? null : newCoverUrl);
-            provider.setCoverUrl(newCoverUrl.isEmpty ? null : newCoverUrl);
-            _saveCoverToDatabase(newCoverUrl);
-          },
-          onHashtagsChanged: (newHashtags) {
-            stateProvider.setHashtagsForChannel(widget.channel.id.toString(), newHashtags);
-            provider.setHashtags(newHashtags);
-            _saveHashtagsToDatabase(newHashtags);
-          },
-        ),
-        title: AnimatedOpacity(
-          opacity: state.showAppBarTitle ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 200),
-          child: Text(
-            widget.channel.title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+      ),
+      child: Row(
+        children: [
+          // КНОПКА BACK СЛЕВА
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Colors.black,
+                size: 18,
+              ),
             ),
+            onPressed: () => Navigator.pop(context),
           ),
-        ),
-        centerTitle: true,
+          const SizedBox(width: 8),
+
+          // Заголовок
+          if (!widget.showSearchBar) ...[
+            const Text(
+              'Профиль',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Spacer(),
+          ],
+
+          // Поле поиска или кнопки
+          if (widget.showSearchBar)
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildSearchField(),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.black,
+                        size: 18,
+                      ),
+                    ),
+                    onPressed: widget.onToggleSearch,
+                  ),
+                ],
+              ),
+            )
+          else
+            Row(
+              children: [
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.search,
+                      color: Colors.black,
+                      size: 18,
+                    ),
+                  ),
+                  onPressed: widget.onToggleSearch,
+                ),
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      state.isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: state.isFavorite ? Colors.red : Colors.black,
+                      size: 18,
+                    ),
+                  ),
+                  onPressed: provider.toggleFavorite,
+                ),
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.more_vert,
+                      color: Colors.black,
+                      size: 18,
+                    ),
+                  ),
+                  onPressed: () => _showChannelOptions(context, provider),
+                ),
+              ],
+            ),
+        ],
       ),
-      backgroundColor: _getAppBarColor(state),
-      elevation: state.appBarElevation,
-      automaticallyImplyLeading: false,
-      pinned: true,
-      floating: false,
-      actions: _buildAppBarActions(context, provider, state),
     );
   }
 
-  Color? _getAppBarColor(ChannelDetailState state) {
-    final progress = state.scrollOffset.clamp(0, 200) / 200;
-    return Color.lerp(
-      Colors.transparent,
-      widget.channel.cardColor.withOpacity(0.95),
-      progress,
-    );
-  }
-
-  List<Widget> _buildAppBarActions(
+  // ОБЛОЖКА С АВАТАРКОЙ ВЫРОВНЕННОЙ ПО НАЗВАНИЮ
+  Widget _buildCoverWithAvatar(
       BuildContext context,
       ChannelDetailProvider provider,
       ChannelDetailState state,
+      double horizontalPadding,
       ) {
-    return [
-      IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
-        tooltip: 'Назад',
-      ),
-      const Spacer(),
-      IconButton(
-        icon: Icon(
-          state.isFavorite ? Icons.favorite : Icons.favorite_border,
-          color: Colors.white,
+    final coverUrl = provider.currentCoverUrl ?? widget.channel.coverImageUrl;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        onPressed: provider.toggleFavorite,
-        tooltip: state.isFavorite ? 'В избранном' : 'Добавить в избранное',
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            // ОБЛОЖКА
+            Container(
+              height: 140,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                image: coverUrl != null && coverUrl.isNotEmpty
+                    ? DecorationImage(
+                  image: NetworkImage(coverUrl),
+                  fit: BoxFit.cover,
+                )
+                    : null,
+                gradient: coverUrl == null || coverUrl.isEmpty
+                    ? LinearGradient(
+                  colors: [
+                    widget.channel.cardColor,
+                    _darkenColor(widget.channel.cardColor, 0.3),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                )
+                    : null,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.4),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // АВАТАРКА И НАЗВАНИЕ - ВЫРОВНЕНЫ ПО ЦЕНТРУ
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // АВАТАРКА
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.network(
+                        widget.channel.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  widget.channel.cardColor,
+                                  _darkenColor(widget.channel.cardColor, 0.2),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.group_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  // НАЗВАНИЕ КАНАЛА
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.channel.title,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '@${widget.channel.title.toLowerCase().replaceAll(' ', '')}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      IconButton(
-        icon: const Icon(Icons.share, color: Colors.white),
-        onPressed: () => _shareChannel(context),
-        tooltip: 'Поделиться',
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(20),
       ),
-      IconButton(
-        icon: const Icon(Icons.more_vert, color: Colors.white),
-        onPressed: () => _showChannelOptions(context, provider),
-        tooltip: 'Опции',
+      child: TextField(
+        controller: widget.searchController,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: 'Поиск в канале...',
+          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+          suffixIcon: widget.searchQuery.isNotEmpty
+              ? IconButton(
+            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+            onPressed: () => widget.searchController.clear(),
+          )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        style: const TextStyle(fontSize: 16),
       ),
-    ];
+    );
   }
 
   SliverToBoxAdapter _buildLoadingSliver() {
@@ -362,91 +650,508 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
         margin: EdgeInsets.only(
           left: horizontalPadding,
           right: horizontalPadding,
-          top: 8, // КОМПАКТНЫЙ ОТСТУП КАК В ПРОФИЛЕ
+          top: 0, // Убрали отступ сверху, так как обложка уже есть
           bottom: 16,
         ),
-        child: Container(
-          constraints: BoxConstraints(maxWidth: contentMaxWidth),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(12), // ТАКОЙ ЖЕ RADIUS КАК В ПРОФИЛЕ
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08), // ТАКАЯ ЖЕ ТЕНЬ КАК В ПРОФИЛЕ
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+        child: Column(
+          children: [
+            // КАРТОЧКА С ОПИСАНИЕМ КАНАЛА
+            Container(
+              constraints: BoxConstraints(maxWidth: contentMaxWidth),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _buildDescriptionCard(),
+            ),
+
+            const SizedBox(height: 16),
+
+            // СТАТИСТИКА КАНАЛА
+            Container(
+              constraints: BoxConstraints(maxWidth: contentMaxWidth),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _buildEnhancedStatsSection(),
+            ),
+
+            const SizedBox(height: 16),
+
+            // КНОПКИ ДЕЙСТВИЙ
+            Container(
+              constraints: BoxConstraints(maxWidth: contentMaxWidth),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _buildEnhancedActionButtons(provider, state),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ВКЛАДКИ КОНТЕНТА
+            Container(
+              constraints: BoxConstraints(maxWidth: contentMaxWidth),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _buildEnhancedContentTabs(state, provider),
+            ),
+
+            const SizedBox(height: 16),
+
+            // КОНТЕНТ
+            Container(
+              constraints: BoxConstraints(maxWidth: contentMaxWidth),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: _buildContentByType(context, provider, stateProvider, state),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // НОВАЯ КАРТОЧКА С ОПИСАНИЕМ КАНАЛА
+  Widget _buildDescriptionCard() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Заголовок секции
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: widget.channel.cardColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Описание канала',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          const SizedBox(height: 12),
+
+          // Текст описания
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey[200]!,
+                width: 1,
+              ),
+            ),
+            child: Text(
+              widget.channel.description,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.black87.withOpacity(0.8),
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // СЕКЦИЯ СТАТИСТИКИ
+  Widget _buildEnhancedStatsSection() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Заголовок секции
+          Row(
             children: [
-              // КАЖДЫЙ СЕКЦИЯ С ТАКИМИ ЖЕ ОТСТУПАМИ КАК В ПРОФИЛЕ
-              Padding(
-                padding: const EdgeInsets.all(16), // ТАКИЕ ЖЕ ОТСТУПЫ КАК В ПРОФИЛЕ
-                child: ChannelInfoSection(
-                  channel: widget.channel,
-                  provider: provider,
-                  state: state,
+              Icon(
+                Icons.analytics_rounded,
+                color: widget.channel.cardColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Статистика канала',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
                 ),
               ),
-
-              const SizedBox(height: 16), // ТАКОЙ ЖЕ ОТСТУП МЕЖДУ СЕКЦИЯМИ
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16), // ГОРИЗОНТАЛЬНЫЕ ОТСТУПЫ КАК В ПРОФИЛЕ
-                child: MembersSection(
-                  channel: widget.channel,
-                  provider: provider,
-                  state: state,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: PlaylistsSection(
-                  channel: widget.channel,
-                  provider: provider,
-                  state: state,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ActionButtonsSection(
-                  channel: widget.channel,
-                  provider: provider,
-                  state: state,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // ContentTabs с такими же отступами
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ContentTabs(
-                  currentIndex: state.currentContentType,
-                  onTabChanged: provider.changeContentType,
-                  channelColor: widget.channel.cardColor,
-                  tabs: const ['Стена', 'Акорта', 'Статьи'],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Контент с такими же отступами
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildContentByType(context, provider, stateProvider, state),
-              ),
-
-              const SizedBox(height: 16), // КОМПАКТНЫЙ ОТСТУП КАК В ПРОФИЛЕ
             ],
+          ),
+          const SizedBox(height: 16),
+
+          // Статистика
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey[200]!,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  '${widget.channel.subscribers}',
+                  'Подписчиков',
+                  Icons.people_rounded,
+                  widget.channel.cardColor,
+                ),
+                _buildStatItem(
+                  '${widget.channel.videos}',
+                  'Публикаций',
+                  Icons.video_library_rounded,
+                  widget.channel.cardColor,
+                ),
+                _buildStatItem(
+                  '${widget.channel.views}',
+                  'Просмотров',
+                  Icons.remove_red_eye_rounded,
+                  widget.channel.cardColor,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Хештеги канала
+          if (widget.channel.tags.isNotEmpty) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: widget.channel.tags.map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: widget.channel.cardColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: widget.channel.cardColor.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: TextStyle(
+                      color: widget.channel.cardColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String value, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 20,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _darkenColor(Color color, double factor) {
+    final hsl = HSLColor.fromColor(color);
+    final hslDark = hsl.withLightness((hsl.lightness - factor).clamp(0.0, 1.0));
+    return hslDark.toColor();
+  }
+
+  // КНОПКИ ДЕЙСТВИЙ
+  Widget _buildEnhancedActionButtons(ChannelDetailProvider provider, ChannelDetailState state) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Основные кнопки действий
+          Row(
+            children: [
+              Expanded(
+                child: _buildEnhancedActionButton(
+                  'Подписаться',
+                  Icons.notifications_active_rounded,
+                  widget.channel.cardColor,
+                  true,
+                  provider.toggleSubscription,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildEnhancedActionButton(
+                  'Сообщение',
+                  Icons.chat_rounded,
+                  Colors.blue,
+                  false,
+                      () => _showChatDialog(context),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Дополнительные кнопки
+          Row(
+            children: [
+              Expanded(
+                child: _buildEnhancedActionButton(
+                  'Поделиться',
+                  Icons.share_rounded,
+                  Colors.green,
+                  false,
+                      () => _shareChannel(context),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildEnhancedActionButton(
+                  'Ещё',
+                  Icons.more_horiz_rounded,
+                  Colors.grey[600]!,
+                  false,
+                      () => _showChannelOptions(context, provider),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedActionButton(String text, IconData icon, Color color, bool isPrimary, VoidCallback onPressed) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        gradient: isPrimary
+            ? LinearGradient(
+          colors: [color, _darkenColor(color, 0.1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        )
+            : null,
+        color: isPrimary ? null : color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: isPrimary
+            ? null
+            : Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: isPrimary
+            ? [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ]
+            : [],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isPrimary ? Colors.white : color,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                text,
+                style: TextStyle(
+                  color: isPrimary ? Colors.white : color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ВКЛАДКИ КОНТЕНТА
+  Widget _buildEnhancedContentTabs(ChannelDetailState state, ChannelDetailProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Заголовок секции
+          Row(
+            children: [
+              Icon(
+                Icons.dynamic_feed_rounded,
+                color: widget.channel.cardColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Контент канала',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Вкладки
+          Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey[200]!,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                _buildEnhancedTab('Стена', 0, state.currentContentType, provider),
+                _buildEnhancedTab('Статьи', 1, state.currentContentType, provider),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedTab(String text, int index, int currentIndex, ChannelDetailProvider provider) {
+    final isActive = currentIndex == index;
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isActive ? widget.channel.cardColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isActive
+              ? [
+            BoxShadow(
+              color: widget.channel.cardColor.withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ]
+              : [],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => provider.changeContentType(index),
+            borderRadius: BorderRadius.circular(8),
+            child: Center(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: isActive ? Colors.white : Colors.grey[700],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -486,56 +1191,22 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
 
     switch (index) {
       case 0:
-        return Container(
-          constraints: BoxConstraints(maxWidth: _getContentMaxWidth(context)),
-          child: WallContent(
-            channel: widget.channel,
-            customAvatarUrl: avatarUrl,
-          ),
+        return WallContent(
+          channel: widget.channel,
+          customAvatarUrl: avatarUrl,
         );
 
       case 1:
-        return Container(
-          constraints: BoxConstraints(maxWidth: _getContentMaxWidth(context)),
-          child: AkorContent(
-            channel: widget.channel,
-            customAvatarUrl: avatarUrl,
-          ),
-        );
-
-      case 2:
-        return Container(
-          constraints: BoxConstraints(maxWidth: _getContentMaxWidth(context)),
-          child: ArticlesGrid(
-            key: const ValueKey('articles'),
-            articles: articlesProvider.getArticlesForChannel(widget.channel.id),
-            channel: widget.channel,
-            emptyMessage:
-            'Пока нет статей. Создайте первую статью для этого канала!',
-          ),
+        return ArticlesGrid(
+          key: const ValueKey('articles'),
+          articles: articlesProvider.getArticlesForChannel(widget.channel.id),
+          channel: widget.channel,
+          emptyMessage:
+          'Пока нет статей. Создайте первую статью для этого канала!',
         );
 
       default:
         return const SizedBox(key: ValueKey('empty'));
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays > 365) {
-      return '${date.day}.${date.month}.${date.year}';
-    } else if (difference.inDays > 7) {
-      return '${date.day}.${date.month}';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}д назад';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}ч назад';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}м назад';
-    } else {
-      return 'только что';
     }
   }
 
@@ -587,6 +1258,22 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
+  void _showSearch(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Поиск'),
+        content: const Text('Функционал поиска будет реализован позже'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _shareChannel(BuildContext context) async {
     try {
       await Share.share(
@@ -596,6 +1283,22 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     } catch (e) {
       // ignore
     }
+  }
+
+  void _showChatDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Чат с каналом'),
+        content: const Text('Функционал чата будет реализован позже'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showChannelOptions(
@@ -634,6 +1337,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
+  // Остальные методы остаются без изменений...
   void _showAddPostDialog(BuildContext context) {
     _postTitleController.clear();
     _postDescriptionController.clear();
@@ -738,7 +1442,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       postsProvider.addPostToChannel(widget.channel.id, newPost);
       newsProvider.addNews(newPost);
 
-      _showSuccessSnackbar(context, 'Новость успешно создана и опубликована в Акорт и на Стене!');
+      _showSuccessSnackbar(context, 'Новость успешно создана и опубликована на Стене!');
     } catch (e) {
       debugPrint('Error creating post: $e');
       _showSuccessSnackbar(context, 'Ошибка при создании новости');

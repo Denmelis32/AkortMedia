@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/room.dart';
 import '../../../providers/user_provider.dart';
-import '../widgets/dialogs/room_preview_dialog.dart';
 
 class RoomDialogs {
   void showPasswordDialog(BuildContext context, Room room, UserProvider userProvider) {
@@ -119,7 +118,6 @@ class RoomDialogs {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              showRoomPreview(context, room);
             },
             child: const Text('Посмотреть информацию'),
           ),
@@ -253,17 +251,6 @@ class RoomDialogs {
     );
   }
 
-  void showRoomPreview(BuildContext context, Room room) {
-    showDialog(
-      context: context,
-      builder: (context) => RoomPreviewDialog(
-        room: room,
-        onJoin: () {
-          // Навигация будет обработана в RoomNavigation
-        },
-      ),
-    );
-  }
 
   void showRoomParticipantsDialog(BuildContext context, Room room) {
     final theme = Theme.of(context);

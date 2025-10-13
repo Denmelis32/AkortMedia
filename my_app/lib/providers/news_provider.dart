@@ -35,8 +35,7 @@ class NewsProvider with ChangeNotifier {
   }
 
   // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ФОТО ПРОФИЛЯ
-  // В NewsProvider обновите метод updateProfileImageUrl:
-  void updateProfileImageUrl(String? url) async {
+  Future<void> updateProfileImageUrl(String? url) async {
     if (url != null && url.isNotEmpty) {
       // Проверяем валидность URL перед сохранением
       try {
@@ -66,25 +65,24 @@ class NewsProvider with ChangeNotifier {
     print('✅ Profile image URL updated: $url');
   }
 
-  void updateProfileImageFile(File? file) {
+  Future<void> updateProfileImageFile(File? file) async {
     _profileImageFile = file;
     _profileImageUrl = null;
 
-    // НЕ вызываем notifyListeners() здесь, только сохраняем
     if (file != null) {
-      file.exists().then((exists) {
-        if (exists) {
-          StorageService.saveProfileImageFilePath(file.path);
-          print('✅ Profile image file updated: ${file.path}');
-        } else {
-          print('❌ File does not exist: ${file.path}');
-          _profileImageFile = null;
-        }
-      });
+      final exists = await file.exists();
+      if (exists) {
+        await StorageService.saveProfileImageFilePath(file.path);
+        print('✅ Profile image file updated: ${file.path}');
+      } else {
+        print('❌ File does not exist: ${file.path}');
+        _profileImageFile = null;
+      }
     } else {
-      StorageService.saveProfileImageFilePath(null);
+      await StorageService.saveProfileImageFilePath(null);
       print('✅ Profile image file removed');
     }
+    notifyListeners();
   }
 
   // Загрузка данных профиля из хранилища
@@ -110,6 +108,7 @@ class NewsProvider with ChangeNotifier {
       }
 
       print('✅ Profile data loaded: URL=$_profileImageUrl, File=${_profileImageFile?.path}');
+      notifyListeners();
     } catch (e) {
       print('❌ Error loading profile data: $e');
     }
@@ -126,7 +125,7 @@ class NewsProvider with ChangeNotifier {
       if (cachedNews.isEmpty) {
         // Если данных нет, создаем начальные mock данные
         final mockNews = _getMockNews();
-        await StorageService.saveNews(mockNews);
+        await _saveNewsToStorage();
         _news = mockNews;
         notifyListeners();
         print('✅ Initial data ensured with ${mockNews.length} items');
@@ -141,8 +140,100 @@ class NewsProvider with ChangeNotifier {
       // Создаем mock данные при ошибке
       final mockNews = _getMockNews();
       _news = mockNews;
-      await StorageService.saveNews(mockNews);
+      await _saveNewsToStorage();
       notifyListeners();
+    }
+  }
+
+  // МЕТОД ДЛЯ СОХРАНЕНИЯ НОВОСТЕЙ В ХРАНИЛИЩЕ
+  Future<void> _saveNewsToStorage() async {
+    try {
+      print('💾 Автосохранение новостей...');
+      await StorageService.saveNews(_news);
+      print('✅ Новости сохранены в хранилище');
+    } catch (e) {
+      print('❌ Ошибка автосохранения новостей: $e');
+    }
+  }
+
+  // МЕТОДЫ ДЛЯ РЕПОСТА
+  void updateNewsRepostStatus(int index, bool isReposted, int repostsCount) {
+    if (index >= 0 && index < _news.length) {
+      _news[index]['isReposted'] = isReposted;
+      _news[index]['reposts'] = repostsCount;
+      notifyListeners();
+      _saveNewsToStorage();
+    }
+  }
+
+  // ОСТАЛЬНЫЕ МЕТОДЫ ОБНОВЛЕНИЯ СТАТУСОВ
+  void updateNewsLikeStatus(int index, bool isLiked, int likesCount) {
+    if (index >= 0 && index < _news.length) {
+      final newsItem = _news[index] as Map<String, dynamic>;
+      final newsId = newsItem['id'].toString();
+
+      _news[index] = {
+        ...newsItem,
+        'isLiked': isLiked,
+        'likes': likesCount,
+      };
+
+      notifyListeners();
+
+      // Сохраняем в локальное хранилище
+      if (isLiked) {
+        StorageService.addLike(newsId);
+      } else {
+        StorageService.removeLike(newsId);
+      }
+
+      _saveNewsToStorage();
+    }
+  }
+
+  void updateNewsBookmarkStatus(int index, bool isBookmarked) {
+    if (index >= 0 && index < _news.length) {
+      final newsItem = _news[index] as Map<String, dynamic>;
+      final newsId = newsItem['id'].toString();
+
+      _news[index] = {
+        ...newsItem,
+        'isBookmarked': isBookmarked,
+      };
+
+      notifyListeners();
+
+      // Сохраняем в локальное хранилище
+      if (isBookmarked) {
+        StorageService.addBookmark(newsId);
+      } else {
+        StorageService.removeBookmark(newsId);
+      }
+
+      _saveNewsToStorage();
+    }
+  }
+
+  void updateNewsFollowStatus(int index, bool isFollowing) {
+    if (index >= 0 && index < _news.length) {
+      final newsItem = _news[index] as Map<String, dynamic>;
+      final newsId = newsItem['id'].toString();
+
+      _news[index] = {
+        ...newsItem,
+        'isFollowing': isFollowing,
+      };
+
+      notifyListeners();
+
+      // Сохраняем в локальное хранилище
+      if (isFollowing) {
+        StorageService.addFollow(newsId);
+      } else {
+        StorageService.removeFollow(newsId);
+      }
+
+      _saveNewsToStorage();
     }
   }
 
@@ -217,7 +308,7 @@ class NewsProvider with ChangeNotifier {
 
           if (newItems.isNotEmpty) {
             _news.insertAll(0, newItems);
-            await StorageService.saveNews(_news);
+            await _saveNewsToStorage();
             print('🔄 Updated news from API: ${newItems.length} new items');
           } else {
             print('⚠️ No new items from API, keeping cached data');
@@ -237,7 +328,7 @@ class NewsProvider with ChangeNotifier {
       // Используем mock данные только если совсем ничего нет
       if (_news.isEmpty) {
         _news = _getMockNews();
-        await StorageService.saveNews(_news);
+        await _saveNewsToStorage();
         print('🔄 Using mock data: ${_news.length} items');
       }
     } finally {
@@ -307,6 +398,7 @@ class NewsProvider with ChangeNotifier {
     final hash = id.hashCode;
     return colors[hash.abs() % colors.length];
   }
+
   String _getFallbackAvatarUrl(String userName) {
     return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
   }
@@ -385,10 +477,7 @@ class NewsProvider with ChangeNotifier {
     ];
   }
 
-  // УЛУЧШЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
-  // В классе NewsProvider замените метод addNews на этот:
-
-// ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
+  // ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
   Future<void> addNews(Map<String, dynamic> newsItem) async {
     try {
       // ПРОВЕРЯЕМ на дублирование по ID - более строгая проверка
@@ -458,23 +547,18 @@ class NewsProvider with ChangeNotifier {
       notifyListeners();
 
       // НЕМЕДЛЕННО сохраняем в хранилище
-      await StorageService.saveNews(_news);
+      await _saveNewsToStorage();
 
       print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Всего: ${_news.length}');
 
     } catch (e) {
       print('❌ Ошибка при добавлении новости в NewsProvider: $e');
-
-      // Только логируем ошибку, не создаем fallback чтобы избежать дублирования
     }
   }
 
   bool _containsNewsWithId(String newsId) {
     return _news.any((item) => item['id'].toString() == newsId);
   }
-
-
-
 
   void updateNews(int index, Map<String, dynamic> updatedNews) {
     if (index >= 0 && index < _news.length) {
@@ -499,80 +583,7 @@ class NewsProvider with ChangeNotifier {
       };
 
       notifyListeners();
-      StorageService.saveNews(_news);
-    }
-  }
-
-  // Обновление статуса лайка
-  void updateNewsLikeStatus(int index, bool isLiked, int newLikesCount) {
-    if (index >= 0 && index < _news.length) {
-      final newsItem = _news[index] as Map<String, dynamic>;
-      final newsId = newsItem['id'].toString();
-
-      _news[index] = {
-        ...newsItem,
-        'isLiked': isLiked,
-        'likes': newLikesCount,
-      };
-
-      notifyListeners();
-
-      // Сохраняем в локальное хранилище
-      if (isLiked) {
-        StorageService.addLike(newsId);
-      } else {
-        StorageService.removeLike(newsId);
-      }
-
-      StorageService.saveNews(_news);
-    }
-  }
-
-  // Обновление статуса закладки
-  void updateNewsBookmarkStatus(int index, bool isBookmarked) {
-    if (index >= 0 && index < _news.length) {
-      final newsItem = _news[index] as Map<String, dynamic>;
-      final newsId = newsItem['id'].toString();
-
-      _news[index] = {
-        ...newsItem,
-        'isBookmarked': isBookmarked,
-      };
-
-      notifyListeners();
-
-      // Сохраняем в локальное хранилище
-      if (isBookmarked) {
-        StorageService.addBookmark(newsId);
-      } else {
-        StorageService.removeBookmark(newsId);
-      }
-
-      StorageService.saveNews(_news);
-    }
-  }
-
-  // Обновление статуса подписки
-  void updateNewsFollowStatus(int index, bool isFollowing) {
-    if (index >= 0 && index < _news.length) {
-      final newsItem = _news[index] as Map<String, dynamic>;
-      final newsId = newsItem['id'].toString();
-
-      _news[index] = {
-        ...newsItem,
-        'isFollowing': isFollowing,
-      };
-
-      notifyListeners();
-
-      // Сохраняем в локальное хранилище
-      if (isFollowing) {
-        StorageService.addFollow(newsId);
-      } else {
-        StorageService.removeFollow(newsId);
-      }
-
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
     }
   }
 
@@ -595,7 +606,7 @@ class NewsProvider with ChangeNotifier {
       notifyListeners();
 
       // Сохраняем в хранилище
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
 
       print('✅ Комментарий добавлен к новости $newsId');
     }
@@ -614,7 +625,7 @@ class NewsProvider with ChangeNotifier {
         'comments': comments,
       };
       notifyListeners();
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
     }
   }
 
@@ -632,12 +643,13 @@ class NewsProvider with ChangeNotifier {
 
         if (commentsList.length < initialLength) {
           notifyListeners();
-          StorageService.saveNews(_news);
+          _saveNewsToStorage();
           print('✅ Комментарий $commentId удален');
         }
       }
     }
   }
+
   // ЗАМЕНИТЕ метод removeNews на этот:
   void removeNews(int index) async {
     if (index >= 0 && index < _news.length) {
@@ -666,7 +678,7 @@ class NewsProvider with ChangeNotifier {
         notifyListeners();
 
         // Сохраняем обновленный список
-        await StorageService.saveNews(_news);
+        await _saveNewsToStorage();
 
         print('✅ News removed from NewsProvider: $newsId');
 
@@ -721,7 +733,7 @@ class NewsProvider with ChangeNotifier {
         'hashtags': _parseHashtags(hashtags),
       };
       notifyListeners();
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
     }
   }
 
@@ -758,7 +770,7 @@ class NewsProvider with ChangeNotifier {
 
       // Сохраняем тег и цвет в отдельном хранилище
       StorageService.updateUserTag(newsId, tagId, newTagName, color: tagColor.value);
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
     }
   }
 
@@ -861,7 +873,7 @@ class NewsProvider with ChangeNotifier {
       };
 
       notifyListeners();
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
     }
   }
 
@@ -907,7 +919,7 @@ class NewsProvider with ChangeNotifier {
         ...partialUpdates,
       };
       notifyListeners();
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
     }
   }
 
@@ -917,7 +929,7 @@ class NewsProvider with ChangeNotifier {
       final newsItem = _news.removeAt(index);
       _news.insert(0, newsItem);
       notifyListeners();
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
     }
   }
 
@@ -937,7 +949,7 @@ class NewsProvider with ChangeNotifier {
 
       _news.insert(index + 1, duplicatedNews);
       notifyListeners();
-      StorageService.saveNews(_news);
+      _saveNewsToStorage();
     }
   }
 
@@ -949,7 +961,7 @@ class NewsProvider with ChangeNotifier {
       return dateB.compareTo(dateA);
     });
     notifyListeners();
-    StorageService.saveNews(_news);
+    _saveNewsToStorage();
   }
 
   // Сортировка новостей по лайкам
@@ -960,7 +972,7 @@ class NewsProvider with ChangeNotifier {
       return likesB.compareTo(likesA);
     });
     notifyListeners();
-    StorageService.saveNews(_news);
+    _saveNewsToStorage();
   }
 
   // Очистка всех данных
@@ -993,13 +1005,13 @@ class NewsProvider with ChangeNotifier {
     }
 
     notifyListeners();
-    StorageService.saveNews(_news);
+    _saveNewsToStorage();
   }
 
   // Восстановление из резервной копии
   Future<void> restoreFromBackup(List<dynamic> backupData) async {
     _news = backupData;
-    await StorageService.saveNews(_news);
+    await _saveNewsToStorage();
     notifyListeners();
   }
 

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/providers/channel_state_provider.dart';
+import 'package:my_app/providers/communities_provider.dart';
+import 'package:my_app/providers/community_state_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/news_provider.dart';
 import 'providers/channel_posts_provider.dart';
 import 'providers/articles_provider.dart';
 import 'providers/user_provider.dart';
-import 'providers/room_provider.dart'; // Добавьте этот импорт
-import 'services/room_service.dart'; // Добавьте этот импорт
+import 'providers/room_provider.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
+import 'services/room_service.dart'; // Добавьте этот импорт для RoomService
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,13 +33,12 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool _isLoggedIn = false;
-  late RoomService _roomService;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
     _isLoggedIn = widget.isLoggedIn;
-    _roomService = RoomService(); // Инициализируем сервис комнат
   }
 
   void _handleLoginSuccess() async {
@@ -50,20 +51,18 @@ class _MyAppState extends State<MyApp> {
     await AuthService.logout();
 
     // Используем глобальный ключ для доступа к провайдерам
-    final navigatorKey = GlobalKey<NavigatorState>();
-
-    if (navigatorKey.currentContext != null) {
-      final channelPostsProvider = Provider.of<ChannelPostsProvider>(navigatorKey.currentContext!, listen: false);
+    if (_navigatorKey.currentContext != null) {
+      final channelPostsProvider = Provider.of<ChannelPostsProvider>(_navigatorKey.currentContext!, listen: false);
       channelPostsProvider.clearAll();
 
-      final articlesProvider = Provider.of<ArticlesProvider>(navigatorKey.currentContext!, listen: false);
+      final articlesProvider = Provider.of<ArticlesProvider>(_navigatorKey.currentContext!, listen: false);
       articlesProvider.clearAll();
 
-      final userProvider = Provider.of<UserProvider>(navigatorKey.currentContext!, listen: false);
+      final userProvider = Provider.of<UserProvider>(_navigatorKey.currentContext!, listen: false);
       userProvider.clearUserData();
 
-      final roomProvider = Provider.of<RoomProvider>(navigatorKey.currentContext!, listen: false);
-      // Добавьте метод очистки в RoomProvider если нужно
+      final roomProvider = Provider.of<RoomProvider>(_navigatorKey.currentContext!, listen: false);
+      roomProvider.clearAllData(); // Добавьте этот метод в RoomProvider
     }
 
     setState(() {
@@ -80,7 +79,9 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => ChannelPostsProvider()),
         ChangeNotifierProvider(create: (_) => ArticlesProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => RoomProvider(_roomService)), // Добавьте эту строку
+        ChangeNotifierProvider(create: (_) => RoomProvider(RoomService())),
+        ChangeNotifierProvider(create: (_) => CommunitiesProvider()),
+        ChangeNotifierProvider(create: (_) => CommunityStateProvider()),// Добавлен RoomProvider
       ],
       child: MaterialApp(
         title: 'Football App',
@@ -88,6 +89,7 @@ class _MyAppState extends State<MyApp> {
           primarySwatch: Colors.blue,
           useMaterial3: true,
         ),
+        navigatorKey: _navigatorKey, // Добавлен ключ навигатора
         home: _isLoggedIn
             ? FutureBuilder(
           future: AuthService.getUser(),

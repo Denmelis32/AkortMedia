@@ -654,6 +654,34 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     );
   }
 
+  // ИСПРАВЛЕНИЕ: Обновленный метод репоста
+  void _toggleRepost(int index) {
+    if (!_isValidIndex(index)) return;
+
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    final bool isCurrentlyReposted = news['isReposted'] ?? false;
+    final int currentReposts = news['reposts'] ?? 0;
+
+    try {
+      HapticFeedback.lightImpact();
+      newsProvider.updateNewsRepostStatus(
+          index,
+          !isCurrentlyReposted,
+          isCurrentlyReposted ? currentReposts - 1 : currentReposts + 1
+      );
+
+      _showSuccessSnackBar(
+          !isCurrentlyReposted
+              ? '🔁 Новость репостнута'
+              : '❌ Репост отменен'
+      );
+    } catch (e) {
+      newsProvider.updateNewsRepostStatus(index, isCurrentlyReposted, currentReposts);
+      _showErrorSnackBar('Не удалось выполнить репост');
+    }
+  }
+
   void _clearAllFilters() {
     _pageState.setFilter(0);
     _pageState.clearSearch();
@@ -832,6 +860,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                       key: ValueKey('news-${news['id']}'),
                                       news: news,
                                       onLike: () => _safeNewsAction(originalIndex, _toggleLike),
+                                      onRepost: () => _safeNewsAction(originalIndex, _toggleRepost),
                                       onBookmark: () => _safeNewsAction(originalIndex, _toggleBookmark),
                                       onFollow: () => _safeNewsAction(originalIndex, _toggleFollow),
                                       onComment: (text, userName, userAvatar) => _safeNewsAction(

@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:my_app/pages/predictions_league_page/prediction_league_card.dart';
+import 'package:my_app/pages/communities/widgets/add_community_dialog.dart';
+import 'package:my_app/pages/communities/widgets/community_card.dart';
 import 'package:provider/provider.dart';
+import 'package:my_app/providers/communities_provider.dart';
+import 'package:my_app/providers/community_state_provider.dart';
 
-import 'league_detail_page.dart';
-import 'models/enums.dart';
-import 'models/prediction_league.dart';
+import 'community_detail_page.dart';
+import 'models/community.dart';
 
-class PredictionsLeaguePage extends StatefulWidget {
+class CommunitiesPage extends StatefulWidget {
   final String userName;
   final String userEmail;
   final VoidCallback onLogout;
 
-  const PredictionsLeaguePage({
+  const CommunitiesPage({
     super.key,
     required this.userName,
     required this.userEmail,
@@ -20,17 +22,26 @@ class PredictionsLeaguePage extends StatefulWidget {
   });
 
   @override
-  State<PredictionsLeaguePage> createState() => _PredictionsLeaguePageState();
+  State<CommunitiesPage> createState() => _CommunitiesPageState();
 }
 
-class LeagueCategory {
+class SortOption {
+  final String label;
+  final String title;
+  final IconData icon;
+  final int Function(Community, Community) comparator;
+
+  SortOption(this.label, this.title, this.icon, this.comparator);
+}
+
+class CommunityCategory {
   final String id;
   final String title;
   final String? description;
   final IconData icon;
   final Color color;
 
-  LeagueCategory({
+  CommunityCategory({
     required this.id,
     required this.title,
     this.description,
@@ -39,86 +50,88 @@ class LeagueCategory {
   });
 }
 
-class SortOption {
-  final String label;
-  final String title;
-  final IconData icon;
-  final int Function(Map<String, dynamic>, Map<String, dynamic>) comparator;
-
-  SortOption(this.label, this.title, this.icon, this.comparator);
-}
-
-class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
+class _CommunitiesPageState extends State<CommunitiesPage> {
   // Константы
-  static const defaultImageUrl = 'https://images.unsplash.com/photo-164320858988d-7bacab7db0b2?w=500&h=300&fit=crop';
+  static const defaultImageUrl = 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=500&h=300&fit=crop';
+  static const defaultAvatarUrl = 'https://via.placeholder.com/150/007bff/ffffff?text=C';
 
-  final List<LeagueCategory> _categories = [
-    LeagueCategory(
+  final List<CommunityCategory> _categories = [
+    CommunityCategory(
       id: 'all',
       title: 'Все',
       icon: Icons.all_inclusive,
       color: Colors.blue,
     ),
-    LeagueCategory(
-      id: 'sports',
-      title: 'Спорт',
-      description: 'Спортивные прогнозы',
-      icon: Icons.sports_soccer,
-      color: Colors.green,
+    CommunityCategory(
+      id: 'technology',
+      title: 'Технологии',
+      description: 'IT, программирование, гаджеты',
+      icon: Icons.computer,
+      color: Colors.blue,
     ),
-    LeagueCategory(
-      id: 'esports',
-      title: 'Киберспорт',
-      description: 'Прогнозы на киберспорт',
+    CommunityCategory(
+      id: 'business',
+      title: 'Бизнес',
+      description: 'Стартапы и инвестиции',
+      icon: Icons.business,
+      color: Colors.orange,
+    ),
+    CommunityCategory(
+      id: 'games',
+      title: 'Игры',
+      description: 'Игровая индустрия',
       icon: Icons.sports_esports,
       color: Colors.purple,
     ),
-    LeagueCategory(
-      id: 'politics',
-      title: 'Политика',
-      description: 'Политические прогнозы',
-      icon: Icons.policy,
+    CommunityCategory(
+      id: 'education',
+      title: 'Образование',
+      description: 'Обучение и курсы',
+      icon: Icons.school,
+      color: Colors.green,
+    ),
+    CommunityCategory(
+      id: 'sport',
+      title: 'Спорт',
+      description: 'Спортивные события',
+      icon: Icons.sports_soccer,
       color: Colors.red,
     ),
-    LeagueCategory(
-      id: 'entertainment',
-      title: 'Развлечения',
-      description: 'Прогнозы в индустрии развлечений',
-      icon: Icons.movie,
-      color: Colors.orange,
+    CommunityCategory(
+      id: 'art',
+      title: 'Искусство',
+      description: 'Творчество и дизайн',
+      icon: Icons.palette,
+      color: Colors.pink,
     ),
-    LeagueCategory(
-      id: 'finance',
-      title: 'Финансы',
-      description: 'Финансовые прогнозы',
-      icon: Icons.trending_up,
-      color: Colors.teal,
+    CommunityCategory(
+      id: 'music',
+      title: 'Музыка',
+      description: 'Музыкальные сообщества',
+      icon: Icons.music_note,
+      color: Colors.deepPurple,
     ),
   ];
 
   final List<SortOption> _sortOptions = [
     SortOption('Сначала новые', 'Сначала новые', Icons.new_releases, (a, b) {
-      final dateA = DateTime.parse(a['end_date'] ?? '');
-      final dateB = DateTime.parse(b['end_date'] ?? '');
-      return dateB.compareTo(dateA);
+      return b.createdAt.compareTo(a.createdAt);
     }),
     SortOption('По популярности', 'По популярности', Icons.trending_up, (a, b) {
-      final participantsA = (a['participants'] as int?) ?? 0;
-      final participantsB = (b['participants'] as int?) ?? 0;
-      return participantsB.compareTo(participantsA);
+      return b.membersCount.compareTo(a.membersCount);
     }),
-    SortOption('По призовому фонду', 'По призовому фонду', Icons.attach_money, (a, b) {
-      final prizeA = (a['prize_pool'] as num?)?.toDouble() ?? 0.0;
-      final prizeB = (b['prize_pool'] as num?)?.toDouble() ?? 0.0;
-      return prizeB.compareTo(prizeA);
+    SortOption('По активности', 'По активности', Icons.local_fire_department, (a, b) {
+      return b.postsCount.compareTo(a.postsCount);
     }),
   ];
+
+  final List<String> _popularSearches = ['Flutter', 'Программирование', 'Бизнес', 'Игры'];
 
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  final Set<String> _favoriteLeagueIds = <String>{};
-  final Set<String> _selectedLeagues = <String>{};
+  final Set<String> _favoriteCommunityIds = <String>{};
+  final Set<String> _selectedCommunities = <String>{};
   final List<String> _searchHistory = [];
 
   int _currentTabIndex = 0;
@@ -140,94 +153,64 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     return 1;
   }
 
+  // Определяем, мобильное ли устройство
+  bool _isMobile(BuildContext context) {
+    return MediaQuery.of(context).size.width <= 600;
+  }
+
+  // ОПТИМАЛЬНЫЕ ПРОПОРЦИИ
   double _getCardAspectRatio(BuildContext context) {
     final crossAxisCount = _getCrossAxisCount(context);
+
     switch (crossAxisCount) {
-      case 1: return 0.65;
-      case 2: return 0.7;
-      case 3: return 0.75;
-      default: return 0.7;
+      case 1: // Мобильные - 1 карточка в ряд
+        return 1.1;
+      case 2: // Планшеты - 2 карточки в ряд
+        return 0.8;
+      case 3: // Десктоп - 3 карточки в ряд
+        return 0.85;
+      default:
+        return 0.8;
     }
   }
 
+  // ТАКИЕ ЖЕ ОТСТУПЫ КАК В CARDS_PAGE
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     if (width > 1200) return 200;
     if (width > 800) return 100;
     if (width > 600) return 60;
-    return 16;
+    return 0;
   }
 
-  // ДЕМО ДАННЫЕ С ПРОГРЕССОМ
-  final List<Map<String, dynamic>> _demoLeagues = [
-    {
-      'id': '1',
-      'title': 'Чемпионат мира по футболу 2024',
-      'description': 'Прогнозы на матчи чемпионата мира по футболу с участием лучших команд',
-      'emoji': '⚽',
-      'participants': 1250,
-      'predictions': 8900,
-      'end_date': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-      'category': 'sports',
-      'author': 'Футбольная ассоциация',
-      'image_url': 'https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?w=500&h=300&fit=crop',
-      'is_active': true,
-      'prize_pool': 50000.0,
-      'progress': 0.7,
-    },
-    {
-      'id': '2',
-      'title': 'Dota 2 - The International',
-      'description': 'Прогнозы на главный турнир по Dota 2 с многомиллионным призовым фондом',
-      'emoji': '🎮',
-      'participants': 890,
-      'predictions': 4500,
-      'end_date': DateTime.now().add(const Duration(days: 15)).toIso8601String(),
-      'category': 'esports',
-      'author': 'Valve Corporation',
-      'image_url': 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500&h=300&fit=crop',
-      'is_active': true,
-      'prize_pool': 25000.0,
-      'progress': 0.4,
-    },
-    {
-      'id': '3',
-      'title': 'Президентские выборы 2024',
-      'description': 'Прогнозы результатов президентских выборов в различных странах мира',
-      'emoji': '🗳️',
-      'participants': 2100,
-      'predictions': 12000,
-      'end_date': DateTime.now().add(const Duration(days: 60)).toIso8601String(),
-      'category': 'politics',
-      'author': 'Центризбирком',
-      'image_url': 'https://images.unsplash.com/photo-1555848962-6e79363ec58f?w=500&h=300&fit=crop',
-      'is_active': true,
-      'prize_pool': 100000.0,
-      'progress': 0.3,
-    },
-    {
-      'id': '4',
-      'title': 'Курс биткоина к концу года',
-      'description': 'Прогнозы стоимости биткоина и других криптовалют на конец года',
-      'emoji': '💰',
-      'participants': 3400,
-      'predictions': 15000,
-      'end_date': DateTime.now().add(const Duration(days: 90)).toIso8601String(),
-      'category': 'finance',
-      'author': 'Криптоаналитики',
-      'image_url': 'https://images.unsplash.com/photo-1516245834210-c4c142787335?w=500&h=300&fit=crop',
-      'is_active': true,
-      'prize_pool': 75000.0,
-      'progress': 0.25,
-    },
-  ];
+  // ОТСТУПЫ МЕЖДУ КАРТОЧКАМИ
+  double _getGridSpacing(BuildContext context) {
+    if (_isMobile(context)) return 0;
+    return 12;
+  }
+
+  // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
+  String _getUserAvatarUrl(BuildContext context) {
+    try {
+      final communityStateProvider = Provider.of<CommunityStateProvider>(context, listen: false);
+
+      final customAvatar = communityStateProvider.getCurrentAvatar(
+        'user_${widget.userEmail}',
+        defaultAvatar: defaultAvatarUrl,
+      );
+
+      return customAvatar ?? defaultAvatarUrl;
+    } catch (e) {
+      return defaultAvatarUrl;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
     _checkConnectivity();
-    _loadCachedLeagues();
+    _loadCachedCommunities();
   }
 
   @override
@@ -245,17 +228,17 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     });
   }
 
-  void _loadCachedLeagues() async {
+  void _loadCachedCommunities() async {
     await Future.delayed(const Duration(milliseconds: 500));
   }
 
   void _onScroll() {
     if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
-      _loadMoreLeagues();
+      _loadMoreCommunities();
     }
   }
 
-  Future<void> _loadMoreLeagues() async {
+  Future<void> _loadMoreCommunities() async {
     if (_isLoadingMore) return;
 
     setState(() {
@@ -269,95 +252,99 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     });
   }
 
-  DateTime _parseDate(dynamic dateData) {
-    if (dateData == null) return DateTime.now();
-    try {
-      if (dateData is String) return DateTime.parse(dateData);
-      if (dateData is DateTime) return dateData;
-      return DateTime.now();
-    } catch (e) {
-      return DateTime.now();
-    }
-  }
-
-  void _openLeagueDetail(Map<String, dynamic> leagueData) {
-    final league = PredictionLeague(
-      id: leagueData['id'] ?? '',
-      title: leagueData['title'] ?? '',
-      description: leagueData['description'] ?? '',
-      emoji: leagueData['emoji'] ?? '🏆',
-      participants: (leagueData['participants'] as int?) ?? 0,
-      predictions: (leagueData['predictions'] as int?) ?? 0,
-      endDate: _parseDate(leagueData['end_date']),
-      category: _categories.firstWhere(
-            (cat) => cat.id == leagueData['category'],
-        orElse: () => _categories.first,
-      ).title,
-      author: leagueData['author'] ?? '',
-      imageUrl: leagueData['image_url'] ?? defaultImageUrl,
-      authorLevel: AuthorLevel.expert,
-      isActive: leagueData['is_active'] == true,
-      prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
-      progress: (leagueData['progress'] as double?) ?? 0.5,
-      views: (leagueData['participants'] as int? ?? 0) * 3,
-      detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий. Участвуйте в обсуждениях, следите за статистикой и выигрывайте призы!',
-    );
-
-    Navigator.push(
-      context,
+  void _openCommunityDetail(Community community) {
+    Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => LeagueDetailPage(league: league),
+        builder: (context) => CommunityDetailPage(community: community),
       ),
     );
   }
 
-  void _navigateToCreateLeague() {
-    _showSnackBar('Создание новой лиги прогнозов');
+  void _navigateToAddCommunityPage() {
+    final currentAvatarUrl = _getUserAvatarUrl(context);
+    final communitiesProvider = Provider.of<CommunitiesProvider>(context, listen: false);
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddCommunityPage(
+          categories: _categories.where((cat) => cat.id != 'all').map((cat) => cat.title).toList(),
+          onCommunityAdded: (newCommunity) {
+            final communityData = Community(
+              id: DateTime.now().millisecondsSinceEpoch,
+              title: newCommunity.title,
+              description: newCommunity.description,
+              imageUrl: newCommunity.imageUrl,
+              coverImageUrl: newCommunity.coverImageUrl,
+              cardColor: newCommunity.cardColor,
+              tags: newCommunity.tags,
+              membersCount: 1,
+              postsCount: 0,
+              isPrivate: newCommunity.isPrivate,
+              createdAt: DateTime.now(),
+            );
+
+            communitiesProvider.addCommunity(communityData);
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Сообщество "${newCommunity.title}" успешно создано!'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
+          userName: widget.userName,
+          userAvatarUrl: currentAvatarUrl,
+        ),
+      ),
+    );
   }
 
-  void _toggleFavorite(String leagueId) {
+  void _toggleFavorite(String communityId) {
     setState(() {
-      if (_favoriteLeagueIds.contains(leagueId)) {
-        _favoriteLeagueIds.remove(leagueId);
+      if (_favoriteCommunityIds.contains(communityId)) {
+        _favoriteCommunityIds.remove(communityId);
       } else {
-        _favoriteLeagueIds.add(leagueId);
+        _favoriteCommunityIds.add(communityId);
       }
     });
   }
 
-  bool _isLeagueFavorite(String leagueId) => _favoriteLeagueIds.contains(leagueId);
+  bool _isCommunityFavorite(String communityId) => _favoriteCommunityIds.contains(communityId);
 
   void _toggleSelectionMode() {
     setState(() {
       _isSelectionMode = !_isSelectionMode;
-      if (!_isSelectionMode) _selectedLeagues.clear();
+      if (!_isSelectionMode) _selectedCommunities.clear();
     });
   }
 
-  void _toggleLeagueSelection(String leagueId) {
+  void _toggleCommunitySelection(String communityId) {
     setState(() {
-      if (_selectedLeagues.contains(leagueId)) {
-        _selectedLeagues.remove(leagueId);
+      if (_selectedCommunities.contains(communityId)) {
+        _selectedCommunities.remove(communityId);
       } else {
-        _selectedLeagues.add(leagueId);
+        _selectedCommunities.add(communityId);
       }
     });
   }
 
-  void _deleteSelectedLeagues() {
-    if (_selectedLeagues.isEmpty) return;
+  void _deleteSelectedCommunities() {
+    if (_selectedCommunities.isEmpty) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Удалить лиги?'),
-        content: Text('Вы уверены, что хотите удалить ${_selectedLeagues.length} лиг?'),
+        title: const Text('Удалить сообщества?'),
+        content: Text('Вы уверены, что хотите удалить ${_selectedCommunities.length} сообществ?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
           TextButton(
             onPressed: () {
+              final communitiesProvider = Provider.of<CommunitiesProvider>(context, listen: false);
+              for (final id in _selectedCommunities) {
+                communitiesProvider.removeCommunity(id);
+              }
               _toggleSelectionMode();
               Navigator.pop(context);
-              _showSnackBar('Удалено ${_selectedLeagues.length} лиг');
             },
             child: const Text('Удалить', style: TextStyle(color: Colors.red)),
           ),
@@ -366,9 +353,11 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
-  void _shareSelectedLeagues() {
-    if (_selectedLeagues.isEmpty) return;
-    _showSnackBar('Поделиться ${_selectedLeagues.length} лигами');
+  void _shareSelectedCommunities() {
+    if (_selectedCommunities.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Поделиться ${_selectedCommunities.length} сообществами'))
+    );
   }
 
   void _addToSearchHistory(String query) {
@@ -387,15 +376,6 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     });
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   // ВИДЖЕТЫ ДЛЯ ФИЛЬТРОВ И КАТЕГОРИЙ
   Widget _buildFiltersCard(double horizontalPadding) {
     if (!_showFilters) return const SizedBox.shrink();
@@ -405,7 +385,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.white, // БЕЛЫЙ фон
+        color: Colors.white,
         child: Container(
           padding: const EdgeInsets.all(16),
           width: double.infinity,
@@ -424,9 +404,10 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                   physics: const BouncingScrollPhysics(),
                   shrinkWrap: true,
                   children: [
-                    _buildFilterChip('active', 'Только активные', Icons.event_available),
+                    _buildFilterChip('verified', 'Только проверенные', Icons.verified),
                     _buildFilterChip('favorites', 'Избранное', Icons.favorite),
-                    _buildFilterChip('high_prize', 'Высокий приз', Icons.attach_money),
+                    _buildFilterChip('private', 'Приватные', Icons.lock),
+                    _buildFilterChip('public', 'Публичные', Icons.public),
                   ],
                 ),
               ),
@@ -481,7 +462,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.white, // БЕЛЫЙ фон
+        color: Colors.white,
         child: Container(
           padding: const EdgeInsets.all(16),
           width: double.infinity,
@@ -512,7 +493,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
-  Widget _buildCategoryChip(LeagueCategory category) {
+  Widget _buildCategoryChip(CommunityCategory category) {
     final isSelected = _currentTabIndex == _categories.indexOf(category);
 
     return Container(
@@ -550,6 +531,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
+  // Виджет поля поиска
   Widget _buildSearchField() {
     return Container(
       height: 40,
@@ -561,7 +543,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
         controller: _searchController,
         autofocus: true,
         decoration: InputDecoration(
-          hintText: 'Поиск лиг прогнозов...',
+          hintText: 'Поиск сообществ...',
           prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
@@ -617,6 +599,8 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
+    final currentAvatarUrl = _getUserAvatarUrl(context);
+    final isMobile = _isMobile(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -637,13 +621,30 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
               // AppBar
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : horizontalPadding,
+                    vertical: 8
+                ),
                 decoration: const BoxDecoration(color: Colors.white),
                 child: Row(
                   children: [
+                    // КНОПКА НАЗАД
+                    IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 18),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 8),
+
                     if (!_showSearchBar) ...[
                       const Text(
-                        'Лиги Прогнозов',
+                        'Сообщества',
                         style: TextStyle(
                           color: Colors.black,
                           fontSize: 20,
@@ -725,112 +726,112 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
 
               // Контент
               Expanded(
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    // Фильтры
-                    SliverToBoxAdapter(child: _buildFiltersCard(horizontalPadding)),
-
-                    // Категории
-                    SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
-
-                    // Карточки лиг
-                    _buildLeaguesGrid(horizontalPadding),
-                  ],
+                child: Container(
+                  width: double.infinity,
+                  child: Consumer2<CommunitiesProvider, CommunityStateProvider>(
+                    builder: (context, communitiesProvider, communityStateProvider, child) {
+                      return _buildContent(communitiesProvider, horizontalPadding);
+                    },
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+      // Кнопка добавления сообщества
       floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToCreateLeague,
-        backgroundColor: Colors.blue,
+        onPressed: _navigateToAddCommunityPage,
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
-        child: const Icon(Icons.add, size: 24),
+        child: const Icon(Icons.group_add, size: 24),
       ),
     );
   }
 
-  Widget _buildLeaguesGrid(double horizontalPadding) {
-    final filteredLeagues = _getFilteredLeagues(_demoLeagues);
+  Widget _buildContent(CommunitiesProvider communitiesProvider, double horizontalPadding) {
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        // Фильтры
+        SliverToBoxAdapter(child: _buildFiltersCard(horizontalPadding)),
 
-    if (filteredLeagues.isEmpty) {
+        // Категории
+        SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
+
+        // Карточки сообществ
+        _buildCommunitiesGrid(communitiesProvider, horizontalPadding),
+      ],
+    );
+  }
+
+  Widget _buildCommunitiesGrid(CommunitiesProvider communitiesProvider, double horizontalPadding) {
+    final communitiesToShow = communitiesProvider.communities;
+    final filteredCommunities = _getFilteredCommunities(communitiesToShow);
+    final isMobile = _isMobile(context);
+    final gridSpacing = _getGridSpacing(context);
+
+    if (filteredCommunities.isEmpty) {
       return SliverFillRemaining(
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.emoji_events, size: 40, color: Colors.grey[400]),
+              Icon(Icons.group, size: 40, color: Colors.grey[400]),
               const SizedBox(height: 8),
-              const Text('Лиги не найдены', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Text('Сообщества не найдены', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               const Text('Попробуйте изменить параметры поиска', style: TextStyle(color: Colors.grey, fontSize: 10)),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _navigateToAddCommunityPage,
+                child: const Text('Создать сообщество'),
+              ),
             ],
           ),
         ),
       );
     }
 
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _getCrossAxisCount(context),
-          crossAxisSpacing: 12, // Уменьшил отступы как в ArticleCard
-          mainAxisSpacing: 12,  // Уменьшил отступы как в ArticleCard
-          childAspectRatio: 0.75, // Фиксированное соотношение как в ArticleCard
-        ),
+    // ДЛЯ МОБИЛЬНЫХ - ИСПОЛЬЗУЕМ SliverList вместо SliverGrid
+    if (isMobile) {
+      return SliverList(
         delegate: SliverChildBuilderDelegate(
               (context, index) {
-            if (index == filteredLeagues.length && _isLoadingMore) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (index >= filteredLeagues.length) return const SizedBox.shrink();
+            if (index >= filteredCommunities.length) return const SizedBox.shrink();
 
-            final leagueData = filteredLeagues[index];
-
-            // Конвертация данных в модель PredictionLeague
-            final league = PredictionLeague(
-              id: leagueData['id'] ?? '',
-              title: leagueData['title'] ?? '',
-              description: leagueData['description'] ?? '',
-              emoji: leagueData['emoji'] ?? '🏆',
-              participants: (leagueData['participants'] as int?) ?? 0,
-              predictions: (leagueData['predictions'] as int?) ?? 0,
-              endDate: _parseDate(leagueData['end_date']),
-              category: _categories.firstWhere(
-                    (cat) => cat.id == leagueData['category'],
-                orElse: () => _categories.first,
-              ).title,
-              author: leagueData['author'] ?? '',
-              imageUrl: leagueData['image_url'] ?? defaultImageUrl,
-              authorLevel: AuthorLevel.expert,
-              isActive: leagueData['is_active'] == true,
-              prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
-              progress: (leagueData['progress'] as double?) ?? 0.5,
-              views: (leagueData['participants'] as int? ?? 0) * 3,
-              detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий.',
-            );
+            final community = filteredCommunities[index];
 
             return Stack(
               children: [
-                PredictionLeagueCard(
-                  key: ValueKey(league.id),
-                  league: league,
-                  onTap: () => _openLeagueDetail(leagueData),
+                CommunityCard(
+                  key: ValueKey(community.id),
+                  community: community,
+                  onTap: () {
+                    if (_isSelectionMode) {
+                      _toggleCommunitySelection(community.id.toString());
+                    } else {
+                      _openCommunityDetail(community);
+                    }
+                  },
+                  onLongPress: () {
+                    if (!_isSelectionMode) {
+                      _toggleSelectionMode();
+                      _toggleCommunitySelection(community.id.toString());
+                    }
+                  },
                 ),
                 if (_isSelectionMode)
                   Positioned(
                     top: 8,
                     left: 8,
                     child: Checkbox(
-                      value: _selectedLeagues.contains(league.id),
-                      onChanged: (_) => _toggleLeagueSelection(league.id),
+                      value: _selectedCommunities.contains(community.id.toString()),
+                      onChanged: (_) => _toggleCommunitySelection(community.id.toString()),
                     ),
                   ),
-                if (_isLeagueFavorite(league.id))
+                if (_isCommunityFavorite(community.id.toString()))
                   Positioned(
                     top: 8,
                     right: 8,
@@ -839,21 +840,85 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
               ],
             );
           },
-          childCount: filteredLeagues.length + (_isLoadingMore ? 1 : 0),
+          childCount: filteredCommunities.length,
+        ),
+      );
+    }
+
+    // ДЛЯ ПЛАНШЕТОВ И КОМПЬЮТЕРОВ - ИСПОЛЬЗУЕМ SliverGrid
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 8,
+      ),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _getCrossAxisCount(context),
+          crossAxisSpacing: gridSpacing,
+          mainAxisSpacing: gridSpacing,
+          childAspectRatio: _getCardAspectRatio(context),
+        ),
+        delegate: SliverChildBuilderDelegate(
+              (context, index) {
+            if (index == filteredCommunities.length && _isLoadingMore) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (index >= filteredCommunities.length) return const SizedBox.shrink();
+
+            final community = filteredCommunities[index];
+
+            return Stack(
+              children: [
+                CommunityCard(
+                  key: ValueKey(community.id),
+                  community: community,
+                  onTap: () {
+                    if (_isSelectionMode) {
+                      _toggleCommunitySelection(community.id.toString());
+                    } else {
+                      _openCommunityDetail(community);
+                    }
+                  },
+                  onLongPress: () {
+                    if (!_isSelectionMode) {
+                      _toggleSelectionMode();
+                      _toggleCommunitySelection(community.id.toString());
+                    }
+                  },
+                ),
+                if (_isSelectionMode)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Checkbox(
+                      value: _selectedCommunities.contains(community.id.toString()),
+                      onChanged: (_) => _toggleCommunitySelection(community.id.toString()),
+                    ),
+                  ),
+                if (_isCommunityFavorite(community.id.toString()))
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Icon(Icons.favorite, size: 16, color: Colors.red),
+                  ),
+              ],
+            );
+          },
+          childCount: filteredCommunities.length + (_isLoadingMore ? 1 : 0),
         ),
       ),
     );
   }
 
-  List<Map<String, dynamic>> _getFilteredLeagues(List<Map<String, dynamic>> allLeagues) {
+  List<Community> _getFilteredCommunities(List<Community> allCommunities) {
     final selectedCategory = _categories[_currentTabIndex];
-    var filtered = allLeagues.where((league) {
+    var filtered = allCommunities.where((community) {
       final matchesSearch = _searchQuery.isEmpty ||
-          (league['title']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (league['description']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
+          community.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          community.description.toLowerCase().contains(_searchQuery.toLowerCase());
 
       final matchesCategory = selectedCategory.id == 'all' ||
-          (league['category']?.toString() ?? '').toLowerCase() == selectedCategory.id.toLowerCase();
+          community.tags.any((tag) => tag.toLowerCase() == selectedCategory.id.toLowerCase());
 
       return matchesSearch && matchesCategory;
     }).toList();

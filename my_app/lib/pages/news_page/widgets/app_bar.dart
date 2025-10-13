@@ -36,6 +36,19 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
+  // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ - ТАКИЕ ЖЕ КАК В ARTICLES_PAGE
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 200;
+    if (width > 800) return 100;
+    if (width > 600) return 60;
+    return 0;
+  }
+
+  bool _isMobile(BuildContext context) {
+    return MediaQuery.of(context).size.width <= 600;
+  }
+
   Widget _buildUserAvatar() {
     final hasProfileImage = profileImageUrl != null || profileImageFile != null;
 
@@ -104,112 +117,139 @@ class NewsAppBar extends StatelessWidget implements PreferredSizeWidget {
     return null;
   }
 
+  Widget _buildSearchField(BuildContext context) {
+    final horizontalPadding = _getHorizontalPadding(context);
+    final isMobile = _isMobile(context);
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 0 : horizontalPadding,
+      ),
+      child: Container(
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                autofocus: true,
+                controller: TextEditingController(text: searchQuery),
+                onChanged: onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: 'Поиск новостей...',
+                  prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                  suffixIcon: searchQuery.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                    onPressed: () => onSearchChanged(''),
+                  )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.black,
+                  size: 18,
+                ),
+              ),
+              onPressed: onSearchToggled,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = _getHorizontalPadding(context);
+    final isMobile = _isMobile(context);
+
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
       automaticallyImplyLeading: false,
       title: isSearching
-          ? _buildSearchField()
-          : Row(
-        children: [
-          Text(
-            'Лента новостей',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'Beta',
+          ? _buildSearchField(context)
+          : Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : horizontalPadding,
+        ),
+        child: Row(
+          children: [
+            Text(
+              'Лента новостей',
               style: TextStyle(
-                color: Colors.blue,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Colors.black,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Beta',
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         if (!isSearching)
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.search,
-                color: Colors.black,
-                size: 18,
-              ),
+          Container(
+            padding: EdgeInsets.only(
+              right: isMobile ? 0 : horizontalPadding,
             ),
-            onPressed: onSearchToggled,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.search,
+                      color: Colors.black,
+                      size: 18,
+                    ),
+                  ),
+                  onPressed: onSearchToggled,
+                ),
+                _buildUserAvatar(),
+                const SizedBox(width: 8),
+              ],
+            ),
           ),
-        _buildUserAvatar(),
-        const SizedBox(width: 8),
       ],
-    );
-  }
-
-  Widget _buildSearchField() {
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              autofocus: true,
-              controller: TextEditingController(text: searchQuery),
-              onChanged: onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Поиск новостей...',
-                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
-                suffixIcon: searchQuery.isNotEmpty
-                    ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-                  onPressed: () => onSearchChanged(''),
-                )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.black,
-                size: 18,
-              ),
-            ),
-            onPressed: onSearchToggled,
-          ),
-        ],
-      ),
     );
   }
 }

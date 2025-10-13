@@ -2,6 +2,16 @@ import 'package:flutter/material.dart';
 import '../models/article.dart';
 import 'article_card.dart';
 
+// Расширяем типы блоков
+enum ContentBlockType { text, image, heading, subheading }
+
+class ContentBlock {
+  final ContentBlockType type;
+  final String content;
+
+  ContentBlock({required this.type, required this.content});
+}
+
 class AddArticlePage extends StatefulWidget {
   final List<String> categories;
   final List<String> emojis;
@@ -25,6 +35,7 @@ class AddArticlePage extends StatefulWidget {
 class _AddArticlePageState extends State<AddArticlePage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _subtitleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _imageUrlController = TextEditingController();
@@ -37,13 +48,14 @@ class _AddArticlePageState extends State<AddArticlePage> {
   bool _isImageValid = false;
   String? _imageError;
 
-  // Простые тестовые изображения
   final List<String> _popularImages = [
     'https://avatars.mds.yandex.net/i?id=726f36664cfa9350596fb7856ad6633a2625ef83-9555577-images-thumbs&n=13',
     'https://picsum.photos/500/300?grayscale',
     'https://picsum.photos/500/300?blur=2',
     'https://picsum.photos/500/300?random=1',
   ];
+
+  final List<ContentBlock> _contentBlocks = [];
 
   @override
   void initState() {
@@ -53,9 +65,9 @@ class _AddArticlePageState extends State<AddArticlePage> {
     }
     _imageUrlController.text = _popularImages.first;
     _isImageValid = true;
+    _contentBlocks.add(ContentBlock(type: ContentBlockType.text, content: ''));
   }
 
-  // Адаптивные методы как в CardsPage
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     if (width > 1200) return 200;
@@ -88,8 +100,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-
-              // Готовые изображения
               SizedBox(
                 height: 100,
                 child: ListView.builder(
@@ -143,8 +153,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Поле для своей ссылки
               TextFormField(
                 controller: _imageUrlController,
                 decoration: const InputDecoration(
@@ -154,7 +162,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                 ),
               ),
               const SizedBox(height: 16),
-
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -189,27 +196,95 @@ class _AddArticlePageState extends State<AddArticlePage> {
     );
   }
 
-  InputDecoration _requiredFieldDecoration(String labelText) {
-    return InputDecoration(
-      labelText: '$labelText *',
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      contentPadding: const EdgeInsets.all(16),
+  // НОВЫЕ МЕТОДЫ ДЛЯ ДОБАВЛЕНИЯ РАЗЛИЧНЫХ БЛОКОВ
+  void _addTextBlock() {
+    setState(() {
+      _contentBlocks.add(ContentBlock(type: ContentBlockType.text, content: ''));
+    });
+  }
+
+  void _addHeadingBlock() {
+    setState(() {
+      _contentBlocks.add(ContentBlock(type: ContentBlockType.heading, content: ''));
+    });
+  }
+
+  void _addSubheadingBlock() {
+    setState(() {
+      _contentBlocks.add(ContentBlock(type: ContentBlockType.subheading, content: ''));
+    });
+  }
+
+  void _addImageBlock() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Добавить изображение'),
+        content: TextFormField(
+          decoration: const InputDecoration(
+            labelText: 'URL изображения',
+            hintText: 'https://example.com/image.jpg',
+          ),
+          onChanged: (value) {
+            if (value.isNotEmpty && value.startsWith('http')) {
+              setState(() {
+                _contentBlocks.add(ContentBlock(type: ContentBlockType.image, content: value));
+              });
+              Navigator.pop(context);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
     );
   }
 
+  void _removeBlock(int index) {
+    setState(() {
+      _contentBlocks.removeAt(index);
+    });
+  }
+
+  void _updateBlockContent(int index, String content) {
+    setState(() {
+      _contentBlocks[index] = ContentBlock(
+        type: _contentBlocks[index].type,
+        content: content,
+      );
+    });
+  }
+
+  // ОБНОВЛЕННАЯ ВАЛИДАЦИЯ
   bool _validateForm() {
     if (_titleController.text.isEmpty || _titleController.text.length < 3) {
       _showValidationError('Заголовок должен содержать минимум 3 символа');
       return false;
     }
 
-    if (_descriptionController.text.isEmpty || _descriptionController.text.length < 10) {
-      _showValidationError('Описание должно содержать минимум 10 символов');
+    if (_subtitleController.text.isEmpty || _subtitleController.text.length < 10) {
+      _showValidationError('Подзаголовок должен содержать минимум 10 символов');
       return false;
     }
 
-    if (_contentController.text.isEmpty || _contentController.text.length < 300) {
-      _showValidationError('Содержание должно содержать минимум 300 символов');
+    if (_descriptionController.text.isEmpty || _descriptionController.text.length < 50) {
+      _showValidationError('Описание должно содержать минимум 50 символов');
+      return false;
+    }
+
+    // Проверяем, что есть хотя бы один текстовый блок с контентом
+    final hasContent = _contentBlocks.any((block) =>
+    (block.type == ContentBlockType.text ||
+        block.type == ContentBlockType.heading ||
+        block.type == ContentBlockType.subheading) &&
+        block.content.trim().isNotEmpty);
+
+    if (!hasContent) {
+      _showValidationError('Добавьте содержание статьи');
       return false;
     }
 
@@ -242,12 +317,25 @@ class _AddArticlePageState extends State<AddArticlePage> {
 
   void _publishArticle() {
     if (_formKey.currentState!.validate() && _validateForm()) {
+      final content = _contentBlocks.map((block) {
+        switch (block.type) {
+          case ContentBlockType.text:
+            return block.content;
+          case ContentBlockType.heading:
+            return '[HEADING:${block.content}]';
+          case ContentBlockType.subheading:
+            return '[SUBHEADING:${block.content}]';
+          case ContentBlockType.image:
+            return '[IMAGE:${block.content}]';
+        }
+      }).join('\n\n');
+
       final article = Article(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: _titleController.text,
-        description: _descriptionController.text,
+        description: _subtitleController.text,
         emoji: _selectedEmoji,
-        content: _contentController.text,
+        content: content,
         views: 0,
         likes: 0,
         publishDate: DateTime.now(),
@@ -267,6 +355,56 @@ class _AddArticlePageState extends State<AddArticlePage> {
       );
 
       Navigator.pop(context);
+    }
+  }
+
+  InputDecoration _requiredFieldDecoration(String labelText) {
+    return InputDecoration(
+      labelText: '$labelText *',
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding: const EdgeInsets.all(16),
+    );
+  }
+
+  // НОВЫЙ МЕТОД: Получение иконки для типа блока
+  IconData _getBlockIcon(ContentBlockType type) {
+    switch (type) {
+      case ContentBlockType.text:
+        return Icons.text_fields;
+      case ContentBlockType.heading:
+        return Icons.title;
+      case ContentBlockType.subheading:
+        return Icons.subtitles;
+      case ContentBlockType.image:
+        return Icons.image;
+    }
+  }
+
+  // НОВЫЙ МЕТОД: Получение цвета для типа блока
+  Color _getBlockColor(ContentBlockType type) {
+    switch (type) {
+      case ContentBlockType.text:
+        return Colors.blue;
+      case ContentBlockType.heading:
+        return Colors.orange;
+      case ContentBlockType.subheading:
+        return Colors.purple;
+      case ContentBlockType.image:
+        return Colors.green;
+    }
+  }
+
+  // НОВЫЙ МЕТОД: Получение названия типа блока
+  String _getBlockTypeName(ContentBlockType type) {
+    switch (type) {
+      case ContentBlockType.text:
+        return 'Текст';
+      case ContentBlockType.heading:
+        return 'Заголовок';
+      case ContentBlockType.subheading:
+        return 'Подзаголовок';
+      case ContentBlockType.image:
+        return 'Изображение';
     }
   }
 
@@ -290,7 +428,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar как в CardsPage - БЕЗ карточки, просто белый фон
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 12),
@@ -321,8 +458,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                   ],
                 ),
               ),
-
-              // Основной контент
               Expanded(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
@@ -331,7 +466,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Карточка с формой как в CardsPage
                         Card(
                           elevation: 4,
                           shape: RoundedRectangleBorder(
@@ -344,7 +478,7 @@ class _AddArticlePageState extends State<AddArticlePage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Уровень автора
+                                // ... остальные поля формы остаются без изменений ...
                                 const Text(
                                   'Уровень автора *',
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -406,8 +540,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                                   ],
                                 ),
                                 const SizedBox(height: 24),
-
-                                // Эмодзи и категория
                                 Row(
                                   children: [
                                     Container(
@@ -452,12 +584,10 @@ class _AddArticlePageState extends State<AddArticlePage> {
                                   ],
                                 ),
                                 const SizedBox(height: 24),
-
-                                // Изображение
                                 TextFormField(
                                   controller: _imageUrlController,
                                   decoration: InputDecoration(
-                                    labelText: 'URL изображения *',
+                                    labelText: 'URL обложки *',
                                     border: const OutlineInputBorder(),
                                     suffixIcon: _isImageLoading
                                         ? const Padding(
@@ -493,15 +623,13 @@ class _AddArticlePageState extends State<AddArticlePage> {
                                 ElevatedButton.icon(
                                   onPressed: _showImagePicker,
                                   icon: const Icon(Icons.image),
-                                  label: const Text('Выбрать изображение'),
+                                  label: const Text('Выбрать обложку'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.grey[100],
                                     foregroundColor: Colors.black,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-
-                                // Превью изображения
                                 if (_imageUrlController.text.isNotEmpty && _isImageValid)
                                   Container(
                                     height: 200,
@@ -550,8 +678,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                                     ),
                                   ),
                                 const SizedBox(height: 24),
-
-                                // Заголовок
                                 TextFormField(
                                   controller: _titleController,
                                   decoration: _requiredFieldDecoration('Заголовок статьи'),
@@ -562,48 +688,225 @@ class _AddArticlePageState extends State<AddArticlePage> {
                                   },
                                 ),
                                 const SizedBox(height: 16),
-
-                                // Описание
                                 TextFormField(
-                                  controller: _descriptionController,
-                                  decoration: _requiredFieldDecoration('Описание'),
-                                  maxLines: 3,
+                                  controller: _subtitleController,
+                                  decoration: _requiredFieldDecoration('Подзаголовок'),
+                                  maxLines: 2,
                                   validator: (value) {
-                                    if (value == null || value.isEmpty) return 'Введите описание';
+                                    if (value == null || value.isEmpty) return 'Введите подзаголовок';
                                     if (value.length < 10) return 'Минимум 10 символов';
                                     return null;
                                   },
                                 ),
                                 const SizedBox(height: 16),
-
-                                // Содержание
                                 TextFormField(
-                                  controller: _contentController,
-                                  decoration: _requiredFieldDecoration('Содержание'),
-                                  maxLines: 8,
-                                  onChanged: (value) => setState(() => _charCount = value.length),
+                                  controller: _descriptionController,
+                                  decoration: _requiredFieldDecoration('Описание статьи'),
+                                  maxLines: 3,
                                   validator: (value) {
-                                    if (value == null || value.isEmpty) return 'Введите содержание';
-                                    if (value.length < 300) return 'Минимум 300 символов';
+                                    if (value == null || value.isEmpty) return 'Введите описание';
+                                    if (value.length < 50) return 'Минимум 50 символов';
                                     return null;
                                   },
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '$_charCount/300 символов',
-                                  style: TextStyle(
-                                    color: _charCount >= 300 ? Colors.green : Colors.grey,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                const SizedBox(height: 24),
+
+                                // ОБНОВЛЕННЫЙ РАЗДЕЛ СОДЕРЖАНИЯ
+                                const Text(
+                                  'Содержание статьи *',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Добавляйте различные блоки в нужном порядке:',
+                                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // БЛОКИ СОДЕРЖАНИЯ
+                                Column(
+                                  children: _contentBlocks.asMap().entries.map((entry) {
+                                    final index = entry.key;
+                                    final block = entry.value;
+                                    final blockColor = _getBlockColor(block.type);
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 16),
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey[300]!),
+                                        borderRadius: BorderRadius.circular(12),
+                                        color: Colors.white,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // ЗАГОЛОВОК БЛОКА С ЦВЕТНЫМ ИНДИКАТОРОМ
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: blockColor.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: blockColor.withOpacity(0.3)),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(_getBlockIcon(block.type), size: 16, color: blockColor),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  '${_getBlockTypeName(block.type)} ${index + 1}',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: blockColor,
+                                                  ),
+                                                ),
+                                                const Spacer(),
+                                                if (_contentBlocks.length > 1)
+                                                  IconButton(
+                                                    icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                                                    onPressed: () => _removeBlock(index),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+
+                                          // ПОЛЕ ВВОДА В ЗАВИСИМОСТИ ОТ ТИПА БЛОКА
+                                          if (block.type == ContentBlockType.text)
+                                            TextFormField(
+                                              initialValue: block.content,
+                                              maxLines: 4,
+                                              decoration: const InputDecoration(
+                                                hintText: 'Введите текст...',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              onChanged: (value) => _updateBlockContent(index, value),
+                                            )
+                                          else if (block.type == ContentBlockType.heading)
+                                            TextFormField(
+                                              initialValue: block.content,
+                                              maxLines: 2,
+                                              decoration: const InputDecoration(
+                                                hintText: 'Введите заголовок...',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              onChanged: (value) => _updateBlockContent(index, value),
+                                            )
+                                          else if (block.type == ContentBlockType.subheading)
+                                              TextFormField(
+                                                initialValue: block.content,
+                                                maxLines: 2,
+                                                decoration: const InputDecoration(
+                                                  hintText: 'Введите подзаголовок...',
+                                                  border: OutlineInputBorder(),
+                                                ),
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                onChanged: (value) => _updateBlockContent(index, value),
+                                              )
+                                            else // Image block
+                                              Column(
+                                                children: [
+                                                  Container(
+                                                    height: 150,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      color: Colors.grey[100],
+                                                    ),
+                                                    child: ClipRRect(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      child: Image.network(
+                                                        block.content,
+                                                        fit: BoxFit.cover,
+                                                        width: double.infinity,
+                                                        errorBuilder: (context, error, stackTrace) {
+                                                          return Center(
+                                                            child: Column(
+                                                              mainAxisAlignment: MainAxisAlignment.center,
+                                                              children: [
+                                                                const Icon(Icons.error, color: Colors.red),
+                                                                const SizedBox(height: 8),
+                                                                Text(
+                                                                  'Ошибка загрузки',
+                                                                  style: TextStyle(color: Colors.red[700]),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    'URL: ${block.content}',
+                                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+
+                                // ОБНОВЛЕННЫЕ КНОПКИ ДОБАВЛЕНИЯ БЛОКОВ
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      onPressed: _addTextBlock,
+                                      icon: const Icon(Icons.text_fields, size: 16),
+                                      label: const Text('Текст'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue[50],
+                                        foregroundColor: Colors.blue,
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      onPressed: _addHeadingBlock,
+                                      icon: const Icon(Icons.title, size: 16),
+                                      label: const Text('Заголовок'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange[50],
+                                        foregroundColor: Colors.orange,
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      onPressed: _addSubheadingBlock,
+                                      icon: const Icon(Icons.subtitles, size: 16),
+                                      label: const Text('Подзаголовок'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.purple[50],
+                                        foregroundColor: Colors.purple,
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      onPressed: _addImageBlock,
+                                      icon: const Icon(Icons.image, size: 16),
+                                      label: const Text('Изображение'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green[50],
+                                        foregroundColor: Colors.green,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 24),
                               ],
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 24),
-
-                        // Кнопка публикации
                         SizedBox(
                           width: double.infinity,
                           height: 50,
@@ -625,7 +928,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 32),
                       ],
                     ),
@@ -642,6 +944,7 @@ class _AddArticlePageState extends State<AddArticlePage> {
   @override
   void dispose() {
     _titleController.dispose();
+    _subtitleController.dispose();
     _descriptionController.dispose();
     _contentController.dispose();
     _imageUrlController.dispose();

@@ -1,9 +1,7 @@
 // models/channel.dart
 import 'dart:ui' show Color;
 
-import 'package:my_app/pages/cards_page/models/playlist.dart';
 
-import '../widgets/page_sections/playlist_section.dart';
 
 class Channel {
   final int id;
@@ -32,7 +30,6 @@ class Channel {
   final String authorImageUrl;
   final int commentsCount;
   final bool isPinned;
-  final List<Playlist> playlists;
   final String? coverImageUrl; // Добавленное поле
 
   Channel({
@@ -62,7 +59,6 @@ class Channel {
     this.websiteUrl = '',
     this.socialMedia = '',
     this.isPinned = false,
-    this.playlists = const [],
     this.coverImageUrl, // Значение по умолчанию - пустой список
   });
 
@@ -94,7 +90,6 @@ class Channel {
     String? authorImageUrl,
     int? commentsCount,
     bool? isPinned,
-    List<Playlist>? playlists, // Добавлен в copyWith
   }) {
     return Channel(
       id: id ?? this.id,
@@ -123,37 +118,10 @@ class Channel {
       authorImageUrl: authorImageUrl ?? this.authorImageUrl,
       commentsCount: commentsCount ?? this.commentsCount,
       isPinned: isPinned ?? this.isPinned,
-      playlists: playlists ?? this.playlists,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,// Добавлено
     );
   }
 
-  // Новый метод для получения количества плейлистов
-  int get playlistCount => playlists.length;
-
-  // Метод для проверки наличия плейлистов
-  bool get hasPlaylists => playlists.isNotEmpty;
-
-  // Метод для получения общего количества видео во всех плейлистах
-  int get totalVideosInPlaylists {
-    return playlists.fold(0, (sum, playlist) => sum + playlist.videoCount);
-  }
-
-  // Метод для получения самого популярного плейлиста (по количеству видео)
-  Playlist? get mostPopularPlaylist {
-    if (playlists.isEmpty) return null;
-    return playlists.reduce((a, b) => a.videoCount > b.videoCount ? a : b);
-  }
-
-  // Метод для получения последнего плейлиста (по дате создания)
-  Playlist? get latestPlaylist {
-    if (playlists.isEmpty) return null;
-    return playlists.reduce((a, b) {
-      final aDate = a.createdAt ?? DateTime(0);
-      final bDate = b.createdAt ?? DateTime(0);
-      return aDate.isAfter(bDate) ? a : b;
-    });
-  }
 
   // Метод для вычисления engagement rate
   double get engagementRate {
@@ -272,7 +240,6 @@ class Channel {
       'authorImageUrl': authorImageUrl,
       'commentsCount': commentsCount,
       'isPinned': isPinned,
-      'playlists': playlists.map((playlist) => playlist.toMap()).toList(), // Добавлено
     };
   }
 
@@ -305,9 +272,6 @@ class Channel {
       authorImageUrl: map['authorImageUrl'] ?? '',
       commentsCount: map['commentsCount'] ?? 0,
       isPinned: map['isPinned'] ?? false,
-      playlists: (map['playlists'] as List<dynamic>? ?? []) // Добавлено
-          .map((playlistMap) => Playlist.fromMap(playlistMap))
-          .toList(),
     );
   }
 
@@ -327,7 +291,6 @@ class Channel {
     String authorImageUrl = '',
     int commentsCount = 0,
     int likes = 0,
-    List<Playlist> playlists = const [], // Добавлено
   }) {
     return Channel(
       id: id,
@@ -349,13 +312,12 @@ class Channel {
       likes: likes,
       views: 0,
       comments: 0,
-      playlists: playlists, // Добавлено
     );
   }
 
   @override
   String toString() {
-    return 'Channel{id: $id, title: $title, subscribers: $subscribers, isSubscribed: $isSubscribed, isFavorite: $isFavorite, rating: $rating, isVerified: $isVerified, isPinned: $isPinned, playlists: $playlistCount}';
+    return 'Channel{id: $id, title: $title, subscribers: $subscribers, isSubscribed: $isSubscribed, isFavorite: $isFavorite, rating: $rating, isVerified: $isVerified, isPinned: $isPinned}';
   }
 
   @override
@@ -378,5 +340,4 @@ class Channel {
   int compareByRating(Channel other) => rating.compareTo(other.rating);
 
   // Метод для сравнения по количеству плейлистов (для сортировки)
-  int compareByPlaylistCount(Channel other) => playlistCount.compareTo(other.playlistCount);
 }

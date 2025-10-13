@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_app/pages/articles_pages/test_articles.dart';
 import 'package:provider/provider.dart';
 import '../article_detail_page.dart';
 import 'models/article.dart';
@@ -143,26 +144,31 @@ class _ArticlesPageState extends State<ArticlesPage> {
   bool _showSearchBar = false;
   bool _showFilters = false;
 
-  // АДАПТИВНЫЕ МЕТОДЫ КАК В CARDS_PAGE
+  // АДАПТИВНЫЕ МЕТОДЫ
   int _getCrossAxisCount(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 3; // Большие экраны - 3 карточки
-    if (width > 800) return 3;  // Средние экраны - 3 карточки
-    if (width > 600) return 2;  // Планшеты - 2 карточки
-    return 1;                   // Мобильные - 1 карточка
+    if (width > 1200) return 3;
+    if (width > 800) return 3;
+    if (width > 600) return 2;
+    return 1;
   }
 
-  // ОПТИМАЛЬНЫЕ ПРОПОРЦИИ ДЛЯ 3 КАРТОЧЕК
+  // Определяем, мобильное ли устройство
+  bool _isMobile(BuildContext context) {
+    return MediaQuery.of(context).size.width <= 600;
+  }
+
+  // ОПТИМАЛЬНЫЕ ПРОПОРЦИИ
   double _getCardAspectRatio(BuildContext context) {
     final crossAxisCount = _getCrossAxisCount(context);
 
     switch (crossAxisCount) {
       case 1: // Мобильные - 1 карточка в ряд
-        return 0.75; // ВЫСОКАЯ КАРТОЧКА
+        return 1.1;
       case 2: // Планшеты - 2 карточки в ряд
-        return 0.8;  // КВАДРАТНАЯ КАРТОЧКА
+        return 0.8;
       case 3: // Десктоп - 3 карточки в ряд
-        return 0.85; // ШИРОКАЯ КАРТОЧКА
+        return 0.85;
       default:
         return 0.8;
     }
@@ -171,56 +177,16 @@ class _ArticlesPageState extends State<ArticlesPage> {
   // ТАКИЕ ЖЕ ОТСТУПЫ КАК В CARDS_PAGE
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 200; // Большие экраны
-    if (width > 800) return 100;  // Средние экраны
-    if (width > 600) return 60;   // Планшеты
-    return 16;                    // Мобильные
+    if (width > 1200) return 200;
+    if (width > 800) return 100;
+    if (width > 600) return 60;
+    return 0;
   }
 
-  // ОСТАЛЬНЫЕ АДАПТИВНЫЕ МЕТОДЫ
-  double _getCoverHeight(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-
-    switch (crossAxisCount) {
-      case 1: // Мобильные
-        return 140;
-      case 2: // Планшеты
-        return 130;
-      case 3: // Десктоп
-        return 120;
-      default:
-        return 130;
-    }
-  }
-
-  double _getTitleFontSize(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-
-    switch (crossAxisCount) {
-      case 1: // Мобильные
-        return 17;
-      case 2: // Планшеты
-        return 16;
-      case 3: // Десктоп
-        return 15;
-      default:
-        return 16;
-    }
-  }
-
-  double _getDescriptionFontSize(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-
-    switch (crossAxisCount) {
-      case 1: // Мобильные
-        return 13;
-      case 2: // Планшеты
-        return 12;
-      case 3: // Десктоп
-        return 11;
-      default:
-        return 12;
-    }
+  // ОТСТУПЫ МЕЖДУ КАРТОЧКАМИ
+  double _getGridSpacing(BuildContext context) {
+    if (_isMobile(context)) return 0;
+    return 12;
   }
 
   // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
@@ -440,7 +406,7 @@ class _ArticlesPageState extends State<ArticlesPage> {
     });
   }
 
-  // ВИДЖЕТЫ ДЛЯ ФИЛЬТРОВ И КАТЕГОРИЙ С ТАКИМИ ЖЕ ОТСТУПАМИ
+  // ВИДЖЕТЫ ДЛЯ ФИЛЬТРОВ И КАТЕГОРИЙ
   Widget _buildFiltersCard(double horizontalPadding) {
     if (!_showFilters) return const SizedBox.shrink();
 
@@ -662,6 +628,7 @@ class _ArticlesPageState extends State<ArticlesPage> {
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
     final currentAvatarUrl = _getUserAvatarUrl(context);
+    final isMobile = _isMobile(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -679,10 +646,13 @@ class _ArticlesPageState extends State<ArticlesPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar С ТАКИМИ ЖЕ ОТСТУПАМИ
+              // AppBar
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : horizontalPadding,
+                    vertical: 8
+                ),
                 decoration: const BoxDecoration(color: Colors.white),
                 child: Row(
                   children: [
@@ -804,14 +774,21 @@ class _ArticlesPageState extends State<ArticlesPage> {
         // Категории
         SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
 
-        // Карточки статей С ТАКИМИ ЖЕ ОТСТУПАМИ
+        // Карточки статей
         _buildArticlesGrid(articlesProvider, horizontalPadding),
       ],
     );
   }
 
   Widget _buildArticlesGrid(ArticlesProvider articlesProvider, double horizontalPadding) {
-    final filteredArticles = _getFilteredArticles(articlesProvider.articles);
+    // Используем тестовые статьи если нет данных из провайдера
+    final articlesToShow = articlesProvider.articles.isNotEmpty
+        ? articlesProvider.articles
+        : TestArticles.testArticles;
+
+    final filteredArticles = _getFilteredArticles(articlesToShow);
+    final isMobile = _isMobile(context);
+    final gridSpacing = _getGridSpacing(context);
 
     if (filteredArticles.isEmpty) {
       return SliverFillRemaining(
@@ -830,13 +807,82 @@ class _ArticlesPageState extends State<ArticlesPage> {
       );
     }
 
+    // ДЛЯ МОБИЛЬНЫХ - ИСПОЛЬЗУЕМ SliverList вместо SliverGrid
+    if (isMobile) {
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+              (context, index) {
+            if (index >= filteredArticles.length) return const SizedBox.shrink();
+
+            final articleData = filteredArticles[index];
+            final article = Article(
+              id: articleData['id']?.toString() ?? '',
+              title: articleData['title'] ?? '',
+              description: articleData['description'] ?? '',
+              emoji: articleData['emoji'] ?? '📝',
+              content: articleData['content'] ?? '',
+              views: (articleData['views'] as int?) ?? 0,
+              likes: (articleData['likes'] as int?) ?? 0,
+              publishDate: _parseDate(articleData['publish_date']),
+              category: articleData['category'] ?? 'Общее',
+              author: articleData['author'] ?? 'Неизвестный автор',
+              imageUrl: articleData['image_url'] ?? defaultImageUrl,
+              authorLevel: _parseAuthorLevel(articleData['author_level']),
+            );
+
+            return Stack(
+              children: [
+                ArticleCard(
+                  key: ValueKey(article.id),
+                  article: article,
+                  onTap: () {
+                    if (_isSelectionMode) {
+                      _toggleArticleSelection(article.id);
+                    } else {
+                      _openArticleDetail(articleData);
+                    }
+                  },
+                  onLongPress: () {
+                    if (!_isSelectionMode) {
+                      _toggleSelectionMode();
+                      _toggleArticleSelection(article.id);
+                    }
+                  },
+                ),
+                if (_isSelectionMode)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Checkbox(
+                      value: _selectedArticles.contains(article.id),
+                      onChanged: (_) => _toggleArticleSelection(article.id),
+                    ),
+                  ),
+                if (_isArticleFavorite(article.id))
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Icon(Icons.favorite, size: 16, color: Colors.red),
+                  ),
+              ],
+            );
+          },
+          childCount: filteredArticles.length,
+        ),
+      );
+    }
+
+    // ДЛЯ ПЛАНШЕТОВ И КОМПЬЮТЕРОВ - ИСПОЛЬЗУЕМ SliverGrid
     return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 8,
+      ),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: _getCrossAxisCount(context),
-          crossAxisSpacing: 12, // ТАКОЙ ЖЕ ОТСТУП МЕЖДУ КАРТОЧКАМИ
-          mainAxisSpacing: 12,  // ТАКОЙ ЖЕ ОТСТУП МЕЖДУ КАРТОЧКАМИ
+          crossAxisSpacing: gridSpacing,
+          mainAxisSpacing: gridSpacing,
           childAspectRatio: _getCardAspectRatio(context),
         ),
         delegate: SliverChildBuilderDelegate(

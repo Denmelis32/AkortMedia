@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'event_model.dart';
 import 'add_event_dialog.dart';
 
@@ -7,27 +8,92 @@ class EventDetailsScreen extends StatefulWidget {
   final Event event;
   final Function(Event)? onEdit;
   final Function()? onDelete;
+  final Function()? onFavorite;
+  final Function()? onAttend;
+  final Function()? onShare;
+  final Function(double)? onRate;
+  final bool? isFavorite;
+  final bool? isAttending;
+  final double? currentRating;
+  final int? viewCount;
 
   const EventDetailsScreen({
     Key? key,
     required this.event,
     this.onEdit,
     this.onDelete,
+    this.onFavorite,
+    this.onAttend,
+    this.onShare,
+    this.onRate,
+    this.isFavorite = false,
+    this.isAttending = false,
+    this.currentRating,
+    this.viewCount = 0,
   }) : super(key: key);
 
   @override
   _EventDetailsScreenState createState() => _EventDetailsScreenState();
 }
 
-class _EventDetailsScreenState extends State<EventDetailsScreen> {
+class _EventDetailsScreenState extends State<EventDetailsScreen> with TickerProviderStateMixin {
   late Event _currentEvent;
   bool _isPastEvent = false;
+  bool _isOngoing = false;
+  bool _isFavorite = false;
+  bool _isAttending = false;
+  double _currentRating = 0.0;
+  int _viewCount = 0;
+
+  // Анимации
+  late AnimationController _favoriteController;
+  late AnimationController _attendController;
+  late Animation<double> _scaleAnimation;
+
+  // Состояния
+  int _currentImageIndex = 0;
+  final PageController _pageController = PageController();
 
   @override
   void initState() {
     super.initState();
     _currentEvent = widget.event;
     _isPastEvent = _currentEvent.date.isBefore(DateTime.now());
+    _isOngoing = _currentEvent.date.isBefore(DateTime.now()) && _currentEvent.endDate.isAfter(DateTime.now());
+    _isFavorite = widget.isFavorite ?? false;
+    _isAttending = widget.isAttending ?? false;
+    _currentRating = widget.currentRating ?? _currentEvent.rating;
+    _viewCount = widget.viewCount ?? 0;
+
+    // Инициализация анимаций
+    _favoriteController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _attendController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _favoriteController, curve: Curves.easeInOut),
+    );
+
+    // Увеличиваем счетчик просмотров
+    _incrementViewCount();
+  }
+
+  void _incrementViewCount() {
+    setState(() {
+      _viewCount++;
+    });
+  }
+
+  @override
+  void dispose() {
+    _favoriteController.dispose();
+    _attendController.dispose();
+    _pageController.dispose();
+    super.dispose();
   }
 
   void _editEvent() async {
@@ -46,12 +112,10 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       setState(() {
         _currentEvent = updatedEvent;
         _isPastEvent = _currentEvent.date.isBefore(DateTime.now());
+        _isOngoing = _currentEvent.date.isBefore(DateTime.now()) && _currentEvent.endDate.isAfter(DateTime.now());
       });
 
-      if (widget.onEdit != null) {
-        widget.onEdit!(updatedEvent);
-      }
-
+      widget.onEdit?.call(updatedEvent);
       _showSnackbar('Событие успешно обновлено!', Colors.green);
     }
   }
@@ -62,43 +126,102 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
-              Icon(Icons.warning, color: Colors.orange),
-              SizedBox(width: 8),
-              Text("Удалить событие?", style: TextStyle(fontWeight: FontWeight.bold)),
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 12),
+              Text("Удалить событие?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ],
           ),
-          content: Text("Вы уверены, что хотите удалить событие \"${_currentEvent.title}\"? Это действие нельзя отменить."),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Вы уверены, что хотите удалить событие?", style: TextStyle(fontSize: 16)),
+              SizedBox(height: 8),
+              Text(
+                "\"${_currentEvent.title}\"",
+                style: TextStyle(fontWeight: FontWeight.bold, color: _currentEvent.color),
+              ),
+              SizedBox(height: 12),
+              Text("Это действие нельзя отменить.", style: TextStyle(color: Colors.grey[600])),
+            ],
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text("Отмена", style: TextStyle(color: Colors.grey[600])),
+              child: Text("Отмена", style: TextStyle(color: Colors.grey[600], fontSize: 16)),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                if (widget.onDelete != null) {
-                  widget.onDelete!();
-                }
+                widget.onDelete?.call();
                 Navigator.of(context).pop();
                 _showSnackbar('Событие удалено', Colors.red);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text("Удалить", style: TextStyle(color: Colors.white)),
+              child: Text("Удалить", style: TextStyle(fontSize: 16)),
             ),
           ],
         );
       },
     );
+  }
+
+  void _toggleFavorite() {
+    setState(() {
+      _isFavorite = !_isFavorite;
+    });
+
+    _favoriteController.forward().then((_) {
+      _favoriteController.reverse();
+    });
+
+    widget.onFavorite?.call();
+    _showSnackbar(
+      _isFavorite ? 'Добавлено в избранное' : 'Удалено из избранного',
+      _isFavorite ? Colors.pink : Colors.grey,
+    );
+  }
+
+  void _toggleAttending() {
+    setState(() {
+      _isAttending = !_isAttending;
+    });
+
+    _attendController.forward().then((_) {
+      _attendController.reverse();
+    });
+
+    widget.onAttend?.call();
+    _showSnackbar(
+      _isAttending ? 'Вы участвуете в событии!' : 'Вы больше не участвуете',
+      _isAttending ? Colors.green : Colors.grey,
+    );
+  }
+
+  void _shareEvent() {
+    final shareText = '''
+🎉 ${_currentEvent.title}
+
+${_currentEvent.description}
+
+📅 ${_formatEventDate(_currentEvent.date)}
+⏰ ${DateFormat('HH:mm').format(_currentEvent.date)} - ${DateFormat('HH:mm').format(_currentEvent.endDate)}
+📍 ${_currentEvent.location ?? 'Онлайн'}
+💰 ${_currentEvent.price == 0 ? 'Бесплатно' : '${_currentEvent.price} ₽'}
+
+Присоединяйтесь к событию! 🚀
+''';
+
+    Share.share(shareText, subject: _currentEvent.title);
+    widget.onShare?.call();
   }
 
   void _setReminder() {
@@ -109,77 +232,159 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       return;
     }
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          backgroundColor: Colors.white,
-          child: Container(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: Colors.white,
+      builder: (context) => Container(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            SizedBox(height: 20),
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _currentEvent.color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.notifications_active_rounded, size: 32, color: _currentEvent.color),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Напомнить о событии',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '"${_currentEvent.title}"',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: _currentEvent.color, fontWeight: FontWeight.w600),
+            ),
+            SizedBox(height: 20),
+            Text(
+              'Выберите время напоминания:',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: [
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _currentEvent.color.withOpacity(0.1),
-                    shape: BoxShape.circle,
+                _buildReminderOption('За 15 минут', Duration(minutes: 15)),
+                _buildReminderOption('За 1 час', Duration(hours: 1)),
+                _buildReminderOption('За 3 часа', Duration(hours: 3)),
+                _buildReminderOption('За 1 день', Duration(days: 1)),
+                _buildReminderOption('За 1 неделю', Duration(days: 7)),
+                _buildReminderOption('В день события', Duration(days: 0)),
+              ],
+            ),
+            SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.grey,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text('Отмена'),
                   ),
-                  child: Icon(Icons.notifications_active, size: 32, color: _currentEvent.color),
                 ),
-                SizedBox(height: 16),
-                Text(
-                  'Установить напоминание',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showSnackbar('Напоминание установлено', _currentEvent.color);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _currentEvent.color,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text('Установить'),
                   ),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Напомнить о событии \"${_currentEvent.title}\" за:',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                SizedBox(height: 20),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildReminderOption('15 минут', Duration(minutes: 15)),
-                    _buildReminderOption('1 час', Duration(hours: 1)),
-                    _buildReminderOption('3 часа', Duration(hours: 3)),
-                    _buildReminderOption('1 день', Duration(days: 1)),
-                    _buildReminderOption('1 неделя', Duration(days: 7)),
-                  ],
-                ),
-                SizedBox(height: 24),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Отмена', style: TextStyle(color: Colors.grey[600])),
                 ),
               ],
             ),
-          ),
-        );
-      },
+            SizedBox(height: 16),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildReminderOption(String label, Duration duration) {
-    return FilterChip(
+    return ChoiceChip(
       label: Text(label),
+      selected: false,
       onSelected: (_) {
         Navigator.of(context).pop();
-        _showSnackbar('Напоминание установлено за $label', _currentEvent.color);
+        _showSnackbar('Напоминание установлено $label', _currentEvent.color);
       },
-      backgroundColor: _currentEvent.color.withOpacity(0.1),
-      selectedColor: _currentEvent.color.withOpacity(0.3),
-      checkmarkColor: _currentEvent.color,
-      labelStyle: TextStyle(color: _currentEvent.color),
+      backgroundColor: Colors.grey[100],
+      selectedColor: _currentEvent.color.withOpacity(0.2),
+      labelStyle: TextStyle(color: _currentEvent.color, fontWeight: FontWeight.w500),
+    );
+  }
+
+  void _rateEvent(double rating) {
+    setState(() {
+      _currentRating = rating;
+    });
+    widget.onRate?.call(rating);
+    _showSnackbar('Спасибо за вашу оценку!', _currentEvent.color);
+  }
+
+  void _showRatingDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Оцените событие', textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('"${_currentEvent.title}"',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _currentEvent.color, fontWeight: FontWeight.w600),
+            ),
+            SizedBox(height: 20),
+            _buildStarRating(_currentRating, true),
+            SizedBox(height: 20),
+            Text('Ваша оценка: ${_currentRating.toStringAsFixed(1)}',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Отмена', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showSnackbar('Спасибо за оценку!', _currentEvent.color);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _currentEvent.color),
+            child: Text('Подтвердить'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -188,28 +393,45 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.info, color: Colors.white),
+            Icon(Icons.check_circle_rounded, color: Colors.white),
             SizedBox(width: 8),
             Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
       ),
     );
   }
 
-  // АДАПТИВНЫЕ МЕТОДЫ КАК В PREDICTIONS PAGE
-  double _getHorizontalPadding(BuildContext context) {
+  // АДАПТИВНЫЕ МЕТОДЫ
+  ScreenSize _getScreenSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 200;
-    if (width > 800) return 100;
-    if (width > 600) return 60;
-    return 16;
+    if (width < 360) return ScreenSize.small;
+    if (width < 420) return ScreenSize.medium;
+    if (width < 600) return ScreenSize.large;
+    if (width < 900) return ScreenSize.tablet;
+    if (width < 1200) return ScreenSize.desktop;
+    return ScreenSize.largeDesktop;
+  }
+
+  double _getHorizontalPadding(BuildContext context) {
+    final screenSize = _getScreenSize(context);
+    switch (screenSize) {
+      case ScreenSize.small: return 12;
+      case ScreenSize.medium: return 16;
+      case ScreenSize.large: return 20;
+      case ScreenSize.tablet: return 40;
+      case ScreenSize.desktop: return 100;
+      case ScreenSize.largeDesktop: return 200;
+    }
   }
 
   double _getContentMaxWidth(BuildContext context) {
@@ -223,471 +445,432 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
-    final contentMaxWidth = _getContentMaxWidth(context);
-    final isMobile = MediaQuery.of(context).size.width <= 600;
+    final screenSize = _getScreenSize(context);
+    final isMobile = screenSize == ScreenSize.small || screenSize == ScreenSize.medium || screenSize == ScreenSize.large;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFF5F5F5),
-              Color(0xFFE8E8E8),
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // AppBar
+          SliverAppBar(
+            expandedHeight: 300,
+            floating: false,
+            pinned: true,
+            backgroundColor: Colors.transparent,
+            leading: IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_back_rounded, color: Colors.black, size: 20),
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              _buildActionButton(Icons.share_rounded, 'Поделиться', _shareEvent),
+              if (isMobile) _buildActionButton(Icons.more_vert_rounded, 'Еще', _showOptionsBottomSheet),
+            ],
+            flexibleSpace: _buildEventCover(),
+          ),
+
+          // Основной контент
+          SliverList(
+            delegate: SliverChildListDelegate([
+              _buildMainContent(horizontalPadding, isMobile),
+              _buildAdditionalSections(horizontalPadding),
+              const SizedBox(height: 32),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(IconData icon, String tooltip, VoidCallback onPressed) {
+    return IconButton(
+      icon: Container(
+        padding: EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.black, size: 18),
+      ),
+      tooltip: tooltip,
+      onPressed: onPressed,
+    );
+  }
+
+  Widget _buildEventCover() {
+    final images = _currentEvent.imageUrl != null ? [_currentEvent.imageUrl!] : [];
+
+    return Stack(
+      children: [
+        // Основной фон с градиентом
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                _currentEvent.color.withOpacity(0.9),
+                _currentEvent.color,
+                _currentEvent.color.withOpacity(0.8),
+              ],
+            ),
+          ),
+          child: images.isNotEmpty
+              ? PageView.builder(
+            controller: _pageController,
+            itemCount: images.length,
+            onPageChanged: (index) => setState(() => _currentImageIndex = index),
+            itemBuilder: (context, index) => Image.network(
+              images[index],
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(),
+            ),
+          )
+              : Container(),
+        ),
+
+        // Градиентный оверлей
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                Colors.black.withOpacity(0.7),
+                Colors.transparent,
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+
+        // Индикатор страниц для изображений
+        if (images.length > 1)
+          Positioned(
+            top: 50,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(images.length, (index) {
+                return Container(
+                  width: 8,
+                  height: 8,
+                  margin: EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: _currentImageIndex == index ? Colors.white : Colors.white.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                );
+              }),
+            ),
+          ),
+
+        // Контент поверх изображения
+        Positioned(
+          bottom: 20,
+          left: 16,
+          right: 16,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Категория и рейтинг
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _getCategoryIcon(_currentEvent.category),
+                          size: 14,
+                          color: _currentEvent.color,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _currentEvent.category.toUpperCase(),
+                          style: TextStyle(
+                            color: _currentEvent.color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_currentEvent.rating > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                          const SizedBox(width: 4),
+                          Text(
+                            _currentEvent.rating.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Заголовок
+              Text(
+                _currentEvent.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+
+              const SizedBox(height: 8),
+
+              // Описание
+              if (_currentEvent.description.isNotEmpty)
+                Text(
+                  _currentEvent.description,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 16,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+              const SizedBox(height: 16),
+
+              // Статус и дата
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor().withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _getStatusText(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _formatEventDate(_currentEvent.date),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _currentEvent.color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // AppBar как в ArticlesPage
-              Container(
+      ],
+    );
+  }
+
+  Widget _buildMainContent(double horizontalPadding, bool isMobile) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+      child: Column(
+        children: [
+          // Быстрые действия
+          if (!_isPastEvent)
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              color: Colors.white,
+              child: Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : horizontalPadding,
-                  vertical: 8,
-                ),
-                decoration: const BoxDecoration(color: Colors.white),
+                padding: EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    IconButton(
-                      icon: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 18),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Событие',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.share, color: Colors.black, size: 18),
-                      ),
-                      onPressed: () {
-                        _showSnackbar('Функция "Поделиться" в разработке', Colors.blue);
-                      },
-                    ),
-                    IconButton(
-                      icon: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.more_vert, color: Colors.black, size: 18),
-                      ),
-                      onPressed: () {
-                        _showOptionsBottomSheet();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              // Основной контент
-              Expanded(
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    // ОБЛОЖКА С ТАКИМИ ЖЕ ОТСТУПАМИ КАК У AppBar И ОТСТУПОМ СВЕРХУ
-                    SliverToBoxAdapter(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                        child: Stack(
-                          children: [
-                            // Основной фон с градиентом - С ОТСТУПОМ СВЕРХУ
-                            Container(
-                              margin: const EdgeInsets.only(top: 16, bottom: 20), // ОТСТУП СВЕРХУ 16px
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Container(
-                                  height: 280,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        _currentEvent.color.withOpacity(0.9),
-                                        _currentEvent.color,
-                                        _currentEvent.color.withOpacity(0.8),
-                                      ],
-                                    ),
-                                  ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
-                                        colors: [
-                                          Colors.black.withOpacity(0.7),
-                                          Colors.transparent,
-                                          Colors.transparent,
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                    Expanded(
+                      child: ScaleTransition(
+                        scale: _scaleAnimation,
+                        child: ElevatedButton.icon(
+                          onPressed: _toggleFavorite,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isFavorite ? Colors.pink.withOpacity(0.1) : Colors.grey[50],
+                            foregroundColor: _isFavorite ? Colors.pink : Colors.grey[700],
+                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: _isFavorite ? Colors.pink : Colors.grey[300]!),
                             ),
-
-                            // Контент поверх изображения
-                            Positioned(
-                              bottom: 40,
-                              left: 16, // Отступ внутри обложки
-                              right: 16, // Отступ внутри обложки
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Категория
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.9),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _getCategoryIcon(_currentEvent.category ?? 'Общее'),
-                                          size: 14,
-                                          color: _currentEvent.color,
-                                        ),
-                                        SizedBox(width: 6),
-                                        Text(
-                                          _currentEvent.category?.toUpperCase() ?? 'ОБЩЕЕ',
-                                          style: TextStyle(
-                                            color: _currentEvent.color,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.3,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  SizedBox(height: 16),
-
-                                  // Заголовок
-                                  Text(
-                                    _currentEvent.title,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      height: 1.2,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-
-                                  SizedBox(height: 8),
-
-                                  // Описание
-                                  if (_currentEvent.description.isNotEmpty)
-                                    Text(
-                                      _currentEvent.description,
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 16,
-                                        height: 1.4,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-
-                                  SizedBox(height: 16),
-
-                                  // Статус и дата
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: _isPastEvent ? Colors.grey : Colors.green,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          _isPastEvent ? 'ЗАВЕРШЕНО' : 'АКТИВНО',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.9),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          DateFormat('dd MMM yyyy').format(_currentEvent.date),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: _currentEvent.color,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                            elevation: 0,
+                          ),
+                          icon: Icon(_isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded),
+                          label: Text(_isFavorite ? 'В избранном' : 'В избранное'),
                         ),
                       ),
                     ),
-
-                    // ОСНОВНОЙ КОНТЕНТ - КАРТОЧКИ ТАКОЙ ЖЕ ШИРИНЫ КАК ОБЛОЖКА
-                    SliverToBoxAdapter(
-                      child: Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: horizontalPadding, // ТАКИЕ ЖЕ ОТСТУПЫ КАК У ОБЛОЖКИ
-                          vertical: 16,
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _toggleAttending,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isAttending ? Colors.green.withOpacity(0.1) : Colors.grey[50],
+                          foregroundColor: _isAttending ? Colors.green : Colors.grey[700],
+                          padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: _isAttending ? Colors.green : Colors.grey[300]!),
+                          ),
+                          elevation: 0,
                         ),
-                        child: Column(
-                          children: [
-                            // КНОПКА ДЕЙСТВИЯ - БЕЛАЯ КАРТОЧКА ТАКОЙ ЖЕ ШИРИНЫ
-                            if (!_isPastEvent)
-                              Card(
-                                elevation: 2,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                color: Colors.white,
-                                child: Container(
-                                  width: double.infinity, // ЗАНИМАЕТ ВСЮ ШИРИНУ КОНТЕЙНЕРА
-                                  padding: const EdgeInsets.all(16),
-                                  child: ElevatedButton(
-                                    onPressed: _setReminder,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _currentEvent.color,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      elevation: 2,
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.notifications_active, size: 20),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Установить напоминание',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-
-                            if (!_isPastEvent) const SizedBox(height: 16),
-
-                            // ИНФОРМАЦИЯ О СОБЫТИИ - БЕЛАЯ КАРТОЧКА ТАКОЙ ЖЕ ШИРИНЫ
-                            Card(
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              color: Colors.white,
-                              child: Container(
-                                width: double.infinity, // ЗАНИМАЕТ ВСЮ ШИРИНУ КОНТЕЙНЕРА
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Заголовок раздела
-                                    Text(
-                                      'Информация о событии',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    SizedBox(height: 20),
-
-                                    // Детальная информация
-                                    _buildInfoItem(
-                                      icon: Icons.calendar_today,
-                                      title: 'Дата и время',
-                                      value: DateFormat('dd MMMM yyyy, HH:mm').format(_currentEvent.date),
-                                      color: Colors.blue,
-                                    ),
-                                    SizedBox(height: 16),
-
-                                    if (_currentEvent.category != null && _currentEvent.category!.isNotEmpty)
-                                      _buildInfoItem(
-                                        icon: Icons.category,
-                                        title: 'Категория',
-                                        value: _currentEvent.category!,
-                                        color: _currentEvent.color,
-                                      ),
-
-                                    SizedBox(height: 16),
-
-                                    // Время до события
-                                    _buildTimeUntilEvent(),
-
-                                    SizedBox(height: 20),
-
-                                    // Полное описание
-                                    if (_currentEvent.description.isNotEmpty)
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Описание',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                          SizedBox(height: 8),
-                                          Text(
-                                            _currentEvent.description,
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              color: Colors.grey[700],
-                                              height: 1.5,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            SizedBox(height: 16),
-
-                            // КНОПКИ ДЕЙСТВИЙ - БЕЛАЯ КАРТОЧКА ТАКОЙ ЖЕ ШИРИНЫ
-                            Card(
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              color: Colors.white,
-                              child: Container(
-                                width: double.infinity, // ЗАНИМАЕТ ВСЮ ШИРИНУ КОНТЕЙНЕРА
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: _editEvent,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: _currentEvent.color,
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            side: BorderSide(
-                                              color: _currentEvent.color,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          elevation: 2,
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.edit, size: 20),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              'Редактировать',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: _deleteEvent,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: Colors.red,
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            side: BorderSide(
-                                              color: Colors.red,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          elevation: 2,
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.delete, size: 20),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              'Удалить',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            SizedBox(height: 32),
-                          ],
-                        ),
+                        icon: Icon(_isAttending ? Icons.check_circle_rounded : Icons.person_add_rounded),
+                        label: Text(_isAttending ? 'Участвую' : 'Участвовать'),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
+
+          if (!_isPastEvent) SizedBox(height: 16),
+
+          // Основная информация
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            color: Colors.white,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Информация о событии',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  SizedBox(height: 20),
+
+                  // Детальная информация
+                  _buildInfoGrid(),
+                  SizedBox(height: 20),
+
+                  // Полное описание
+                  if (_currentEvent.description.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Описание', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        SizedBox(height: 8),
+                        Text(
+                          _currentEvent.description,
+                          style: TextStyle(fontSize: 15, color: Colors.grey[700], height: 1.5),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildInfoGrid() {
+    final duration = _currentEvent.endDate.difference(_currentEvent.date);
+    final durationInHours = duration.inMinutes / 60.0;
+
+    return Column(
+      children: [
+        _buildInfoItem(
+          icon: Icons.calendar_today_rounded,
+          title: 'Дата и время',
+          value: '${_formatEventDate(_currentEvent.date)}\n${DateFormat('HH:mm').format(_currentEvent.date)} - ${DateFormat('HH:mm').format(_currentEvent.endDate)}',
+          color: Colors.blue,
+        ),
+        SizedBox(height: 16),
+        _buildInfoItem(
+          icon: Icons.access_time_rounded,
+          title: 'Длительность',
+          value: '${durationInHours.toStringAsFixed(1)} часа',
+          color: Colors.orange,
+        ),
+        SizedBox(height: 16),
+        _buildInfoItem(
+          icon: Icons.people_rounded,
+          title: 'Участники',
+          value: '${_currentEvent.currentAttendees} / ${_currentEvent.maxAttendees}',
+          color: Colors.green,
+        ),
+        SizedBox(height: 16),
+        _buildInfoItem(
+          icon: Icons.attach_money_rounded,
+          title: 'Стоимость',
+          value: _currentEvent.price == 0 ? 'Бесплатно' : '${_currentEvent.price} ₽',
+          color: Colors.purple,
+        ),
+        if (_currentEvent.location != null) ...[
+          SizedBox(height: 16),
+          _buildInfoItem(
+            icon: Icons.location_on_rounded,
+            title: 'Местоположение',
+            value: _currentEvent.location!,
+            color: Colors.red,
+          ),
+        ],
+        if (_currentEvent.isOnline && _currentEvent.onlineLink != null) ...[
+          SizedBox(height: 16),
+          _buildInfoItem(
+            icon: Icons.online_prediction_rounded,
+            title: 'Онлайн-ссылка',
+            value: _currentEvent.onlineLink!,
+            color: Colors.cyan,
+            isLink: true,
+          ),
+        ],
+      ],
     );
   }
 
@@ -696,6 +879,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     required String title,
     required String value,
     required Color color,
+    bool isLink = false,
   }) {
     return Container(
       padding: EdgeInsets.all(16),
@@ -719,23 +903,14 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                Text(title, style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
                 SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                isLink
+                    ? GestureDetector(
+                  onTap: () => _showSnackbar('Ссылка скопирована', color),
+                  child: Text(value, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w600, decoration: TextDecoration.underline)),
+                )
+                    : Text(value, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -744,74 +919,177 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     );
   }
 
-  Widget _buildTimeUntilEvent() {
-    final now = DateTime.now();
-    final difference = _currentEvent.date.difference(now);
-
-    String timeText;
-    Color color;
-
-    if (difference.isNegative) {
-      timeText = 'Событие завершено';
-      color = Colors.grey;
-    } else if (difference.inDays > 0) {
-      timeText = 'Через ${difference.inDays} ${_getDayText(difference.inDays)}';
-      color = Colors.green;
-    } else if (difference.inHours > 0) {
-      timeText = 'Через ${difference.inHours} ${_getHourText(difference.inHours)}';
-      color = Colors.orange;
-    } else {
-      timeText = 'Через ${difference.inMinutes} минут';
-      color = Colors.red;
-    }
-
+  Widget _buildAdditionalSections(double horizontalPadding) {
     return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Row(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+      child: Column(
         children: [
-          Icon(Icons.access_time, color: color, size: 20),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'До события',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  timeText,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+          // Действия
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            color: Colors.white,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  if (!_isPastEvent) ...[
+                    _buildActionButtonRow(),
+                    SizedBox(height: 12),
+                  ],
+                  _buildManagementButtonRow(),
+                ],
+              ),
             ),
           ),
+
+          SizedBox(height: 16),
+
+          // Статистика
+          if (_viewCount > 0 || _currentEvent.reviewCount > 0)
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              color: Colors.white,
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Статистика', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(Icons.remove_red_eye_rounded, 'Просмотры', _viewCount.toString()),
+                        _buildStatItem(Icons.people_rounded, 'Участники', _currentEvent.currentAttendees.toString()),
+                        _buildStatItem(Icons.star_rounded, 'Рейтинг', _currentEvent.rating.toStringAsFixed(1)),
+                        _buildStatItem(Icons.reviews_rounded, 'Отзывы', _currentEvent.reviewCount.toString()),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
+    );
+  }
+
+  Widget _buildActionButtonRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _setReminder,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _currentEvent.color.withOpacity(0.1),
+              foregroundColor: _currentEvent.color,
+              padding: EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: Icon(Icons.notifications_active_rounded),
+            label: Text('Напомнить'),
+          ),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _shareEvent,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.withOpacity(0.1),
+              foregroundColor: Colors.blue,
+              padding: EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: Icon(Icons.share_rounded),
+            label: Text('Поделиться'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildManagementButtonRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _editEvent,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _currentEvent.color,
+              padding: EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              side: BorderSide(color: _currentEvent.color),
+            ),
+            icon: Icon(Icons.edit_rounded),
+            label: Text('Редактировать'),
+          ),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _deleteEvent,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              padding: EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              side: BorderSide(color: Colors.red),
+            ),
+            icon: Icon(Icons.delete_rounded),
+            label: Text('Удалить'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _currentEvent.color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 20, color: _currentEvent.color),
+        ),
+        SizedBox(height: 8),
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+      ],
+    );
+  }
+
+  Widget _buildStarRating(double rating, bool interactive) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(5, (index) {
+        return GestureDetector(
+          onTap: interactive ? () => _rateEvent(index + 1.0) : null,
+          child: Icon(
+            index < rating.floor() ? Icons.star_rounded :
+            (index < rating.ceil() ? Icons.star_half_rounded : Icons.star_border_rounded),
+            color: Colors.amber,
+            size: 32,
+          ),
+        );
+      }),
     );
   }
 
   void _showOptionsBottomSheet() {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: Colors.white,
       builder: (context) => Container(
-        padding: EdgeInsets.all(20),
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -823,9 +1101,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            SizedBox(height: 16),
+            SizedBox(height: 20),
             ListTile(
-              leading: Icon(Icons.edit, color: _currentEvent.color),
+              leading: Icon(Icons.edit_rounded, color: _currentEvent.color),
               title: Text('Редактировать'),
               onTap: () {
                 Navigator.pop(context);
@@ -833,7 +1111,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.notifications_active, color: _currentEvent.color),
+              leading: Icon(Icons.notifications_active_rounded, color: _currentEvent.color),
               title: Text('Напомнить'),
               onTap: () {
                 Navigator.pop(context);
@@ -841,15 +1119,31 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.share, color: _currentEvent.color),
+              leading: Icon(Icons.share_rounded, color: _currentEvent.color),
               title: Text('Поделиться'),
               onTap: () {
                 Navigator.pop(context);
-                _showSnackbar('Функция "Поделиться" в разработке', Colors.blue);
+                _shareEvent();
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete, color: Colors.red),
+              leading: Icon(Icons.star_rounded, color: _currentEvent.color),
+              title: Text('Оценить'),
+              onTap: () {
+                Navigator.pop(context);
+                _showRatingDialog();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.report_rounded, color: Colors.orange),
+              title: Text('Пожаловаться'),
+              onTap: () {
+                Navigator.pop(context);
+                _showSnackbar('Жалоба отправлена', Colors.orange);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_rounded, color: Colors.red),
               title: Text('Удалить', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(context);
@@ -862,28 +1156,71 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     );
   }
 
+  Color _getStatusColor() {
+    if (_isPastEvent) return Colors.grey;
+    if (_isOngoing) return Colors.green;
+    return Colors.orange;
+  }
+
+  String _getStatusText() {
+    if (_isPastEvent) return 'ЗАВЕРШЕНО';
+    if (_isOngoing) return 'СЕЙЧАС ИДЕТ';
+    return 'СКОРО';
+  }
+
+  String _formatEventDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final eventDay = DateTime(date.year, date.month, date.day);
+
+    if (eventDay == today) {
+      return 'Сегодня';
+    } else if (eventDay == today.add(Duration(days: 1))) {
+      return 'Завтра';
+    } else if (eventDay.isBefore(today.add(Duration(days: 7)))) {
+      return _getWeekday(date.weekday);
+    } else {
+      return DateFormat('dd MMMM yyyy', 'ru_RU').format(date);
+    }
+  }
+
+  String _getWeekday(int weekday) {
+    switch (weekday) {
+      case 1: return 'Понедельник';
+      case 2: return 'Вторник';
+      case 3: return 'Среда';
+      case 4: return 'Четверг';
+      case 5: return 'Пятница';
+      case 6: return 'Суббота';
+      case 7: return 'Воскресенье';
+      default: return '';
+    }
+  }
+
   IconData _getCategoryIcon(String category) {
     final icons = {
-      'Работа': Icons.work,
-      'Личное': Icons.person,
-      'Здоровье': Icons.favorite,
-      'Образование': Icons.school,
-      'Развлечения': Icons.movie,
-      'Спорт': Icons.sports_soccer,
-      'Общее': Icons.event,
+      'Концерты': Icons.music_note_rounded,
+      'Выставки': Icons.palette_rounded,
+      'Фестивали': Icons.celebration_rounded,
+      'Спорт': Icons.sports_soccer_rounded,
+      'Театр': Icons.theater_comedy_rounded,
+      'Встречи': Icons.people_alt_rounded,
+      'Образование': Icons.school_rounded,
+      'Кино': Icons.movie_rounded,
+      'Ужин': Icons.restaurant_rounded,
+      'Встреча': Icons.people_alt_rounded,
+      'День рождения': Icons.cake_rounded,
+      'Рабочее': Icons.work_rounded,
     };
-    return icons[category] ?? Icons.event;
+    return icons[category] ?? Icons.event_rounded;
   }
+}
 
-  String _getDayText(int days) {
-    if (days % 10 == 1 && days % 100 != 11) return 'день';
-    if (days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 10 || days % 100 >= 20)) return 'дня';
-    return 'дней';
-  }
-
-  String _getHourText(int hours) {
-    if (hours % 10 == 1 && hours % 100 != 11) return 'час';
-    if (hours % 10 >= 2 && hours % 10 <= 4 && (hours % 100 < 10 || hours % 100 >= 20)) return 'часа';
-    return 'часов';
-  }
+enum ScreenSize {
+  small,      // < 360px
+  medium,     // 360-420px
+  large,      // 420-600px
+  tablet,     // 600-900px
+  desktop,    // 900-1200px
+  largeDesktop, // > 1200px
 }

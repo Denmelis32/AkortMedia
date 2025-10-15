@@ -190,4 +190,9 @@ class CommuninitiesProvider with ChangeNotifier {
     _communityHashtags.clear();
     notifyListeners();
   }
+
+  // Алиас для совместимости с main.dart
+  void clearAll() {
+    clearAllData();
+  }
 }

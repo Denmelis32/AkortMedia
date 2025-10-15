@@ -195,6 +195,11 @@ class CommunityStateProvider with ChangeNotifier {
     }
   }
 
+  void clearData() {
+    // Очистите состояние сообществ
+    notifyListeners();
+  }
+
   // Очистить все данные (для тестирования)
   void clearAllData() {
     _communities.clear();

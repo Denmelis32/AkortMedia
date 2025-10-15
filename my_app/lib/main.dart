@@ -70,9 +70,26 @@ class _MyAppState extends State<MyApp> {
       roomProvider.clearAllData();
 
       // Очищаем провайдеры чата
-      // Очищаем ChatController
-      final chatController = Provider.of<ChatController>(_navigatorKey.currentContext!, listen: false);
-      chatController.dispose();
+      try {
+        final chatController = Provider.of<ChatController>(_navigatorKey.currentContext!, listen: false);
+        chatController.dispose();
+      } catch (e) {
+        // Игнорируем ошибки если провайдер не инициализирован
+        print('Error disposing chat controller: $e');
+      }
+
+      // Очищаем другие провайдеры
+      final communitiesProvider = Provider.of<CommuninitiesProvider>(_navigatorKey.currentContext!, listen: false);
+      communitiesProvider.clearAllData();
+
+      final communityStateProvider = Provider.of<CommunityStateProvider>(_navigatorKey.currentContext!, listen: false);
+      communityStateProvider.clearData();
+
+      final channelStateProvider = Provider.of<ChannelStateProvider>(_navigatorKey.currentContext!, listen: false);
+      channelStateProvider.clearData();
+
+      final newsProvider = Provider.of<NewsProvider>(_navigatorKey.currentContext!, listen: false);
+      newsProvider.clearData();
     }
 
     setState(() {
@@ -83,6 +100,7 @@ class _MyAppState extends State<MyApp> {
   // Создаем ChatController
   ChatController _createChatController() {
     // TODO: Настроить реальный API когда будет готов бэкенд
+    // Временная заглушка для демонстрации
     final apiService = ChatApiService(
       baseUrl: 'https://your-real-api.com/api', // Замените на ваш URL
       authToken: 'your-auth-token', // Замените на реальный токен
@@ -123,6 +141,52 @@ class _MyAppState extends State<MyApp> {
             backgroundColor: Colors.white,
             elevation: 1,
             foregroundColor: Colors.black,
+            iconTheme: IconThemeData(color: Colors.black),
+            titleTextStyle: TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          // Общие настройки для всего приложения
+          scaffoldBackgroundColor: Colors.white,
+          cardTheme: CardThemeData(
+            elevation: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          // Настройки для текстовых полей
+          inputDecorationTheme: InputDecorationTheme(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.grey),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.blue),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+          // Настройки кнопок
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+          // Настройки текста
+          textTheme: const TextTheme(
+            titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            bodyMedium: TextStyle(fontSize: 14),
           ),
         ),
         navigatorKey: _navigatorKey,
@@ -132,7 +196,68 @@ class _MyAppState extends State<MyApp> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+                backgroundColor: Colors.white,
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Загрузка...',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Scaffold(
+                backgroundColor: Colors.white,
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Ошибка загрузки',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        snapshot.error.toString(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {});
+                        },
+                        child: const Text('Повторить'),
+                      ),
+                    ],
+                  ),
+                ),
               );
             }
 
@@ -157,6 +282,15 @@ class _MyAppState extends State<MyApp> {
         )
             : LoginPage(onLoginSuccess: _handleLoginSuccess),
         debugShowCheckedModeBanner: false,
+        // Глобальные настройки для всего приложения
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaleFactor: 1.0, // Фиксируем масштаб текста
+            ),
+            child: child!,
+          );
+        },
       ),
     );
   }

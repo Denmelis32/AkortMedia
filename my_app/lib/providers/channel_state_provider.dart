@@ -35,6 +35,11 @@ class ChannelStateProvider with ChangeNotifier {
     return _channelAvatars[channelId] ?? defaultAvatar;
   }
 
+  void clearData() {
+    // Очистите состояние каналов
+    notifyListeners();
+  }
+
   /// Установка аватарки канала
   void setAvatarForChannel(String channelId, String? avatarUrl) {
     if (avatarUrl == null) {

@@ -85,6 +85,11 @@ class NewsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void clearData() {
+    // Очистите новости
+    notifyListeners();
+  }
+
   // Загрузка данных профиля из хранилища
   Future<void> loadProfileData() async {
     try {

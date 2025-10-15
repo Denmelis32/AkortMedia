@@ -11,7 +11,12 @@ import 'providers/room_provider.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
-import 'services/room_service.dart'; // Добавьте этот импорт для RoomService
+import 'services/room_service.dart';
+
+// Импорты для чата
+import 'pages/chat/chat_controller.dart';
+import 'pages/chat/services/chat_api_service.dart';
+import 'pages/chat/cache/chat_cache_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,7 +67,12 @@ class _MyAppState extends State<MyApp> {
       userProvider.clearUserData();
 
       final roomProvider = Provider.of<RoomProvider>(_navigatorKey.currentContext!, listen: false);
-      roomProvider.clearAllData(); // Добавьте этот метод в RoomProvider
+      roomProvider.clearAllData();
+
+      // Очищаем провайдеры чата
+      // Очищаем ChatController
+      final chatController = Provider.of<ChatController>(_navigatorKey.currentContext!, listen: false);
+      chatController.dispose();
     }
 
     setState(() {
@@ -70,26 +80,52 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  // Создаем ChatController
+  ChatController _createChatController() {
+    // TODO: Настроить реальный API когда будет готов бэкенд
+    final apiService = ChatApiService(
+      baseUrl: 'https://your-real-api.com/api', // Замените на ваш URL
+      authToken: 'your-auth-token', // Замените на реальный токен
+    );
+
+    final cacheManager = ChatCacheManager();
+
+    return ChatController(
+      apiService: apiService,
+      cacheManager: cacheManager,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Существующие провайдеры
         ChangeNotifierProvider(create: (_) => ChannelStateProvider()),
         ChangeNotifierProvider(create: (_) => NewsProvider()),
         ChangeNotifierProvider(create: (_) => ChannelPostsProvider()),
         ChangeNotifierProvider(create: (_) => ArticlesProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => RoomProvider(RoomService())),
-        ChangeNotifierProvider(create: (_) => CommunitiesProvider()),
-        ChangeNotifierProvider(create: (_) => CommunityStateProvider()),// Добавлен RoomProvider
+        ChangeNotifierProvider(create: (_) => CommuninitiesProvider()),
+        ChangeNotifierProvider(create: (_) => CommunityStateProvider()),
+
+        // Новый провайдер для чата
+        ChangeNotifierProvider(create: (_) => _createChatController()),
       ],
       child: MaterialApp(
         title: 'Football App',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           useMaterial3: true,
+          // Дополнительные настройки темы для чата
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            elevation: 1,
+            foregroundColor: Colors.black,
+          ),
         ),
-        navigatorKey: _navigatorKey, // Добавлен ключ навигатора
+        navigatorKey: _navigatorKey,
         home: _isLoggedIn
             ? FutureBuilder(
           future: AuthService.getUser(),
@@ -108,6 +144,7 @@ class _MyAppState extends State<MyApp> {
               userProvider.setUserData(
                 user['name'] ?? 'Пользователь',
                 user['email'] ?? '',
+                userId: user['id'] ?? 'current-user', // Передаем userId если есть
               );
             }
 

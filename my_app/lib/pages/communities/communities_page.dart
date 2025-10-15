@@ -3,10 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:my_app/pages/communities/widgets/add_community_dialog.dart';
 import 'package:my_app/pages/communities/widgets/community_card.dart';
 import 'package:provider/provider.dart';
-import 'package:my_app/providers/communities_provider.dart';
 import 'package:my_app/providers/community_state_provider.dart';
 
-import 'community_detail_page.dart';
+import '../communities_details_page/community_detail_page.dart';
 import 'models/community.dart';
 
 class CommunitiesPage extends StatefulWidget {
@@ -189,22 +188,6 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
     return 12;
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
-  String _getUserAvatarUrl(BuildContext context) {
-    try {
-      final communityStateProvider = Provider.of<CommunityStateProvider>(context, listen: false);
-
-      final customAvatar = communityStateProvider.getCurrentAvatar(
-        'user_${widget.userEmail}',
-        defaultAvatar: defaultAvatarUrl,
-      );
-
-      return customAvatar ?? defaultAvatarUrl;
-    } catch (e) {
-      return defaultAvatarUrl;
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -261,39 +244,25 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
   }
 
   void _navigateToAddCommunityPage() {
-    final currentAvatarUrl = _getUserAvatarUrl(context);
-    final communitiesProvider = Provider.of<CommunitiesProvider>(context, listen: false);
+    final communityStateProvider = Provider.of<CommunityStateProvider>(context, listen: false);
 
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => AddCommunityPage(
           categories: _categories.where((cat) => cat.id != 'all').map((cat) => cat.title).toList(),
           onCommunityAdded: (newCommunity) {
-            final communityData = Community(
-              id: DateTime.now().millisecondsSinceEpoch,
-              title: newCommunity.title,
-              description: newCommunity.description,
-              imageUrl: newCommunity.imageUrl,
-              coverImageUrl: newCommunity.coverImageUrl,
-              cardColor: newCommunity.cardColor,
-              tags: newCommunity.tags,
-              membersCount: 1,
-              postsCount: 0,
-              isPrivate: newCommunity.isPrivate,
-              createdAt: DateTime.now(),
-            );
-
-            communitiesProvider.addCommunity(communityData);
+            communityStateProvider.addCommunity(newCommunity);
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Сообщество "${newCommunity.title}" успешно создано!'),
                 duration: const Duration(seconds: 2),
+                backgroundColor: Colors.green,
               ),
             );
           },
           userName: widget.userName,
-          userAvatarUrl: currentAvatarUrl,
+          userAvatarUrl: defaultAvatarUrl,
         ),
       ),
     );
@@ -330,21 +299,32 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
 
   void _deleteSelectedCommunities() {
     if (_selectedCommunities.isEmpty) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Удалить сообщества?'),
         content: Text('Вы уверены, что хотите удалить ${_selectedCommunities.length} сообществ?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена')
+          ),
           TextButton(
             onPressed: () {
-              final communitiesProvider = Provider.of<CommunitiesProvider>(context, listen: false);
+              final communityStateProvider = Provider.of<CommunityStateProvider>(context, listen: false);
               for (final id in _selectedCommunities) {
-                communitiesProvider.removeCommunity(id);
+                communityStateProvider.removeCommunity(id);
               }
               _toggleSelectionMode();
               Navigator.pop(context);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Удалено ${_selectedCommunities.length} сообществ'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             },
             child: const Text('Удалить', style: TextStyle(color: Colors.red)),
           ),
@@ -355,8 +335,12 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
 
   void _shareSelectedCommunities() {
     if (_selectedCommunities.isEmpty) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Поделиться ${_selectedCommunities.length} сообществами'))
+        SnackBar(
+          content: Text('Поделиться ${_selectedCommunities.length} сообществами'),
+          backgroundColor: Colors.blue,
+        )
     );
   }
 
@@ -447,7 +431,14 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
               children: [
                 Icon(icon, size: 16, color: isActive ? Colors.white : Colors.blue),
                 const SizedBox(width: 6),
-                Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isActive ? Colors.white : Colors.black87)),
+                Text(
+                  title,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isActive ? Colors.white : Colors.black87
+                  ),
+                ),
               ],
             ),
           ),
@@ -522,7 +513,14 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
               children: [
                 Icon(category.icon, size: 16, color: isSelected ? Colors.white : category.color),
                 const SizedBox(width: 6),
-                Text(category.title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isSelected ? Colors.white : Colors.black87)),
+                Text(
+                  category.title,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected ? Colors.white : Colors.black87
+                  ),
+                ),
               ],
             ),
           ),
@@ -548,14 +546,24 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
             icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-            onPressed: () => _searchController.clear(),
+            onPressed: () {
+              setState(() {
+                _searchController.clear();
+                _searchQuery = '';
+              });
+            },
           )
               : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         style: const TextStyle(fontSize: 16),
-        onChanged: (value) => setState(() => _searchQuery = value),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+          _addToSearchHistory(value);
+        },
       ),
     );
   }
@@ -579,18 +587,67 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
             const SizedBox(height: 12),
             const Text('Сортировка', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            ..._sortOptions.map((option) => ListTile(
-              leading: Icon(option.icon, size: 18),
-              title: Text(option.title, style: const TextStyle(fontSize: 13)),
-              trailing: _sortOptions.indexOf(option) == _currentSortIndex
-                  ? const Icon(Icons.check, color: Colors.blue, size: 18)
-                  : null,
-              onTap: () {
-                setState(() => _currentSortIndex = _sortOptions.indexOf(option));
-                Navigator.pop(context);
-              },
-            )).toList(),
+            ..._sortOptions.asMap().entries.map((entry) {
+              final index = entry.key;
+              final option = entry.value;
+              return ListTile(
+                leading: Icon(option.icon, size: 18),
+                title: Text(option.title, style: const TextStyle(fontSize: 13)),
+                trailing: index == _currentSortIndex
+                    ? const Icon(Icons.check, color: Colors.blue, size: 18)
+                    : null,
+                onTap: () {
+                  setState(() => _currentSortIndex = index);
+                  Navigator.pop(context);
+                },
+              );
+            }).toList(),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Виджет для пустого состояния
+  Widget _buildEmptyState() {
+    return SliverFillRemaining(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.group, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'Сообщества не найдены',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Попробуйте изменить параметры поиска или создать новое сообщество',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _navigateToAddCommunityPage,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: const Text('Создать сообщество'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -599,7 +656,6 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
-    final currentAvatarUrl = _getUserAvatarUrl(context);
     final isMobile = _isMobile(context);
 
     return Scaffold(
@@ -718,6 +774,41 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                             ),
                             onPressed: _showSortBottomSheet,
                           ),
+                          if (_isSelectionMode) ...[
+                            IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.red[100],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.delete, color: Colors.red[700], size: 18),
+                              ),
+                              onPressed: _deleteSelectedCommunities,
+                            ),
+                            IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[100],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.share, color: Colors.blue[700], size: 18),
+                              ),
+                              onPressed: _shareSelectedCommunities,
+                            ),
+                            IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, color: Colors.black, size: 18),
+                              ),
+                              onPressed: _toggleSelectionMode,
+                            ),
+                          ],
                         ],
                       ),
                   ],
@@ -726,13 +817,10 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
 
               // Контент
               Expanded(
-                child: Container(
-                  width: double.infinity,
-                  child: Consumer2<CommunitiesProvider, CommunityStateProvider>(
-                    builder: (context, communitiesProvider, communityStateProvider, child) {
-                      return _buildContent(communitiesProvider, horizontalPadding);
-                    },
-                  ),
+                child: Consumer<CommunityStateProvider>(
+                  builder: (context, communityStateProvider, child) {
+                    return _buildContent(communityStateProvider, horizontalPadding);
+                  },
                 ),
               ),
             ],
@@ -740,7 +828,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
         ),
       ),
       // Кнопка добавления сообщества
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: _isSelectionMode ? null : FloatingActionButton(
         onPressed: _navigateToAddCommunityPage,
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
@@ -749,7 +837,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
     );
   }
 
-  Widget _buildContent(CommunitiesProvider communitiesProvider, double horizontalPadding) {
+  Widget _buildContent(CommunityStateProvider communityStateProvider, double horizontalPadding) {
     return CustomScrollView(
       controller: _scrollController,
       physics: const BouncingScrollPhysics(),
@@ -761,37 +849,19 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
         SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
 
         // Карточки сообществ
-        _buildCommunitiesGrid(communitiesProvider, horizontalPadding),
+        _buildCommunitiesGrid(communityStateProvider, horizontalPadding),
       ],
     );
   }
 
-  Widget _buildCommunitiesGrid(CommunitiesProvider communitiesProvider, double horizontalPadding) {
-    final communitiesToShow = communitiesProvider.communities;
+  Widget _buildCommunitiesGrid(CommunityStateProvider communityStateProvider, double horizontalPadding) {
+    final communitiesToShow = communityStateProvider.communities;
     final filteredCommunities = _getFilteredCommunities(communitiesToShow);
     final isMobile = _isMobile(context);
     final gridSpacing = _getGridSpacing(context);
 
     if (filteredCommunities.isEmpty) {
-      return SliverFillRemaining(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.group, size: 40, color: Colors.grey[400]),
-              const SizedBox(height: 8),
-              const Text('Сообщества не найдены', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              const Text('Попробуйте изменить параметры поиска', style: TextStyle(color: Colors.grey, fontSize: 10)),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: _navigateToAddCommunityPage,
-                child: const Text('Создать сообщество'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildEmptyState();
     }
 
     // ДЛЯ МОБИЛЬНЫХ - ИСПОЛЬЗУЕМ SliverList вместо SliverGrid
@@ -802,42 +872,53 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
             if (index >= filteredCommunities.length) return const SizedBox.shrink();
 
             final community = filteredCommunities[index];
+            final communityId = community.id.toString();
 
-            return Stack(
-              children: [
-                CommunityCard(
-                  key: ValueKey(community.id),
-                  community: community,
-                  onTap: () {
-                    if (_isSelectionMode) {
-                      _toggleCommunitySelection(community.id.toString());
-                    } else {
-                      _openCommunityDetail(community);
-                    }
-                  },
-                  onLongPress: () {
-                    if (!_isSelectionMode) {
-                      _toggleSelectionMode();
-                      _toggleCommunitySelection(community.id.toString());
-                    }
-                  },
-                ),
-                if (_isSelectionMode)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Checkbox(
-                      value: _selectedCommunities.contains(community.id.toString()),
-                      onChanged: (_) => _toggleCommunitySelection(community.id.toString()),
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Stack(
+                children: [
+                  CommunityCard(
+                    key: ValueKey(community.id),
+                    community: community,
+                    onTap: () {
+                      if (_isSelectionMode) {
+                        _toggleCommunitySelection(communityId);
+                      } else {
+                        _openCommunityDetail(community);
+                      }
+                    },
+                    onLongPress: () {
+                      if (!_isSelectionMode) {
+                        _toggleSelectionMode();
+                        _toggleCommunitySelection(communityId);
+                      }
+                    },
+                  ),
+                  if (_isSelectionMode)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Checkbox(
+                        value: _selectedCommunities.contains(communityId),
+                        onChanged: (_) => _toggleCommunitySelection(communityId),
+                      ),
                     ),
-                  ),
-                if (_isCommunityFavorite(community.id.toString()))
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Icon(Icons.favorite, size: 16, color: Colors.red),
-                  ),
-              ],
+                  if (_isCommunityFavorite(communityId))
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.favorite, size: 16, color: Colors.red),
+                      ),
+                    ),
+                ],
+              ),
             );
           },
           childCount: filteredCommunities.length,
@@ -866,6 +947,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
             if (index >= filteredCommunities.length) return const SizedBox.shrink();
 
             final community = filteredCommunities[index];
+            final communityId = community.id.toString();
 
             return Stack(
               children: [
@@ -874,7 +956,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                   community: community,
                   onTap: () {
                     if (_isSelectionMode) {
-                      _toggleCommunitySelection(community.id.toString());
+                      _toggleCommunitySelection(communityId);
                     } else {
                       _openCommunityDetail(community);
                     }
@@ -882,7 +964,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                   onLongPress: () {
                     if (!_isSelectionMode) {
                       _toggleSelectionMode();
-                      _toggleCommunitySelection(community.id.toString());
+                      _toggleCommunitySelection(communityId);
                     }
                   },
                 ),
@@ -891,15 +973,22 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                     top: 8,
                     left: 8,
                     child: Checkbox(
-                      value: _selectedCommunities.contains(community.id.toString()),
-                      onChanged: (_) => _toggleCommunitySelection(community.id.toString()),
+                      value: _selectedCommunities.contains(communityId),
+                      onChanged: (_) => _toggleCommunitySelection(communityId),
                     ),
                   ),
-                if (_isCommunityFavorite(community.id.toString()))
+                if (_isCommunityFavorite(communityId))
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: Icon(Icons.favorite, size: 16, color: Colors.red),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.favorite, size: 16, color: Colors.red),
+                    ),
                   ),
               ],
             );
@@ -915,7 +1004,8 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
     var filtered = allCommunities.where((community) {
       final matchesSearch = _searchQuery.isEmpty ||
           community.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          community.description.toLowerCase().contains(_searchQuery.toLowerCase());
+          community.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          community.tags.any((tag) => tag.toLowerCase().contains(_searchQuery.toLowerCase()));
 
       final matchesCategory = selectedCategory.id == 'all' ||
           community.tags.any((tag) => tag.toLowerCase() == selectedCategory.id.toLowerCase());

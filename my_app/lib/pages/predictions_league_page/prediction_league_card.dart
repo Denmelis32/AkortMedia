@@ -82,67 +82,43 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
     }
   }
 
-  // Форматирование призового фонда
-  String get _formattedPrizePool {
-    if (widget.league.prizePool >= 1000000) {
-      return '\$${(widget.league.prizePool / 1000000).toStringAsFixed(1)}M';
-    } else if (widget.league.prizePool >= 1000) {
-      return '\$${(widget.league.prizePool / 1000).toStringAsFixed(1)}K';
+  // Форматирование чисел для статистики
+  String _formatNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
     }
-    return '\$${widget.league.prizePool.toStringAsFixed(0)}';
+    return number.toString();
   }
 
   // Адаптивные методы
-  int _getCrossAxisCount(BuildContext context) {
+  bool _isMobile(BuildContext context) {
+    return MediaQuery.of(context).size.width <= 600;
+  }
+
+  double _getCardWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 3;
-    if (width > 800) return 3;
-    if (width > 600) return 2;
-    return 1;
+    if (width > 1200) return (width - 96) / 3;
+    if (width > 800) return (width - 64) / 2;
+    if (width > 600) return (width - 48) / 2;
+    return width - 32;
   }
 
   double _getCoverHeight(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-    switch (crossAxisCount) {
-      case 1: return 160;
-      case 2: return 140;
-      case 3: return 120;
-      case 4: return 110;
-      default: return 140;
-    }
+    return _isMobile(context) ? 140 : 120;
   }
 
   double _getContentPadding(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-    switch (crossAxisCount) {
-      case 1: return 16;
-      case 2: return 14;
-      case 3: return 12;
-      case 4: return 10;
-      default: return 14;
-    }
+    return _isMobile(context) ? 16 : 12;
   }
 
   double _getTitleFontSize(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-    switch (crossAxisCount) {
-      case 1: return 18;
-      case 2: return 16;
-      case 3: return 15;
-      case 4: return 14;
-      default: return 16;
-    }
+    return _isMobile(context) ? 16 : 15;
   }
 
   double _getDescriptionFontSize(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-    switch (crossAxisCount) {
-      case 1: return 14;
-      case 2: return 13;
-      case 3: return 12;
-      case 4: return 11;
-      default: return 13;
-    }
+    return _isMobile(context) ? 14 : 12;
   }
 
   @override
@@ -150,16 +126,18 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
     final categoryColor = _categoryColors[widget.league.category] ?? const Color(0xFF607D8B);
     final timeLeft = widget.league.timeLeft;
     final formattedPrizePool = widget.league.formattedPrizePool;
+    final isMobile = _isMobile(context);
 
     // Адаптивные размеры
-    final crossAxisCount = _getCrossAxisCount(context);
+    final cardWidth = _getCardWidth(context);
     final coverHeight = _getCoverHeight(context);
     final contentPadding = _getContentPadding(context);
     final titleFontSize = _getTitleFontSize(context);
     final descriptionFontSize = _getDescriptionFontSize(context);
 
     return Container(
-      margin: EdgeInsets.all(crossAxisCount >= 3 ? 6 : 8),
+      width: cardWidth,
+      margin: EdgeInsets.all(isMobile ? 8 : 6),
       child: Card(
         elevation: 4,
         shape: RoundedRectangleBorder(
@@ -205,7 +183,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                             Colors.black.withOpacity(0.3),
                             Colors.transparent,
                             Colors.transparent,
-                            Colors.black.withOpacity(0.1),
+                            Colors.black.withOpacity(0.2),
                           ],
                         ),
                       ),
@@ -214,17 +192,17 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
 
                   // Категория в левом верхнем углу
                   Positioned(
-                    top: 12,
-                    left: 12,
+                    top: 8,
+                    left: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withOpacity(0.95),
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -254,17 +232,21 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
 
                   // Призовой фонд в правом верхнем углу
                   Positioned(
-                    top: 12,
-                    right: 12,
+                    top: 8,
+                    right: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.9),
+                        gradient: LinearGradient(
+                          colors: [Colors.green, Colors.green.shade600],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
+                            color: Colors.green.withOpacity(0.3),
+                            blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -282,17 +264,24 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
 
                   // Эмодзи и статус в нижней части обложки
                   Positioned(
-                    bottom: 12,
-                    left: 12,
-                    right: 12,
+                    bottom: 8,
+                    left: 8,
+                    right: 8,
                     child: Row(
                       children: [
                         // Эмодзи
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withOpacity(0.95),
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Text(
                             widget.league.emoji,
@@ -307,8 +296,15 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withOpacity(0.95),
                               borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -341,300 +337,325 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
               ),
 
               // ОСНОВНОЙ КОНТЕНТ
-              Expanded(
-                child: Container(
-                  padding: EdgeInsets.all(contentPadding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Заголовок
-                      Text(
-                        widget.league.title,
-                        style: TextStyle(
-                          fontSize: titleFontSize,
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+              Container(
+                padding: EdgeInsets.all(contentPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Заголовок
+                    Text(
+                      widget.league.title,
+                      style: TextStyle(
+                        fontSize: titleFontSize,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
 
-                      const SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
-                      // Описание
-                      Text(
-                        widget.league.description,
-                        style: TextStyle(
-                          fontSize: descriptionFontSize,
-                          color: Colors.grey[700],
-                          height: 1.4,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: crossAxisCount >= 3 ? 2 : 3,
-                        overflow: TextOverflow.ellipsis,
+                    // Описание
+                    Text(
+                      widget.league.description,
+                      style: TextStyle(
+                        fontSize: descriptionFontSize,
+                        color: Colors.grey[700],
+                        height: 1.4,
+                        fontWeight: FontWeight.w400,
                       ),
+                      maxLines: isMobile ? 3 : 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
 
-                      const Spacer(),
+                    const SizedBox(height: 12),
 
-                      // Прогресс-бар
-                      Column(
-                        children: [
-                          LinearProgressIndicator(
-                            value: widget.league.progress.clamp(0.0, 1.0),
-                            backgroundColor: Colors.grey[200],
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              widget.league.isActive ? Colors.blue : Colors.green,
-                            ),
-                            borderRadius: BorderRadius.circular(4),
+                    // Прогресс-бар
+                    Column(
+                      children: [
+                        Container(
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(3),
                           ),
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Stack(
                             children: [
-                              Text(
-                                '${(widget.league.progress * 100).clamp(0.0, 100.0).toStringAsFixed(0)}%',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                              Text(
-                                widget.league.isActive ? 'До завершения' : 'Завершена',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
-                                ),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return AnimatedContainer(
+                                    duration: const Duration(milliseconds: 500),
+                                    curve: Curves.easeOut,
+                                    width: constraints.maxWidth * widget.league.progress.clamp(0.0, 1.0),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: widget.league.isActive
+                                            ? [Colors.blue.shade500, Colors.blue.shade400]
+                                            : [Colors.green.shade500, Colors.green.shade400],
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Информация об авторе и статистика
-                      Row(
-                        children: [
-                          // Аватар автора
-                          Container(
-                            width: crossAxisCount >= 3 ? 32 : 36,
-                            height: crossAxisCount >= 3 ? 32 : 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: categoryColor,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: categoryColor.withOpacity(0.3),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${(widget.league.progress * 100).clamp(0.0, 100.0).toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: widget.league.isActive ? Colors.blue.shade600 : Colors.green.shade600,
+                              ),
                             ),
-                            child: Center(
-                              child: Text(
-                                widget.league.author[0].toUpperCase(),
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: crossAxisCount >= 3 ? 12 : 14,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                            Text(
+                              widget.league.isActive ? 'До завершения' : 'Завершена',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Информация об авторе и статистика
+                    Row(
+                      children: [
+                        // Аватар автора
+                        Container(
+                          width: isMobile ? 36 : 32,
+                          height: isMobile ? 36 : 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [categoryColor, categoryColor.withOpacity(0.8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: categoryColor.withOpacity(0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              widget.league.author[0].toUpperCase(),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isMobile ? 14 : 12,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
+                        ),
 
-                          const SizedBox(width: 8),
+                        const SizedBox(width: 8),
 
-                          // Информация об авторе
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.league.author,
-                                  style: TextStyle(
-                                    fontSize: crossAxisCount >= 3 ? 12 : 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      _levelIcon,
-                                      size: crossAxisCount >= 3 ? 10 : 12,
-                                      color: _levelColor,
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      _levelText,
-                                      style: TextStyle(
-                                        fontSize: crossAxisCount >= 3 ? 9 : 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: _levelColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Статистика участников и прогнозов
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                        // Информация об авторе
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.people_outline,
-                                    size: crossAxisCount >= 3 ? 12 : 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    _formatNumber(widget.league.participants),
-                                    style: TextStyle(
-                                      fontSize: crossAxisCount >= 3 ? 10 : 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                widget.league.author,
+                                style: TextStyle(
+                                  fontSize: isMobile ? 13 : 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 2),
                               Row(
                                 children: [
                                   Icon(
-                                    Icons.analytics_outlined,
-                                    size: crossAxisCount >= 3 ? 12 : 14,
-                                    color: Colors.grey[600],
+                                    _levelIcon,
+                                    size: isMobile ? 12 : 10,
+                                    color: _levelColor,
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
-                                    _formatNumber(widget.league.predictions),
+                                    _levelText,
                                     style: TextStyle(
-                                      fontSize: crossAxisCount >= 3 ? 10 : 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey[700],
+                                      fontSize: isMobile ? 10 : 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: _levelColor,
                                     ),
                                   ),
                                 ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // КНОПКИ ДЕЙСТВИЙ
-                      Container(
-                        height: crossAxisCount >= 3 ? 36 : 40,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.grey[200]!,
-                            width: 1,
-                          ),
                         ),
-                        child: Row(
+
+                        // Статистика участников и прогнозов
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            // Участие
-                            Expanded(
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: () {
-                                    // Обработка участия в лиге
-                                  },
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(10),
-                                    bottomLeft: Radius.circular(10),
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.emoji_events_outlined,
-                                          size: crossAxisCount >= 3 ? 16 : 18,
-                                          color: Colors.orange,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Участвовать',
-                                          style: TextStyle(
-                                            fontSize: crossAxisCount >= 3 ? 11 : 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.orange,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.people_outline,
+                                  size: isMobile ? 14 : 12,
+                                  color: Colors.grey[600],
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatNumber(widget.league.participants),
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 12 : 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-
-                            // Разделитель
-                            Container(
-                              width: 1,
-                              height: 20,
-                              color: Colors.grey[300],
-                            ),
-
-                            // Закладка
-                            Expanded(
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      _isBookmarked = !_isBookmarked;
-                                    });
-                                  },
-                                  borderRadius: const BorderRadius.only(
-                                    topRight: Radius.circular(10),
-                                    bottomRight: Radius.circular(10),
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                          size: crossAxisCount >= 3 ? 16 : 18,
-                                          color: _isBookmarked ? Colors.blue : Colors.grey[600],
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Сохранить',
-                                          style: TextStyle(
-                                            fontSize: crossAxisCount >= 3 ? 11 : 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: _isBookmarked ? Colors.blue : Colors.grey[700],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.analytics_outlined,
+                                  size: isMobile ? 14 : 12,
+                                  color: Colors.grey[600],
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatNumber(widget.league.predictions),
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 12 : 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
                         ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // КНОПКИ ДЕЙСТВИЙ
+                    Container(
+                      height: isMobile ? 40 : 36,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 1,
+                        ),
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        children: [
+                          // Участие
+                          Expanded(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  widget.onTap();
+                                },
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(10),
+                                  bottomLeft: Radius.circular(10),
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.emoji_events_outlined,
+                                        size: isMobile ? 18 : 16,
+                                        color: Colors.orange,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Участвовать',
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 12 : 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.orange,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Разделитель
+                          Container(
+                            width: 1,
+                            height: 20,
+                            color: Colors.grey[300],
+                          ),
+
+                          // Закладка
+                          Expanded(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _isBookmarked = !_isBookmarked;
+                                  });
+                                },
+                                borderRadius: const BorderRadius.only(
+                                  topRight: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                                        size: isMobile ? 18 : 16,
+                                        color: _isBookmarked ? Colors.blue : Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Сохранить',
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 12 : 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: _isBookmarked ? Colors.blue : Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -642,15 +663,5 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
         ),
       ),
     );
-  }
-
-  // Форматирование чисел для статистики
-  String _formatNumber(int number) {
-    if (number >= 1000000) {
-      return '${(number / 1000000).toStringAsFixed(1)}M';
-    } else if (number >= 1000) {
-      return '${(number / 1000).toStringAsFixed(1)}K';
-    }
-    return number.toString();
   }
 }

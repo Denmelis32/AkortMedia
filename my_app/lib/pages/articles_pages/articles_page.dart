@@ -410,25 +410,34 @@ class _ArticlesPageState extends State<ArticlesPage> {
   Widget _buildFiltersCard(double horizontalPadding) {
     if (!_showFilters) return const SizedBox.shrink();
 
+    final isMobile = _isMobile(context);
+
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      margin: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : horizontalPadding,
+          vertical: 8
+      ),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isMobile ? 0 : 12)),
         color: Colors.white,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Фильтры',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               SizedBox(
-                height: 40,
+                height: isMobile ? 36 : 40,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
@@ -485,25 +494,34 @@ class _ArticlesPageState extends State<ArticlesPage> {
   }
 
   Widget _buildCategoriesCard(double horizontalPadding) {
+    final isMobile = _isMobile(context);
+
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      margin: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : horizontalPadding,
+          vertical: 8
+      ),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isMobile ? 0 : 12)),
         color: Colors.white,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Категории',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               SizedBox(
-                height: 40,
+                height: isMobile ? 36 : 40,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
@@ -523,23 +541,27 @@ class _ArticlesPageState extends State<ArticlesPage> {
 
   Widget _buildCategoryChip(ArticleCategory category) {
     final isSelected = _currentTabIndex == _categories.indexOf(category);
+    final isMobile = _isMobile(context);
 
     return Container(
-      margin: const EdgeInsets.only(right: 8),
+      margin: EdgeInsets.only(right: isMobile ? 6 : 8),
       child: Material(
         color: isSelected ? category.color : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
         child: InkWell(
           onTap: () {
             setState(() {
               _currentTabIndex = _categories.indexOf(category);
             });
           },
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 12 : 16,
+                vertical: isMobile ? 6 : 8
+            ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
               border: Border.all(
                 color: isSelected ? category.color : Colors.grey[300]!,
                 width: 1,
@@ -548,9 +570,9 @@ class _ArticlesPageState extends State<ArticlesPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(category.icon, size: 16, color: isSelected ? Colors.white : category.color),
-                const SizedBox(width: 6),
-                Text(category.title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isSelected ? Colors.white : Colors.black87)),
+                Icon(category.icon, size: isMobile ? 14 : 16, color: isSelected ? Colors.white : category.color),
+                SizedBox(width: isMobile ? 4 : 6),
+                Text(category.title, style: TextStyle(fontSize: isMobile ? 12 : 13, fontWeight: FontWeight.w500, color: isSelected ? Colors.white : Colors.black87)),
               ],
             ),
           ),
@@ -646,7 +668,7 @@ class _ArticlesPageState extends State<ArticlesPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar
+              // AppBar - БЕЗ ОТСТУПОВ НА ТЕЛЕФОНЕ
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(

@@ -19,7 +19,9 @@ class PredictionLeague {
   final double prizePool;
   final int views;
   final String detailedDescription;
-  final double progress; // Добавленное поле
+  final double progress;
+  final double minBet; // Добавлено
+  final double maxBet; // Добавлено
 
   const PredictionLeague({
     required this.id,
@@ -37,7 +39,9 @@ class PredictionLeague {
     required this.prizePool,
     required this.views,
     required this.detailedDescription,
-    required this.progress, // Добавленное поле
+    required this.progress,
+    this.minBet = 10.0, // Значение по умолчанию
+    this.maxBet = 1000.0, // Значение по умолчанию
   });
 
   // Время до окончания
@@ -92,6 +96,8 @@ class PredictionLeague {
     int? views,
     String? detailedDescription,
     double? progress,
+    double? minBet, // Добавлено
+    double? maxBet, // Добавлено
   }) {
     return PredictionLeague(
       id: id ?? this.id,
@@ -110,6 +116,56 @@ class PredictionLeague {
       views: views ?? this.views,
       detailedDescription: detailedDescription ?? this.detailedDescription,
       progress: progress ?? this.progress,
+      minBet: minBet ?? this.minBet, // Добавлено
+      maxBet: maxBet ?? this.maxBet, // Добавлено
     );
+  }
+
+  // Фабричный метод для создания из JSON
+  factory PredictionLeague.fromJson(Map<String, dynamic> json) {
+    return PredictionLeague(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      emoji: json['emoji'] ?? '🏆',
+      participants: json['participants'] ?? 0,
+      predictions: json['predictions'] ?? 0,
+      endDate: DateTime.parse(json['endDate'] ?? DateTime.now().add(const Duration(days: 30)).toString()),
+      category: json['category'] ?? '',
+      author: json['author'] ?? '',
+      imageUrl: json['imageUrl'] ?? '',
+      authorLevel: AuthorLevel.values[json['authorLevel'] ?? 0],
+      isActive: json['isActive'] ?? true,
+      prizePool: (json['prizePool'] ?? 0).toDouble(),
+      views: json['views'] ?? 0,
+      detailedDescription: json['detailedDescription'] ?? '',
+      progress: (json['progress'] ?? 0.5).toDouble(),
+      minBet: (json['minBet'] ?? 10.0).toDouble(), // Добавлено
+      maxBet: (json['maxBet'] ?? 1000.0).toDouble(), // Добавлено
+    );
+  }
+
+  // Метод для преобразования в JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'emoji': emoji,
+      'participants': participants,
+      'predictions': predictions,
+      'endDate': endDate.toIso8601String(),
+      'category': category,
+      'author': author,
+      'imageUrl': imageUrl,
+      'authorLevel': authorLevel.index,
+      'isActive': isActive,
+      'prizePool': prizePool,
+      'views': views,
+      'detailedDescription': detailedDescription,
+      'progress': progress,
+      'minBet': minBet, // Добавлено
+      'maxBet': maxBet, // Добавлено
+    };
   }
 }

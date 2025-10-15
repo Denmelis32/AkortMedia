@@ -1,0 +1,358 @@
+lib/
+features/
+└── predictions_league/                    # 🎯 ГЛАВНЫЙ МОДУЛЬ - ЛИГА ПРОГНОЗОВ
+    ├── models/                            # 📊 ДАННЫЕ И БИЗНЕС-ЛОГИКА
+    │   ├── enums.dart                     # 🎲 ТИПЫ И СТАТУСЫ
+    │   └── prediction_league.dart         # 🏆 ОСНОВНЫЕ МОДЕЛИ
+    ├── pages/                             # 🖥️ ЭКРАНЫ ПРИЛОЖЕНИЯ
+    │   ├── league_detail_page.dart        # 📄 СТРАНИЦА ЛИГЫ (ГЛАВНАЯ)
+    │   └── predictions_league_page.dart   # 📋 СПИСОК ВСЕХ ЛИГ
+    └── widgets/                           # 🧩 КОМПОНЕНТЫ ИНТЕРФЕЙСА
+        ├── league_description_tab.dart    # 📖 ВКЛАДКА "ОПИСАНИЕ"
+        ├── league_events_tab.dart         # ⚽ ВКЛАДКА "СОБЫТИЯ"
+        ├── league_predictions_tab.dart    # 💰 ВКЛАДКА "МОИ ПРОГНОЗЫ"
+        ├── league_leaderboard_tab.dart    # 🏅 ВКЛАДКА "РЕЙТИНГ"
+        ├── prediction_league_card.dart    # 🃏 КАРТОЧКА ЛИГИ
+        ├── event_item.dart                # 🎯 ЭЛЕМЕНТ СОБЫТИЯ
+        ├── prediction_item.dart           # 📊 ЭЛЕМЕНТ ПРОГНОЗА
+        └── coupon_dialog.dart             # 🛒 ДИАЛОГ КУПОНА
+
+
+
+      Обновляю и дополняю структуру с указанием кнопок, классов и методов:
+
+      🏗️ ОБНОВЛЕННАЯ СТРУКТУРА С КНОПКАМИ И МЕТОДАМИ
+      text
+      lib/
+      features/
+      └── predictions_league/
+          ├── models/
+          │   ├── enums.dart
+          │   └── prediction_league.dart
+          ├── pages/
+          │   ├── league_detail_page.dart
+          │   └── predictions_league_page.dart
+          └── widgets/
+              ├── league_description_tab.dart
+              ├── league_events_tab.dart
+              ├── league_predictions_tab.dart
+              ├── league_leaderboard_tab.dart
+              ├── prediction_league_card.dart
+              ├── event_item.dart
+              ├── prediction_item.dart
+              ├── prediction_dialog.dart         # 🆕 ДИАЛОГ СТАВКИ
+              └── coupon_dialog.dart
+      📁 league_detail_page.dart - ГЛАВНЫЙ КООРДИНАТОР
+      🎯 КНОПКИ И МЕТОДЫ:
+      dart
+      class LeagueDetailPage extends StatefulWidget {
+        // ...
+      }
+
+      class _LeagueDetailPageState extends State<LeagueDetailPage> {
+        // 🎯 КНОПКИ В APP BAR:
+
+        // ← Кнопка "Назад"
+        // Класс: IconButton в build()
+        // Метод: Navigator.pop(context)
+
+        // 🛒 Кнопка "Корзина купона" (только при наличии ставок в купоне)
+        // Класс: IconButton с Badge в build()
+        // Метод: _showCouponDialog()
+
+        // 📤 Кнопка "Поделиться"
+        // Класс: IconButton в build()
+        // Метод: _shareLeague()
+
+        // ❤️ Кнопка "Лайк"
+        // Класс: IconButton в build()
+        // Метод: _toggleLike()
+
+        // 🧮 Кнопка "Тест расчетов" (только для разработки)
+        // Класс: IconButton в build()
+        // Метод: _testCalculationResults()
+
+        // 🎯 ОСНОВНЫЕ КНОПКИ КОНТЕНТА:
+
+        // ✅ Кнопка "Присоединиться к лиге" / "Сделать прогноз"
+        // Класс: ElevatedButton в build()
+        // Метод: _toggleSubscription() / _showPredictionDialog()
+
+        // 💰 Кнопка "Пополнить баланс"
+        // Класс: ElevatedButton в build()
+        // Метод: (будет реализовано) _showTopUpDialog()
+
+        // 🧪 Кнопка "Тест расчетов" (в балансе)
+        // Класс: OutlinedButton в build()
+        // Метод: _testCalculationResults()
+
+        // 🎯 МЕТОДЫ ДЛЯ КНОПОК:
+
+        void _toggleSubscription() {
+          // Переключение подписки на лигу
+          setState(() { _isSubscribed = !_isSubscribed; });
+        }
+
+        void _showPredictionDialog() {
+          // Открытие диалога создания ставки
+          showDialog(context: context, builder: ...);
+        }
+
+        void _showCouponDialog() {
+          // Открытие диалога купона ставок
+          showDialog(context: context, builder: ...);
+        }
+
+        void _toggleLike() {
+          // Лайк/анлайк лиги
+          setState(() { _isLiked = !_isLiked; });
+        }
+
+        void _shareLeague() {
+          // Поделиться лигой
+          showModalBottomSheet(...);
+        }
+
+        void _testCalculationResults() {
+          // Тестовый расчет результатов (для разработки)
+          _calculatePredictionResults(...);
+        }
+
+        // 🎯 БИЗНЕС-МЕТОДЫ СТАВОК:
+
+        void _placePrediction(String optionId, double amount, String betType, Map option) {
+          // Размещение одиночной ставки
+        }
+
+        void _placeCouponPrediction(double totalAmount, double totalOdds, List predictions) {
+          // Размещение экспресс-ставки
+        }
+
+        void _cancelPrediction(String predictionId) {
+          // Отмена активной ставки
+        }
+
+        void _addToCoupon(Map prediction) {
+          // Добавление ставки в купон
+        }
+
+        void _removeFromCoupon(int index) {
+          // Удаление ставки из купона
+        }
+      }
+      🧩 WIDGETS/ - КОМПОНЕНТЫ С КНОПКАМИ
+      📁 league_events_tab.dart - ⚽ СОБЫТИЯ
+      dart
+      class LeagueEventsTab extends StatefulWidget {
+        // ...
+      }
+
+      class _LeagueEventsTabState extends State<LeagueEventsTab> {
+        // 🎯 КНОПКИ:
+
+        // 🔘 Фильтры "Все/Футбол/LIVE/Сегодня"
+        // Класс: ChoiceChip в _buildFilterChip()
+        // Метод: setState() обновление _selectedFilter
+
+        // 📥 Кнопка "Показать больше событий"
+        // Класс: OutlinedButton в build()
+        // Метод: _loadMoreEvents()
+
+        // 🎯 МЕТОДЫ:
+
+        Widget _buildFilterChip(String label, bool isSelected) {
+          // Создание фильтра-чипа
+          return ChoiceChip(
+            onSelected: (selected) {
+              setState(() { _selectedFilter = selected ? label : 'Все'; });
+            },
+          );
+        }
+
+        void _loadMoreEvents() {
+          // Загрузка дополнительных событий
+          ScaffoldMessenger.of(context).showSnackBar(...);
+        }
+      }
+      📁 event_item.dart - 🎯 ЭЛЕМЕНТ СОБЫТИЯ
+      dart
+      class EventItem extends StatelessWidget {
+        // 🎯 КНОПКИ:
+
+        // ✅ Кнопка "Сделать ставку" / "Выбрано"
+        // Класс: ElevatedButton в build()
+        // Метод: onTap (переданный колбэк)
+
+        // 🎯 ОТВЕТСТВЕННОСТЬ:
+        // • Отображение деталей события
+        // • Кнопка для быстрой ставки
+        // • Визуализация статуса выбора
+      }
+      📁 league_predictions_tab.dart - 💰 МОИ ПРОГНОЗЫ
+      dart
+      class LeaguePredictionsTab extends StatefulWidget {
+        // ...
+      }
+
+      class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
+        // 🎯 КНОПКИ:
+
+        // 🔘 Фильтры "Все/Активные/Выигранные/Проигранные/Отмененные"
+        // Класс: ChoiceChip в _buildFilterChip()
+        // Метод: setState() обновление _selectedFilter
+
+        // 🚫 Кнопка "Отменить все активные ставки"
+        // Класс: OutlinedButton в build()
+        // Метод: _cancelAllActivePredictions()
+
+        // ➕ Кнопка "Сделать первую ставку" (пустое состояние)
+        // Класс: ElevatedButton в _buildEmptyPredictionsState()
+        // Метод: onMakePrediction (переданный колбэк)
+
+        // 🎯 МЕТОДЫ:
+
+        void _cancelAllActivePredictions() {
+          // Отмена всех активных ставок
+          showDialog(...); // Подтверждение
+        }
+
+        void _cancelPrediction(String predictionId) {
+          // Отмена конкретной ставки
+          widget.onCancelPrediction(predictionId);
+        }
+
+        void _showPredictionDetails(Map prediction) {
+          // Просмотр деталей ставки
+          showDialog(...);
+        }
+      }
+      📁 prediction_item.dart - 📊 ЭЛЕМЕНТ ПРОГНОЗА
+      dart
+      class PredictionItem extends StatelessWidget {
+        // 🎯 КНОПКИ:
+
+        // 👆 Вся карточка - кликабельна для деталей
+        // Класс: InkWell в build()
+        // Метод: onTap (переданный колбэк)
+
+        // 🚫 Кнопка "Отменить" (только для активных ставок)
+        // Класс: OutlinedButton в build()
+        // Метод: onCancel (переданный колбэк)
+
+        // 🎯 ОТВЕТСТВЕННОСТЬ:
+        // • Отображение статуса ставки
+        // • Кнопка отмены для активных ставок
+        // • Детали экспресс-ставок
+      }
+      💬 ДИАЛОГИ С КНОПКАМИ
+      📁 prediction_dialog.dart - 💰 ДИАЛОГ СТАВКИ
+      dart
+      class PredictionDialog extends StatefulWidget {
+        // ...
+      }
+
+      class _PredictionDialogState extends State<PredictionDialog> {
+        // 🎯 КНОПКИ:
+
+        // ❌ Кнопка "Закрыть" в заголовке
+        // Класс: IconButton в build()
+        // Метод: Navigator.pop(context)
+
+        // 🔘 Типы ставок "Победитель/Тоталы/Форы/..."
+        // Класс: ChoiceChip в build()
+        // Метод: setState() обновление _selectedBetType
+
+        // 📥 Варианты прогнозов (кликабельные карточки)
+        // Класс: InkWell в _buildPredictionOption()
+        // Метод: setState() обновление _selectedOptionId
+
+        // 🛒 Кнопка "В купон"
+        // Класс: OutlinedButton в build()
+        // Метод: _addToCoupon()
+
+        // ✅ Кнопка "Подтвердить"
+        // Класс: ElevatedButton в build()
+        // Метод: _placePrediction()
+
+        // 🎯 МЕТОДЫ:
+
+        void _placePrediction() {
+          // Подтверждение одиночной ставки
+          widget.onPlacePrediction(...);
+          Navigator.pop(context);
+        }
+
+        void _addToCoupon() {
+          // Добавление ставки в купон
+          widget.onAddToCoupon(...);
+          Navigator.pop(context);
+        }
+      }
+      📁 coupon_dialog.dart - 🛒 ДИАЛОГ КУПОНА
+      dart
+      class CouponDialog extends StatefulWidget {
+        // ...
+      }
+
+      class _CouponDialogState extends State<CouponDialog> {
+        // 🎯 КНОПКИ:
+
+        // ❌ Кнопка "Закрыть" в заголовке
+        // Класс: IconButton в build()
+        // Метод: Navigator.pop(context)
+
+        // 🗑️ Кнопки "Удалить" для каждой ставки в купоне
+        // Класс: IconButton в _buildCouponItems()
+        // Метод: widget.onRemovePrediction(index)
+
+        // 🔘 Системы ставок "Одинарные/Экспресс/Система 2/3/..."
+        // Класс: ChoiceChip в _buildSystemSelector()
+        // Метод: setState() обновление _selectedSystem
+
+        // 💾 Кнопка "Продолжить" (при пустом купоне)
+        // Класс: ElevatedButton в _buildEmptyCoupon()
+        // Метод: Navigator.pop(context)
+
+        // 🎯 Кнопка "Сделать экспресс"
+        // Класс: ElevatedButton в build()
+        // Метод: _placeCoupon()
+
+        // 🎯 МЕТОДЫ:
+
+        void _placeCoupon() {
+          // Подтверждение экспресс-ставки
+          widget.onPlaceCoupon(totalAmount, totalOdds, widget.couponPredictions);
+          Navigator.pop(context);
+        }
+      }
+      🎯 СВОДНАЯ ТАБЛИЦА КНОПОК
+      Кнопка	Класс	Метод	Расположение
+      Присоединиться/Сделать ставку	ElevatedButton	_toggleSubscription() / _showPredictionDialog()	Главная страница
+      Пополнить баланс	ElevatedButton	_showTopUpDialog()	Блок баланса
+      Сделать ставку (на событие)	ElevatedButton	onTap колбэк	EventItem
+      В купон	OutlinedButton	_addToCoupon()	PredictionDialog
+      Подтвердить ставку	ElevatedButton	_placePrediction()	PredictionDialog
+      Сделать экспресс	ElevatedButton	_placeCoupon()	CouponDialog
+      Отменить ставку	OutlinedButton	onCancel колбэк	PredictionItem
+      Отменить все	OutlinedButton	_cancelAllActivePredictions()	PredictionsTab
+      Показать больше	OutlinedButton	_loadMoreEvents()	EventsTab
+      Корзина купона	IconButton	_showCouponDialog()	AppBar
+      Поделиться	IconButton	_shareLeague()	AppBar
+      Лайк	IconButton	_toggleLike()	AppBar
+      Фильтры	ChoiceChip	setState()	EventsTab, PredictionsTab
+      Системы ставок	ChoiceChip	setState()	CouponDialog
+      🔄 ПОТОК ВЗАИМОДЕЙСТВИЯ
+      text
+      Пользователь → Кнопка → Метод в Widget → Колбэк в LeagueDetailPage → Обновление состояния
+      Пример:
+
+      text
+      1. Нажатие "Сделать ставку" в EventItem
+      2. Вызов onTap колбэка
+      3. LeagueDetailPage._showPredictionDialog()
+      4. Открытие PredictionDialog
+      5. Выбор ставки → нажатие "Подтвердить"
+      6. PredictionDialog._placePrediction()
+      7. Колбэк в LeagueDetailPage._placePrediction()
+      8. setState() обновление _predictions и _userPoints
+      Теперь вся структура кнопок и методов полностью понятна! 🎯

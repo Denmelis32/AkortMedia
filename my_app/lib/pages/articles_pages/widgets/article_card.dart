@@ -97,9 +97,13 @@ class _ArticleCardState extends State<ArticleCard> {
     return icons[category] ?? Icons.article;
   }
 
-  // Определяем, мобильное ли устройство
-  bool _isMobile(BuildContext context) {
-    return MediaQuery.of(context).size.width <= 600;
+  // Определяем размер экрана
+  _ScreenSize _getScreenSize(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width <= 360) return _ScreenSize.small;
+    if (width <= 420) return _ScreenSize.medium;
+    if (width <= 600) return _ScreenSize.large;
+    return _ScreenSize.desktop;
   }
 
   // Форматирование чисел для статистики
@@ -117,239 +121,369 @@ class _ArticleCardState extends State<ArticleCard> {
     final categoryColor = _categoryColors[widget.article.category] ?? const Color(0xFF78909C);
     final readingTime = _getReadingTime();
     final formattedDate = _getFormattedDate();
-    final isMobile = _isMobile(context);
+    final screenSize = _getScreenSize(context);
 
-    // ДЛЯ МОБИЛЬНЫХ - УПРОЩЕННАЯ ВЕРСИЯ С ОБЛОЖКОЙ И ТОНКОЙ СЕРОЙ ЛИНИЕЙ
-    if (isMobile) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 1),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Colors.grey[200]!,
-              width: 1,
-            ),
+    // Для десктопной версии
+    if (screenSize == _ScreenSize.desktop) {
+      return _buildDesktopCard(categoryColor, readingTime, formattedDate);
+    }
+
+    // Для мобильных устройств
+    return _buildMobileCard(context, screenSize, categoryColor, readingTime, formattedDate);
+  }
+
+  // ВЕРСИЯ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
+  Widget _buildMobileCard(
+      BuildContext context,
+      _ScreenSize screenSize,
+      Color categoryColor,
+      String readingTime,
+      String formattedDate,
+      ) {
+    // Определяем размеры в зависимости от размера экрана
+    final double imageHeight;
+    final double titleFontSize;
+    final double descriptionFontSize;
+    final double authorFontSize;
+    final double paddingValue;
+    final double avatarSize;
+    final double iconSize;
+    final double buttonFontSize;
+
+    switch (screenSize) {
+      case _ScreenSize.small: // Маленькие телефоны (до 360px)
+        imageHeight = 140;
+        titleFontSize = 15;
+        descriptionFontSize = 13;
+        authorFontSize = 12;
+        paddingValue = 10;
+        avatarSize = 28;
+        iconSize = 14;
+        buttonFontSize = 12;
+        break;
+      case _ScreenSize.medium: // Средние телефоны (360-420px)
+        imageHeight = 150;
+        titleFontSize = 16;
+        descriptionFontSize = 14;
+        authorFontSize = 13;
+        paddingValue = 12;
+        avatarSize = 32;
+        iconSize = 16;
+        buttonFontSize = 13;
+        break;
+      case _ScreenSize.large: // Большие телефоны (420-600px)
+        imageHeight = 160;
+        titleFontSize = 17;
+        descriptionFontSize = 14;
+        authorFontSize = 14;
+        paddingValue = 14;
+        avatarSize = 36;
+        iconSize = 18;
+        buttonFontSize = 14;
+        break;
+      default:
+        imageHeight = 160;
+        titleFontSize = 16;
+        descriptionFontSize = 14;
+        authorFontSize = 13;
+        paddingValue = 12;
+        avatarSize = 32;
+        iconSize = 16;
+        buttonFontSize = 13;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 1),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey[200]!,
+            width: 1,
           ),
         ),
-        child: Material(
-          color: Colors.white,
-          child: InkWell(
-            onTap: widget.onTap,
-            onLongPress: widget.onLongPress,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ТОНКАЯ СЕРАЯ ЛИНИЯ СВЕРХУ - только на мобильных
-                Container(
-                  height: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(1),
+      ),
+      child: Material(
+        color: Colors.white,
+        child: InkWell(
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ТОНКАЯ СЕРАЯ ЛИНИЯ СВЕРХУ
+              Container(
+                height: 1,
+                margin: EdgeInsets.symmetric(horizontal: paddingValue),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+
+              // ОБЛОЖКА СТАТЬИ
+              Stack(
+                children: [
+                  Container(
+                    height: imageHeight,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: NetworkImage(widget.article.imageUrl),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
-                ),
 
-                // ОБЛОЖКА СТАТЬИ
-                Stack(
-                  children: [
-                    Container(
-                      height: 160, // Фиксированная высота обложки
-                      width: double.infinity,
+                  // Категория в левом верхнем углу
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        image: DecorationImage(
-                          image: NetworkImage(widget.article.imageUrl),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-
-                    // Категория в левом верхнем углу
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _getCategoryIcon(widget.article.category),
-                              size: 10,
-                              color: categoryColor,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              widget.article.category.toUpperCase(),
-                              style: TextStyle(
-                                color: categoryColor,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Дата в правом верхнем углу
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          formattedDate,
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
                           ),
-                        ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-
-                // ОСНОВНОЙ КОНТЕНТ
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Заголовок
-                      Text(
-                        widget.article.title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          height: 1.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      // Описание (только 2 строки)
-                      Text(
-                        widget.article.description,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                          height: 1.4,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // Автор и статистика в одной строке
-                      Row(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Аватар автора
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
+                          Icon(
+                            _getCategoryIcon(widget.article.category),
+                            size: iconSize * 0.7,
+                            color: categoryColor,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            widget.article.category.toUpperCase(),
+                            style: TextStyle(
                               color: categoryColor,
+                              fontSize: buttonFontSize * 0.8,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
                             ),
-                            child: Center(
-                              child: Text(
-                                widget.article.author[0].toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Дата в правом верхнем углу
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        formattedDate,
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: buttonFontSize * 0.8,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // ОСНОВНОЙ КОНТЕНТ
+              Container(
+                padding: EdgeInsets.all(paddingValue),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Заголовок
+                    Text(
+                      widget.article.title,
+                      style: TextStyle(
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    SizedBox(height: paddingValue * 0.5),
+
+                    // Описание
+                    Text(
+                      widget.article.description,
+                      style: TextStyle(
+                        fontSize: descriptionFontSize,
+                        color: Colors.grey[700],
+                        height: 1.4,
+                      ),
+                      maxLines: screenSize == _ScreenSize.small ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    SizedBox(height: paddingValue),
+
+                    // Автор и статистика в одной строке
+                    Row(
+                      children: [
+                        // Аватар автора
+                        Container(
+                          width: avatarSize,
+                          height: avatarSize,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: categoryColor,
+                          ),
+                          child: Center(
+                            child: Text(
+                              widget.article.author[0].toUpperCase(),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: authorFontSize * 0.8,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
+                        ),
 
-                          const SizedBox(width: 8),
+                        SizedBox(width: paddingValue * 0.7),
 
-                          // Информация об авторе
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.article.author,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  _levelText,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: _levelColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Статистика
-                          Row(
+                        // Информация об авторе
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.remove_red_eye_outlined,
-                                size: 14,
-                                color: Colors.grey[600],
-                              ),
-                              const SizedBox(width: 4),
                               Text(
-                                _formatNumber(widget.article.views),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
+                                widget.article.author,
+                                style: TextStyle(
+                                  fontSize: authorFontSize,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(width: 8),
                               Text(
-                                readingTime,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
+                                _levelText,
+                                style: TextStyle(
+                                  fontSize: authorFontSize * 0.85,
+                                  color: _levelColor,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
+                        ),
+
+                        // Статистика
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.remove_red_eye_outlined,
+                              size: iconSize * 0.8,
+                              color: Colors.grey[600],
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              _formatNumber(widget.article.views),
+                              style: TextStyle(
+                                fontSize: buttonFontSize * 0.9,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              readingTime,
+                              style: TextStyle(
+                                fontSize: buttonFontSize * 0.9,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: paddingValue),
+
+                    // Кнопки действий - адаптивный вариант
+                    if (screenSize == _ScreenSize.small) ...[
+                      // Для маленьких экранов - компактные кнопки
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          // Лайк
+                          Expanded(
+                            child: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isLiked = !_isLiked;
+                                  _isLiked ? _likeCount++ : _likeCount--;
+                                });
+                              },
+                              icon: Icon(
+                                _isLiked ? Icons.favorite : Icons.favorite_border,
+                                size: iconSize,
+                                color: _isLiked ? Colors.red : Colors.grey,
+                              ),
+                              padding: const EdgeInsets.all(4),
+                            ),
+                          ),
+
+                          // Счетчик лайков
+                          Text(
+                            _formatNumber(_likeCount),
+                            style: TextStyle(
+                              fontSize: buttonFontSize,
+                              color: _isLiked ? Colors.red : Colors.grey,
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          // Закладка
+                          Expanded(
+                            child: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isBookmarked = !_isBookmarked;
+                                });
+                              },
+                              icon: Icon(
+                                _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                                size: iconSize,
+                                color: _isBookmarked ? Colors.blue : Colors.grey,
+                              ),
+                              padding: const EdgeInsets.all(4),
+                            ),
+                          ),
+
+                          // Текст "Сохранить"
+                          Text(
+                            'Сохранить',
+                            style: TextStyle(
+                              fontSize: buttonFontSize,
+                              color: _isBookmarked ? Colors.blue : Colors.grey,
+                            ),
+                          ),
                         ],
                       ),
-
-                      const SizedBox(height: 10),
-
-                      // Кнопки действий
+                    ] else ...[
+                      // Для средних и больших экранов - полноценные кнопки
                       Row(
                         children: [
                           // Лайк
@@ -363,17 +497,18 @@ class _ArticleCardState extends State<ArticleCard> {
                               },
                               icon: Icon(
                                 _isLiked ? Icons.favorite : Icons.favorite_border,
-                                size: 16,
+                                size: iconSize,
                                 color: _isLiked ? Colors.red : Colors.grey,
                               ),
                               label: Text(
                                 _formatNumber(_likeCount),
                                 style: TextStyle(
                                   color: _isLiked ? Colors.red : Colors.grey,
+                                  fontSize: buttonFontSize,
                                 ),
                               ),
                               style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                padding: EdgeInsets.symmetric(vertical: 6),
                               ),
                             ),
                           ),
@@ -388,33 +523,40 @@ class _ArticleCardState extends State<ArticleCard> {
                               },
                               icon: Icon(
                                 _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                size: 16,
+                                size: iconSize,
                                 color: _isBookmarked ? Colors.blue : Colors.grey,
                               ),
                               label: Text(
                                 'Сохранить',
                                 style: TextStyle(
                                   color: _isBookmarked ? Colors.blue : Colors.grey,
+                                  fontSize: buttonFontSize,
                                 ),
                               ),
                               style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                padding: EdgeInsets.symmetric(vertical: 6),
                               ),
                             ),
                           ),
                         ],
                       ),
                     ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    // ДЛЯ КОМПЬЮТЕРА И ПЛАНШЕТОВ - БЕЗ ЦВЕТНОЙ ЛИНИИ
+  // ВЕРСИЯ ДЛЯ КОМПЬЮТЕРА (оставлена без изменений)
+  Widget _buildDesktopCard(
+      Color categoryColor,
+      String readingTime,
+      String formattedDate,
+      ) {
     return Container(
       margin: const EdgeInsets.all(8),
       child: Material(
@@ -434,8 +576,6 @@ class _ArticleCardState extends State<ArticleCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // УБРАЛИ ЦВЕТНУЮ ЛИНИЮ СВЕРХУ для компьютера
-
                 // ОБЛОЖКА СТАТЬИ
                 Stack(
                   children: [
@@ -782,4 +922,12 @@ class _ArticleCardState extends State<ArticleCard> {
       ),
     );
   }
+}
+
+// Перечисление для размеров экрана
+enum _ScreenSize {
+  small,    // до 360px
+  medium,   // 360-420px
+  large,    // 420-600px
+  desktop,  // больше 600px
 }

@@ -92,33 +92,13 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
     return number.toString();
   }
 
-  // Адаптивные методы
-  bool _isMobile(BuildContext context) {
-    return MediaQuery.of(context).size.width <= 600;
-  }
-
-  double _getCardWidth(BuildContext context) {
+  // Определяем размер экрана как во втором файле
+  _ScreenSize _getScreenSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return (width - 96) / 3;
-    if (width > 800) return (width - 64) / 2;
-    if (width > 600) return (width - 48) / 2;
-    return width - 32;
-  }
-
-  double _getCoverHeight(BuildContext context) {
-    return _isMobile(context) ? 140 : 120;
-  }
-
-  double _getContentPadding(BuildContext context) {
-    return _isMobile(context) ? 16 : 12;
-  }
-
-  double _getTitleFontSize(BuildContext context) {
-    return _isMobile(context) ? 16 : 15;
-  }
-
-  double _getDescriptionFontSize(BuildContext context) {
-    return _isMobile(context) ? 14 : 12;
+    if (width <= 360) return _ScreenSize.small;
+    if (width <= 420) return _ScreenSize.medium;
+    if (width <= 600) return _ScreenSize.large;
+    return _ScreenSize.desktop;
   }
 
   @override
@@ -126,66 +106,116 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
     final categoryColor = _categoryColors[widget.league.category] ?? const Color(0xFF607D8B);
     final timeLeft = widget.league.timeLeft;
     final formattedPrizePool = widget.league.formattedPrizePool;
-    final isMobile = _isMobile(context);
+    final screenSize = _getScreenSize(context);
 
-    // Адаптивные размеры
-    final cardWidth = _getCardWidth(context);
-    final coverHeight = _getCoverHeight(context);
-    final contentPadding = _getContentPadding(context);
-    final titleFontSize = _getTitleFontSize(context);
-    final descriptionFontSize = _getDescriptionFontSize(context);
+    // Для десктопной версии
+    if (screenSize == _ScreenSize.desktop) {
+      return _buildDesktopCard(categoryColor, timeLeft, formattedPrizePool);
+    }
+
+    // Для мобильных устройств
+    return _buildMobileCard(context, screenSize, categoryColor, timeLeft, formattedPrizePool);
+  }
+
+  // ВЕРСИЯ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
+  Widget _buildMobileCard(
+      BuildContext context,
+      _ScreenSize screenSize,
+      Color categoryColor,
+      String timeLeft,
+      String formattedPrizePool,
+      ) {
+    // Определяем размеры в зависимости от размера экрана как во втором файле
+    final double imageHeight;
+    final double titleFontSize;
+    final double descriptionFontSize;
+    final double authorFontSize;
+    final double paddingValue;
+    final double avatarSize;
+    final double iconSize;
+    final double buttonFontSize;
+
+    switch (screenSize) {
+      case _ScreenSize.small: // Маленькие телефоны (до 360px)
+        imageHeight = 140;
+        titleFontSize = 15;
+        descriptionFontSize = 13;
+        authorFontSize = 12;
+        paddingValue = 10;
+        avatarSize = 28;
+        iconSize = 14;
+        buttonFontSize = 12;
+        break;
+      case _ScreenSize.medium: // Средние телефоны (360-420px)
+        imageHeight = 150;
+        titleFontSize = 16;
+        descriptionFontSize = 14;
+        authorFontSize = 13;
+        paddingValue = 12;
+        avatarSize = 32;
+        iconSize = 16;
+        buttonFontSize = 13;
+        break;
+      case _ScreenSize.large: // Большие телефоны (420-600px)
+        imageHeight = 160;
+        titleFontSize = 17;
+        descriptionFontSize = 14;
+        authorFontSize = 14;
+        paddingValue = 14;
+        avatarSize = 36;
+        iconSize = 18;
+        buttonFontSize = 14;
+        break;
+      default:
+        imageHeight = 160;
+        titleFontSize = 16;
+        descriptionFontSize = 14;
+        authorFontSize = 13;
+        paddingValue = 12;
+        avatarSize = 32;
+        iconSize = 16;
+        buttonFontSize = 13;
+    }
 
     return Container(
-      width: cardWidth,
-      margin: EdgeInsets.all(isMobile ? 8 : 6),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+      margin: const EdgeInsets.only(bottom: 1), // 🆕 Тонкая линия снизу как во втором файле
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey[200]!,
+            width: 1,
+          ),
         ),
-        color: Colors.white,
-        shadowColor: Colors.black.withOpacity(0.1),
+      ),
+      child: Material(
+        color: Colors.white, // 🆕 Белый фон как во втором файле
         child: InkWell(
           onTap: widget.onTap,
           onLongPress: widget.onLongPress,
-          borderRadius: BorderRadius.circular(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // ТОНКАЯ СЕРАЯ ЛИНИЯ СВЕРХУ как во втором файле
+              Container(
+                height: 1,
+                margin: EdgeInsets.symmetric(horizontal: paddingValue),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+
               // ОБЛОЖКА ЛИГИ
               Stack(
                 children: [
-                  // Основное изображение с градиентом
                   Container(
-                    height: coverHeight,
+                    height: imageHeight,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
-                      ),
                       image: DecorationImage(
                         image: NetworkImage(widget.league.imageUrl),
                         fit: BoxFit.cover,
-                      ),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.3),
-                            Colors.transparent,
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.2),
-                          ],
-                        ),
                       ),
                     ),
                   ),
@@ -195,15 +225,15 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                     top: 8,
                     left: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.95),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(6),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
                           ),
                         ],
                       ),
@@ -212,17 +242,17 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                         children: [
                           Icon(
                             _getCategoryIcon(widget.league.category),
-                            size: 12,
+                            size: iconSize * 0.7,
                             color: categoryColor,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 3),
                           Text(
                             widget.league.category.toUpperCase(),
                             style: TextStyle(
                               color: categoryColor,
-                              fontSize: 10,
+                              fontSize: buttonFontSize * 0.8,
                               fontWeight: FontWeight.w700,
-                              letterSpacing: 0.3,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ],
@@ -235,28 +265,24 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                     top: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.green, Colors.green.shade600],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(6),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.green.withOpacity(0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
                           ),
                         ],
                       ),
                       child: Text(
                         formattedPrizePool,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: buttonFontSize * 0.8,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -273,19 +299,19 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withOpacity(0.9),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.1),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
                               ),
                             ],
                           ),
                           child: Text(
                             widget.league.emoji,
-                            style: const TextStyle(fontSize: 14),
+                            style: TextStyle(fontSize: iconSize * 0.8),
                           ),
                         ),
 
@@ -296,13 +322,13 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.95),
-                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.white.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(6),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
                                 ),
                               ],
                             ),
@@ -310,7 +336,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                               children: [
                                 Icon(
                                   widget.league.isActive ? Icons.timer : Icons.check_circle,
-                                  size: 12,
+                                  size: iconSize * 0.7,
                                   color: widget.league.isActive ? Colors.orange : Colors.green,
                                 ),
                                 const SizedBox(width: 4),
@@ -318,7 +344,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                                   child: Text(
                                     widget.league.isActive ? 'Осталось $timeLeft' : 'Завершена',
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: buttonFontSize * 0.8,
                                       fontWeight: FontWeight.w600,
                                       color: widget.league.isActive ? Colors.orange : Colors.green,
                                     ),
@@ -338,7 +364,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
 
               // ОСНОВНОЙ КОНТЕНТ
               Container(
-                padding: EdgeInsets.all(contentPadding),
+                padding: EdgeInsets.all(paddingValue),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -348,15 +374,14 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                       widget.league.title,
                       style: TextStyle(
                         fontSize: titleFontSize,
-                        color: Colors.black87,
                         fontWeight: FontWeight.w700,
-                        height: 1.2,
+                        height: 1.3,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                    const SizedBox(height: 8),
+                    SizedBox(height: paddingValue * 0.5),
 
                     // Описание
                     Text(
@@ -365,13 +390,12 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                         fontSize: descriptionFontSize,
                         color: Colors.grey[700],
                         height: 1.4,
-                        fontWeight: FontWeight.w400,
                       ),
-                      maxLines: isMobile ? 3 : 2,
+                      maxLines: screenSize == _ScreenSize.small ? 2 : 3,
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: paddingValue),
 
                     // Прогресс-бар
                     Column(
@@ -413,7 +437,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                             Text(
                               '${(widget.league.progress * 100).clamp(0.0, 100.0).toStringAsFixed(0)}%',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: buttonFontSize * 0.9,
                                 fontWeight: FontWeight.w700,
                                 color: widget.league.isActive ? Colors.blue.shade600 : Colors.green.shade600,
                               ),
@@ -421,7 +445,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                             Text(
                               widget.league.isActive ? 'До завершения' : 'Завершена',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: buttonFontSize * 0.9,
                                 color: Colors.grey[600],
                                 fontWeight: FontWeight.w500,
                               ),
@@ -431,43 +455,32 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                       ],
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: paddingValue),
 
-                    // Информация об авторе и статистика
+                    // Информация об авторе и статистика в одной строке как во втором файле
                     Row(
                       children: [
                         // Аватар автора
                         Container(
-                          width: isMobile ? 36 : 32,
-                          height: isMobile ? 36 : 32,
+                          width: avatarSize,
+                          height: avatarSize,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [categoryColor, categoryColor.withOpacity(0.8)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: categoryColor.withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            color: categoryColor,
                           ),
                           child: Center(
                             child: Text(
                               widget.league.author[0].toUpperCase(),
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: isMobile ? 14 : 12,
+                                fontSize: authorFontSize * 0.8,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
                         ),
 
-                        const SizedBox(width: 8),
+                        SizedBox(width: paddingValue * 0.7),
 
                         // Информация об авторе
                         Expanded(
@@ -477,28 +490,24 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                               Text(
                                 widget.league.author,
                                 style: TextStyle(
-                                  fontSize: isMobile ? 13 : 12,
+                                  fontSize: authorFontSize,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 2),
                               Row(
                                 children: [
                                   Icon(
                                     _levelIcon,
-                                    size: isMobile ? 12 : 10,
+                                    size: iconSize * 0.8,
                                     color: _levelColor,
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
                                     _levelText,
                                     style: TextStyle(
-                                      fontSize: isMobile ? 10 : 9,
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: authorFontSize * 0.85,
                                       color: _levelColor,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],
@@ -507,7 +516,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                           ),
                         ),
 
-                        // Статистика участников и прогнозов
+                        // Статистика как во втором файле
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -515,16 +524,15 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                               children: [
                                 Icon(
                                   Icons.people_outline,
-                                  size: isMobile ? 14 : 12,
+                                  size: iconSize * 0.8,
                                   color: Colors.grey[600],
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   _formatNumber(widget.league.participants),
                                   style: TextStyle(
-                                    fontSize: isMobile ? 12 : 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey[700],
+                                    fontSize: buttonFontSize * 0.9,
+                                    color: Colors.grey,
                                   ),
                                 ),
                               ],
@@ -534,16 +542,15 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                               children: [
                                 Icon(
                                   Icons.analytics_outlined,
-                                  size: isMobile ? 14 : 12,
+                                  size: iconSize * 0.8,
                                   color: Colors.grey[600],
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   _formatNumber(widget.league.predictions),
                                   style: TextStyle(
-                                    fontSize: isMobile ? 12 : 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey[700],
+                                    fontSize: buttonFontSize * 0.9,
+                                    color: Colors.grey,
                                   ),
                                 ),
                               ],
@@ -553,108 +560,117 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                       ],
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: paddingValue),
 
-                    // КНОПКИ ДЕЙСТВИЙ
-                    Container(
-                      height: isMobile ? 40 : 36,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.grey[200]!,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
+                    // Кнопки действий - адаптивный вариант как во втором файле
+                    if (screenSize == _ScreenSize.small) ...[
+                      // Для маленьких экранов - компактные кнопки
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
                           // Участие
                           Expanded(
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  widget.onTap();
-                                },
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  bottomLeft: Radius.circular(10),
+                            child: IconButton(
+                              onPressed: widget.onTap,
+                              icon: Icon(
+                                Icons.emoji_events_outlined,
+                                size: iconSize,
+                                color: Colors.orange,
+                              ),
+                              padding: const EdgeInsets.all(4),
+                            ),
+                          ),
+
+                          const Text(
+                            'Участвовать',
+                            style: TextStyle(
+                              color: Colors.orange,
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          // Закладка
+                          Expanded(
+                            child: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isBookmarked = !_isBookmarked;
+                                });
+                              },
+                              icon: Icon(
+                                _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                                size: iconSize,
+                                color: _isBookmarked ? Colors.blue : Colors.grey,
+                              ),
+                              padding: const EdgeInsets.all(4),
+                            ),
+                          ),
+
+                          // Текст "Сохранить"
+                          Text(
+                            'Сохранить',
+                            style: TextStyle(
+                              fontSize: buttonFontSize,
+                              color: _isBookmarked ? Colors.blue : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // Для средних и больших экранов - полноценные кнопки
+                      Row(
+                        children: [
+                          // Участие
+                          Expanded(
+                            child: TextButton.icon(
+                              onPressed: widget.onTap,
+                              icon: Icon(
+                                Icons.emoji_events_outlined,
+                                size: iconSize,
+                                color: Colors.orange,
+                              ),
+                              label: Text(
+                                'Участвовать',
+                                style: TextStyle(
+                                  color: Colors.orange,
+                                  fontSize: buttonFontSize,
                                 ),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.emoji_events_outlined,
-                                        size: isMobile ? 18 : 16,
-                                        color: Colors.orange,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Участвовать',
-                                        style: TextStyle(
-                                          fontSize: isMobile ? 12 : 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.orange,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.symmetric(vertical: 6),
                               ),
                             ),
                           ),
 
-                          // Разделитель
-                          Container(
-                            width: 1,
-                            height: 20,
-                            color: Colors.grey[300],
-                          ),
-
                           // Закладка
                           Expanded(
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _isBookmarked = !_isBookmarked;
-                                  });
-                                },
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(10),
-                                  bottomRight: Radius.circular(10),
+                            child: TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isBookmarked = !_isBookmarked;
+                                });
+                              },
+                              icon: Icon(
+                                _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                                size: iconSize,
+                                color: _isBookmarked ? Colors.blue : Colors.grey,
+                              ),
+                              label: Text(
+                                'Сохранить',
+                                style: TextStyle(
+                                  color: _isBookmarked ? Colors.blue : Colors.grey,
+                                  fontSize: buttonFontSize,
                                 ),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                        size: isMobile ? 18 : 16,
-                                        color: _isBookmarked ? Colors.blue : Colors.grey[600],
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Сохранить',
-                                        style: TextStyle(
-                                          fontSize: isMobile ? 12 : 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: _isBookmarked ? Colors.blue : Colors.grey[700],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.symmetric(vertical: 6),
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -664,4 +680,529 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
       ),
     );
   }
+
+  // ВЕРСИЯ ДЛЯ КОМПЬЮТЕРА (оставлена без изменений)
+  Widget _buildDesktopCard(
+      Color categoryColor,
+      String timeLeft,
+      String formattedPrizePool,
+      ) {
+    return Container(
+      margin: const EdgeInsets.all(8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
+          borderRadius: BorderRadius.circular(16),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            color: Colors.white,
+            shadowColor: Colors.black.withOpacity(0.1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ОБЛОЖКА ЛИГИ
+                Stack(
+                  children: [
+                    Container(
+                      height: 120,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(widget.league.imageUrl),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+
+                    // Категория в левом верхнем углу
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getCategoryIcon(widget.league.category),
+                              size: 12,
+                              color: categoryColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              widget.league.category.toUpperCase(),
+                              style: TextStyle(
+                                color: categoryColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Призовой фонд в правом верхнем углу
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.green, Colors.green.shade600],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          formattedPrizePool,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Эмодзи и статус в нижней части обложки
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      right: 8,
+                      child: Row(
+                        children: [
+                          // Эмодзи
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.95),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              widget.league.emoji,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          // Статус лиги
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.95),
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    widget.league.isActive ? Icons.timer : Icons.check_circle,
+                                    size: 12,
+                                    color: widget.league.isActive ? Colors.orange : Colors.green,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      widget.league.isActive ? 'Осталось $timeLeft' : 'Завершена',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: widget.league.isActive ? Colors.orange : Colors.green,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ОСНОВНОЙ КОНТЕНТ
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Заголовок
+                      Text(
+                        widget.league.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Описание
+                      Text(
+                        widget.league.description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                          height: 1.4,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Прогресс-бар
+                      Column(
+                        children: [
+                          Container(
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Stack(
+                              children: [
+                                LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return AnimatedContainer(
+                                      duration: const Duration(milliseconds: 500),
+                                      curve: Curves.easeOut,
+                                      width: constraints.maxWidth * widget.league.progress.clamp(0.0, 1.0),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: widget.league.isActive
+                                              ? [Colors.blue.shade500, Colors.blue.shade400]
+                                              : [Colors.green.shade500, Colors.green.shade400],
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                        ),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${(widget.league.progress * 100).clamp(0.0, 100.0).toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: widget.league.isActive ? Colors.blue.shade600 : Colors.green.shade600,
+                                ),
+                              ),
+                              Text(
+                                widget.league.isActive ? 'До завершения' : 'Завершена',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Информация об авторе и статистика
+                      Row(
+                        children: [
+                          // Аватар автора
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [categoryColor, categoryColor.withOpacity(0.8)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: categoryColor.withOpacity(0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                widget.league.author[0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          // Информация об авторе
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.league.author,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      _levelIcon,
+                                      size: 10,
+                                      color: _levelColor,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      _levelText,
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        color: _levelColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Статистика участников и прогнозов
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.people_outline,
+                                    size: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatNumber(widget.league.participants),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.analytics_outlined,
+                                    size: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatNumber(widget.league.predictions),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // КНОПКИ ДЕЙСТВИЙ
+                      Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.grey[200]!,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            // Участие
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: widget.onTap,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(10),
+                                    bottomLeft: Radius.circular(10),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.emoji_events_outlined,
+                                          size: 16,
+                                          color: Colors.orange,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Участвовать',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.orange,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Разделитель
+                            Container(
+                              width: 1,
+                              height: 20,
+                              color: Colors.grey[300],
+                            ),
+
+                            // Закладка
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _isBookmarked = !_isBookmarked;
+                                    });
+                                  },
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                                          size: 16,
+                                          color: _isBookmarked ? Colors.blue : Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Сохранить',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isBookmarked ? Colors.blue : Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Перечисление для размеров экрана как во втором файле
+enum _ScreenSize {
+  small,    // до 360px
+  medium,   // 360-420px
+  large,    // 420-600px
+  desktop,  // больше 600px
 }

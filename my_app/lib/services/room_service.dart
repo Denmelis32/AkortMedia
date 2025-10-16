@@ -13,7 +13,7 @@ class RoomService {
       Room(
         id: '1',
         title: 'Крутые бобры',
-        description: 'Обсуждаем новейшие технологии и инновации в IT-индустрии',
+        description: 'Обсуждаем почему Акорт Медиа еще не вышло в релиз',
         imageUrl: 'https://avatars.mds.yandex.net/i?id=4cf91ca61c32ca14e0f69f3d57c2c51be59007dd-2455126-images-thumbs&n=13',
         currentParticipants: 12450,
         messageCount: 89456,
@@ -22,7 +22,7 @@ class RoomService {
         lastActivity: now.subtract(const Duration(minutes: 5)),
         category: RoomCategory.youtube, // ИСПРАВЛЕНО: tech → technology
         creatorId: 'user1',
-        creatorName: 'Нонаши херачек',
+        creatorName: 'Нонаши ПочЧекКэк',
         creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=2154efb7672c374c3a7d819f4f4590e55315e1d1-4316446-images-thumbs&n=13', // НОВОЕ ПОЛЕ
         moderators: ['user2', 'user3'],
         isPrivate: false,
@@ -56,7 +56,7 @@ class RoomService {
         category: RoomCategory.programming,
         creatorId: 'user4',
         creatorName: 'Мария Разработчик',
-        creatorAvatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100', // НОВОЕ ПОЛЕ
+        creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=2154efb7672c374c3a7d819f4f4590e55315e1d1-4316446-images-thumbs&n=13', // НОВОЕ ПОЛЕ
         moderators: ['user5'],
         isPrivate: false,
         tags: ['flutter', 'dart', 'mobile', 'development', 'программирование'],
@@ -89,7 +89,7 @@ class RoomService {
         category: RoomCategory.business,
         creatorId: 'user6',
         creatorName: 'Дмитрий Бизнесмен',
-        creatorAvatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', // НОВОЕ ПОЛЕ
+        creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=fa4deba2bbe9b1d248f5cfdcf22d147d5100663f-10151263-images-thumbs&n=13', // НОВОЕ ПОЛЕ
         moderators: ['user7', 'user8'],
         isPrivate: true,
         tags: ['бизнес', 'стартапы', 'инвестиции', 'предпринимательство'],
@@ -112,7 +112,7 @@ class RoomService {
       Room(
         id: '4',
         title: 'Игровая индустрия',
-        description: 'Новости игр, разработка, геймдизайн и киберспорт',
+        description: 'Новости игр, разработка, геймдизайн и киберспорт и много-много всего обсуждаем',
         imageUrl: 'https://avatars.mds.yandex.net/i?id=ff9534c959febb7b446ee3db1f6b9bb0fcb9b6ce-5546664-images-thumbs&n=13',
         currentParticipants: 15678,
         messageCount: 67890,
@@ -122,7 +122,7 @@ class RoomService {
         category: RoomCategory.games,
         creatorId: 'user9',
         creatorName: 'Иван Геймер',
-        creatorAvatarUrl: 'https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=100', // НОВОЕ ПОЛЕ
+        creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=ff9534c959febb7b446ee3db1f6b9bb0fcb9b6ce-5546664-images-thumbs&n=13', // НОВОЕ ПОЛЕ
         moderators: ['user10'],
         isPrivate: false,
         tags: ['игры', 'геймдев', 'киберспорт', 'streaming'],

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'event_model.dart' hide EventCategory;
-import 'event_categories.dart';
+import 'event_model.dart';
 
 class AddEventDialog extends StatefulWidget {
   final Function(Event) onAdd;

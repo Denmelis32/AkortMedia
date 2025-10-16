@@ -131,7 +131,9 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   bool _showSearchBar = false;
   bool _showFilters = false;
 
-  // АДАПТИВНЫЕ МЕТОДЫ
+  // АДАПТИВНЫЕ МЕТОДЫ КАК В ПЕРВОМ ФАЙЛЕ
+  bool get _isMobile => MediaQuery.of(context).size.width <= 600;
+
   int _getCrossAxisCount(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     if (width > 1200) return 3;
@@ -143,10 +145,10 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   double _getCardAspectRatio(BuildContext context) {
     final crossAxisCount = _getCrossAxisCount(context);
     switch (crossAxisCount) {
-      case 1: return 0.65;
-      case 2: return 0.7;
-      case 3: return 0.75;
-      default: return 0.7;
+      case 1: return 0.75;
+      case 2: return 0.8;
+      case 3: return 0.85;
+      default: return 0.8;
     }
   }
 
@@ -155,7 +157,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     if (width > 1200) return 200;
     if (width > 800) return 100;
     if (width > 600) return 60;
-    return 16;
+    return 0; // Для мобильных - 0 отступов по бокам
   }
 
   // ДЕМО ДАННЫЕ С ПРОГРЕССОМ
@@ -170,7 +172,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       'end_date': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
       'category': 'sports',
       'author': 'Футбольная ассоциация',
-      'image_url': 'https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?w=500&h=300&fit=crop',
+      'image_url': 'https://avatars.mds.yandex.net/i?id=42cfbbd1a69a06a3fc5bca548de8968ff0b46490-6579542-images-thumbs&n=13',
       'is_active': true,
       'prize_pool': 50000.0,
       'progress': 0.7,
@@ -185,7 +187,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       'end_date': DateTime.now().add(const Duration(days: 15)).toIso8601String(),
       'category': 'esports',
       'author': 'Valve Corporation',
-      'image_url': 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500&h=300&fit=crop',
+      'image_url': 'https://avatars.mds.yandex.net/i?id=c5e18a8013b110346e6bf535b1473428_l-8497449-images-thumbs&n=13',
       'is_active': true,
       'prize_pool': 25000.0,
       'progress': 0.4,
@@ -200,7 +202,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       'end_date': DateTime.now().add(const Duration(days: 60)).toIso8601String(),
       'category': 'politics',
       'author': 'Центризбирком',
-      'image_url': 'https://images.unsplash.com/photo-1555848962-6e79363ec58f?w=500&h=300&fit=crop',
+      'image_url': 'https://avatars.mds.yandex.net/i?id=a1048eb9f26bc97df9082c77bc3c47250aa31745-12475310-images-thumbs&n=13',
       'is_active': true,
       'prize_pool': 100000.0,
       'progress': 0.3,
@@ -215,7 +217,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       'end_date': DateTime.now().add(const Duration(days: 90)).toIso8601String(),
       'category': 'finance',
       'author': 'Криптоаналитики',
-      'image_url': 'https://images.unsplash.com/photo-1516245834210-c4c142787335?w=500&h=300&fit=crop',
+      'image_url': 'https://avatars.mds.yandex.net/i?id=e08f3bf9b396a54a17a3208d70d98cc8_l-5288161-images-thumbs&n=13',
       'is_active': true,
       'prize_pool': 75000.0,
       'progress': 0.25,
@@ -228,6 +230,15 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     _scrollController.addListener(_onScroll);
     _checkConnectivity();
     _loadCachedLeagues();
+    _setupListeners();
+  }
+
+  void _setupListeners() {
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase().trim();
+      });
+    });
   }
 
   @override
@@ -396,29 +407,38 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
-  // ВИДЖЕТЫ ДЛЯ ФИЛЬТРОВ И КАТЕГОРИЙ
+  // ВИДЖЕТЫ ФИЛЬТРОВ И КАТЕГОРИЙ КАК В ПЕРВОМ ФАЙЛЕ
   Widget _buildFiltersCard(double horizontalPadding) {
     if (!_showFilters) return const SizedBox.shrink();
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      margin: EdgeInsets.symmetric(
+          horizontal: _isMobile ? 0 : horizontalPadding,
+          vertical: 8
+      ),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.white, // БЕЛЫЙ фон
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_isMobile ? 0 : 12),
+        ),
+        color: Colors.white,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(_isMobile ? 12 : 16),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Фильтры',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: _isMobile ? 14 : 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               SizedBox(
-                height: 40,
+                height: _isMobile ? 36 : 40,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
@@ -441,21 +461,24 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     final isActive = id == 'favorites' && _searchQuery == "избранное";
 
     return Container(
-      margin: const EdgeInsets.only(right: 8),
+      margin: EdgeInsets.only(right: _isMobile ? 6 : 8),
       child: Material(
         color: isActive ? Colors.blue : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
         child: InkWell(
           onTap: () {
             if (id == 'favorites') {
               _showFavorites();
             }
           },
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: _isMobile ? 12 : 16,
+              vertical: _isMobile ? 6 : 8,
+            ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
               border: Border.all(
                 color: isActive ? Colors.blue : Colors.grey[300]!,
                 width: 1,
@@ -464,9 +487,20 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 16, color: isActive ? Colors.white : Colors.blue),
-                const SizedBox(width: 6),
-                Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isActive ? Colors.white : Colors.black87)),
+                Icon(
+                  icon,
+                  size: _isMobile ? 14 : 16,
+                  color: isActive ? Colors.white : Colors.blue,
+                ),
+                SizedBox(width: _isMobile ? 4 : 6),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: _isMobile ? 12 : 13,
+                    fontWeight: FontWeight.w500,
+                    color: isActive ? Colors.white : Colors.black87,
+                  ),
+                ),
               ],
             ),
           ),
@@ -477,32 +511,40 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
 
   Widget _buildCategoriesCard(double horizontalPadding) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      margin: EdgeInsets.symmetric(
+          horizontal: _isMobile ? 0 : horizontalPadding,
+          vertical: 8
+      ),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.white, // БЕЛЫЙ фон
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_isMobile ? 0 : 12),
+        ),
+        color: Colors.white,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(_isMobile ? 12 : 16),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Категории',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: _isMobile ? 14 : 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               SizedBox(
-                height: 40,
+                height: _isMobile ? 36 : 40,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   shrinkWrap: true,
-                  children: _categories.asMap().entries.map((entry) {
-                    final category = entry.value;
-                    return _buildCategoryChip(category);
-                  }).toList(),
+                  children: _categories
+                      .map((category) => _buildCategoryChip(category))
+                      .toList(),
                 ),
               ),
             ],
@@ -516,21 +558,24 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     final isSelected = _currentTabIndex == _categories.indexOf(category);
 
     return Container(
-      margin: const EdgeInsets.only(right: 8),
+      margin: EdgeInsets.only(right: _isMobile ? 6 : 8),
       child: Material(
         color: isSelected ? category.color : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
         child: InkWell(
           onTap: () {
             setState(() {
               _currentTabIndex = _categories.indexOf(category);
             });
           },
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: _isMobile ? 12 : 16,
+              vertical: _isMobile ? 6 : 8,
+            ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
               border: Border.all(
                 color: isSelected ? category.color : Colors.grey[300]!,
                 width: 1,
@@ -539,9 +584,20 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(category.icon, size: 16, color: isSelected ? Colors.white : category.color),
-                const SizedBox(width: 6),
-                Text(category.title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isSelected ? Colors.white : Colors.black87)),
+                Icon(
+                  category.icon,
+                  size: _isMobile ? 14 : 16,
+                  color: isSelected ? Colors.white : category.color,
+                ),
+                SizedBox(width: _isMobile ? 4 : 6),
+                Text(
+                  category.title,
+                  style: TextStyle(
+                    fontSize: _isMobile ? 12 : 13,
+                    fontWeight: FontWeight.w500,
+                    color: isSelected ? Colors.white : Colors.black87,
+                  ),
+                ),
               ],
             ),
           ),
@@ -573,7 +629,6 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         style: const TextStyle(fontSize: 16),
-        onChanged: (value) => setState(() => _searchQuery = value),
       ),
     );
   }
@@ -595,11 +650,17 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text('Сортировка', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Сортировка',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             ..._sortOptions.map((option) => ListTile(
               leading: Icon(option.icon, size: 18),
-              title: Text(option.title, style: const TextStyle(fontSize: 13)),
+              title: Text(
+                option.title,
+                style: const TextStyle(fontSize: 13),
+              ),
               trailing: _sortOptions.indexOf(option) == _currentSortIndex
                   ? const Icon(Icons.check, color: Colors.blue, size: 18)
                   : null,
@@ -634,11 +695,16 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar
+              // AppBar как в первом файле
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
-                decoration: const BoxDecoration(color: Colors.white),
+                padding: EdgeInsets.symmetric(
+                    horizontal: _isMobile ? 16 : horizontalPadding,
+                    vertical: 8
+                ),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                ),
                 child: Row(
                   children: [
                     if (!_showSearchBar) ...[
@@ -652,12 +718,13 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                       ),
                       const Spacer(),
                     ],
-
                     if (_showSearchBar)
                       Expanded(
                         child: Row(
                           children: [
-                            Expanded(child: _buildSearchField()),
+                            Expanded(
+                              child: _buildSearchField(),
+                            ),
                             const SizedBox(width: 8),
                             IconButton(
                               icon: Container(
@@ -666,7 +733,11 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                                   color: Colors.grey[100],
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.close, color: Colors.black, size: 18),
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.black,
+                                  size: 18,
+                                ),
                               ),
                               onPressed: () => setState(() {
                                 _showSearchBar = false;
@@ -687,7 +758,11 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                                 color: Colors.grey[100],
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.search, color: Colors.black, size: 18),
+                              child: const Icon(
+                                Icons.search,
+                                color: Colors.black,
+                                size: 18,
+                              ),
                             ),
                             onPressed: () => setState(() => _showSearchBar = true),
                           ),
@@ -713,7 +788,11 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                                 color: Colors.grey[100],
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.sort, color: Colors.black, size: 18),
+                              child: const Icon(
+                                Icons.sort,
+                                color: Colors.black,
+                                size: 18,
+                              ),
                             ),
                             onPressed: _showSortBottomSheet,
                           ),
@@ -722,23 +801,8 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                   ],
                 ),
               ),
-
-              // Контент
               Expanded(
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    // Фильтры
-                    SliverToBoxAdapter(child: _buildFiltersCard(horizontalPadding)),
-
-                    // Категории
-                    SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
-
-                    // Карточки лиг
-                    _buildLeaguesGrid(horizontalPadding),
-                  ],
-                ),
+                child: _buildContent(horizontalPadding),
               ),
             ],
           ),
@@ -753,95 +817,173 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
-  Widget _buildLeaguesGrid(double horizontalPadding) {
+  Widget _buildContent(double horizontalPadding) {
     final filteredLeagues = _getFilteredLeagues(_demoLeagues);
 
-    if (filteredLeagues.isEmpty) {
-      return SliverFillRemaining(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.emoji_events, size: 40, color: Colors.grey[400]),
-              const SizedBox(height: 8),
-              const Text('Лиги не найдены', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              const Text('Попробуйте изменить параметры поиска', style: TextStyle(color: Colors.grey, fontSize: 10)),
-            ],
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: _buildFiltersCard(horizontalPadding),
+        ),
+        SliverToBoxAdapter(
+          child: _buildCategoriesCard(horizontalPadding),
+        ),
+        if (filteredLeagues.isEmpty)
+          SliverFillRemaining(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 40, color: Colors.grey[400]),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Лиги не найдены',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Попробуйте изменить параметры поиска',
+                    style: TextStyle(color: Colors.grey, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.symmetric(
+              horizontal: _isMobile ? 0 : horizontalPadding,
+              vertical: _isMobile ? 0 : 8,
+            ),
+            sliver: _isMobile
+                ? SliverList(
+              delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                  if (index == filteredLeagues.length && _isLoadingMore) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (index >= filteredLeagues.length) return const SizedBox.shrink();
+
+                  final leagueData = filteredLeagues[index];
+                  final league = PredictionLeague(
+                    id: leagueData['id'] ?? '',
+                    title: leagueData['title'] ?? '',
+                    description: leagueData['description'] ?? '',
+                    emoji: leagueData['emoji'] ?? '🏆',
+                    participants: (leagueData['participants'] as int?) ?? 0,
+                    predictions: (leagueData['predictions'] as int?) ?? 0,
+                    endDate: _parseDate(leagueData['end_date']),
+                    category: _categories.firstWhere(
+                          (cat) => cat.id == leagueData['category'],
+                      orElse: () => _categories.first,
+                    ).title,
+                    author: leagueData['author'] ?? '',
+                    imageUrl: leagueData['image_url'] ?? defaultImageUrl,
+                    authorLevel: AuthorLevel.expert,
+                    isActive: leagueData['is_active'] == true,
+                    prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
+                    progress: (leagueData['progress'] as double?) ?? 0.5,
+                    views: (leagueData['participants'] as int? ?? 0) * 3,
+                    detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий.',
+                  );
+
+                  return Stack(
+                    children: [
+                      PredictionLeagueCard(
+                        key: ValueKey(league.id),
+                        league: league,
+                        onTap: () => _openLeagueDetail(leagueData),
+                      ),
+                      if (_isSelectionMode)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Checkbox(
+                            value: _selectedLeagues.contains(league.id),
+                            onChanged: (_) => _toggleLeagueSelection(league.id),
+                          ),
+                        ),
+                      if (_isLeagueFavorite(league.id))
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Icon(Icons.favorite, size: 16, color: Colors.red),
+                        ),
+                    ],
+                  );
+                },
+                childCount: filteredLeagues.length + (_isLoadingMore ? 1 : 0),
+              ),
+            )
+                : SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: _getCrossAxisCount(context),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: _getCardAspectRatio(context),
+              ),
+              delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                  if (index == filteredLeagues.length && _isLoadingMore) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (index >= filteredLeagues.length) return const SizedBox.shrink();
+
+                  final leagueData = filteredLeagues[index];
+                  final league = PredictionLeague(
+                    id: leagueData['id'] ?? '',
+                    title: leagueData['title'] ?? '',
+                    description: leagueData['description'] ?? '',
+                    emoji: leagueData['emoji'] ?? '🏆',
+                    participants: (leagueData['participants'] as int?) ?? 0,
+                    predictions: (leagueData['predictions'] as int?) ?? 0,
+                    endDate: _parseDate(leagueData['end_date']),
+                    category: _categories.firstWhere(
+                          (cat) => cat.id == leagueData['category'],
+                      orElse: () => _categories.first,
+                    ).title,
+                    author: leagueData['author'] ?? '',
+                    imageUrl: leagueData['image_url'] ?? defaultImageUrl,
+                    authorLevel: AuthorLevel.expert,
+                    isActive: leagueData['is_active'] == true,
+                    prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
+                    progress: (leagueData['progress'] as double?) ?? 0.5,
+                    views: (leagueData['participants'] as int? ?? 0) * 3,
+                    detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий.',
+                  );
+
+                  return Stack(
+                    children: [
+                      PredictionLeagueCard(
+                        key: ValueKey(league.id),
+                        league: league,
+                        onTap: () => _openLeagueDetail(leagueData),
+                      ),
+                      if (_isSelectionMode)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Checkbox(
+                            value: _selectedLeagues.contains(league.id),
+                            onChanged: (_) => _toggleLeagueSelection(league.id),
+                          ),
+                        ),
+                      if (_isLeagueFavorite(league.id))
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Icon(Icons.favorite, size: 16, color: Colors.red),
+                        ),
+                    ],
+                  );
+                },
+                childCount: filteredLeagues.length + (_isLoadingMore ? 1 : 0),
+              ),
+            ),
           ),
-        ),
-      );
-    }
-
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _getCrossAxisCount(context),
-          crossAxisSpacing: 12, // Уменьшил отступы как в ArticleCard
-          mainAxisSpacing: 12,  // Уменьшил отступы как в ArticleCard
-          childAspectRatio: 0.75, // Фиксированное соотношение как в ArticleCard
-        ),
-        delegate: SliverChildBuilderDelegate(
-              (context, index) {
-            if (index == filteredLeagues.length && _isLoadingMore) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (index >= filteredLeagues.length) return const SizedBox.shrink();
-
-            final leagueData = filteredLeagues[index];
-
-            // Конвертация данных в модель PredictionLeague
-            final league = PredictionLeague(
-              id: leagueData['id'] ?? '',
-              title: leagueData['title'] ?? '',
-              description: leagueData['description'] ?? '',
-              emoji: leagueData['emoji'] ?? '🏆',
-              participants: (leagueData['participants'] as int?) ?? 0,
-              predictions: (leagueData['predictions'] as int?) ?? 0,
-              endDate: _parseDate(leagueData['end_date']),
-              category: _categories.firstWhere(
-                    (cat) => cat.id == leagueData['category'],
-                orElse: () => _categories.first,
-              ).title,
-              author: leagueData['author'] ?? '',
-              imageUrl: leagueData['image_url'] ?? defaultImageUrl,
-              authorLevel: AuthorLevel.expert,
-              isActive: leagueData['is_active'] == true,
-              prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
-              progress: (leagueData['progress'] as double?) ?? 0.5,
-              views: (leagueData['participants'] as int? ?? 0) * 3,
-              detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий.',
-            );
-
-            return Stack(
-              children: [
-                PredictionLeagueCard(
-                  key: ValueKey(league.id),
-                  league: league,
-                  onTap: () => _openLeagueDetail(leagueData),
-                ),
-                if (_isSelectionMode)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Checkbox(
-                      value: _selectedLeagues.contains(league.id),
-                      onChanged: (_) => _toggleLeagueSelection(league.id),
-                    ),
-                  ),
-                if (_isLeagueFavorite(league.id))
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Icon(Icons.favorite, size: 16, color: Colors.red),
-                  ),
-              ],
-            );
-          },
-          childCount: filteredLeagues.length + (_isLoadingMore ? 1 : 0),
-        ),
-      ),
+      ],
     );
   }
 

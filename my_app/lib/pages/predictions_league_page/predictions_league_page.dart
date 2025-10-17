@@ -50,7 +50,7 @@ class SortOption {
 
 class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   // Константы
-  static const defaultImageUrl = 'https://images.unsplash.com/photo-164320858988d-7bacab7db0b2?w=500&h=300&fit=crop';
+  static const defaultImageUrl = 'assets/images/predictions_league_image/data.png';
 
   final List<LeagueCategory> _categories = [
     LeagueCategory(
@@ -75,9 +75,9 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     ),
     LeagueCategory(
       id: 'politics',
-      title: 'Политика',
-      description: 'Политические прогнозы',
-      icon: Icons.policy,
+      title: 'Города',
+      description: 'Прогнозы для городов',
+      icon: Icons.location_city,
       color: Colors.red,
     ),
     LeagueCategory(
@@ -160,7 +160,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     return 0; // Для мобильных - 0 отступов по бокам
   }
 
-  // ДЕМО ДАННЫЕ С ПРОГРЕССОМ
+  // ДЕМО ДАННЫЕ С ПРОГРЕССОМ И ЛОКАЛЬНЫМИ ИЗОБРАЖЕНИЯМИ
   final List<Map<String, dynamic>> _demoLeagues = [
     {
       'id': '1',
@@ -172,7 +172,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       'end_date': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
       'category': 'sports',
       'author': 'Футбольная ассоциация',
-      'image_url': 'https://avatars.mds.yandex.net/i?id=42cfbbd1a69a06a3fc5bca548de8968ff0b46490-6579542-images-thumbs&n=13',
+      'image_url': 'assets/images/predictions_league_image/football.png',
       'is_active': true,
       'prize_pool': 50000.0,
       'progress': 0.7,
@@ -187,22 +187,22 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       'end_date': DateTime.now().add(const Duration(days: 15)).toIso8601String(),
       'category': 'esports',
       'author': 'Valve Corporation',
-      'image_url': 'https://avatars.mds.yandex.net/i?id=c5e18a8013b110346e6bf535b1473428_l-8497449-images-thumbs&n=13',
+      'image_url': 'assets/images/predictions_league_image/data.png',
       'is_active': true,
       'prize_pool': 25000.0,
       'progress': 0.4,
     },
     {
       'id': '3',
-      'title': 'Президентские выборы 2024',
-      'description': 'Прогнозы результатов президентских выборов в различных странах мира',
-      'emoji': '🗳️',
+      'title': 'Выборы лучшего города мира',
+      'description': 'Прогнозы на звание лучшего города для жизни и туризма в 2024 году',
+      'emoji': '🏙️',
       'participants': 2100,
       'predictions': 12000,
       'end_date': DateTime.now().add(const Duration(days: 60)).toIso8601String(),
       'category': 'politics',
-      'author': 'Центризбирком',
-      'image_url': 'https://avatars.mds.yandex.net/i?id=a1048eb9f26bc97df9082c77bc3c47250aa31745-12475310-images-thumbs&n=13',
+      'author': 'Международная ассоциация городов',
+      'image_url': 'assets/images/predictions_league_image/city_league.jpeg',
       'is_active': true,
       'prize_pool': 100000.0,
       'progress': 0.3,
@@ -217,7 +217,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       'end_date': DateTime.now().add(const Duration(days: 90)).toIso8601String(),
       'category': 'finance',
       'author': 'Криптоаналитики',
-      'image_url': 'https://avatars.mds.yandex.net/i?id=e08f3bf9b396a54a17a3208d70d98cc8_l-5288161-images-thumbs&n=13',
+      'image_url': 'assets/images/predictions_league_image/bitcoin_exchange_rate.png',
       'is_active': true,
       'prize_pool': 75000.0,
       'progress': 0.25,

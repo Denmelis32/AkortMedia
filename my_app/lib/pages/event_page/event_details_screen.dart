@@ -53,6 +53,26 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> with TickerProv
   // Состояния
   int _currentImageIndex = 0;
   final PageController _pageController = PageController();
+  final ScrollController _scrollController = ScrollController();
+
+  bool get _isMobile => MediaQuery.of(context).size.width <= 600;
+
+  // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 200;
+    if (width > 800) return 100;
+    if (width > 600) return 60;
+    return 0; // На телефоне 0
+  }
+
+  double _getContentMaxWidth(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1400) return 1000;
+    if (width > 1000) return 900;
+    if (width > 700) return 700;
+    return double.infinity;
+  }
 
   @override
   void initState() {
@@ -93,6 +113,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> with TickerProv
     _favoriteController.dispose();
     _attendController.dispose();
     _pageController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -411,79 +432,55 @@ ${_currentEvent.description}
     );
   }
 
-  // АДАПТИВНЫЕ МЕТОДЫ
-  ScreenSize _getScreenSize(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width < 360) return ScreenSize.small;
-    if (width < 420) return ScreenSize.medium;
-    if (width < 600) return ScreenSize.large;
-    if (width < 900) return ScreenSize.tablet;
-    if (width < 1200) return ScreenSize.desktop;
-    return ScreenSize.largeDesktop;
-  }
-
-  double _getHorizontalPadding(BuildContext context) {
-    final screenSize = _getScreenSize(context);
-    switch (screenSize) {
-      case ScreenSize.small: return 12;
-      case ScreenSize.medium: return 16;
-      case ScreenSize.large: return 20;
-      case ScreenSize.tablet: return 40;
-      case ScreenSize.desktop: return 100;
-      case ScreenSize.largeDesktop: return 200;
-    }
-  }
-
-  double _getContentMaxWidth(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 1000;
-    if (width > 1000) return 900;
-    if (width > 700) return 700;
-    return double.infinity;
-  }
-
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
-    final screenSize = _getScreenSize(context);
-    final isMobile = screenSize == ScreenSize.small || screenSize == ScreenSize.medium || screenSize == ScreenSize.large;
+    final contentMaxWidth = _getContentMaxWidth(context);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
+        controller: _scrollController,
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // AppBar
+          // AppBar с обложкой
           SliverAppBar(
-            expandedHeight: 300,
+            expandedHeight: 280,
             floating: false,
             pinned: true,
             backgroundColor: Colors.transparent,
-            leading: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  shape: BoxShape.circle,
+            leading: Padding(
+              padding: EdgeInsets.only(left: _isMobile ? 8 : horizontalPadding),
+              child: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.black, size: 20),
                 ),
-                child: const Icon(Icons.arrow_back_rounded, color: Colors.black, size: 20),
+                onPressed: () => Navigator.pop(context),
               ),
-              onPressed: () => Navigator.pop(context),
             ),
             actions: [
               _buildActionButton(Icons.share_rounded, 'Поделиться', _shareEvent),
-              if (isMobile) _buildActionButton(Icons.more_vert_rounded, 'Еще', _showOptionsBottomSheet),
+              if (_isMobile) _buildActionButton(Icons.more_vert_rounded, 'Еще', _showOptionsBottomSheet),
             ],
-            flexibleSpace: _buildEventCover(),
+            flexibleSpace: _buildEventCover(horizontalPadding),
           ),
 
           // Основной контент
-          SliverList(
-            delegate: SliverChildListDelegate([
-              _buildMainContent(horizontalPadding, isMobile),
-              _buildAdditionalSections(horizontalPadding),
-              const SizedBox(height: 32),
-            ]),
+          SliverToBoxAdapter(
+            child: Container(
+              width: double.infinity,
+              child: Center(
+                child: Container(
+                  constraints: BoxConstraints(maxWidth: contentMaxWidth),
+                  child: _buildMainContent(horizontalPadding),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -491,21 +488,24 @@ ${_currentEvent.description}
   }
 
   Widget _buildActionButton(IconData icon, String tooltip, VoidCallback onPressed) {
-    return IconButton(
-      icon: Container(
-        padding: EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          shape: BoxShape.circle,
+    return Padding(
+      padding: EdgeInsets.only(right: _isMobile ? 8 : 16),
+      child: IconButton(
+        icon: Container(
+          padding: EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.black, size: 18),
         ),
-        child: Icon(icon, color: Colors.black, size: 18),
+        tooltip: tooltip,
+        onPressed: onPressed,
       ),
-      tooltip: tooltip,
-      onPressed: onPressed,
     );
   }
 
-  Widget _buildEventCover() {
+  Widget _buildEventCover(double horizontalPadding) {
     final images = _currentEvent.imageUrl != null ? [_currentEvent.imageUrl!] : [];
 
     return Stack(
@@ -552,33 +552,11 @@ ${_currentEvent.description}
           ),
         ),
 
-        // Индикатор страниц для изображений
-        if (images.length > 1)
-          Positioned(
-            top: 50,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(images.length, (index) {
-                return Container(
-                  width: 8,
-                  height: 8,
-                  margin: EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: _currentImageIndex == index ? Colors.white : Colors.white.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                );
-              }),
-            ),
-          ),
-
         // Контент поверх изображения
         Positioned(
           bottom: 20,
-          left: 16,
-          right: 16,
+          left: _isMobile ? 16 : horizontalPadding,
+          right: _isMobile ? 16 : horizontalPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -655,21 +633,6 @@ ${_currentEvent.description}
 
               const SizedBox(height: 8),
 
-              // Описание
-              if (_currentEvent.description.isNotEmpty)
-                Text(
-                  _currentEvent.description,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 16,
-                    height: 1.4,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-              const SizedBox(height: 16),
-
               // Статус и дата
               Row(
                 children: [
@@ -713,21 +676,22 @@ ${_currentEvent.description}
     );
   }
 
-  Widget _buildMainContent(double horizontalPadding, bool isMobile) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
-      child: Column(
-        children: [
-          // Быстрые действия
-          if (!_isPastEvent)
-            Card(
+  Widget _buildMainContent(double horizontalPadding) {
+    return Column(
+      children: [
+        // Быстрые действия
+        if (!_isPastEvent)
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: _isMobile ? 0 : horizontalPadding, vertical: 16),
+            child: Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isMobile ? 0 : 16)),
+              margin: EdgeInsets.zero,
               color: Colors.white,
               child: Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(20),
                 child: Row(
                   children: [
                     Expanded(
@@ -738,7 +702,7 @@ ${_currentEvent.description}
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _isFavorite ? Colors.pink.withOpacity(0.1) : Colors.grey[50],
                             foregroundColor: _isFavorite ? Colors.pink : Colors.grey[700],
-                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                               side: BorderSide(color: _isFavorite ? Colors.pink : Colors.grey[300]!),
@@ -757,7 +721,7 @@ ${_currentEvent.description}
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _isAttending ? Colors.green.withOpacity(0.1) : Colors.grey[50],
                           foregroundColor: _isAttending ? Colors.green : Colors.grey[700],
-                          padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(color: _isAttending ? Colors.green : Colors.grey[300]!),
@@ -772,13 +736,16 @@ ${_currentEvent.description}
                 ),
               ),
             ),
+          ),
 
-          if (!_isPastEvent) SizedBox(height: 16),
-
-          // Основная информация
-          Card(
+        // Основная информация
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: _isMobile ? 0 : horizontalPadding),
+          child: Card(
             elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isMobile ? 0 : 16)),
+            margin: EdgeInsets.zero,
             color: Colors.white,
             child: Container(
               width: double.infinity,
@@ -788,7 +755,7 @@ ${_currentEvent.description}
                 children: [
                   Text(
                     'Информация о событии',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                   SizedBox(height: 20),
 
@@ -801,11 +768,11 @@ ${_currentEvent.description}
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Описание', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                        SizedBox(height: 8),
+                        Text('Описание', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                        SizedBox(height: 12),
                         Text(
                           _currentEvent.description,
-                          style: TextStyle(fontSize: 15, color: Colors.grey[700], height: 1.5),
+                          style: TextStyle(fontSize: 16, color: Colors.grey[700], height: 1.5),
                         ),
                       ],
                     ),
@@ -813,8 +780,64 @@ ${_currentEvent.description}
               ),
             ),
           ),
+        ),
+
+        SizedBox(height: 16),
+
+        // Дополнительные действия
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: _isMobile ? 0 : horizontalPadding),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isMobile ? 0 : 16)),
+            margin: EdgeInsets.zero,
+            color: Colors.white,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  if (!_isPastEvent) ...[
+                    _buildActionButtonRow(),
+                    SizedBox(height: 16),
+                  ],
+                  _buildManagementButtonRow(),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Статистика
+        if (_viewCount > 0 || _currentEvent.reviewCount > 0) ...[
+          SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: _isMobile ? 0 : horizontalPadding),
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isMobile ? 0 : 16)),
+              margin: EdgeInsets.zero,
+              color: Colors.white,
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Статистика', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 20),
+                    _buildStatsGrid(),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
-      ),
+
+        SizedBox(height: 32),
+      ],
     );
   }
 
@@ -830,21 +853,21 @@ ${_currentEvent.description}
           value: '${_formatEventDate(_currentEvent.date)}\n${DateFormat('HH:mm').format(_currentEvent.date)} - ${DateFormat('HH:mm').format(_currentEvent.endDate)}',
           color: Colors.blue,
         ),
-        SizedBox(height: 16),
+        SizedBox(height: 12),
         _buildInfoItem(
           icon: Icons.access_time_rounded,
           title: 'Длительность',
           value: '${durationInHours.toStringAsFixed(1)} часа',
           color: Colors.orange,
         ),
-        SizedBox(height: 16),
+        SizedBox(height: 12),
         _buildInfoItem(
           icon: Icons.people_rounded,
           title: 'Участники',
           value: '${_currentEvent.currentAttendees} / ${_currentEvent.maxAttendees}',
           color: Colors.green,
         ),
-        SizedBox(height: 16),
+        SizedBox(height: 12),
         _buildInfoItem(
           icon: Icons.attach_money_rounded,
           title: 'Стоимость',
@@ -852,7 +875,7 @@ ${_currentEvent.description}
           color: Colors.purple,
         ),
         if (_currentEvent.location != null) ...[
-          SizedBox(height: 16),
+          SizedBox(height: 12),
           _buildInfoItem(
             icon: Icons.location_on_rounded,
             title: 'Местоположение',
@@ -861,7 +884,7 @@ ${_currentEvent.description}
           ),
         ],
         if (_currentEvent.isOnline && _currentEvent.onlineLink != null) ...[
-          SizedBox(height: 16),
+          SizedBox(height: 12),
           _buildInfoItem(
             icon: Icons.online_prediction_rounded,
             title: 'Онлайн-ссылка',
@@ -891,20 +914,20 @@ ${_currentEvent.description}
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(8),
+            padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 20, color: color),
           ),
-          SizedBox(width: 12),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
-                SizedBox(height: 4),
+                SizedBox(height: 6),
                 isLink
                     ? GestureDetector(
                   onTap: () => _showSnackbar('Ссылка скопирована', color),
@@ -919,66 +942,6 @@ ${_currentEvent.description}
     );
   }
 
-  Widget _buildAdditionalSections(double horizontalPadding) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
-      child: Column(
-        children: [
-          // Действия
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            color: Colors.white,
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  if (!_isPastEvent) ...[
-                    _buildActionButtonRow(),
-                    SizedBox(height: 12),
-                  ],
-                  _buildManagementButtonRow(),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 16),
-
-          // Статистика
-          if (_viewCount > 0 || _currentEvent.reviewCount > 0)
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              color: Colors.white,
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Статистика', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatItem(Icons.remove_red_eye_rounded, 'Просмотры', _viewCount.toString()),
-                        _buildStatItem(Icons.people_rounded, 'Участники', _currentEvent.currentAttendees.toString()),
-                        _buildStatItem(Icons.star_rounded, 'Рейтинг', _currentEvent.rating.toStringAsFixed(1)),
-                        _buildStatItem(Icons.reviews_rounded, 'Отзывы', _currentEvent.reviewCount.toString()),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildActionButtonRow() {
     return Row(
       children: [
@@ -988,7 +951,7 @@ ${_currentEvent.description}
             style: ElevatedButton.styleFrom(
               backgroundColor: _currentEvent.color.withOpacity(0.1),
               foregroundColor: _currentEvent.color,
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             icon: Icon(Icons.notifications_active_rounded),
@@ -1002,7 +965,7 @@ ${_currentEvent.description}
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.withOpacity(0.1),
               foregroundColor: Colors.blue,
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             icon: Icon(Icons.share_rounded),
@@ -1021,7 +984,7 @@ ${_currentEvent.description}
             onPressed: _editEvent,
             style: OutlinedButton.styleFrom(
               foregroundColor: _currentEvent.color,
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               side: BorderSide(color: _currentEvent.color),
             ),
@@ -1035,7 +998,7 @@ ${_currentEvent.description}
             onPressed: _deleteEvent,
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               side: BorderSide(color: Colors.red),
             ),
@@ -1047,19 +1010,31 @@ ${_currentEvent.description}
     );
   }
 
+  Widget _buildStatsGrid() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildStatItem(Icons.remove_red_eye_rounded, 'Просмотры', _viewCount.toString()),
+        _buildStatItem(Icons.people_rounded, 'Участники', _currentEvent.currentAttendees.toString()),
+        _buildStatItem(Icons.star_rounded, 'Рейтинг', _currentEvent.rating.toStringAsFixed(1)),
+        _buildStatItem(Icons.reviews_rounded, 'Отзывы', _currentEvent.reviewCount.toString()),
+      ],
+    );
+  }
+
   Widget _buildStatItem(IconData icon, String label, String value) {
     return Column(
       children: [
         Container(
-          padding: EdgeInsets.all(8),
+          padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: _currentEvent.color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, size: 20, color: _currentEvent.color),
+          child: Icon(icon, size: 24, color: _currentEvent.color),
         ),
         SizedBox(height: 8),
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         SizedBox(height: 4),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
@@ -1104,7 +1079,7 @@ ${_currentEvent.description}
             SizedBox(height: 20),
             ListTile(
               leading: Icon(Icons.edit_rounded, color: _currentEvent.color),
-              title: Text('Редактировать'),
+              title: Text('Редактировать', style: TextStyle(fontSize: 16)),
               onTap: () {
                 Navigator.pop(context);
                 _editEvent();
@@ -1112,7 +1087,7 @@ ${_currentEvent.description}
             ),
             ListTile(
               leading: Icon(Icons.notifications_active_rounded, color: _currentEvent.color),
-              title: Text('Напомнить'),
+              title: Text('Напомнить', style: TextStyle(fontSize: 16)),
               onTap: () {
                 Navigator.pop(context);
                 _setReminder();
@@ -1120,7 +1095,7 @@ ${_currentEvent.description}
             ),
             ListTile(
               leading: Icon(Icons.share_rounded, color: _currentEvent.color),
-              title: Text('Поделиться'),
+              title: Text('Поделиться', style: TextStyle(fontSize: 16)),
               onTap: () {
                 Navigator.pop(context);
                 _shareEvent();
@@ -1128,7 +1103,7 @@ ${_currentEvent.description}
             ),
             ListTile(
               leading: Icon(Icons.star_rounded, color: _currentEvent.color),
-              title: Text('Оценить'),
+              title: Text('Оценить', style: TextStyle(fontSize: 16)),
               onTap: () {
                 Navigator.pop(context);
                 _showRatingDialog();
@@ -1136,7 +1111,7 @@ ${_currentEvent.description}
             ),
             ListTile(
               leading: Icon(Icons.report_rounded, color: Colors.orange),
-              title: Text('Пожаловаться'),
+              title: Text('Пожаловаться', style: TextStyle(fontSize: 16)),
               onTap: () {
                 Navigator.pop(context);
                 _showSnackbar('Жалоба отправлена', Colors.orange);
@@ -1144,7 +1119,7 @@ ${_currentEvent.description}
             ),
             ListTile(
               leading: Icon(Icons.delete_rounded, color: Colors.red),
-              title: Text('Удалить', style: TextStyle(color: Colors.red)),
+              title: Text('Удалить', style: TextStyle(fontSize: 16, color: Colors.red)),
               onTap: () {
                 Navigator.pop(context);
                 _deleteEvent();
@@ -1214,13 +1189,4 @@ ${_currentEvent.description}
     };
     return icons[category] ?? Icons.event_rounded;
   }
-}
-
-enum ScreenSize {
-  small,      // < 360px
-  medium,     // 360-420px
-  large,      // 420-600px
-  tablet,     // 600-900px
-  desktop,    // 900-1200px
-  largeDesktop, // > 1200px
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'models/chat_message.dart';
 import 'models/chat_room.dart';
@@ -11,6 +13,7 @@ import 'cache/chat_cache_manager.dart';
 class ChatController with ChangeNotifier {
   final ChatApiService _apiService;
   final ChatCacheManager _cacheManager;
+  final Random _random = Random();
 
   // Состояние чата
   ChatRoom? _currentRoom;
@@ -19,6 +22,7 @@ class ChatController with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   final Set<String> _typingUsers = {};
+  Timer? _typingTimer;
 
   // Поиск
   final List<ChatMessage> _searchResults = [];
@@ -29,6 +33,15 @@ class ChatController with ChangeNotifier {
   final Map<String, List<ChatMessage>> _roomMessagesCache = {};
   final Map<String, ChatRoom> _roomsCache = {};
 
+  // Потоковые обновления
+  final StreamController<ChatMessage> _messageStreamController =
+  StreamController<ChatMessage>.broadcast();
+  final StreamController<List<String>> _typingStreamController =
+  StreamController<List<String>>.broadcast();
+
+  // Состояние прокрутки
+  bool _isNearBottom = true;
+
   ChatController({
     required ChatApiService apiService,
     required ChatCacheManager cacheManager,
@@ -38,18 +51,22 @@ class ChatController with ChangeNotifier {
   // === ГЕТТЕРЫ ===
   ChatRoom? get currentRoom => _currentRoom;
   List<ChatMessage> get messages => _messages;
-  List<ChatMessage> get visibleMessages =>
-      _messages.where((msg) => !msg.isExpired).toList();
+  List<ChatMessage> get visibleMessages => _messages;
   PaginationState get paginationState => _paginationState;
   bool get isLoading => _isLoading;
   String? get error => _error;
   List<String> get typingUsers => _typingUsers.toList();
   bool get isTyping => _typingUsers.isNotEmpty;
+  bool get isNearBottom => _isNearBottom;
 
   // Поиск
   List<ChatMessage> get searchResults => _searchResults;
   bool get isSearching => _isSearching;
   String? get searchQuery => _searchQuery;
+
+  // Потоки
+  Stream<ChatMessage> get messageStream => _messageStreamController.stream;
+  Stream<List<String>> get typingStream => _typingStreamController.stream;
 
   // === ОСНОВНЫЕ МЕТОДЫ ЧАТА ===
 
@@ -75,11 +92,10 @@ class ChatController with ChangeNotifier {
         if (cachedMessages != null && cachedMessages.isNotEmpty) {
           _messages.clear();
           _messages.addAll(cachedMessages);
+          _sortMessages();
           notifyListeners();
         }
       }
-
-
 
       // 3. Загружаем свежие сообщения
       await _loadMessages(
@@ -94,15 +110,38 @@ class ChatController with ChangeNotifier {
     } catch (e) {
       _error = 'Ошибка загрузки чата: ${e.toString()}';
       debugPrint('ChatController.loadRoom error: $e');
+
+      // Показываем кэшированные данные даже при ошибке
+      final cachedMessages = await _cacheManager.getMessages(roomId);
+      if (cachedMessages != null && cachedMessages.isNotEmpty) {
+        _messages.clear();
+        _messages.addAll(cachedMessages);
+        _sortMessages();
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  // Загрузка начальных сообщений (упрощенная версия)
+  Future<void> loadInitialMessages(String roomId) async {
+    try {
+      await _loadMessages(
+        roomId: roomId,
+        page: 1,
+        isInitialLoad: true,
+      );
+    } catch (e) {
+      debugPrint('ChatController.loadInitialMessages error: $e');
+    }
+  }
+
   // Пагинация - загрузка истории
   Future<void> loadMoreMessages() async {
-    if (!_paginationState.canLoadMore || _currentRoom == null) return;
+    if (!_paginationState.canLoadMore || _currentRoom == null || _paginationState.isLoading) {
+      return;
+    }
 
     try {
       _paginationState = _paginationState.copyWith(isLoading: true);
@@ -116,7 +155,6 @@ class ChatController with ChangeNotifier {
     } catch (e) {
       _paginationState = _paginationState.copyWith(error: e.toString());
       debugPrint('ChatController.loadMoreMessages error: $e');
-    } finally {
       notifyListeners();
     }
   }
@@ -125,18 +163,21 @@ class ChatController with ChangeNotifier {
   Future<void> sendMessage(String text, {ChatMessage? replyTo}) async {
     if (_currentRoom == null || text.trim().isEmpty) return;
 
+    // Останавливаем индикатор печати
+    stopTyping();
+
     final message = ChatMessage(
       id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
       text: text.trim(),
-      author: _currentUser, // Предполагаем, что текущий пользователь известен
+      author: _currentUser,
       timestamp: DateTime.now(),
       status: MessageStatus.sending,
       replyTo: replyTo,
     );
 
     // Оптимистичное обновление UI
-    _messages.insert(0, message);
-    notifyListeners();
+    _addMessage(message);
+    _scrollToBottom();
 
     try {
       // Отправка на сервер
@@ -147,24 +188,75 @@ class ChatController with ChangeNotifier {
       );
 
       // Заменяем временное сообщение на настоящее
-      final index = _messages.indexWhere((m) => m.id == message.id);
-      if (index != -1) {
-        _messages[index] = sentMessage;
-      }
+      _replaceMessage(message.id, sentMessage);
 
       // Обновляем кэш
       await _cacheManager.saveMessage(_currentRoom!.id, sentMessage);
       await _cacheManager.updateRoomLastMessage(_currentRoom!.id, sentMessage);
 
+      // Уведомляем через поток
+      _messageStreamController.add(sentMessage);
+
     } catch (e) {
       // Помечаем сообщение как неудачное
-      final index = _messages.indexWhere((m) => m.id == message.id);
-      if (index != -1) {
-        _messages[index] = message.copyWith(status: MessageStatus.failed);
-      }
+      _updateMessageStatus(message.id, MessageStatus.failed);
       _error = 'Ошибка отправки сообщения';
       debugPrint('ChatController.sendMessage error: $e');
+    }
+  }
+
+  // Редактирование сообщения
+  Future<void> editMessage(String messageId, String newText) async {
+    if (newText.trim().isEmpty) return;
+
+    final messageIndex = _messages.indexWhere((m) => m.id == messageId);
+    if (messageIndex == -1) return;
+
+    final originalMessage = _messages[messageIndex];
+    final updatedMessage = originalMessage.copyWith(text: newText.trim());
+
+    // Оптимистичное обновление
+    _messages[messageIndex] = updatedMessage;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.editMessage(
+        messageId: messageId,
+        newText: newText.trim(),
+      );
+
+      _messages[messageIndex] = result;
+      await _cacheManager.saveMessage(_currentRoom!.id, result);
+
+    } catch (e) {
+      // Откатываем изменения
+      _messages[messageIndex] = originalMessage;
+      _error = 'Ошибка редактирования сообщения';
+      debugPrint('ChatController.editMessage error: $e');
     } finally {
+      notifyListeners();
+    }
+  }
+
+  // Удаление сообщения
+  Future<void> deleteMessage(String messageId) async {
+    final messageIndex = _messages.indexWhere((m) => m.id == messageId);
+    if (messageIndex == -1) return;
+
+    final message = _messages[messageIndex];
+
+    // Оптимистичное удаление
+    _messages.removeAt(messageIndex);
+    notifyListeners();
+
+    try {
+      await _apiService.deleteMessage(messageId);
+      await _cacheManager.deleteMessage(_currentRoom!.id, messageId);
+    } catch (e) {
+      // Восстанавливаем сообщение при ошибке
+      _messages.insert(messageIndex, message);
+      _error = 'Ошибка удаления сообщения';
+      debugPrint('ChatController.deleteMessage error: $e');
       notifyListeners();
     }
   }
@@ -179,11 +271,12 @@ class ChatController with ChangeNotifier {
         .indexWhere((r) => r.emoji == emoji && r.user.id == _currentUser.id);
 
     // Оптимистичное обновление
+    List<Reaction> updatedReactions;
+
     if (existingReactionIndex != -1) {
       // Удаляем существующую реакцию
-      final updatedReactions = List<Reaction>.from(message.reactions);
+      updatedReactions = List<Reaction>.from(message.reactions);
       updatedReactions.removeAt(existingReactionIndex);
-      _messages[messageIndex] = message.copyWith(reactions: updatedReactions);
     } else {
       // Добавляем новую реакцию
       final newReaction = Reaction(
@@ -191,10 +284,10 @@ class ChatController with ChangeNotifier {
         user: _currentUser,
         timestamp: DateTime.now(),
       );
-      final updatedReactions = [...message.reactions, newReaction];
-      _messages[messageIndex] = message.copyWith(reactions: updatedReactions);
+      updatedReactions = [...message.reactions, newReaction];
     }
 
+    _messages[messageIndex] = message.copyWith(reactions: updatedReactions);
     notifyListeners();
 
     try {
@@ -227,6 +320,9 @@ class ChatController with ChangeNotifier {
         messageId: messageId,
         pinned: newPinnedState,
       );
+
+      // Обновляем кэш
+      await _cacheManager.saveMessage(_currentRoom!.id, _messages[messageIndex]);
     } catch (e) {
       // Откатываем при ошибке
       _messages[messageIndex] = message;
@@ -274,9 +370,19 @@ class ChatController with ChangeNotifier {
   void startTyping() {
     if (_currentRoom == null) return;
 
-    _typingUsers.add(_currentUser.id);
-    notifyListeners();
+    // Отменяем предыдущий таймер
+    _typingTimer?.cancel();
 
+    // Добавляем пользователя в список печатающих
+    if (!_typingUsers.contains(_currentUser.id)) {
+      _typingUsers.add(_currentUser.id);
+      _notifyTypingUpdate();
+    }
+
+    // Устанавливаем таймер для автоматической остановки
+    _typingTimer = Timer(const Duration(seconds: 3), stopTyping);
+
+    // Отправляем индикатор на сервер
     _apiService.sendTypingIndicator(
       roomId: _currentRoom!.id,
       isTyping: true,
@@ -286,13 +392,33 @@ class ChatController with ChangeNotifier {
   void stopTyping() {
     if (_currentRoom == null) return;
 
-    _typingUsers.remove(_currentUser.id);
-    notifyListeners();
+    _typingTimer?.cancel();
+
+    if (_typingUsers.contains(_currentUser.id)) {
+      _typingUsers.remove(_currentUser.id);
+      _notifyTypingUpdate();
+    }
 
     _apiService.sendTypingIndicator(
       roomId: _currentRoom!.id,
       isTyping: false,
     );
+  }
+
+  // === УПРАВЛЕНИЕ ПРОКРУТКОЙ ===
+
+  void updateScrollPosition(double scrollOffset, double maxScrollExtent) {
+    final wasNearBottom = _isNearBottom;
+    _isNearBottom = scrollOffset >= maxScrollExtent - 100;
+
+    if (wasNearBottom != _isNearBottom) {
+      notifyListeners();
+    }
+  }
+
+  void _scrollToBottom() {
+    _isNearBottom = true;
+    notifyListeners();
   }
 
   // === ПРИВАТНЫЕ МЕТОДЫ ===
@@ -320,8 +446,7 @@ class ChatController with ChangeNotifier {
         }
       }
 
-      // Сортируем по времени (новые сверху)
-      _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      _sortMessages();
 
       // Обновляем состояние пагинации
       _paginationState = _paginationState.copyWith(
@@ -344,22 +469,95 @@ class ChatController with ChangeNotifier {
     }
   }
 
-  void _subscribeToRoomUpdates(String roomId) {
-    // Здесь будет подписка на WebSocket/Socket.io
-    // для получения сообщений в реальном времени
+  void _sortMessages() {
+    _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
-  // Временное решение - предполагаем, что текущий пользователь известен
+  void _addMessage(ChatMessage message) {
+    _messages.insert(0, message);
+    _sortMessages();
+    notifyListeners();
+  }
+
+  void _replaceMessage(String oldId, ChatMessage newMessage) {
+    final index = _messages.indexWhere((m) => m.id == oldId);
+    if (index != -1) {
+      _messages[index] = newMessage;
+      notifyListeners();
+    }
+  }
+
+  void _updateMessageStatus(String messageId, MessageStatus status) {
+    final index = _messages.indexWhere((m) => m.id == messageId);
+    if (index != -1) {
+      _messages[index] = _messages[index].copyWith(status: status);
+      notifyListeners();
+    }
+  }
+
+  void _notifyTypingUpdate() {
+    notifyListeners();
+    _typingStreamController.add(_typingUsers.toList());
+  }
+
+  void _subscribeToRoomUpdates(String roomId) {
+    // Здесь будет подписка на WebSocket/Socket.io
+    // Пока просто симулируем получение сообщений
+    Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_messages.isNotEmpty && _currentRoom != null) {
+        // Берем случайного пользователя из участников комнаты (исключая текущего)
+        final participants = _currentRoom!.participants
+            .where((user) => user.id != 'current-user')
+            .toList();
+
+        if (participants.isNotEmpty) {
+          final randomUser = participants[_random.nextInt(participants.length)];
+          final randomMessages = [
+            'Только что закончил работу над этим!',
+            'Отличная идея! Поддерживаю',
+            'Может стоит добавить валидацию?',
+            'Проверил - всё работает отлично 🎉',
+            'Интересная мысль, нужно обдумать',
+            'Согласен с этим предложением',
+            'Может обсудим это на созвоне?',
+            'Отличный прогресс! 🚀',
+          ];
+
+          final newMessage = ChatMessage(
+            id: 'incoming-${DateTime.now().millisecondsSinceEpoch}',
+            text: randomMessages[_random.nextInt(randomMessages.length)],
+            author: randomUser, // Используем существующего пользователя
+            timestamp: DateTime.now(),
+            status: MessageStatus.delivered,
+          );
+
+          _addMessage(newMessage);
+          _messageStreamController.add(newMessage);
+
+          // Автоматически помечаем как прочитанное через 2 секунды
+          Timer(const Duration(seconds: 2), () {
+            _updateMessageStatus(newMessage.id, MessageStatus.read);
+          });
+        }
+      }
+    });
+  }
+
+  // Текущий пользователь
   ChatUser get _currentUser => ChatUser(
     id: 'current-user',
-    name: 'Текущий пользователь',
+    name: 'Вы',
+    avatarUrl: 'https://i.pravatar.cc/150?img=5',
     isOnline: true,
   );
 
   // Очистка ресурсов
   @override
   void dispose() {
-    // Отписываемся от сокетов и т.д.
+    _typingTimer?.cancel();
+    _messageStreamController.close();
+    _typingStreamController.close();
+    stopTyping();
     super.dispose();
   }
 }

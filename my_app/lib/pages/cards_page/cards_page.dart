@@ -1,13 +1,14 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../rooms_pages/models/filter_option.dart';
 import '../rooms_pages/models/room_category.dart';
 import '../rooms_pages/models/sort_option.dart';
 import 'channel_detail_page.dart';
+import 'dialogs/channel_utils.dart';
 import 'models/channel.dart';
 import '../../providers/channel_state_provider.dart';
+import 'dialogs/create_channel_dialog.dart';
 
 class CardsPage extends StatefulWidget {
   final String userName;
@@ -29,8 +30,6 @@ class CardsPage extends StatefulWidget {
 
 class _CardsPageState extends State<CardsPage> {
   // Контроллеры
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -42,11 +41,9 @@ class _CardsPageState extends State<CardsPage> {
   bool _isLoading = false;
   bool _showSearchBar = false;
   bool _showFilters = false;
-  bool _isCreatingChannel = false;
-  String? _selectedCategoryForCreation;
 
   // Данные
-  late final List<Channel> _channels;
+  late List<Channel> _channels;
   late final List<RoomCategory> _categories;
   late final List<SortOption> _sortOptions;
   late final List<FilterOption> _filterOptions;
@@ -63,7 +60,6 @@ class _CardsPageState extends State<CardsPage> {
     _categories = _createCategories();
     _sortOptions = _createSortOptions();
     _filterOptions = _createFilterOptions();
-    _selectedCategoryForCreation = _categories.firstWhere((c) => c.id != 'all').id;
   }
 
   void _setupListeners() {
@@ -72,25 +68,15 @@ class _CardsPageState extends State<CardsPage> {
         _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
-
-    _titleController.addListener(_updateFormValidity);
-    _descriptionController.addListener(_updateFormValidity);
   }
 
-  void _updateFormValidity() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // Создание тестовых данных
   List<Channel> _createSampleChannels() {
     return [
       Channel(
         id: 1,
         title: 'Спортивные новости',
         description: 'Последние события в мире спорта и аналитика матчей. Эксклюзивные интервью с атлетами.',
-        imageUrl: 'https://avatars.mds.yandex.net/i?id=856af239789ab3f5f7962897c9a69647_l-12422990-images-thumbs&n=13',
+        imageUrl: 'assets/images/cards_image/avatarka/sportAvatarka.png',
         subscribers: 17800,
         videos: 95,
         isSubscribed: true,
@@ -105,20 +91,20 @@ class _CardsPageState extends State<CardsPage> {
         comments: 3200,
         owner: 'Дмитрий Спортивный',
         author: 'Дмитрий Спортивный',
-        authorImageUrl: 'https://avatars.mds.yandex.net/i?id=856af239789ab3f5f7962897c9a69647_l-12422990-images-thumbs&n=13',
+        authorImageUrl: 'assets/images/cards_image/avatarka/sportAvatarka.png',
         tags: ['спорт', 'новости', 'аналитика', 'матчи'],
         isLive: false,
         liveViewers: 0,
         websiteUrl: 'https://sport-news.ru',
         socialMedia: '@sport_news',
         commentsCount: 3200,
-        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=ea37c708c5ce62c18b1bdd46eee2f008f7be91ac-11389740-images-thumbs&n=13',
+        coverImageUrl: 'assets/images/cards_image/owner/sptort_channel.png',
       ),
       Channel(
         id: 2,
         title: 'Игровые обзоры',
         description: 'Новинки игровой индустрии и геймплей по всем платформам. Только честные обзоры!',
-        imageUrl: 'https://avatars.mds.yandex.net/get-yapic/43978/i5F2TxqvHEddRcAEUmpIFyO2tL0-1/orig',
+        imageUrl: 'assets/images/cards_image/avatarka/avatarka1.png',
         subscribers: 15600,
         videos: 120,
         isSubscribed: false,
@@ -133,20 +119,20 @@ class _CardsPageState extends State<CardsPage> {
         comments: 4500,
         owner: 'Алексей Геймеров',
         author: 'Алексей Геймеров',
-        authorImageUrl: 'https://avatars.mds.yandex.net/get-yapic/43978/i5F2TxqvHEddRcAEUmpIFyO2tL0-1/orig',
+        authorImageUrl: 'assets/images/cards_image/avatarka/avatarka1.png',
         tags: ['игры', 'гейминг', 'обзоры', 'стримы'],
         isLive: false,
         liveViewers: 0,
         websiteUrl: 'https://game-reviews.ru',
         socialMedia: '@game_reviews',
         commentsCount: 4500,
-        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=a8645c8c94fcb35eda1d8297057c76fed507e2d4-8821845-images-thumbs&n=13',
+        coverImageUrl: 'assets/images/cards_image/owner/game_channel.png',
       ),
       Channel(
         id: 3,
         title: 'Акортовский Мемасник',
         description: 'Обсуждаем мемы и разные новости о МЮ.',
-        imageUrl: 'https://avatars.mds.yandex.net/i?id=62ba1b69e7eacb8bfab63982c958d61b_l-5221158-images-thumbs&n=13',
+        imageUrl: 'assets/images/cards_image/avatarka/avatarka2.png',
         subscribers: 12450,
         videos: 89,
         isSubscribed: false,
@@ -161,14 +147,98 @@ class _CardsPageState extends State<CardsPage> {
         comments: 2300,
         owner: 'Иван Технолог',
         author: 'Иван Технолог',
-        authorImageUrl: 'https://avatars.mds.yandex.net/i?id=b6988c99b85abf799a69c5470867357b_l-5235116-images-thumbs&n=13',
+        authorImageUrl: 'assets/images/cards_image/avatarka/avatarka2.png',
         tags: ['технологии', 'IT', 'инновации', 'робототехника'],
         isLive: false,
         liveViewers: 0,
         websiteUrl: 'https://tech-future.ru',
         socialMedia: '@tech_future',
         commentsCount: 2300,
-        coverImageUrl: 'https://avatars.mds.yandex.net/i?id=b6988c99b85abf799a69c5470867357b_l-5235116-images-thumbs&n=13',
+        coverImageUrl: 'assets/images/cards_image/owner/the_soul_channel.png',
+      ),
+      Channel(
+        id: 4,
+        title: 'The Soul Channel',
+        description: 'Психология, саморазвитие и духовные практики для гармоничной жизни.',
+        imageUrl: 'assets/images/cards_image/avatarka/avatarka1.png',
+        subscribers: 21500,
+        videos: 150,
+        isSubscribed: true,
+        isFavorite: true,
+        cardColor: Colors.purple.shade700,
+        categoryId: 'psychology',
+        createdAt: DateTime.now().subtract(const Duration(days: 25)),
+        isVerified: true,
+        rating: 4.7,
+        views: 2850000,
+        likes: 92000,
+        comments: 3800,
+        owner: 'Мария Психологова',
+        author: 'Мария Психологова',
+        authorImageUrl: 'assets/images/cards_image/avatarka/avatarka1.png',
+        tags: ['психология', 'саморазвитие', 'медитация', 'гармония'],
+        isLive: false,
+        liveViewers: 0,
+        websiteUrl: 'https://the-soul.ru',
+        socialMedia: '@the_soul',
+        commentsCount: 3800,
+        coverImageUrl: 'assets/images/cards_image/owner/the_soul_channel.png',
+      ),
+      Channel(
+        id: 5,
+        title: 'Бизнес и финансы',
+        description: 'Анализ рынков, инвестиционные стратегии и успешные кейсы бизнеса.',
+        imageUrl: 'assets/images/cards_image/avatarka/avatarka2.png',
+        subscribers: 18900,
+        videos: 110,
+        isSubscribed: false,
+        isFavorite: false,
+        cardColor: Colors.teal.shade700,
+        categoryId: 'business',
+        createdAt: DateTime.now().subtract(const Duration(days: 40)),
+        isVerified: true,
+        rating: 4.5,
+        views: 1670000,
+        likes: 51000,
+        comments: 2900,
+        owner: 'Сергей Финансов',
+        author: 'Сергей Финансов',
+        authorImageUrl: 'assets/images/cards_image/avatarka/avatarka2.png',
+        tags: ['бизнес', 'финансы', 'инвестиции', 'экономика'],
+        isLive: false,
+        liveViewers: 0,
+        websiteUrl: 'https://business-finance.ru',
+        socialMedia: '@business_finance',
+        commentsCount: 2900,
+        coverImageUrl: 'assets/images/cards_image/owner/sptort_channel.png',
+      ),
+      Channel(
+        id: 6,
+        title: 'Творчество и искусство',
+        description: 'Рисование, музыка, фотография и другие виды творчества. Вдохновляем и учим.',
+        imageUrl: 'assets/images/cards_image/avatarka/sportAvatarka.png',
+        subscribers: 13200,
+        videos: 75,
+        isSubscribed: true,
+        isFavorite: false,
+        cardColor: Colors.pink.shade700,
+        categoryId: 'art',
+        createdAt: DateTime.now().subtract(const Duration(days: 35)),
+        isVerified: false,
+        rating: 4.4,
+        views: 980000,
+        likes: 38000,
+        comments: 2100,
+        owner: 'Анна Художникова',
+        author: 'Анна Художникова',
+        authorImageUrl: 'assets/images/cards_image/avatarka/sportAvatarka.png',
+        tags: ['искусство', 'творчество', 'рисование', 'вдохновение'],
+        isLive: false,
+        liveViewers: 0,
+        websiteUrl: 'https://art-creative.ru',
+        socialMedia: '@art_creative',
+        commentsCount: 2100,
+        coverImageUrl: 'assets/images/cards_image/owner/game_channel.png',
       ),
     ];
   }
@@ -201,8 +271,6 @@ class _CardsPageState extends State<CardsPage> {
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -311,7 +379,59 @@ class _CardsPageState extends State<CardsPage> {
     return _getCategoryById(categoryId).color;
   }
 
-  // УЛУЧШЕННЫЙ ДИЗАЙН КАРТОЧКИ
+  // НОВЫЙ МЕТОД: Создание нового канала через диалог
+  void _createNewChannel() {
+    showDialog(
+      context: context,
+      builder: (context) => CreateChannelDialog(
+        userName: widget.userName,
+        userAvatarUrl: widget.userAvatarUrl,
+        categories: _categories,
+        onCreateChannel: _addNewChannel,
+      ),
+    );
+  }
+
+  // НОВЫЙ МЕТОД: Добавление нового канала в список
+  // В методе _addNewChannel
+  void _addNewChannel(String title, String description, String categoryId, String? avatarUrl, String? coverUrl) {
+    final newChannel = ChannelUtils.createNewChannel(
+      id: _channels.length + 1,
+      title: title,
+      description: description,
+      categoryId: categoryId,
+      userName: widget.userName,
+      userAvatarUrl: widget.userAvatarUrl,
+      customAvatarUrl: avatarUrl,
+      customCoverUrl: coverUrl,
+    );
+
+    setState(() {
+      _channels.insert(0, newChannel);
+    });
+
+    // Показать уведомление
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Канал "$title" успешно создан!'),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Открыть',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChannelDetailPage(channel: newChannel),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ДОБАВЛЕННЫЙ МЕТОД: Построение карточки канала
   Widget _buildChannelCard(Channel channel, int index, ChannelStateProvider stateProvider) {
     return _isMobile
         ? _buildMobileChannelCard(channel, index, stateProvider)
@@ -1424,6 +1544,11 @@ class _CardsPageState extends State<CardsPage> {
                     'Попробуйте изменить параметры поиска',
                     style: TextStyle(color: Colors.grey, fontSize: 10),
                   ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _createNewChannel,
+                    child: const Text('Создать первый канал'),
+                  ),
                 ],
               ),
             ),
@@ -1506,33 +1631,5 @@ class _CardsPageState extends State<CardsPage> {
         ),
       ),
     );
-  }
-
-  // Создание канала
-  void _createNewChannel() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Создать канал'),
-        content: const Text('Функция создания канала будет реализована позже'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getRandomColor() {
-    final colors = [
-      Colors.blue.shade700,
-      Colors.green.shade700,
-      Colors.orange.shade700,
-      Colors.purple.shade700,
-      Colors.red.shade700,
-    ];
-    return colors[Random().nextInt(colors.length)];
   }
 }

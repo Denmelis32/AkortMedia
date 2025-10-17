@@ -48,7 +48,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
     if (width > 1200) return 200;
     if (width > 800) return 100;
     if (width > 600) return 60;
-    return 16;
+    return 8; // Уменьшено с 16 до 8 для мобильных
   }
 
   double _getContentMaxWidth(BuildContext context) {
@@ -489,6 +489,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
 
   Widget _buildTabItem(int index, String title) {
     final isSelected = _selectedTabIndex == index;
+    final isMobile = MediaQuery.of(context).size.width <= 600;
 
     return Expanded(
       child: Material(
@@ -512,10 +513,11 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
               child: Text(
                 title,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: isMobile ? 12 : 14, // Уменьшен шрифт для мобильных
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected ? Colors.blue : Colors.grey[600],
                 ),
+                textAlign: TextAlign.center,
               ),
             ),
           ),
@@ -577,11 +579,11 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar
+              // AppBar - оптимизирован для мобильных
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : horizontalPadding,
+                  horizontal: isMobile ? 8 : horizontalPadding, // Уменьшено с 16 до 8
                   vertical: 8,
                 ),
                 decoration: const BoxDecoration(color: Colors.white),
@@ -594,21 +596,24 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                           color: Colors.grey[100],
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 18),
+                        child: Icon(Icons.arrow_back,
+                          color: Colors.black,
+                          size: isMobile ? 16 : 18, // Уменьшен размер иконки
+                        ),
                       ),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Лига прогнозов',
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 20,
+                        fontSize: isMobile ? 18 : 20, // Уменьшен шрифт
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Spacer(),
-                    // Кнопка тестирования расчетов (только для разработки)
+                    // Кнопка тестирования расчетов (только для разработки) - скрыта на мобильных
                     if (!isMobile)
                       IconButton(
                         icon: const Icon(Icons.calculate, color: Colors.orange),
@@ -619,14 +624,20 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                       Badge(
                         label: Text(_couponPredictions.length.toString()),
                         child: IconButton(
-                          icon: const Icon(Icons.shopping_cart, color: Colors.blue),
+                          icon: Icon(Icons.shopping_cart,
+                            color: Colors.blue,
+                            size: isMobile ? 18 : 24,
+                          ),
                           onPressed: _showCouponDialog,
                         ),
                       ),
                     IconButton(
                       icon: Container(
                         padding: const EdgeInsets.all(6),
-                        child: const Icon(Icons.share, color: Colors.black, size: 18),
+                        child: Icon(Icons.share,
+                          color: Colors.black,
+                          size: isMobile ? 16 : 18,
+                        ),
                       ),
                       onPressed: _shareLeague,
                     ),
@@ -640,7 +651,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                         child: Icon(
                           _isLiked ? Icons.favorite : Icons.favorite_border,
                           color: _isLiked ? Colors.red : Colors.black,
-                          size: 18,
+                          size: isMobile ? 16 : 18,
                         ),
                       ),
                       onPressed: _toggleLike,
@@ -655,7 +666,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                   controller: _scrollController,
                   physics: const BouncingScrollPhysics(),
                   slivers: [
-                    // ОБЛОЖКА
+                    // ОБЛОЖКА - оптимизирована для мобильных
                     SliverToBoxAdapter(
                       child: Container(
                         padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -664,9 +675,9 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                             Container(
                               margin: const EdgeInsets.only(bottom: 20),
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(isMobile ? 12 : 16), // Уменьшен радиус
                                 child: Container(
-                                  height: 280,
+                                  height: isMobile ? 200 : 280, // Уменьшена высота
                                   width: double.infinity,
                                   decoration: BoxDecoration(
                                     image: DecorationImage(
@@ -692,9 +703,9 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                             ),
 
                             Positioned(
-                              bottom: 40,
-                              left: 16,
-                              right: 16,
+                              bottom: isMobile ? 20 : 40, // Поднято выше
+                              left: isMobile ? 8 : 16, // Уменьшены отступы
+                              right: isMobile ? 8 : 16,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -704,24 +715,24 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.9),
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(isMobile ? 8 : 12),
                                         ),
                                         child: Text(
                                           widget.league.emoji,
-                                          style: const TextStyle(fontSize: 20),
+                                          style: TextStyle(fontSize: isMobile ? 16 : 20),
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 8), // Уменьшен отступ
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // Уменьшен padding
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.9),
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(16),
                                         ),
                                         child: Text(
                                           widget.league.category.toUpperCase(),
-                                          style: const TextStyle(
-                                            fontSize: 12,
+                                          style: TextStyle(
+                                            fontSize: isMobile ? 10 : 12, // Уменьшен шрифт
                                             fontWeight: FontWeight.w700,
                                             color: Colors.black87,
                                           ),
@@ -730,13 +741,13 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                                     ],
                                   ),
 
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 12),
 
                                   Text(
                                     widget.league.title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 24,
+                                      fontSize: isMobile ? 20 : 24, // Уменьшен шрифт
                                       fontWeight: FontWeight.bold,
                                       height: 1.2,
                                     ),
@@ -744,36 +755,37 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
 
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 8),
 
-                                  Row(
+                                  Wrap(
+                                    spacing: 8, // Уменьшен spacing
+                                    runSpacing: 8,
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // Уменьшен padding
                                         decoration: BoxDecoration(
                                           color: Colors.green,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(16),
                                         ),
                                         child: Text(
                                           widget.league.formattedPrizePool,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: Colors.white,
-                                            fontSize: 14,
+                                            fontSize: isMobile ? 12 : 14, // Уменьшен шрифт
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.9),
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(16),
                                         ),
                                         child: Text(
                                           '${_formatNumber(widget.league.participants)} участников',
-                                          style: const TextStyle(
-                                            fontSize: 14,
+                                          style: TextStyle(
+                                            fontSize: isMobile ? 12 : 14,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -792,7 +804,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                     SliverToBoxAdapter(
                       child: Column(
                         children: [
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12), // Уменьшен отступ
 
                           // КНОПКА УЧАСТИЯ
                           Container(
@@ -800,11 +812,11 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                             child: Card(
                               elevation: 2,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(isMobile ? 12 : 16),
                               ),
                               color: Colors.white,
                               child: Padding(
-                                padding: const EdgeInsets.all(16),
+                                padding: EdgeInsets.all(isMobile ? 12 : 16), // Уменьшен padding
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -813,9 +825,9 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: _isSubscribed ? Colors.blue : Colors.green,
                                           foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          padding: EdgeInsets.symmetric(vertical: isMobile ? 14 : 16), // Уменьшен padding
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
                                           ),
                                         ),
                                         child: Row(
@@ -823,13 +835,13 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                                           children: [
                                             Icon(
                                               _isSubscribed ? Icons.emoji_events : Icons.person_add,
-                                              size: 20,
+                                              size: isMobile ? 18 : 20,
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
                                               _isSubscribed ? 'Сделать прогноз' : 'Присоединиться к лиге',
-                                              style: const TextStyle(
-                                                fontSize: 16,
+                                              style: TextStyle(
+                                                fontSize: isMobile ? 14 : 16, // Уменьшен шрифт
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
@@ -843,7 +855,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                             ),
                           ),
 
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
 
                           // БАЛАНС ПОЛЬЗОВАТЕЛЯ
                           if (_isSubscribed)
@@ -852,12 +864,63 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                               child: Card(
                                 elevation: 2,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(isMobile ? 12 : 16),
                                 ),
                                 color: Colors.white,
                                 child: Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Row(
+                                  padding: EdgeInsets.all(isMobile ? 16 : 20), // Уменьшен padding
+                                  child: isMobile
+                                      ? Column( // Вертикальная компоновка для мобильных
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Ваш баланс',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${_userPoints.toStringAsFixed(2)}₽',
+                                                style: const TextStyle(
+                                                  fontSize: 20, // Уменьшен шрифт
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.green,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          ElevatedButton.icon(
+                                            onPressed: () {
+                                              // Пополнение баланса
+                                            },
+                                            icon: const Icon(Icons.add, size: 16),
+                                            label: const Text('Пополнить'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.blue,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Активных ставок: ${_predictions.where((p) => p['status'] == 'active').length}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                      : Row( // Горизонтальная компоновка для ПК
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Column(
@@ -917,7 +980,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                               ),
                             ),
 
-                          if (_isSubscribed) const SizedBox(height: 16),
+                          if (_isSubscribed) const SizedBox(height: 12),
 
                           // ТАБЫ
                           Container(
@@ -925,13 +988,13 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                             child: Card(
                               elevation: 2,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(isMobile ? 12 : 16),
                               ),
                               color: Colors.white,
                               child: Column(
                                 children: [
                                   Container(
-                                    height: 50,
+                                    height: isMobile ? 44 : 50, // Уменьшена высота
                                     decoration: BoxDecoration(
                                       border: Border(
                                         bottom: BorderSide(color: Colors.grey[300]!),
@@ -951,7 +1014,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                                     constraints: BoxConstraints(
                                       maxWidth: contentMaxWidth,
                                     ),
-                                    padding: const EdgeInsets.all(20),
+                                    padding: EdgeInsets.all(isMobile ? 16 : 20), // Уменьшен padding
                                     child: _buildTabContent(),
                                   ),
                                 ],
@@ -959,7 +1022,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                             ),
                           ),
 
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 20), // Уменьшен отступ
                         ],
                       ),
                     ),

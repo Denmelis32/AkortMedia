@@ -7,13 +7,13 @@ class ArticleDetailPage extends StatelessWidget {
 
   const ArticleDetailPage({super.key, required this.article});
 
-  // ТАКИЕ ЖЕ ОТСТУПЫ КАК В ARTICLES_PAGE
+  // ИСПРАВЛЕННЫЙ МЕТОД: На телефоне отступы 0, на остальных как было
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     if (width > 1200) return 200;
     if (width > 800) return 100;
     if (width > 600) return 60;
-    return 16;
+    return 0; // Убраны отступы на телефоне
   }
 
   double _getContentMaxWidth(BuildContext context) {
@@ -124,7 +124,7 @@ class ArticleDetailPage extends StatelessWidget {
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : horizontalPadding,
+                  horizontal: isMobile ? 16 : horizontalPadding, // На телефоне оставляем небольшой отступ для иконок
                   vertical: 8,
                 ),
                 decoration: const BoxDecoration(color: Colors.white),
@@ -186,7 +186,7 @@ class ArticleDetailPage extends StatelessWidget {
                       child: Container(
                         width: double.infinity,
                         padding: EdgeInsets.symmetric(
-                          horizontal: horizontalPadding,
+                          horizontal: horizontalPadding, // На телефоне будет 0
                           vertical: 16,
                         ),
                         child: Center(
@@ -199,15 +199,18 @@ class ArticleDetailPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     // ОБЛОЖКА С ЗАКРУГЛЕНИЕМ СНИЗУ
-                                    // ОБЛОЖКА КАК В LEAGUE_DETAIL_PAGE
-                                    // ОБЛОЖКА С ОТСТУПАМИ И ЗАКРУГЛЕНИЕМ
                                     Stack(
                                       children: [
                                         // Основное изображение с отступами и закруглением
+                                        // ИСПРАВЛЕНИЕ: На телефоне убираем боковые отступы у обложки
                                         Container(
-                                          margin: const EdgeInsets.only(bottom: 20), // Отступ снизу
+                                          margin: EdgeInsets.only(
+                                            bottom: 20,
+                                            left: isMobile ? 0 : 16, // На телефоне 0
+                                            right: isMobile ? 0 : 16, // На телефоне 0
+                                          ),
                                           child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(16), // Закругление
+                                            borderRadius: BorderRadius.circular(isMobile ? 0 : 16), // На телефоне убираем закругление
                                             child: Container(
                                               height: coverHeight,
                                               width: double.infinity,
@@ -237,8 +240,8 @@ class ArticleDetailPage extends StatelessWidget {
                                         // Контент поверх изображения
                                         Positioned(
                                           bottom: 40, // Отступ от низа обложки
-                                          left: 16,   // Отступ слева внутри обложки
-                                          right: 16,  // Отступ справа внутри обложки
+                                          left: isMobile ? 16 : 32,   // На телефоне меньше отступ
+                                          right: isMobile ? 16 : 32,  // На телефоне меньше отступ
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
@@ -280,9 +283,9 @@ class ArticleDetailPage extends StatelessWidget {
                                               // Заголовок
                                               Text(
                                                 article.title,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   color: Colors.white,
-                                                  fontSize: 24,
+                                                  fontSize: isMobile ? 20 : 24, // На телефоне меньше шрифт
                                                   fontWeight: FontWeight.bold,
                                                   height: 1.2,
                                                 ),
@@ -313,79 +316,83 @@ class ArticleDetailPage extends StatelessWidget {
                                       ],
                                     ),
                                     // ИНФОРМАЦИЯ О СТАТЬЕ
-                                    Card(
-                                      elevation: 2,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      color: Colors.white,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(20),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(12),
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: [
-                                              Colors.blue.withOpacity(0.03),
-                                              Colors.blue.withOpacity(0.01),
-                                            ],
-                                          ),
+                                    // ИСПРАВЛЕНИЕ: На телефоне убираем боковые отступы у карточки
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 0 : 16),
+                                      child: Card(
+                                        elevation: 2,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(isMobile ? 0 : 12), // На телефоне убираем закругление
                                         ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // ЗАГОЛОВОК СЕКЦИИ
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets.all(6),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.blue.withOpacity(0.1),
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.info_rounded,
-                                                    color: Colors.blue,
-                                                    size: 18,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Text(
-                                                  'Информация о статье',
-                                                  style: TextStyle(
-                                                    fontSize: _getTitleFontSize(context) - 4,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Colors.black87,
-                                                  ),
-                                                ),
+                                        color: Colors.white,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(20),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(isMobile ? 0 : 12),
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Colors.blue.withOpacity(0.03),
+                                                Colors.blue.withOpacity(0.01),
                                               ],
                                             ),
-                                            const SizedBox(height: 20),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              // ЗАГОЛОВОК СЕКЦИИ
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.blue.withOpacity(0.1),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.info_rounded,
+                                                      color: Colors.blue,
+                                                      size: 18,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Text(
+                                                    'Информация о статье',
+                                                    style: TextStyle(
+                                                      fontSize: _getTitleFontSize(context) - 4,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 20),
 
-                                            // АВТОР И ВРЕМЯ
-                                            _buildAuthorAndTime(context),
-                                            const SizedBox(height: 20),
+                                              // АВТОР И ВРЕМЯ
+                                              _buildAuthorAndTime(context),
+                                              const SizedBox(height: 20),
 
-                                            // ПОДЗАГОЛОВОК
-                                            _buildInfoItem(
-                                              Icons.subtitles_rounded,
-                                              'Подзаголовок',
-                                              article.description,
-                                              Colors.orange,
-                                              context,
-                                            ),
-                                            const SizedBox(height: 16),
+                                              // ПОДЗАГОЛОВОК
+                                              _buildInfoItem(
+                                                Icons.subtitles_rounded,
+                                                'Подзаголовок',
+                                                article.description,
+                                                Colors.orange,
+                                                context,
+                                              ),
+                                              const SizedBox(height: 16),
 
-                                            // ОПИСАНИЕ
-                                            _buildInfoItem(
-                                              Icons.description_rounded,
-                                              'Описание статьи',
-                                              _getArticleDescription(article),
-                                              Colors.blue,
-                                              context,
-                                            ),
-                                          ],
+                                              // ОПИСАНИЕ
+                                              _buildInfoItem(
+                                                Icons.description_rounded,
+                                                'Описание статьи',
+                                                _getArticleDescription(article),
+                                                Colors.blue,
+                                                context,
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -402,24 +409,32 @@ class ArticleDetailPage extends StatelessWidget {
                                 Column(
                                   children: [
                                     // СТАТИСТИКА
-                                    Card(
-                                      elevation: 2,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                    // ИСПРАВЛЕНИЕ: На телефоне убираем боковые отступы
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 0 : 16),
+                                      child: Card(
+                                        elevation: 2,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(isMobile ? 0 : 12),
+                                        ),
+                                        color: Colors.white,
+                                        child: _buildStatsSection(context),
                                       ),
-                                      color: Colors.white,
-                                      child: _buildStatsSection(context),
                                     ),
                                     const SizedBox(height: 16),
 
                                     // КНОПКИ ДЕЙСТВИЙ
-                                    Card(
-                                      elevation: 4,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
+                                    // ИСПРАВЛЕНИЕ: На телефоне убираем боковые отступы
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 0 : 16),
+                                      child: Card(
+                                        elevation: 4,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(isMobile ? 0 : 16),
+                                        ),
+                                        color: Colors.white,
+                                        child: _buildActionButtons(context),
                                       ),
-                                      color: Colors.white,
-                                      child: _buildActionButtons(context),
                                     ),
                                   ],
                                 ),
@@ -439,11 +454,12 @@ class ArticleDetailPage extends StatelessWidget {
     );
   }
 
-  // НОВЫЙ МЕТОД: Построение содержания с разделами
+  // ОБНОВЛЕННЫЙ МЕТОД: Построение содержания с разделами
   Widget _buildArticleContentWithSections(BuildContext context, List<ContentBlock> contentBlocks) {
     final sections = <Widget>[];
     List<Widget> currentSectionContent = [];
     String? currentSectionTitle;
+    final isMobile = MediaQuery.of(context).size.width <= 600;
 
     for (final block in contentBlocks) {
       if (block.type == ContentBlockType.heading) {
@@ -472,56 +488,63 @@ class ArticleDetailPage extends StatelessWidget {
     } else if (currentSectionContent.isNotEmpty) {
       // Если нет заголовков, но есть контент
       sections.add(
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          color: Colors.white,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.green.withOpacity(0.03),
-                  Colors.green.withOpacity(0.01),
-                ],
-              ),
+        // ИСПРАВЛЕНИЕ: На телефоне убираем боковые отступы
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 0 : 16),
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(isMobile ? 0 : 12),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.menu_book_rounded,
-                        color: Colors.green,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Содержание статьи',
-                      style: TextStyle(
-                        fontSize: _getTitleFontSize(context) - 4,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
-                    ),
+            color: Colors.white,
+            child: Container(
+              padding: EdgeInsets.all(isMobile ? 16 : 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(isMobile ? 0 : 12),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.green.withOpacity(0.03),
+                    Colors.green.withOpacity(0.01),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Column(children: currentSectionContent),
-              ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.menu_book_rounded,
+                          color: Colors.green,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Содержание статьи',
+                        style: TextStyle(
+                          fontSize: _getTitleFontSize(context) - 4,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: currentSectionContent,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -531,63 +554,71 @@ class ArticleDetailPage extends StatelessWidget {
     return Column(children: sections);
   }
 
-  // МЕТОД: Создание карточки секции
+  // ОБНОВЛЕННЫЙ МЕТОД: Создание карточки секции
   Widget _buildSectionCard(String title, List<Widget> content, BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      color: Colors.white,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.purple.withOpacity(0.03),
-              Colors.purple.withOpacity(0.01),
-            ],
-          ),
+    final isMobile = MediaQuery.of(context).size.width <= 600;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 0 : 16),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isMobile ? 0 : 12),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ЗАГОЛОВОК СЕКЦИИ
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.article_rounded,
-                    color: Colors.purple,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: _getTitleFontSize(context) - 2,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
+        color: Colors.white,
+        child: Container(
+          padding: EdgeInsets.all(isMobile ? 16 : 20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(isMobile ? 0 : 12),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.purple.withOpacity(0.03),
+                Colors.purple.withOpacity(0.01),
               ],
             ),
-            const SizedBox(height: 16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ЗАГОЛОВОК СЕКЦИИ
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.article_rounded,
+                      color: Colors.purple,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: _getTitleFontSize(context) - 2,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-            // КОНТЕНТ СЕКЦИИ
-            Column(children: content),
-          ],
+              // КОНТЕНТ СЕКЦИИ - БЕЗ ДОПОЛНИТЕЛЬНЫХ ОТСТУПОВ
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: content,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -595,6 +626,8 @@ class ArticleDetailPage extends StatelessWidget {
 
   // НОВЫЙ МЕТОД: Автор и время публикации
   Widget _buildAuthorAndTime(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width <= 600;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -663,28 +696,29 @@ class ArticleDetailPage extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.blue,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add, size: 16, color: Colors.white),
-                const SizedBox(width: 6),
-                Text(
-                  'Подписаться',
-                  style: TextStyle(
-                    fontSize: _getContentFontSize(context) - 2,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+          if (!isMobile) // На телефоне скрываем кнопку подписки для экономии места
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Подписаться',
+                    style: TextStyle(
+                      fontSize: _getContentFontSize(context) - 2,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -768,10 +802,13 @@ class ArticleDetailPage extends StatelessWidget {
     }
   }
 
+  // ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ КОНТЕНТНЫХ БЛОКОВ (убираем горизонтальные отступы на телефоне)
   Widget _buildHeadingBlock(String text, BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width <= 600;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: isMobile ? 0 : 0),
       child: Text(
         text,
         style: TextStyle(
@@ -786,9 +823,11 @@ class ArticleDetailPage extends StatelessWidget {
   }
 
   Widget _buildSubheadingBlock(String text, BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width <= 600;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: EdgeInsets.symmetric(vertical: 6, horizontal: isMobile ? 0 : 0),
       child: Text(
         text,
         style: TextStyle(
@@ -803,8 +842,11 @@ class ArticleDetailPage extends StatelessWidget {
   }
 
   Widget _buildTextBlock(String text, BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width <= 600;
+
     return Container(
       width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 0 : 0),
       child: Card(
         elevation: 1,
         shape: RoundedRectangleBorder(
@@ -812,7 +854,7 @@ class ArticleDetailPage extends StatelessWidget {
         ),
         color: Colors.grey[50],
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           child: Text(
             text,
             style: TextStyle(
@@ -828,87 +870,92 @@ class ArticleDetailPage extends StatelessWidget {
   }
 
   Widget _buildImageBlock(String imageUrl, BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12), // Закругление со всех сторон
-      ),
-      color: Colors.white,
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12), // Закругление картинки
-            child: Image.network(
-              imageUrl,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              height: 200, // Фиксированная высота для картинок в содержании
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
+    final isMobile = MediaQuery.of(context).size.width <= 600;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 0 : 0),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        color: Colors.white,
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                imageUrl,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                height: 200,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, color: Colors.grey[400], size: 40),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Не удалось загрузить изображение',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: _getContentFontSize(context) - 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.image,
+                    size: 14,
+                    color: Colors.green,
                   ),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                          : null,
+                  const SizedBox(width: 6),
+                  Text(
+                    'Изображение в статье',
+                    style: TextStyle(
+                      fontSize: _getContentFontSize(context) - 2,
+                      color: Colors.green,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, color: Colors.grey[400], size: 40),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Не удалось загрузить изображение',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: _getContentFontSize(context) - 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                ],
+              ),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.image,
-                  size: 14,
-                  color: Colors.green,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Изображение в статье',
-                  style: TextStyle(
-                    fontSize: _getContentFontSize(context) - 2,
-                    color: Colors.green,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

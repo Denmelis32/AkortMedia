@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'chat_controller.dart';
@@ -14,78 +17,144 @@ import 'models/message_status.dart';
 import 'models/pagination_response.dart';
 import 'models/reaction.dart';
 
-// Временный мок для тестирования чата
-class SimpleMockChatService implements ChatApiService {
+// Улучшенный мок с реалистичным поведением
+class AdvancedMockChatService implements ChatApiService {
   final List<ChatMessage> _mockMessages = [];
+  final List<ChatUser> _mockUsers = [];
+  final Map<String, Timer> _typingTimers = {};
+  final Random _random = Random();
+  late ChatUser _currentUser;
 
   @override
   final Duration timeout = const Duration(seconds: 30);
 
-  SimpleMockChatService() {
+  AdvancedMockChatService() {
     _initializeMockData();
+    _startSimulatedActivity();
   }
 
   void _initializeMockData() {
-    // Создаем тестовых пользователей
-    final user1 = ChatUser(
-      id: 'user1',
-      name: 'Алексей',
-      avatarUrl: 'https://i.pravatar.cc/150?img=1',
+    // Текущий пользователь
+    _currentUser = ChatUser(
+      id: 'current-user',
+      name: 'Вы',
+      avatarUrl: 'https://i.pravatar.cc/150?img=5',
       isOnline: true,
+      lastSeen: DateTime.now(),
     );
 
-    final user2 = ChatUser(
-      id: 'user2',
-      name: 'Мария',
-      avatarUrl: 'https://i.pravatar.cc/150?img=2',
-      isOnline: true,
-    );
+    // Тестовые пользователи
+    _mockUsers.addAll([
+      ChatUser(
+        id: 'user1',
+        name: 'Алексей Петров',
+        avatarUrl: 'https://i.pravatar.cc/150?img=1',
+        isOnline: true,
+        lastSeen: DateTime.now(),
+        status: 'Разрабатываю новый фичи 🚀',
+      ),
+      ChatUser(
+        id: 'user2',
+        name: 'Мария Иванова',
+        avatarUrl: 'https://i.pravatar.cc/150?img=2',
+        isOnline: false,
+        lastSeen: DateTime.now().subtract(const Duration(minutes: 15)),
+        status: 'На встрече',
+      ),
+      ChatUser(
+        id: 'user3',
+        name: 'Дмитрий Сидоров',
+        avatarUrl: 'https://i.pravatar.cc/150?img=3',
+        isOnline: true,
+        lastSeen: DateTime.now(),
+        status: 'Доступен для обсуждения',
+      ),
+    ]);
 
-    // Создаем тестовые сообщения
+    // Реалистичная история сообщений
+    final now = DateTime.now();
     _mockMessages.addAll([
       ChatMessage(
         id: '1',
-        text: 'Привет! Как дела?',
-        author: user1,
-        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-        status: MessageStatus.read,
-      ),
-      ChatMessage(
-        id: '2',
-        text: 'Привет! Всё отлично, работаю над проектом.',
-        author: user2,
-        timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-        status: MessageStatus.read,
-      ),
-      ChatMessage(
-        id: '3',
-        text: 'Отлично! У меня тоже всё хорошо.',
-        author: user1,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-        status: MessageStatus.read,
-      ),
-      ChatMessage(
-        id: '4',
-        text: 'Посмотри новый дизайн, что думаешь?',
-        author: user2,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
-        status: MessageStatus.read,
-      ),
-      ChatMessage(
-        id: '5',
-        text: 'Очень круто! Мне нравится новый подход 🚀',
-        author: user1,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+        text: 'Привет всем! Как успехи с новой архитектурой?',
+        author: _mockUsers[0],
+        timestamp: now.subtract(const Duration(hours: 3)),
         status: MessageStatus.read,
         reactions: [
           Reaction(
             emoji: '👍',
-            user: user2,
-            timestamp: DateTime.now().subtract(const Duration(minutes: 4)),
+            user: _mockUsers[1],
+            timestamp: now.subtract(const Duration(hours: 2)),
+          ),
+        ],
+      ),
+      ChatMessage(
+        id: '2',
+        text: 'Всё отлично! Завершил работу над модулем аутентификации',
+        author: _mockUsers[1],
+        timestamp: now.subtract(const Duration(hours: 2, minutes: 45)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: '3',
+        text: 'Отлично! У меня тоже хороший прогресс. UI компоненты почти готовы',
+        author: _currentUser,
+        timestamp: now.subtract(const Duration(hours: 2, minutes: 30)),
+        status: MessageStatus.read,
+        reactions: [
+          Reaction(
+            emoji: '❤️',
+            user: _mockUsers[0],
+            timestamp: now.subtract(const Duration(hours: 2)),
           ),
         ],
       ),
     ]);
+  }
+  void _startSimulatedActivity() {
+    void scheduleNext() {
+      // Случайный интервал от 10 до 15 секунд
+      final nextDelay = Duration(seconds: 10 + _random.nextInt(6));
+      Timer(nextDelay, () {
+        // 75% шанс нового сообщения
+        if (_random.nextDouble() < 0.75) {
+          _simulateIncomingMessage();
+        }
+        scheduleNext(); // Планируем следующее событие
+      });
+    }
+
+    scheduleNext(); // Запускаем цикл
+  }
+
+  void _simulateIncomingMessage() {
+    final randomUser = _mockUsers[_random.nextInt(_mockUsers.length)];
+    final responses = [
+      'Только что закончил работу над этим функционалом!',
+      'Отличная идея! Полностью поддерживаю',
+      'Может стоит добавить валидацию на стороне клиента?',
+      'Проверил на тестовом стенде - всё работает идеально 🎉',
+      'Есть небольшое предложение по улучшению UX',
+      'Кто-то уже тестировал это на мобильных устройствах?',
+    ];
+
+    final newMessage = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: responses[_random.nextInt(responses.length)],
+      author: randomUser,
+      timestamp: DateTime.now(),
+      status: MessageStatus.delivered,
+    );
+
+    _mockMessages.add(newMessage);
+
+    // Имитация прочтения
+    Timer(const Duration(seconds: 3), () {
+      final index = _mockMessages.indexWhere((msg) => msg.id == newMessage.id);
+      if (index != -1) {
+        _mockMessages[index] = _mockMessages[index].copyWith(status: MessageStatus.read);
+      }
+    });
   }
 
   @override
@@ -96,36 +165,20 @@ class SimpleMockChatService implements ChatApiService {
 
   @override
   Future<ChatRoom> getRoom(String roomId) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 600));
 
-    final participants = [
-      ChatUser(
-        id: 'user1',
-        name: 'Алексей',
-        avatarUrl: 'https://i.pravatar.cc/150?img=1',
-        isOnline: true,
-      ),
-      ChatUser(
-        id: 'user2',
-        name: 'Мария',
-        avatarUrl: 'https://i.pravatar.cc/150?img=2',
-        isOnline: true,
-      ),
-      ChatUser(
-        id: 'current-user',
-        name: 'Вы',
-        isOnline: true,
-      ),
-    ];
+    final participants = [..._mockUsers, _currentUser];
+    final lastMessage = _mockMessages.isNotEmpty ? _mockMessages.last : null;
 
     return ChatRoom(
       id: roomId,
-      name: 'Тестовый чат $roomId',
+      name: 'Команда разработки',
       participants: participants,
-      createdAt: DateTime.now().subtract(const Duration(days: 7)),
-      isGroup: roomId.contains('group'),
+      createdAt: DateTime.now().subtract(const Duration(days: 30)),
+      isGroup: true,
       createdBy: participants.first,
-      lastMessage: _mockMessages.isNotEmpty ? _mockMessages.last : null,
+      lastMessage: lastMessage,
+      unreadCount: _random.nextInt(3),
     );
   }
 
@@ -135,19 +188,24 @@ class SimpleMockChatService implements ChatApiService {
     required int page,
     required int limit,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(Duration(milliseconds: 500 + _random.nextInt(500)));
 
-    // Симуляция пагинации
     final startIndex = (page - 1) * limit;
     final endIndex = startIndex + limit;
 
     List<ChatMessage> paginatedMessages = [];
 
     if (startIndex < _mockMessages.length) {
-      paginatedMessages = _mockMessages.sublist(
+      final reversedMessages = _mockMessages.reversed.toList();
+      paginatedMessages = reversedMessages.sublist(
         startIndex,
         endIndex > _mockMessages.length ? _mockMessages.length : endIndex,
-      ).reversed.toList();
+      );
+    }
+
+    // 10% шанс ошибки для реалистичности
+    if (_random.nextDouble() < 0.1) {
+      throw Exception('Ошибка загрузки сообщений');
     }
 
     return PaginationResponse(
@@ -165,16 +223,12 @@ class SimpleMockChatService implements ChatApiService {
     required String text,
     String? replyToId,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 400));
 
     final newMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       text: text,
-      author: ChatUser(
-        id: 'current-user',
-        name: 'Вы',
-        isOnline: true,
-      ),
+      author: _currentUser,
       timestamp: DateTime.now(),
       status: MessageStatus.sent,
       replyTo: replyToId != null
@@ -183,6 +237,22 @@ class SimpleMockChatService implements ChatApiService {
     );
 
     _mockMessages.add(newMessage);
+
+    // Реалистичная последовательность статусов
+    Timer(const Duration(seconds: 1), () {
+      final index = _mockMessages.indexWhere((msg) => msg.id == newMessage.id);
+      if (index != -1) {
+        _mockMessages[index] = _mockMessages[index].copyWith(status: MessageStatus.delivered);
+      }
+    });
+
+    Timer(const Duration(seconds: 4), () {
+      final index = _mockMessages.indexWhere((msg) => msg.id == newMessage.id);
+      if (index != -1) {
+        _mockMessages[index] = _mockMessages[index].copyWith(status: MessageStatus.read);
+      }
+    });
+
     return newMessage;
   }
 
@@ -191,13 +261,13 @@ class SimpleMockChatService implements ChatApiService {
     required String messageId,
     required String emoji,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     final index = _mockMessages.indexWhere((msg) => msg.id == messageId);
     if (index != -1) {
       final message = _mockMessages[index];
       final existingReactionIndex = message.reactions
-          .indexWhere((r) => r.emoji == emoji && r.user.id == 'current-user');
+          .indexWhere((r) => r.emoji == emoji && r.user.id == _currentUser.id);
 
       List<Reaction> updatedReactions;
 
@@ -209,7 +279,7 @@ class SimpleMockChatService implements ChatApiService {
           ...message.reactions,
           Reaction(
             emoji: emoji,
-            user: ChatUser(id: 'current-user', name: 'Вы', isOnline: true),
+            user: _currentUser,
             timestamp: DateTime.now(),
           ),
         ];
@@ -224,7 +294,7 @@ class SimpleMockChatService implements ChatApiService {
     required String messageId,
     required bool pinned,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 400));
 
     final index = _mockMessages.indexWhere((msg) => msg.id == messageId);
     if (index != -1) {
@@ -237,7 +307,7 @@ class SimpleMockChatService implements ChatApiService {
     required String roomId,
     required String query,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 800));
 
     final searchTerm = query.toLowerCase();
     return _mockMessages.where((message) {
@@ -251,12 +321,18 @@ class SimpleMockChatService implements ChatApiService {
     required String roomId,
     required bool isTyping,
   }) async {
+    if (isTyping) {
+      _typingTimers[roomId]?.cancel();
+      _typingTimers[roomId] = Timer(const Duration(seconds: 3), () {});
+    } else {
+      _typingTimers[roomId]?.cancel();
+    }
     await Future.delayed(const Duration(milliseconds: 100));
   }
 
   @override
   Future<void> deleteMessage(String messageId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 500));
     _mockMessages.removeWhere((msg) => msg.id == messageId);
   }
 
@@ -265,7 +341,7 @@ class SimpleMockChatService implements ChatApiService {
     required String messageId,
     required String newText,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 400));
 
     final index = _mockMessages.indexWhere((msg) => msg.id == messageId);
     if (index != -1) {
@@ -332,15 +408,15 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
   ChatMessage? _replyToMessage;
   ChatMessage? _messageForReaction;
   bool _showReactionMenu = false;
-
-  // URL для аватарки
   String _avatarUrl = 'https://i.pravatar.cc/150?img=1';
+
+  // Состояние загрузки
+  bool _isInitializing = true;
 
   @override
   void initState() {
     super.initState();
 
-    // Инициализация анимаций
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
@@ -354,21 +430,39 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
       curve: Curves.easeInOut,
     ));
 
-    // Запуск анимаций
-    _animationController.forward();
-
-    // Инициализация контроллера
-    _initializeController();
+    _initializeChat();
   }
 
-  void _initializeController() {
-    final apiService = SimpleMockChatService();
-    final cacheManager = ChatCacheManager();
+  Future<void> _initializeChat() async {
+    try {
+      final apiService = AdvancedMockChatService();
+      final cacheManager = ChatCacheManager();
 
-    _chatController = ChatController(
-      apiService: apiService,
-      cacheManager: cacheManager,
-    );
+      _chatController = ChatController(
+        apiService: apiService,
+        cacheManager: cacheManager,
+      );
+
+      // Загружаем начальные данные
+      await _chatController.loadRoom(widget.roomId);
+      await _chatController.loadInitialMessages(widget.roomId);
+
+      setState(() {
+        _isInitializing = false;
+      });
+
+      _animationController.forward();
+    } catch (error) {
+      // Обработка ошибки инициализации
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка загрузки чата: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -383,7 +477,6 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
     setState(() {
       _replyToMessage = message;
     });
-    FocusScope.of(context).requestFocus(FocusNode());
   }
 
   void _handleCancelReply() {
@@ -418,16 +511,14 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
     );
   }
 
-  // Метод для получения отступов
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     if (width > 1200) return 200;
     if (width > 800) return 100;
     if (width > 600) return 60;
-    return 0; // На телефоне убираем отступы
+    return 0;
   }
 
-  // Метод для изменения аватарки
   void _changeAvatar() {
     showDialog(
       context: context,
@@ -450,9 +541,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
             child: const Text('Отмена'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
             child: const Text('Сохранить'),
           ),
         ],
@@ -462,6 +551,34 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    if (_isInitializing) {
+      return Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
+            widget.roomName,
+            style: const TextStyle(color: Colors.black),
+          ),
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Загрузка чата...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     final isMobile = MediaQuery.of(context).size.width <= 600;
     final horizontalPadding = _getHorizontalPadding(context);
 
@@ -474,7 +591,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
           width: double.infinity,
           padding: EdgeInsets.symmetric(
             horizontal: isMobile ? 0 : horizontalPadding,
-            vertical: isMobile ? 0 : 16, // Отступ снизу на компьютере
+            vertical: isMobile ? 0 : 16,
           ),
           child: Card(
             elevation: 4,
@@ -486,11 +603,43 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
               borderRadius: BorderRadius.circular(isMobile ? 0 : 20),
               child: Stack(
                 children: [
-                  // Основной контент с анимацией
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: Column(
                       children: [
+                        // Индикатор печати
+                        Consumer<ChatController>(
+                          builder: (context, controller, child) {
+                            final typingUsers = controller.typingUsers;
+                            if (typingUsers.isEmpty) return const SizedBox.shrink();
+
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              color: Colors.blue[50],
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation(Colors.blue[700]!),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _getTypingText(typingUsers),
+                                    style: TextStyle(
+                                      color: Colors.blue[700],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+
                         // Список сообщений
                         Expanded(
                           child: MessageListView(
@@ -536,7 +685,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                     ),
                   ),
 
-                  // Меню реакций (поверх всего)
+                  // Меню реакций
                   if (_showReactionMenu && _messageForReaction != null)
                     Positioned.fill(
                       child: GestureDetector(
@@ -558,22 +707,18 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
           ),
         ),
 
-        // Кнопка прокрутки вниз
         floatingActionButton: _buildScrollToBottomButton(),
       ),
     );
   }
 
-  // AppBar с белым фоном и работающей кнопкой назад
   PreferredSizeWidget _buildAppBar(bool isMobile, double horizontalPadding) {
     return CustomAppBar(
       title: widget.roomName,
       backgroundColor: Colors.white,
       elevation: 2,
       showBackButton: true,
-      onBackPressed: () {
-        Navigator.of(context).pop(); // Используем Navigator.of(context)
-      },
+      onBackPressed: () => Navigator.of(context).pop(),
       actions: [
         IconButton(
           icon: Container(
@@ -607,22 +752,27 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
         final messages = controller.visibleMessages;
         if (messages.length < 10) return const SizedBox.shrink();
 
-        return FloatingActionButton(
-          mini: true,
-          backgroundColor: Colors.blue[700],
-          child: const Icon(Icons.arrow_downward, size: 18, color: Colors.white),
-          onPressed: () {
-            _scrollController.animateTo(
-              0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          },
+        return AnimatedOpacity(
+          opacity: controller.isNearBottom ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 300),
+          child: FloatingActionButton(
+            mini: true,
+            backgroundColor: Colors.blue[700],
+            child: const Icon(Icons.arrow_downward, size: 18, color: Colors.white),
+            onPressed: () {
+              _scrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            },
+          ),
         );
       },
     );
   }
 
+  // Остальные методы остаются такими же, как в вашем коде
   Widget _buildMessageContextMenu(ChatMessage message) {
     final isCurrentUser = message.author.id == 'current-user';
 
@@ -680,6 +830,14 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                   _chatController.togglePinMessage(message.id);
                 },
               ),
+              _buildMenuAction(
+                icon: Icons.delete,
+                label: 'Удалить',
+                onTap: () {
+                  Navigator.pop(context);
+                  _chatController.deleteMessage(message.id);
+                },
+              ),
             ] else ...[
               _buildMenuAction(
                 icon: Icons.reply,
@@ -735,29 +893,19 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
 
   String _getTypingText(List<String> typingUsers) {
     if (typingUsers.isEmpty) return '';
-
-    if (typingUsers.length == 1) {
-      return '${typingUsers.first} печатает...';
-    } else if (typingUsers.length == 2) {
-      return '${typingUsers.first} и ${typingUsers.last} печатают...';
-    } else {
-      return 'Несколько участников печатают...';
-    }
+    if (typingUsers.length == 1) return '${typingUsers.first} печатает...';
+    if (typingUsers.length == 2) return '${typingUsers.first} и ${typingUsers.last} печатают...';
+    return 'Несколько участников печатают...';
   }
 
   String _formatMessageTime(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
 
-    if (difference.inMinutes < 1) {
-      return 'Только что';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes} мин назад';
-    } else if (difference.inDays < 1) {
-      return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
-    } else {
-      return '${timestamp.day}.${timestamp.month}.${timestamp.year}';
-    }
+    if (difference.inMinutes < 1) return 'Только что';
+    if (difference.inHours < 1) return '${difference.inMinutes} мин назад';
+    if (difference.inDays < 1) return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    return '${timestamp.day}.${timestamp.month}.${timestamp.year}';
   }
 
   void _showSearch() {
@@ -851,7 +999,32 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
   }
 
   void _editMessage(ChatMessage message) {
-    // TODO: Реализовать редактирование через API
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Редактировать сообщение'),
+        content: TextField(
+          controller: TextEditingController(text: message.text),
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              // TODO: Реализовать редактирование через API
+              Navigator.pop(context);
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPinnedMessages() {
@@ -863,7 +1036,6 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
   }
 }
 
-// Класс для поиска по сообщениям
 class _ChatSearchDelegate extends SearchDelegate<String> {
   final ChatController chatController;
 
@@ -874,9 +1046,7 @@ class _ChatSearchDelegate extends SearchDelegate<String> {
     return [
       IconButton(
         icon: const Icon(Icons.clear),
-        onPressed: () {
-          query = '';
-        },
+        onPressed: () => query = '',
       ),
     ];
   }
@@ -885,27 +1055,19 @@ class _ChatSearchDelegate extends SearchDelegate<String> {
   Widget buildLeading(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, '');
-      },
+      onPressed: () => close(context, ''),
     );
   }
 
   @override
-  Widget buildResults(BuildContext context) {
-    return _buildSearchResults();
-  }
+  Widget buildResults(BuildContext context) => _buildSearchResults();
 
   @override
-  Widget buildSuggestions(BuildContext context) {
-    return _buildSearchResults();
-  }
+  Widget buildSuggestions(BuildContext context) => _buildSearchResults();
 
   Widget _buildSearchResults() {
     if (query.isEmpty) {
-      return const Center(
-        child: Text('Введите поисковый запрос'),
-      );
+      return const Center(child: Text('Введите поисковый запрос'));
     }
 
     return FutureBuilder<void>(
@@ -920,9 +1082,7 @@ class _ChatSearchDelegate extends SearchDelegate<String> {
             final results = controller.searchResults;
 
             if (results.isEmpty) {
-              return const Center(
-                child: Text('Сообщения не найдены'),
-              );
+              return const Center(child: Text('Сообщения не найдены'));
             }
 
             return ListView.builder(
@@ -941,9 +1101,7 @@ class _ChatSearchDelegate extends SearchDelegate<String> {
                   title: Text(message.author.name),
                   subtitle: Text(message.text),
                   trailing: Text(_formatSearchTime(message.timestamp)),
-                  onTap: () {
-                    close(context, message.id);
-                  },
+                  onTap: () => close(context, message.id),
                 );
               },
             );

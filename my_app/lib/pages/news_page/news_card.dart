@@ -457,13 +457,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return _getFallbackAvatarUrl(userName);
   }
 
-  // АДАПТИВНАЯ КАРТОЧКА С ОТСТУПАМИ ТОЛЬКО НА КОМПЬЮТЕРЕ
+  // ОБНОВЛЕННЫЙ МЕТОД: Адаптивная карточка с правильной линией
   Widget _buildCard({required Widget child, bool isChannel = false}) {
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
     final borderRadius = _getCardBorderRadius(context);
     final margin = _getCardMargin(context);
     final showTopLine = _shouldShowTopLine(context);
+    final isMobile = MediaQuery.of(context).size.width <= 700;
 
     return Container(
       width: double.infinity,
@@ -528,11 +529,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ТОНКАЯ ТЕМНО-СЕРАЯ ЛИНИЯ ТОЛЬКО НА ТЕЛЕФОНЕ
+                    // ТОНКАЯ ТЕМНО-СЕРАЯ ЛИНИЯ ТОЛЬКО НА ТЕЛЕФОНЕ - ВЫРОВНЕНА ПО ЗАГОЛОВКУ
                     if (showTopLine)
                       Container(
                         height: 1, // Тонкая линия
-                        margin: const EdgeInsets.symmetric(horizontal: 16), // Отступы от краев
+                        margin: EdgeInsets.only(
+                          left: isMobile ? (_getAvatarSize(context) + 12 + 16) : 0, // Выравниваем по заголовку (аватар + отступ + паддинг карточки)
+                          right: isMobile ? 16 : 0,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey[300], // Темно-серый цвет
                           borderRadius: BorderRadius.circular(1),
@@ -552,6 +556,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД: Построение заголовка с исправленным тегом
+  // ОБНОВЛЕННЫЙ МЕТОД: Построение заголовка с исправленным тегом
   Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
     final authorName = _getStringValue(widget.news['author_name']);
     final createdAt = _getStringValue(widget.news['created_at']);
@@ -658,93 +664,100 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                 ],
               ),
               const SizedBox(height: 2),
-              // Вторая строка: мета-информация
+              // Вторая строка: мета-информация - УВЕЛИЧЕННАЯ ВЫСОТА ДЛЯ ТЕГА
               Container(
-                height: 16,
-                child: Row(
-                  children: [
-                    // Время
-                    Row(
-                      children: [
+                height: 28, // Увеличил высоту для тега
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Время
+                      Container(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 12,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              widget.getTimeAgo(createdAt),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                height: 1.0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Канал (если пост из канала)
+                      if (isChannelPost) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Icon(
-                          Icons.access_time_rounded,
+                          Icons.group_rounded,
                           size: 12,
-                          color: Colors.grey[600],
+                          color: Colors.blue,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          widget.getTimeAgo(createdAt),
+                          'Канал',
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: Colors.blue,
                             fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w700,
                             height: 1.0,
                           ),
                         ),
                       ],
-                    ),
-                    // Канал (если пост из канала)
-                    if (isChannelPost) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 3,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.6),
-                          shape: BoxShape.circle,
+                      // Тип контента (если есть и не канал)
+                      if (_contentType != ContentType.general && !isChannelPost) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.group_rounded,
-                        size: 12,
-                        color: Colors.blue,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Канал',
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          height: 1.0,
-                        ),
-                      ),
-                    ],
-                    // Тип контента (если есть и не канал)
-                    if (_contentType != ContentType.general && !isChannelPost) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 3,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.6),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        _contentIcon,
-                        size: 12,
-                        color: _contentColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _getContentTypeText(),
-                        style: TextStyle(
+                        const SizedBox(width: 8),
+                        Icon(
+                          _contentIcon,
+                          size: 12,
                           color: _contentColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          height: 1.0,
                         ),
-                      ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _getContentTypeText(),
+                          style: TextStyle(
+                            color: _contentColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                      // Тег (если есть) - ДАЕМ БОЛЬШЕ МЕСТА
+                      if (userTags.isNotEmpty && userTags.values.first.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _buildUserTag(userTags.values.first, userTags.keys.first, tagColor, isChannelPost),
+                      ],
                     ],
-                    // Тег (если есть)
-                    if (userTags.isNotEmpty && userTags.values.first.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      _buildUserTag(userTags.values.first, userTags.keys.first, tagColor),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -753,7 +766,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       ],
     );
   }
-
   void _handleMenuSelection(String value) {
     switch (value) {
       case 'edit':
@@ -772,6 +784,46 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff&bold=true';
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД: Тег с исправленным выравниванием для простых постов
+  Widget _buildUserTag(String tag, String tagId, Color color, bool isChannelPost) {
+    return GestureDetector(
+      onTap: () => _showTagEditDialog(tag, tagId, color),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // Увеличил вертикальный паддинг
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: color.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              tag,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                height: 1.0, // Нормальная высота текста
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
   Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size) {
     return GestureDetector(
       onTap: _openUserProfile,
@@ -879,45 +931,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     if (value is String) return value;
     if (value != null) return value.toString();
     return '';
-  }
-
-  Widget _buildUserTag(String tag, String tagId, Color color) {
-    return GestureDetector(
-      onTap: () => _showTagEditDialog(tag, tagId, color),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: color.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              tag,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   List<String> _cleanHashtags(List<String> hashtags) {

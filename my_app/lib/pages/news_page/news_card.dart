@@ -10,42 +10,43 @@ import '../cards_page/channel_detail_page.dart';
 import '../cards_page/models/channel.dart';
 import 'theme/news_theme.dart';
 import '../../providers/channel_state_provider.dart';
+import '../../services/interaction_manager.dart';
 
 // Импортируем ProfilePage
 import 'profile_menu_page.dart';
 
 class NewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
-  final VoidCallback onLike;
-  final VoidCallback onBookmark;
-  final VoidCallback onRepost;
-  final Function(String, String, String) onComment;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onShare;
-  final Function(String, String, Color) onTagEdit;
+  final VoidCallback? onLike;
+  final VoidCallback? onBookmark;
+  final VoidCallback? onRepost;
+  final Function(String, String, String)? onComment;
+  final VoidCallback? onFollow;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onShare;
+  final Function(String, String, Color)? onTagEdit;
   final String Function(String) formatDate;
   final String Function(String) getTimeAgo;
   final ScrollController scrollController;
-  final VoidCallback onFollow;
-  final VoidCallback onLogout;
+  final VoidCallback? onLogout;
 
   const NewsCard({
     super.key,
     required this.news,
-    required this.onLike,
-    required this.onBookmark,
-    required this.onRepost,
-    required this.onComment,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onShare,
-    required this.onTagEdit,
+    this.onLike,
+    this.onBookmark,
+    this.onRepost,
+    this.onComment,
+    this.onFollow,
+    this.onEdit,
+    this.onDelete,
+    this.onShare,
+    this.onTagEdit,
     required this.formatDate,
     required this.getTimeAgo,
     required this.scrollController,
-    required this.onFollow,
-    required this.onLogout,
+    this.onLogout,
   });
 
   @override
@@ -59,15 +60,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   late Animation<double> _expandAnimation;
   late Animation<double> _fadeAnimation;
   bool _isExpanded = false;
-  bool _isLiked = false;
-  bool _isBookmarked = false;
-  bool _isReposted = false;
   bool _isFollowing = false;
   double _readingProgress = 0.0;
   String _editingTagId = '';
   ChannelStateProvider? _channelStateProvider;
   bool _isChannelPost = false;
   String _channelId = '';
+
+  // ИСПОЛЬЗУЕМ INTERACTION MANAGER ВМЕСТО ЛОКАЛЬНОГО СОСТОЯНИЯ
+  late InteractionManager _interactionManager;
+  late PostInteractionState? _postState;
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -219,6 +221,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
 
+    // ИНИЦИАЛИЗАЦИЯ INTERACTION MANAGER
+    _interactionManager = InteractionManager();
+
     _expandController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
@@ -236,9 +241,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       ),
     );
 
-    _isLiked = _getBoolValue(widget.news['isLiked']);
-    _isBookmarked = _getBoolValue(widget.news['isBookmarked']);
-    _isReposted = _getBoolValue(widget.news['isReposted'] ?? false);
+    // ИСПОЛЬЗУЕМ INTERACTION MANAGER ВМЕСТО ЛОКАЛЬНОГО СОСТОЯНИЯ
     _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
     _readingProgress = (widget.news['read_progress'] ?? 0.0).toDouble();
 
@@ -246,9 +249,30 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _isChannelPost = _getBoolValue(widget.news['is_channel_post']);
     _channelId = _getStringValue(widget.news['channel_id']);
 
+    // Инициализация состояния поста
+    _initializePostState();
+
     if (_isChannelPost && _channelId.isNotEmpty) {
       _setupChannelListener();
     }
+  }
+
+  void _initializePostState() {
+    final postId = _getStringValue(widget.news['id']);
+
+    // Инициализируем состояние поста в менеджере
+    _interactionManager.initializePostState(
+      postId: postId,
+      isLiked: _getBoolValue(widget.news['isLiked']),
+      isBookmarked: _getBoolValue(widget.news['isBookmarked']),
+      isReposted: _getBoolValue(widget.news['isReposted'] ?? false),
+      likesCount: _getIntValue(widget.news['likes']),
+      repostsCount: _getIntValue(widget.news['reposts'] ?? 0),
+      comments: List<Map<String, dynamic>>.from(widget.news['comments'] ?? []),
+    );
+
+    // Получаем текущее состояние
+    _postState = _interactionManager.getPostState(postId);
   }
 
   void _setupChannelListener() {
@@ -287,23 +311,29 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    // Подписываемся на изменения состояния поста
+    final postId = _getStringValue(widget.news['id']);
+    _interactionManager.addPostListener(postId, _onPostStateChanged);
+  }
+
+  void _onPostStateChanged() {
+    if (mounted) {
+      setState(() {
+        final postId = _getStringValue(widget.news['id']);
+        _postState = _interactionManager.getPostState(postId);
+      });
+    }
   }
 
   @override
   void didUpdateWidget(NewsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.news['isLiked'] != widget.news['isLiked']) {
-      _isLiked = _getBoolValue(widget.news['isLiked']);
-    }
-    if (oldWidget.news['isBookmarked'] != widget.news['isBookmarked']) {
-      _isBookmarked = _getBoolValue(widget.news['isBookmarked']);
-    }
-    if (oldWidget.news['isReposted'] != widget.news['isReposted']) {
-      _isReposted = _getBoolValue(widget.news['isReposted'] ?? false);
-    }
-    if (oldWidget.news['isFollowing'] != widget.news['isFollowing']) {
+    // Обновляем только если изменился ID поста или основные данные
+    if (oldWidget.news['id'] != widget.news['id']) {
       _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
+      _initializePostState();
     }
   }
 
@@ -318,13 +348,67 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       _channelStateProvider!.removeListener(_onChannelStateChanged);
     }
 
+    // Удаляем слушатель interaction manager
+    final postId = _getStringValue(widget.news['id']);
+    _interactionManager.removeListener(_onPostStateChanged);
+
     super.dispose();
   }
 
+  // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ТИПОВ
   bool _getBoolValue(dynamic value) {
     if (value is bool) return value;
     if (value is String) return value.toLowerCase() == 'true';
     return false;
+  }
+
+  int _getIntValue(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
+  String _getStringValue(dynamic value) {
+    if (value is String) return value;
+    if (value != null) return value.toString();
+    return '';
+  }
+
+  // ОБРАБОТЧИКИ ВЗАИМОДЕЙСТВИЙ ЧЕРЕЗ INTERACTION MANAGER
+  void _handleLike() {
+    final postId = _getStringValue(widget.news['id']);
+    _interactionManager.toggleLike(postId);
+
+    // Вызываем колбэк для дополнительной логики
+    widget.onLike?.call();
+  }
+
+  void _handleBookmark() {
+    final postId = _getStringValue(widget.news['id']);
+    _interactionManager.toggleBookmark(postId);
+
+    widget.onBookmark?.call();
+  }
+
+  void _handleRepost() {
+    final postId = _getStringValue(widget.news['id']);
+    _interactionManager.toggleRepost(postId);
+
+    widget.onRepost?.call();
+  }
+
+  void _handleComment(String text, String author, String avatar) {
+    final postId = _getStringValue(widget.news['id']);
+    _interactionManager.addComment(
+      postId: postId,
+      text: text,
+      author: author,
+      authorAvatar: avatar,
+    );
+
+    // Вызываем колбэк для дополнительной логики
+    widget.onComment?.call(text, author, avatar);
   }
 
   void _toggleFollow() {
@@ -342,15 +426,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       setState(() {
         _isFollowing = !_isFollowing;
       });
-      widget.onFollow();
+      widget.onFollow?.call();
     }
-  }
-
-  void _toggleRepost() {
-    setState(() {
-      _isReposted = !_isReposted;
-    });
-    widget.onRepost();
   }
 
   void _openUserProfile() {
@@ -436,7 +513,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           userEmail: userProvider.userEmail,
           onLogout: () {
             Navigator.pop(context);
-            widget.onLogout();
+            widget.onLogout?.call();
           },
           newMessagesCount: 3,
           profileImageUrl: newsProvider.profileImageUrl,
@@ -915,13 +992,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   void _handleMenuSelection(String value) {
     switch (value) {
       case 'edit':
-        widget.onEdit();
+        widget.onEdit?.call();
         break;
       case 'share':
-        widget.onShare();
+        widget.onShare?.call();
         break;
       case 'delete':
-        widget.onDelete();
+        widget.onDelete?.call();
         break;
     }
   }
@@ -1021,12 +1098,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
-  String _getStringValue(dynamic value) {
-    if (value is String) return value;
-    if (value != null) return value.toString();
-    return '';
-  }
-
   List<String> _cleanHashtags(List<String> hashtags) {
     final cleanedTags = <String>[];
 
@@ -1073,13 +1144,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  // ИСПОЛЬЗУЕМ КОММЕНТАРИИ ИЗ INTERACTION MANAGER
   List<dynamic> get _currentComments {
-    return List<dynamic>.from(widget.news['comments'] ?? []);
+    return _postState?.comments ?? [];
   }
 
-  Widget _buildPostActions({int commentCount = 0, bool showBookmark = true, bool isAuthor = false}) {
-    final likes = _getIntValue(widget.news['likes']);
-    final reposts = _getIntValue(widget.news['reposts'] ?? 0);
+  // ОБНОВЛЕННЫЙ МЕТОД: Действия поста с использованием Interaction Manager
+  Widget _buildPostActions({bool showBookmark = true, bool isAuthor = false}) {
+    if (_postState == null) return const SizedBox();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
@@ -1087,42 +1159,36 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _buildActionButton(
-            icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-            count: likes,
-            isActive: _isLiked,
+            icon: _postState!.isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+            count: _postState!.likesCount,
+            isActive: _postState!.isLiked,
             color: Colors.red,
-            onPressed: () {
-              setState(() => _isLiked = !_isLiked);
-              widget.onLike();
-            },
+            onPressed: _handleLike,
           ),
           const SizedBox(width: 8),
           _buildActionButton(
             icon: Icons.chat_bubble_outline_rounded,
-            count: commentCount,
+            count: _postState!.comments.length,
             isActive: _isExpanded,
             color: Colors.blue,
             onPressed: _toggleExpanded,
           ),
           const SizedBox(width: 8),
           _buildActionButton(
-            icon: _isReposted ? Icons.repeat_on_rounded : Icons.repeat_rounded,
-            count: reposts,
-            isActive: _isReposted,
+            icon: _postState!.isReposted ? Icons.repeat_on_rounded : Icons.repeat_rounded,
+            count: _postState!.repostsCount,
+            isActive: _postState!.isReposted,
             color: Colors.green,
-            onPressed: _toggleRepost,
+            onPressed: _handleRepost,
           ),
           if (showBookmark) const SizedBox(width: 8),
           if (showBookmark)
             _buildActionButton(
-              icon: _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+              icon: _postState!.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
               count: 0,
-              isActive: _isBookmarked,
+              isActive: _postState!.isBookmarked,
               color: Colors.amber,
-              onPressed: () {
-                setState(() => _isBookmarked = !_isBookmarked);
-                widget.onBookmark();
-              },
+              onPressed: _handleBookmark,
             ),
           const Spacer(),
           if (_shouldShowFollowButton(isAuthor))
@@ -1236,13 +1302,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         authorName != userProvider.userName;
 
     return shouldShow;
-  }
-
-  int _getIntValue(dynamic value) {
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value) ?? 0;
-    if (value is double) return value.toInt();
-    return 0;
   }
 
   String _formatCount(int count) {
@@ -1377,7 +1436,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             child: ElevatedButton(
                               onPressed: _tagEditController.text.trim().isNotEmpty ? () {
                                 final text = _tagEditController.text.trim();
-                                widget.onTagEdit(_editingTagId, text, dialogSelectedColor);
+                                widget.onTagEdit?.call(_editingTagId, text, dialogSelectedColor);
                                 Navigator.pop(context);
                               } : null,
                               style: ElevatedButton.styleFrom(
@@ -1408,6 +1467,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД: Секция комментариев с использованием Interaction Manager
   Widget _buildCommentsSection() {
     return Column(
       children: [
@@ -1613,11 +1673,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   onPressed: () {
                     final text = _commentController.text.trim();
                     if (text.isNotEmpty) {
-                      widget.onComment(
-                        text,
-                        userProvider.userName,
-                        currentUserAvatar,
-                      );
+                      _handleComment(text, userProvider.userName, currentUserAvatar);
                       _commentController.clear();
 
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1720,7 +1776,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     child: _buildHashtags(hashtags),
                   ),
                 ],
-                _buildPostActions(commentCount: _currentComments.length, isAuthor: isAuthor),
+                _buildPostActions(isAuthor: isAuthor),
               ],
             ),
           ),
@@ -1793,7 +1849,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   ),
                 ],
                 _buildPostActions(
-                    commentCount: _currentComments.length,
                     showBookmark: true,
                     isAuthor: false
                 ),

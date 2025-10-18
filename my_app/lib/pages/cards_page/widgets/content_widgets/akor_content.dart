@@ -48,17 +48,8 @@ class AkorContent extends StatelessWidget {
           channel: channel,
           isAkorTab: true,
           getTimeAgo: _getTimeAgo,
-          onLike: () => _handlePostLike(sortedPosts[index]['id'], postsProvider),
-          onBookmark: () => _handlePostBookmark(sortedPosts[index]['id'], postsProvider),
-          // ИСПРАВЛЕНИЕ: Правильная сигнатура для onComment
-          onComment: (text, userName, userAvatar) => _handlePostComment(
-            context,
-            sortedPosts[index]['id'],
-            text,
-            userName,
-            userAvatar,
-            postsProvider,
-          ),
+          // УБРАНЫ устаревшие параметры взаимодействий:
+          // onLike, onBookmark, onComment - теперь через InteractionManager
           onShare: () => _handleShare(context, sortedPosts[index]),
           customAvatarUrl: customAvatarUrl,
         );
@@ -99,44 +90,6 @@ class AkorContent extends StatelessWidget {
       return words[1];
     } else {
       return words[2];
-    }
-  }
-
-  void _handlePostLike(String postId, ChannelPostsProvider provider) {
-    provider.toggleLike(postId);
-  }
-
-  void _handlePostBookmark(String postId, ChannelPostsProvider provider) {
-    provider.toggleBookmark(postId);
-  }
-
-  // ИСПРАВЛЕНИЕ: Правильная сигнатура метода
-  void _handlePostComment(
-      BuildContext context,
-      String postId,
-      String commentText,
-      String userName,
-      String userAvatar,
-      ChannelPostsProvider provider,
-      ) {
-    try {
-      // Используем существующий метод addComment
-      provider.addComment(postId, commentText);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Комментарий добавлен'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      print('❌ Ошибка добавления комментария: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ошибка при добавлении комментария'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 

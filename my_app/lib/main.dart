@@ -18,6 +18,9 @@ import 'pages/chat/chat_controller.dart';
 import 'pages/chat/services/chat_api_service.dart';
 import 'pages/chat/cache/chat_cache_manager.dart';
 
+// ДОБАВИТЬ: Импорт InteractionManager
+import 'services/interaction_manager.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -90,6 +93,10 @@ class _MyAppState extends State<MyApp> {
 
       final newsProvider = Provider.of<NewsProvider>(_navigatorKey.currentContext!, listen: false);
       newsProvider.clearData();
+
+      // ДОБАВИТЬ: Очищаем InteractionManager
+      final interactionManager = Provider.of<InteractionManager>(_navigatorKey.currentContext!, listen: false);
+      interactionManager.clearAll();
     }
 
     setState(() {
@@ -130,6 +137,9 @@ class _MyAppState extends State<MyApp> {
 
         // Новый провайдер для чата
         ChangeNotifierProvider(create: (_) => _createChatController()),
+
+        // ДОБАВИТЬ: InteractionManager как синглтон
+        ChangeNotifierProvider(create: (_) => InteractionManager()),
       ],
       child: MaterialApp(
         title: 'Football App',
@@ -150,6 +160,7 @@ class _MyAppState extends State<MyApp> {
           ),
           // Общие настройки для всего приложения
           scaffoldBackgroundColor: Colors.white,
+          // ИСПРАВЛЕНО: CardTheme -> CardThemeData
           cardTheme: CardThemeData(
             elevation: 2,
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -271,6 +282,27 @@ class _MyAppState extends State<MyApp> {
                 user['email'] ?? '',
                 userId: user['id'] ?? 'current-user', // Передаем userId если есть
               );
+
+              // ДОБАВИТЬ: Инициализируем InteractionManager с данными новостей
+              final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+              final interactionManager = Provider.of<InteractionManager>(context, listen: false);
+
+              // Ждем немного чтобы NewsProvider успел загрузить данные
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (newsProvider.news.isNotEmpty) {
+                  // ИСПРАВЛЕНО: Конвертируем List<dynamic> в List<Map<String, dynamic>>
+                  final List<Map<String, dynamic>> newsList = newsProvider.news.map((item) {
+                    if (item is Map<String, dynamic>) {
+                      return item;
+                    } else {
+                      // Если элемент не Map, конвертируем его
+                      return {'id': item.toString(), 'isLiked': false, 'isBookmarked': false};
+                    }
+                  }).toList();
+
+                  interactionManager.bulkUpdatePostStates(newsList);
+                }
+              });
             }
 
             return HomePage(

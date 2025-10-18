@@ -10,6 +10,8 @@ import 'package:provider/provider.dart';
 // Импортируем необходимые утилиты из news_page
 import 'news_card.dart';
 import 'utils.dart';
+import '../../services/interaction_manager.dart'; // ДОБАВИТЬ
+import '../../providers/channel_state_provider.dart'; // ДОБАВИТЬ
 
 class ProfilePage extends StatefulWidget {
   final String userName;
@@ -85,9 +87,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _setDefaultImages();
   }
 
-
-
-// МЕТОД ДЛЯ УСТАНОВКИ ИЗОБРАЖЕНИЙ ПО УМОЛЧАНИЮ
+  // МЕТОД ДЛЯ УСТАНОВКИ ИЗОБРАЖЕНИЙ ПО УМОЛЧАНИЮ
   void _setDefaultImages() {
     // Устанавливаем дефолтную обложку
     _coverImageUrl = 'https://avatars.mds.yandex.net/i?id=fc2d5ddfd92d5662c03d983973cd433e_l-9044992-images-thumbs&n=13';
@@ -103,7 +103,6 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
-
 
   @override
   void dispose() {
@@ -1478,7 +1477,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Остальные методы остаются без изменений
+  // ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ ВЗАИМОДЕЙСТВИЙ С ПОСТАМИ
   int _getSafeNewsIndex(dynamic newsItem, NewsProvider newsProvider) {
     final newsId = newsItem['id'].toString();
     return newsProvider.findNewsIndexById(newsId);
@@ -1486,56 +1485,94 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _handleLike(int index, NewsProvider newsProvider) {
     if (index == -1) return;
+
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyLiked = news['isLiked'] ?? false;
-    final int currentLikes = news['likes'] ?? 0;
-    newsProvider.updateNewsLikeStatus(
-      index,
-      !isCurrentlyLiked,
-      isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
-    );
+    final newsId = news['id'].toString();
+
+    // Используем InteractionManager вместо прямого вызова NewsProvider
+    final interactionManager = InteractionManager();
+    interactionManager.toggleLike(newsId);
+
+    _showSuccessSnackBar('Лайк обновлен');
   }
 
   void _handleBookmark(int index, NewsProvider newsProvider) {
     if (index == -1) return;
+
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyBookmarked = news['isBookmarked'] ?? false;
-    newsProvider.updateNewsBookmarkStatus(index, !isCurrentlyBookmarked);
+    final newsId = news['id'].toString();
+
+    // Используем InteractionManager
+    final interactionManager = InteractionManager();
+    interactionManager.toggleBookmark(newsId);
+
+    final isCurrentlyBookmarked = news['isBookmarked'] ?? false;
     _showSuccessSnackBar(!isCurrentlyBookmarked ? 'Добавлено в избранное' : 'Удалено из избранного');
   }
 
-  void _handleFollow(int index, NewsProvider newsProvider) {
+  void _handleRepost(int index, NewsProvider newsProvider) {
     if (index == -1) return;
+
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyFollowing = news['isFollowing'] ?? false;
-    newsProvider.updateNewsFollowStatus(index, !isCurrentlyFollowing);
-    final isChannelPost = news['is_channel_post'] == true;
-    final targetName = isChannelPost ? news['channel_name'] ?? 'канал' : news['author_name'] ?? 'пользователя';
-    if (!isCurrentlyFollowing) {
-      _showSuccessSnackBar('✅ Вы подписались на $targetName');
-    } else {
-      _showSuccessSnackBar('❌ Вы отписались от $targetName');
-    }
+    final newsId = news['id'].toString();
+
+    // Используем InteractionManager
+    final interactionManager = InteractionManager();
+    interactionManager.toggleRepost(newsId);
+
+    final isCurrentlyReposted = news['isReposted'] ?? false;
+    _showSuccessSnackBar(!isCurrentlyReposted ? '🔁 Новость репостнута' : '❌ Репост отменен');
   }
 
   void _handleComment(int index, String commentText, String userName, String userAvatar, NewsProvider newsProvider) {
     if (index == -1 || commentText.trim().isEmpty) return;
+
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
     final newsId = news['id'].toString();
-    try {
-      final commentId = 'comment-${DateTime.now().millisecondsSinceEpoch}-${newsId}';
-      final newComment = {
-        'id': commentId,
-        'author': userName,
-        'text': commentText.trim(),
-        'time': 'Только что',
-        'author_avatar': userAvatar,
-      };
-      newsProvider.addCommentToNews(newsId, newComment);
-      _showSuccessSnackBar('Комментарий добавлен');
-    } catch (e) {
-      print('❌ Ошибка добавления комментария в профиле: $e');
-      _showErrorSnackBar('Не удалось добавить комментарий');
+
+    // Используем InteractionManager
+    final interactionManager = InteractionManager();
+    interactionManager.addComment(
+      postId: newsId,
+      text: commentText.trim(),
+      author: userName,
+      authorAvatar: userAvatar,
+    );
+
+    _showSuccessSnackBar('Комментарий добавлен');
+  }
+
+  void _handleFollow(int index, NewsProvider newsProvider) {
+    if (index == -1) return;
+
+    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    final bool isCurrentlyFollowing = news['isFollowing'] ?? false;
+
+    // Для канальных постов используем ChannelStateProvider
+    final isChannelPost = news['is_channel_post'] == true;
+    final channelId = news['channel_id']?.toString();
+
+    if (isChannelPost && channelId != null && channelId.isNotEmpty) {
+      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+      final currentSubscribers = channelStateProvider.getSubscribers(channelId) ?? 0;
+      channelStateProvider.toggleSubscription(channelId, currentSubscribers);
+
+      final targetName = news['channel_name'] ?? 'канал';
+      if (!isCurrentlyFollowing) {
+        _showSuccessSnackBar('✅ Вы подписались на $targetName');
+      } else {
+        _showSuccessSnackBar('❌ Вы отписались от $targetName');
+      }
+    } else {
+      // Для обычных постов используем NewsProvider
+      newsProvider.updateNewsFollowStatus(index, !isCurrentlyFollowing);
+
+      final targetName = news['author_name'] ?? 'пользователя';
+      if (!isCurrentlyFollowing) {
+        _showSuccessSnackBar('✅ Вы подписались на $targetName');
+      } else {
+        _showSuccessSnackBar('❌ Вы отписались от $targetName');
+      }
     }
   }
 
@@ -1548,23 +1585,6 @@ class _ProfilePageState extends State<ProfilePage> {
     if (index == -1) return;
     newsProvider.removeNews(index);
     _showSuccessSnackBar('Пост удален');
-  }
-
-  void _handleRepost(int index, NewsProvider newsProvider) {
-    if (index == -1) return;
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyReposted = news['isReposted'] ?? false;
-    final int currentReposts = news['reposts'] ?? 0;
-    try {
-      newsProvider.updateNewsRepostStatus(
-        index,
-        !isCurrentlyReposted,
-        isCurrentlyReposted ? currentReposts - 1 : currentReposts + 1,
-      );
-      _showSuccessSnackBar(!isCurrentlyReposted ? '🔁 Новость репостнута' : '❌ Репост отменен');
-    } catch (e) {
-      _showErrorSnackBar('Не удалось выполнить репост');
-    }
   }
 
   void _handleShare(int index, BuildContext context) {

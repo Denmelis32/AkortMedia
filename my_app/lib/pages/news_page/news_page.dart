@@ -981,13 +981,13 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                       key: ValueKey('news-${news['id']}'),
                                       news: news,
                                       onLike: () => _safeNewsAction(originalIndex, _toggleLike),
-                                      onRepost: () => _safeNewsAction(originalIndex, _toggleRepost),
                                       onBookmark: () => _safeNewsAction(originalIndex, _toggleBookmark),
-                                      onFollow: () => _safeNewsAction(originalIndex, _toggleFollow),
+                                      onRepost: () => _safeNewsAction(originalIndex, _toggleRepost),
                                       onComment: (text, userName, userAvatar) => _safeNewsAction(
-                                        originalIndex,
-                                            (idx) => _addComment(idx, text, userName, userAvatar),
+                                          originalIndex,
+                                              (idx) => _addComment(idx, text, userName, userAvatar)
                                       ),
+                                      onFollow: () => _safeNewsAction(originalIndex, _toggleFollow),
                                       onEdit: () => _safeNewsAction(originalIndex, _showEditNewsDialog),
                                       onDelete: () => _safeNewsAction(originalIndex, _showDeleteConfirmationDialog),
                                       onShare: () => _safeNewsAction(originalIndex, _shareNews),

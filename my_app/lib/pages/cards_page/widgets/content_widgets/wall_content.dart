@@ -41,17 +41,8 @@ class WallContent extends StatelessWidget {
               post: item['data'],
               channel: channel,
               getTimeAgo: _getTimeAgo,
-              onLike: () => _handlePostLike(item['data']['id'], postsProvider),
-              onBookmark: () => _handlePostBookmark(item['data']['id'], postsProvider),
-              // ИСПРАВЛЕНИЕ: Правильная сигнатура для onComment
-              onComment: (text, userName, userAvatar) => _handlePostComment(
-                context,
-                item['data']['id'],
-                text,
-                userName,
-                userAvatar,
-                postsProvider,
-              ),
+              // УБРАНЫ устаревшие параметры взаимодействий:
+              // onLike, onBookmark, onComment - теперь через InteractionManager
               onShare: () => _handleShare(context, item['data']),
               customAvatarUrl: customAvatarUrl,
             )
@@ -127,53 +118,6 @@ class WallContent extends StatelessWidget {
       return words[1];
     } else {
       return words[2];
-    }
-  }
-
-  void _handlePostLike(String postId, ChannelPostsProvider provider) {
-    provider.toggleLike(postId);
-  }
-
-  void _handlePostBookmark(String postId, ChannelPostsProvider provider) {
-    provider.toggleBookmark(postId);
-  }
-
-  // ИСПРАВЛЕНИЕ: Правильная сигнатура метода
-  void _handlePostComment(
-      BuildContext context,
-      String postId,
-      String commentText,
-      String userName,
-      String userAvatar,
-      ChannelPostsProvider postsProvider,
-      ) {
-    try {
-      final newComment = {
-        'id': 'comment-${DateTime.now().millisecondsSinceEpoch}',
-        'author': userName.isNotEmpty ? userName : 'Пользователь',
-        'text': commentText,
-        'time': 'Только что',
-        'author_avatar': userAvatar,
-      };
-
-      // Используем существующий метод addComment
-      postsProvider.addComment(postId, commentText);
-
-      // Показываем уведомление
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Комментарий добавлен'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      print('❌ Ошибка добавления комментария: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ошибка при добавлении комментария'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 

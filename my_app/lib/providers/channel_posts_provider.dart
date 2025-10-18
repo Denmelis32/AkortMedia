@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../services/interaction_manager.dart';
+
 class ChannelPostsProvider with ChangeNotifier {
   final Map<int, List<Map<String, dynamic>>> _channelPostsMap = {};
 
@@ -458,6 +460,13 @@ class ChannelPostsProvider with ChangeNotifier {
       print('🧹 Cleared $count posts from channel $channelId');
     }
   }
+
+  void initializeChannelInteractions(int channelId) {
+    final interactionManager = InteractionManager();
+    final posts = getChannelPosts(channelId);
+    interactionManager.bulkUpdatePostStates(posts);
+  }
+
 
   void clearAllPosts() {
     final totalPosts = getTotalPostsCount();

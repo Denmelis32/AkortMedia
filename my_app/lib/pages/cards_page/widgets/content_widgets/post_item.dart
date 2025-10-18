@@ -8,14 +8,12 @@ import '../../../../providers/user_provider.dart';
 import '../../../news_page/theme/news_theme.dart';
 import '../../models/channel.dart';
 import '../../../../providers/channel_state_provider.dart';
+import '../../../../services/interaction_manager.dart'; // НОВЫЙ ИМПОРТ
 
 class PostItem extends StatefulWidget {
   final Map<String, dynamic> post;
   final Channel channel;
   final bool isAkorTab;
-  final VoidCallback? onLike;
-  final VoidCallback? onBookmark;
-  final Function(String, String, String)? onComment;
   final VoidCallback? onShare;
   final String Function(String) getTimeAgo;
   final String? customAvatarUrl;
@@ -25,9 +23,6 @@ class PostItem extends StatefulWidget {
     required this.post,
     required this.channel,
     this.isAkorTab = false,
-    this.onLike,
-    this.onBookmark,
-    this.onComment,
     this.onShare,
     required this.getTimeAgo,
     this.customAvatarUrl,
@@ -43,8 +38,10 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   late Animation<double> _expandAnimation;
   late Animation<double> _fadeAnimation;
   bool _isExpanded = false;
-  bool _isLiked = false;
-  bool _isBookmarked = false;
+
+  // ИСПОЛЬЗУЕМ INTERACTION MANAGER ВМЕСТО ЛОКАЛЬНОГО СОСТОЯНИЯ
+  late InteractionManager _interactionManager;
+  late PostInteractionState? _postState;
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -185,6 +182,9 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
 
+    // ИНИЦИАЛИЗАЦИЯ INTERACTION MANAGER
+    _interactionManager = InteractionManager();
+
     _expandController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
@@ -202,19 +202,53 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       ),
     );
 
-    _isLiked = _getBoolValue(widget.post['isLiked']);
-    _isBookmarked = _getBoolValue(widget.post['isBookmarked']);
+    // Инициализация состояния поста
+    _initializePostState();
+  }
+
+  void _initializePostState() {
+    final postId = _getStringValue(widget.post['id']);
+
+    // Инициализируем состояние поста в менеджере
+    _interactionManager.initializePostState(
+      postId: postId,
+      isLiked: _getBoolValue(widget.post['isLiked']),
+      isBookmarked: _getBoolValue(widget.post['isBookmarked']),
+      isReposted: _getBoolValue(widget.post['isReposted'] ?? false),
+      likesCount: _getIntValue(widget.post['likes']),
+      repostsCount: _getIntValue(widget.post['reposts'] ?? 0),
+      comments: List<Map<String, dynamic>>.from(widget.post['comments'] ?? []),
+    );
+
+    // Получаем текущее состояние
+    _postState = _interactionManager.getPostState(postId);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Подписываемся на изменения состояния поста
+    final postId = _getStringValue(widget.post['id']);
+    _interactionManager.addPostListener(postId, _onPostStateChanged);
+  }
+
+  void _onPostStateChanged() {
+    if (mounted) {
+      setState(() {
+        final postId = _getStringValue(widget.post['id']);
+        _postState = _interactionManager.getPostState(postId);
+      });
+    }
   }
 
   @override
   void didUpdateWidget(PostItem oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.post['isLiked'] != widget.post['isLiked']) {
-      _isLiked = _getBoolValue(widget.post['isLiked']);
-    }
-    if (oldWidget.post['isBookmarked'] != widget.post['isBookmarked']) {
-      _isBookmarked = _getBoolValue(widget.post['isBookmarked']);
+    // Обновляем только если изменился ID поста или основные данные
+    if (oldWidget.post['id'] != widget.post['id']) {
+      _initializePostState();
     }
   }
 
@@ -222,6 +256,11 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   void dispose() {
     _commentController.dispose();
     _expandController.dispose();
+
+    // Удаляем слушатель interaction manager
+    final postId = _getStringValue(widget.post['id']);
+    _interactionManager.removeListener(_onPostStateChanged);
+
     super.dispose();
   }
 
@@ -231,21 +270,30 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return false;
   }
 
-  String _getStringValue(dynamic value) {
-    if (value is String) return value;
-    if (value != null) return value.toString();
-    return '';
+  // ОБРАБОТЧИКИ ВЗАИМОДЕЙСТВИЙ ЧЕРЕЗ INTERACTION MANAGER
+  void _handleLike() {
+    final postId = _getStringValue(widget.post['id']);
+    _interactionManager.toggleLike(postId);
   }
 
-  int _getIntValue(dynamic value) {
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value) ?? 0;
-    if (value is double) return value.toInt();
-    return 0;
+  void _handleBookmark() {
+    final postId = _getStringValue(widget.post['id']);
+    _interactionManager.toggleBookmark(postId);
   }
 
-  List<dynamic> get _currentComments {
-    return List<dynamic>.from(widget.post['comments'] ?? []);
+  void _handleRepost() {
+    final postId = _getStringValue(widget.post['id']);
+    _interactionManager.toggleRepost(postId);
+  }
+
+  void _handleComment(String text, String author, String avatar) {
+    final postId = _getStringValue(widget.post['id']);
+    _interactionManager.addComment(
+      postId: postId,
+      text: text,
+      author: author,
+      authorAvatar: avatar,
+    );
   }
 
   // УЛУЧШЕННАЯ ЗАГРУЗКА ИЗОБРАЖЕНИЙ
@@ -715,9 +763,9 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД: Действия поста с использованием Interaction Manager
   Widget _buildPostActions({int commentCount = 0}) {
-    final likes = _getIntValue(widget.post['likes']);
-    final reposts = _getIntValue(widget.post['reposts'] ?? 0);
+    if (_postState == null) return const SizedBox();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
@@ -725,19 +773,16 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _buildActionButton(
-            icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-            count: likes,
-            isActive: _isLiked,
+            icon: _postState!.isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+            count: _postState!.likesCount,
+            isActive: _postState!.isLiked,
             color: Colors.red,
-            onPressed: () {
-              setState(() => _isLiked = !_isLiked);
-              widget.onLike?.call();
-            },
+            onPressed: _handleLike,
           ),
           const SizedBox(width: 8),
           _buildActionButton(
             icon: Icons.chat_bubble_outline_rounded,
-            count: commentCount,
+            count: _postState!.comments.length,
             isActive: _isExpanded,
             color: Colors.blue,
             onPressed: _toggleExpanded,
@@ -745,23 +790,18 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
           const SizedBox(width: 8),
           _buildActionButton(
             icon: Icons.repeat_rounded,
-            count: reposts,
+            count: _postState!.repostsCount,
             isActive: false,
             color: Colors.green,
-            onPressed: () {
-              // Функционал репоста
-            },
+            onPressed: _handleRepost,
           ),
           const SizedBox(width: 8),
           _buildActionButton(
-            icon: _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+            icon: _postState!.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
             count: 0,
-            isActive: _isBookmarked,
+            isActive: _postState!.isBookmarked,
             color: Colors.amber,
-            onPressed: () {
-              setState(() => _isBookmarked = !_isBookmarked);
-              widget.onBookmark?.call();
-            },
+            onPressed: _handleBookmark,
           ),
           const Spacer(),
           if (widget.isAkorTab)
@@ -848,6 +888,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return count.toString();
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД: Секция комментариев с использованием Interaction Manager
   Widget _buildCommentsSection() {
     return Column(
       children: [
@@ -1043,11 +1084,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                   onPressed: () {
                     final text = _commentController.text.trim();
                     if (text.isNotEmpty) {
-                      widget.onComment?.call(
-                        text,
-                        userProvider.userName,
-                        currentUserAvatar,
-                      );
+                      _handleComment(text, userProvider.userName, currentUserAvatar);
                       _commentController.clear();
 
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1109,6 +1146,24 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         _expandController.reverse();
       }
     });
+  }
+
+  // ИСПОЛЬЗУЕМ КОММЕНТАРИИ ИЗ INTERACTION MANAGER
+  List<dynamic> get _currentComments {
+    return _postState?.comments ?? [];
+  }
+
+  String _getStringValue(dynamic value) {
+    if (value is String) return value;
+    if (value != null) return value.toString();
+    return '';
+  }
+
+  int _getIntValue(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 
   List<String> _parseHashtags(dynamic hashtags) {

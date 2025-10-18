@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../services/api_service.dart';
+import '../services/interaction_manager.dart';
 import '../services/storage_service.dart';
 
 class NewsProvider with ChangeNotifier {
@@ -164,43 +165,7 @@ class NewsProvider with ChangeNotifier {
   }
 
   // НОВЫЙ МЕТОД: Обеспечение сохранности данных
-  Future<void> ensureDataPersistence() async {
-    if (_isDisposed) return;
 
-    try {
-      // Сначала загружаем данные профиля
-      await loadProfileData();
-
-      // Затем загружаем новости
-      final cachedNews = await StorageService.loadNews();
-      if (cachedNews.isEmpty) {
-        // Если данных нет, создаем начальные mock данные
-        final mockNews = _getMockNews();
-        await _saveNewsToStorage();
-        _safeOperation(() {
-          _news = mockNews;
-          _safeNotifyListeners();
-        });
-        print('✅ Initial data ensured with ${mockNews.length} items');
-      } else {
-        // Используем кэшированные данные
-        _safeOperation(() {
-          _news = cachedNews;
-          _safeNotifyListeners();
-        });
-        print('📂 Using cached data: ${_news.length} items');
-      }
-    } catch (e) {
-      print('❌ Error ensuring data persistence: $e');
-      // Создаем mock данные при ошибке
-      final mockNews = _getMockNews();
-      _safeOperation(() {
-        _news = mockNews;
-      });
-      await _saveNewsToStorage();
-      _safeNotifyListeners();
-    }
-  }
 
   // МЕТОД ДЛЯ СОХРАНЕНИЯ НОВОСТЕЙ В ХРАНИЛИЩЕ
   Future<void> _saveNewsToStorage() async {
@@ -416,6 +381,58 @@ class NewsProvider with ChangeNotifier {
         _isLoading = false;
         _safeNotifyListeners();
       });
+      initializeInteractions();
+    }
+  }
+
+
+  Future<void> ensureDataPersistence() async {
+    if (_isDisposed) return;
+
+    try {
+      // Сначала загружаем данные профиля
+      await loadProfileData();
+
+      // Затем загружаем новости
+      final cachedNews = await StorageService.loadNews();
+      if (cachedNews.isEmpty) {
+        // Если данных нет, создаем начальные mock данные
+        final mockNews = _getMockNews();
+        await _saveNewsToStorage();
+        _safeOperation(() {
+          _news = mockNews;
+          _safeNotifyListeners();
+        });
+
+        // ИНИЦИАЛИЗИРУЕМ взаимодействия
+        initializeInteractions();
+
+        print('✅ Initial data ensured with ${mockNews.length} items');
+      } else {
+        // Используем кэшированные данные
+        _safeOperation(() {
+          _news = cachedNews;
+          _safeNotifyListeners();
+        });
+
+        // ИНИЦИАЛИЗИРУЕМ взаимодействия
+        initializeInteractions();
+
+        print('📂 Using cached data: ${_news.length} items');
+      }
+    } catch (e) {
+      print('❌ Error ensuring data persistence: $e');
+      // Создаем mock данные при ошибке
+      final mockNews = _getMockNews();
+      _safeOperation(() {
+        _news = mockNews;
+      });
+      await _saveNewsToStorage();
+
+      // ИНИЦИАЛИЗИРУЕМ взаимодействия
+      initializeInteractions();
+
+      _safeNotifyListeners();
     }
   }
 
@@ -564,6 +581,7 @@ class NewsProvider with ChangeNotifier {
   }
 
   // ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
+  // ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
   Future<void> addNews(Map<String, dynamic> newsItem) async {
     if (_isDisposed) return;
 
@@ -586,6 +604,7 @@ class NewsProvider with ChangeNotifier {
           return;
         }
       }
+      // УБРАТЬ отсюда initializeInteractions() - он теперь отдельный метод
 
       final isChannelPost = newsItem['is_channel_post'] == true;
       final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
@@ -639,11 +658,44 @@ class NewsProvider with ChangeNotifier {
       // НЕМЕДЛЕННО сохраняем в хранилище
       await _saveNewsToStorage();
 
+      // ИНИЦИАЛИЗИРУЕМ взаимодействия для новой новости
+      final interactionManager = InteractionManager();
+      interactionManager.initializePostState(
+        postId: uniqueId,
+        isLiked: cleanNewsItem['isLiked'],
+        isBookmarked: cleanNewsItem['isBookmarked'],
+        isReposted: cleanNewsItem['isReposted'] ?? false,
+        likesCount: cleanNewsItem['likes'],
+        repostsCount: cleanNewsItem['reposts'] ?? 0,
+        comments: List<Map<String, dynamic>>.from(cleanNewsItem['comments'] ?? []),
+      );
+
       print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Всего: ${_news.length}');
 
     } catch (e) {
       print('❌ Ошибка при добавлении новости в NewsProvider: $e');
     }
+  }
+
+
+
+  // ПЕРЕМЕСТИТЕ этот метод из addNews() на уровень класса NewsProvider:
+
+// НОВЫЙ МЕТОД: Инициализация Interaction Manager
+  void initializeInteractions() {
+    final interactionManager = InteractionManager();
+
+    // Конвертируем List<dynamic> в List<Map<String, dynamic>>
+    final List<Map<String, dynamic>> newsList = _news.map((item) {
+      if (item is Map<String, dynamic>) {
+        return item;
+      } else {
+        // Если элемент не Map, конвертируем его
+        return {'id': item.toString(), 'isLiked': false, 'isBookmarked': false};
+      }
+    }).toList();
+
+    interactionManager.bulkUpdatePostStates(newsList);
   }
 
   bool _containsNewsWithId(String newsId) {

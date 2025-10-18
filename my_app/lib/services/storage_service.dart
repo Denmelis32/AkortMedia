@@ -10,6 +10,13 @@ class StorageService {
   static const String _userTagsKey = 'user_tags';
   static const String _tagColorsKey = 'tag_colors';
 
+  // ========== НОВЫЕ КЛЮЧИ ДЛЯ МНОГОПОЛЬЗОВАТЕЛЬСКОЙ СИСТЕМЫ ==========
+  static String _getUserProfileImageUrlKey(String userId) => 'profile_image_url_$userId';
+  static String _getUserProfileImagePathKey(String userId) => 'profile_image_path_$userId';
+  static String _getUserCoverImageUrlKey(String userId) => 'cover_image_url_$userId';
+  static String _getUserCoverImagePathKey(String userId) => 'cover_image_path_$userId';
+  static String _getUserFollowsKey(String userId) => 'user_follows_$userId';
+
   // ========== НОВОСТИ ==========
   static Future<void> saveNews(List<dynamic> news) async {
     try {
@@ -54,7 +61,6 @@ class StorageService {
     }
   }
 
-// ДОБАВЬТЕ ЭТОТ МЕТОД
   static Map<String, dynamic> _convertToPlainMap(dynamic input) {
     if (input is Map<String, dynamic>) {
       return input;
@@ -89,71 +95,6 @@ class StorageService {
         return item;
       }
     }).toList();
-  }
-
-// Метод для отладки типов Map
-  static void _debugMapTypes(dynamic map, String label) {
-    if (map is Map) {
-      print('   $label: ${map.runtimeType}');
-      map.forEach((key, value) {
-        if (value is Map) {
-          _debugMapTypes(value, '   $key');
-        }
-      });
-    }
-  }
-
-// Метод для глубокой очистки Map
-  static Map<String, dynamic> _deepCleanMap(dynamic input) {
-    if (input is! Map) {
-      return {};
-    }
-
-    final Map<String, dynamic> result = {};
-
-    input.forEach((key, value) {
-      final String stringKey = key.toString();
-
-      if (value is Map) {
-        // Рекурсивно очищаем вложенные Map
-        result[stringKey] = _deepCleanMap(value);
-      } else if (value is List) {
-        // Обрабатываем списки
-        result[stringKey] = _deepCleanList(value);
-      } else {
-        // Простые значения
-        result[stringKey] = value;
-      }
-    });
-
-    return result;
-  }
-
-// Метод для очистки списков
-  static List<dynamic> _deepCleanList(List<dynamic> list) {
-    return list.map((item) {
-      if (item is Map) {
-        return _deepCleanMap(item);
-      } else if (item is List) {
-        return _deepCleanList(item);
-      } else {
-        return item;
-      }
-    }).toList();
-  }
-
-
-
-
-// Вспомогательный метод для преобразования Map
-  static Map<String, String> _convertMapToStringString(dynamic map) {
-    if (map is Map<String, String>) {
-      return map;
-    }
-    if (map is Map) {
-      return map.map((key, value) => MapEntry(key.toString(), value.toString()));
-    }
-    return {'tag1': 'Новый тег'};
   }
 
   static Future<List<dynamic>> loadNews() async {
@@ -392,72 +333,6 @@ class StorageService {
     }
   }
 
-  // В lib/services/storage_service.dart ДОБАВЬТЕ:
-  static Future<void> ensureDataPersistence() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final hasData = prefs.containsKey(_newsKey);
-
-      if (!hasData) {
-        // Если данных нет, создаем начальные mock данные
-        final mockNews = [
-          {
-            "id": "1",
-            "title": "Добро пожаловать!",
-            "description": "Это ваша первая новость. Создавайте свои посты!",
-            "image": "👋",
-            "likes": 1,
-            "author_name": "Система",
-            "created_at": DateTime.now().toIso8601String(),
-            "comments": [],
-            "hashtags": ["добропожаловать"],
-            "user_tags": {"tag1": "Приветствие"},
-            "isLiked": false,
-            "isBookmarked": false,
-            "tag_color": Colors.blue.value,
-            "is_channel_post": true,
-          }
-        ];
-        await saveNews(mockNews);
-      }
-    } catch (e) {
-      print('Error ensuring data persistence: $e');
-    }
-  }
-
-
-  // В StorageService добавьте:
-
-  static Future<void> saveProfileImageUrl(String? url) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (url == null) {
-      await prefs.remove('profile_image_url');
-    } else {
-      await prefs.setString('profile_image_url', url);
-    }
-  }
-
-  static Future<String?> loadProfileImageUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('profile_image_url');
-  }
-
-  static Future<void> saveProfileImageFilePath(String? filePath) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (filePath == null) {
-      await prefs.remove('profile_image_file_path');
-    } else {
-      await prefs.setString('profile_image_file_path', filePath);
-    }
-  }
-
-  static Future<String?> loadProfileImageFilePath() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('profile_image_file_path');
-  }
-
-
-
   static Future<void> removeUserTags(String newsId) async {
     try {
       final userTags = await loadUserTags();
@@ -525,112 +400,232 @@ class StorageService {
     }
   }
 
-  // ========== МЕТОДЫ ДЛЯ ОЧИСТКИ ХЕШТЕГОВ ==========
+  // ========== НОВЫЕ МЕТОДЫ ДЛЯ МНОГОПОЛЬЗОВАТЕЛЬСКОЙ СИСТЕМЫ ==========
 
-  // Метод для очистки хештегов от дубликатов и лишних символов
-
-  static List<String> _cleanHashtagsForStorage(dynamic hashtags) {
-    if (hashtags == null) return [];
-
-    List<String> tags = [];
-
-    if (hashtags is String) {
-      tags = hashtags.split(RegExp(r'[,\s]+'));
-    } else if (hashtags is List) {
-      tags = hashtags.map((e) => e.toString()).toList();
-    }
-
-    // Используем унифицированную очистку
-    final cleanedTags = tags
-        .map((tag) => _cleanSingleHashtag(tag))
-        .where((tag) => tag.isNotEmpty)
-        .toSet()
-        .toList();
-
-    print('🧹 Cleaned hashtags for storage: $cleanedTags');
-    return cleanedTags;
-  }
-
-// Добавьте статический метод очистки
-  static String _cleanSingleHashtag(String tag) {
-    var cleanTag = tag.trim();
-    cleanTag = cleanTag.replaceAll(RegExp(r'^#+|#+$'), '').trim();
-    cleanTag = cleanTag.replaceAll(RegExp(r'#+'), ' ').trim();
-    return cleanTag;
-  }
-
-
-  // Добавьте эти методы в StorageService:
-
-// Сохранение подписки
-  static Future<void> addFollow(String newsId) async {
+  // ========== АВАТАРКИ ПОЛЬЗОВАТЕЛЕЙ ==========
+  static Future<void> saveProfileImageUrl(String userId, String? url) async {
     try {
-      final follows = await loadFollows();
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getUserProfileImageUrlKey(userId);
+      if (url == null) {
+        await prefs.remove(key);
+        print('🗑️ URL аватарки удален для пользователя: $userId');
+      } else {
+        await prefs.setString(key, url);
+        print('💾 URL аватарки сохранен для пользователя: $userId');
+      }
+    } catch (e) {
+      print('❌ Ошибка сохранения URL аватарки для пользователя $userId: $e');
+    }
+  }
+
+  static Future<String?> loadProfileImageUrl(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getUserProfileImageUrlKey(userId);
+      final url = prefs.getString(key);
+      print('📂 URL аватарки загружен для пользователя: $userId - $url');
+      return url;
+    } catch (e) {
+      print('❌ Ошибка загрузки URL аватарки для пользователя $userId: $e');
+      return null;
+    }
+  }
+
+  static Future<void> saveProfileImageFilePath(String userId, String? filePath) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getUserProfileImagePathKey(userId);
+      if (filePath == null) {
+        await prefs.remove(key);
+        print('🗑️ Файл аватарки удален для пользователя: $userId');
+      } else {
+        await prefs.setString(key, filePath);
+        print('💾 Файл аватарки сохранен для пользователя: $userId');
+      }
+    } catch (e) {
+      print('❌ Ошибка сохранения файла аватарки для пользователя $userId: $e');
+    }
+  }
+
+  static Future<String?> loadProfileImageFilePath(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getUserProfileImagePathKey(userId);
+      final path = prefs.getString(key);
+      print('📂 Файл аватарки загружен для пользователя: $userId - $path');
+      return path;
+    } catch (e) {
+      print('❌ Ошибка загрузки файла аватарки для пользователя $userId: $e');
+      return null;
+    }
+  }
+
+  // ========== ОБЛОЖКИ ПОЛЬЗОВАТЕЛЕЙ ==========
+  static Future<void> saveCoverImageUrl(String userId, String? url) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getUserCoverImageUrlKey(userId);
+      if (url == null) {
+        await prefs.remove(key);
+        print('🗑️ URL обложки удален для пользователя: $userId');
+      } else {
+        await prefs.setString(key, url);
+        print('💾 URL обложки сохранен для пользователя: $userId');
+      }
+    } catch (e) {
+      print('❌ Ошибка сохранения URL обложки для пользователя $userId: $e');
+    }
+  }
+
+  static Future<String?> loadCoverImageUrl(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getUserCoverImageUrlKey(userId);
+      final url = prefs.getString(key);
+      print('📂 URL обложки загружен для пользователя: $userId - $url');
+      return url;
+    } catch (e) {
+      print('❌ Ошибка загрузки URL обложки для пользователя $userId: $e');
+      return null;
+    }
+  }
+
+  static Future<void> saveCoverImageFilePath(String userId, String? filePath) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getUserCoverImagePathKey(userId);
+      if (filePath == null) {
+        await prefs.remove(key);
+        print('🗑️ Файл обложки удален для пользователя: $userId');
+      } else {
+        await prefs.setString(key, filePath);
+        print('💾 Файл обложки сохранен для пользователя: $userId');
+      }
+    } catch (e) {
+      print('❌ Ошибка сохранения файла обложки для пользователя $userId: $e');
+    }
+  }
+
+  static Future<String?> loadCoverImageFilePath(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getUserCoverImagePathKey(userId);
+      final path = prefs.getString(key);
+      print('📂 Файл обложки загружен для пользователя: $userId - $path');
+      return path;
+    } catch (e) {
+      print('❌ Ошибка загрузки файла обложки для пользователя $userId: $e');
+      return null;
+    }
+  }
+
+  // ========== ПОДПИСКИ ПОЛЬЗОВАТЕЛЕЙ ==========
+  static Future<void> addFollow(String userId, String newsId) async {
+    try {
+      final follows = await loadFollows(userId);
       if (!follows.contains(newsId)) {
         follows.add(newsId);
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setStringList('user_follows', follows);
+        final key = _getUserFollowsKey(userId);
+        await prefs.setStringList(key, follows);
+        print('➕ Подписка добавлена для пользователя $userId: $newsId');
       }
     } catch (e) {
-      print('Error adding follow: $e');
+      print('❌ Ошибка добавления подписки для пользователя $userId: $e');
     }
   }
 
-// Удаление подписки
-  static Future<void> removeFollow(String newsId) async {
+  static Future<void> removeFollow(String userId, String newsId) async {
     try {
-      final follows = await loadFollows();
+      final follows = await loadFollows(userId);
       follows.remove(newsId);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('user_follows', follows);
+      final key = _getUserFollowsKey(userId);
+      await prefs.setStringList(key, follows);
+      print('➖ Подписка удалена для пользователя $userId: $newsId');
     } catch (e) {
-      print('Error removing follow: $e');
+      print('❌ Ошибка удаления подписки для пользователя $userId: $e');
     }
   }
 
-// Загрузка списка подписок
-  static Future<List<String>> loadFollows() async {
+  static Future<List<String>> loadFollows(String userId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getStringList('user_follows') ?? [];
+      final key = _getUserFollowsKey(userId);
+      final follows = prefs.getStringList(key) ?? [];
+      print('📂 Загружено подписок для пользователя $userId: ${follows.length}');
+      return follows;
     } catch (e) {
-      print('Error loading follows: $e');
+      print('❌ Ошибка загрузки подписок для пользователя $userId: $e');
       return [];
     }
   }
 
-  // Метод для отладки сохраненных хештегов
-  static void _debugSavedHashtags(List<dynamic> newsData) {
-    print('🔍 DEBUG SAVED HASHTAGS:');
-    for (var item in newsData) {
-      final map = item as Map<String, dynamic>;
-      final id = map['id'] ?? 'unknown';
-      final hashtags = map['hashtags'] ?? [];
-      print('   News $id: $hashtags (${hashtags.length} tags)');
+  // ========== ОЧИСТКА ДАННЫХ ПОЛЬЗОВАТЕЛЯ ==========
+  static Future<void> clearUserData(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Очищаем данные профиля пользователя
+      await prefs.remove(_getUserProfileImageUrlKey(userId));
+      await prefs.remove(_getUserProfileImagePathKey(userId));
+      await prefs.remove(_getUserCoverImageUrlKey(userId));
+      await prefs.remove(_getUserCoverImagePathKey(userId));
+      await prefs.remove(_getUserFollowsKey(userId));
+
+      print('🧹 Данные пользователя очищены: $userId');
+    } catch (e) {
+      print('❌ Ошибка очистки данных пользователя $userId: $e');
     }
-    print('---');
   }
 
-  // Метод для отладки загруженных хештегов
-  static void _debugLoadedHashtags(List<dynamic> news) {
-    print('🔍 DEBUG LOADED HASHTAGS:');
-    for (var item in news) {
-      final map = item as Map<String, dynamic>;
-      final id = map['id'] ?? 'unknown';
-      final hashtags = map['hashtags'] ?? [];
-      print('   News $id: $hashtags (${hashtags.length} tags)');
+  // ========== МИГРАЦИЯ ДАННЫХ (для обратной совместимости) ==========
+  static Future<void> migrateOldUserData(String newUserId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-      // Детальная информация о каждом хештеге
-      if (hashtags is List && hashtags.isNotEmpty) {
-        for (int i = 0; i < hashtags.length; i++) {
-          print('     [$i]: "${hashtags[i]}"');
-        }
+      // Миграция старых данных (без userId) в новые (с userId)
+      final oldProfileUrl = prefs.getString('profile_image_url');
+      final oldProfilePath = prefs.getString('profile_image_file_path');
+      final oldFollows = prefs.getStringList('user_follows') ?? [];
+
+      if (oldProfileUrl != null) {
+        await saveProfileImageUrl(newUserId, oldProfileUrl);
+        await prefs.remove('profile_image_url');
+        print('🔄 Мигрирован старый URL аватарки для пользователя: $newUserId');
       }
+
+      if (oldProfilePath != null) {
+        await saveProfileImageFilePath(newUserId, oldProfilePath);
+        await prefs.remove('profile_image_file_path');
+        print('🔄 Мигрирован старый файл аватарки для пользователя: $newUserId');
+      }
+
+      if (oldFollows.isNotEmpty) {
+        for (final follow in oldFollows) {
+          await addFollow(newUserId, follow);
+        }
+        await prefs.remove('user_follows');
+        print('🔄 Мигрированы старые подписки для пользователя: $newUserId');
+      }
+
+    } catch (e) {
+      print('❌ Ошибка миграции данных для пользователя $newUserId: $e');
     }
-    print('---');
   }
 
   // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
+  static Map<String, String> _convertMapToStringString(dynamic map) {
+    if (map is Map<String, String>) {
+      return map;
+    }
+    if (map is Map) {
+      return map.map((key, value) => MapEntry(key.toString(), value.toString()));
+    }
+    return {'tag1': 'Новый тег'};
+  }
+
   static Color _generateDefaultColor(String id) {
     final colors = [
       const Color(0xFF2196F3), // Синий
@@ -645,6 +640,70 @@ class StorageService {
     final hash = id.hashCode;
     return colors[hash.abs() % colors.length];
   }
+
+  static String _cleanSingleHashtag(String tag) {
+    var cleanTag = tag.trim();
+    cleanTag = cleanTag.replaceAll(RegExp(r'^#+|#+$'), '').trim();
+    cleanTag = cleanTag.replaceAll(RegExp(r'#+'), ' ').trim();
+    return cleanTag;
+  }
+
+
+
+
+  // В StorageService добавьте:
+  static Future<void> addRepost(String userId, String repostId, String originalPostId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'user_${userId}_reposts';
+
+      final existingReposts = await loadReposts(userId);
+      existingReposts[repostId] = {
+        'repostId': repostId,
+        'originalPostId': originalPostId,
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+
+      await prefs.setString(key, json.encode(existingReposts));
+    } catch (e) {
+      print('❌ Error saving repost: $e');
+    }
+  }
+
+  static Future<Map<String, dynamic>> loadReposts(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'user_${userId}_reposts';
+      final repostsJson = prefs.getString(key);
+
+      if (repostsJson != null) {
+        final Map<String, dynamic> repostsMap = Map<String, dynamic>.from(json.decode(repostsJson));
+        return repostsMap;
+      }
+    } catch (e) {
+      print('❌ Error loading reposts: $e');
+    }
+
+    return {};
+  }
+
+
+  static Future<void> removeRepost(String userId, String repostId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'reposts_$userId';
+
+      final existingReposts = await loadReposts(userId);
+      existingReposts.remove(repostId);
+
+      await prefs.setString(key, json.encode(existingReposts));
+      print('✅ Repost removed for user $userId: $repostId');
+    } catch (e) {
+      print('❌ Error removing repost: $e');
+    }
+  }
+
+
 
   // ========== СТАТИСТИКА ==========
   static Future<Map<String, int>> getStorageStats() async {
@@ -668,18 +727,54 @@ class StorageService {
     }
   }
 
-  // ========== ОЧИСТКА ДАННЫХ ==========
+  static Future<Map<String, int>> getUserStorageStats(String userId) async {
+    try {
+      final profileUrl = await loadProfileImageUrl(userId);
+      final profilePath = await loadProfileImageFilePath(userId);
+      final coverUrl = await loadCoverImageUrl(userId);
+      final coverPath = await loadCoverImageFilePath(userId);
+      final follows = await loadFollows(userId);
+
+      return {
+        'has_profile_image': (profileUrl != null || profilePath != null) ? 1 : 0,
+        'has_cover_image': (coverUrl != null || coverPath != null) ? 1 : 0,
+        'follows_count': follows.length,
+      };
+    } catch (e) {
+      print('❌ Ошибка получения статистики пользователя $userId: $e');
+      return {};
+    }
+  }
+
+  // ========== ОЧИСТКА ВСЕХ ДАННЫХ ==========
   static Future<void> clearAllData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Очищаем общие данные
       await prefs.remove(_newsKey);
       await prefs.remove(_likesKey);
       await prefs.remove(_bookmarksKey);
       await prefs.remove(_userTagsKey);
       await prefs.remove(_tagColorsKey);
-      print('🧹 Все данные очищены');
+
+      // Очищаем все пользовательские данные
+      final allKeys = prefs.getKeys();
+      final userKeys = allKeys.where((key) =>
+      key.contains('profile_image_url_') ||
+          key.contains('profile_image_path_') ||
+          key.contains('cover_image_url_') ||
+          key.contains('cover_image_path_') ||
+          key.contains('user_follows_')
+      ).toList();
+
+      for (final key in userKeys) {
+        await prefs.remove(key);
+      }
+
+      print('🧹 Все данные очищены (включая пользовательские)');
     } catch (e) {
-      print('❌ Ошибка очистки данных: $e');
+      print('❌ Ошибка очистки всех данных: $e');
     }
   }
 
@@ -693,16 +788,72 @@ class StorageService {
     }
   }
 
-  static Future<void> clearUserData() async {
+  // ========== ОБЕСПЕЧЕНИЕ СОХРАННОСТИ ДАННЫХ ==========
+  static Future<void> ensureDataPersistence() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_likesKey);
-      await prefs.remove(_bookmarksKey);
-      await prefs.remove(_userTagsKey);
-      await prefs.remove(_tagColorsKey);
-      print('👤 Пользовательские данные очищены');
+      final hasData = prefs.containsKey(_newsKey);
+
+      if (!hasData) {
+        // Если данных нет, создаем начальные mock данные
+        final mockNews = [
+          {
+            "id": "1",
+            "title": "Добро пожаловать!",
+            "description": "Это ваша первая новость. Создавайте свои посты!",
+            "image": "👋",
+            "likes": 1,
+            "author_name": "Система",
+            "created_at": DateTime.now().toIso8601String(),
+            "comments": [],
+            "hashtags": ["добропожаловать"],
+            "user_tags": {"tag1": "Приветствие"},
+            "isLiked": false,
+            "isBookmarked": false,
+            "tag_color": Colors.blue.value,
+            "is_channel_post": true,
+          }
+        ];
+        await saveNews(mockNews);
+      }
     } catch (e) {
-      print('❌ Ошибка очистки пользовательских данных: $e');
+      print('❌ Error ensuring data persistence: $e');
+    }
+  }
+
+  // ========== УТИЛИТЫ ДЛЯ ОТЛАДКИ ==========
+  static Future<void> debugPrintAllUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final allKeys = prefs.getKeys();
+
+      print('🔍 DEBUG: Все ключи в хранилище:');
+      for (final key in allKeys) {
+        final value = prefs.get(key);
+        print('   $key: $value');
+      }
+    } catch (e) {
+      print('❌ Ошибка отладки хранилища: $e');
+    }
+  }
+
+  static Future<void> debugPrintUserData(String userId) async {
+    try {
+      print('🔍 DEBUG: Данные пользователя $userId:');
+
+      final profileUrl = await loadProfileImageUrl(userId);
+      final profilePath = await loadProfileImageFilePath(userId);
+      final coverUrl = await loadCoverImageUrl(userId);
+      final coverPath = await loadCoverImageFilePath(userId);
+      final follows = await loadFollows(userId);
+
+      print('   Аватар URL: $profileUrl');
+      print('   Аватар файл: $profilePath');
+      print('   Обложка URL: $coverUrl');
+      print('   Обложка файл: $coverPath');
+      print('   Подписки: $follows (${follows.length})');
+    } catch (e) {
+      print('❌ Ошибка отладки данных пользователя: $e');
     }
   }
 }

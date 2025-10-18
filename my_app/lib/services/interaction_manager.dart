@@ -64,6 +64,28 @@ class InteractionManager with ChangeNotifier {
 
   bool _isDisposed = false;
 
+  // КОЛБЭКИ ДЛЯ СВЯЗИ С NEWS PROVIDER
+  Function(String, bool, int)? _onLikeCallback;
+  Function(String, bool)? _onBookmarkCallback;
+  Function(String, bool, int, String, String)? _onRepostCallback; // Добавлены параметры для репоста
+  Function(String, Map<String, dynamic>)? _onCommentCallback;
+  Function(String, String)? _onCommentRemovalCallback;
+
+  // Установка колбэков
+  void setCallbacks({
+    Function(String, bool, int)? onLike,
+    Function(String, bool)? onBookmark,
+    Function(String, bool, int, String, String)? onRepost,
+    Function(String, Map<String, dynamic>)? onComment,
+    Function(String, String)? onCommentRemoval,
+  }) {
+    _onLikeCallback = onLike;
+    _onBookmarkCallback = onBookmark;
+    _onRepostCallback = onRepost;
+    _onCommentCallback = onComment;
+    _onCommentRemovalCallback = onCommentRemoval;
+  }
+
   // Безопасное уведомление слушателей
   void _safeNotifyListeners() {
     if (!_isDisposed && hasListeners) {
@@ -139,16 +161,20 @@ class InteractionManager with ChangeNotifier {
       state.lastUpdated = DateTime.now();
 
       _cacheTimestamps[postId] = DateTime.now();
-      notifyListeners();
+      _safeNotifyListeners();
 
-      // Синхронизация с сервером (можно добавить позже)
+      // Вызываем колбэк для NewsProvider
+      if (_onLikeCallback != null) {
+        _onLikeCallback!(postId, state.isLiked, state.likesCount);
+      }
+
+      // Синхронизация с сервером
       await _syncLikeWithServer(postId, state.isLiked, state.likesCount);
     }
   }
 
   Future<void> _syncLikeWithServer(String postId, bool isLiked, int likesCount) async {
     try {
-      // Здесь будет логика синхронизации с сервером
       if (kDebugMode) {
         print('🔄 Syncing like for post $postId: $isLiked ($likesCount likes)');
       }
@@ -167,7 +193,12 @@ class InteractionManager with ChangeNotifier {
       state.lastUpdated = DateTime.now();
 
       _cacheTimestamps[postId] = DateTime.now();
-      notifyListeners();
+      _safeNotifyListeners();
+
+      // Вызываем колбэк для NewsProvider
+      if (_onBookmarkCallback != null) {
+        _onBookmarkCallback!(postId, state.isBookmarked);
+      }
 
       await _syncBookmarkWithServer(postId, state.isBookmarked);
     }
@@ -175,7 +206,6 @@ class InteractionManager with ChangeNotifier {
 
   Future<void> _syncBookmarkWithServer(String postId, bool isBookmarked) async {
     try {
-      // Логика синхронизации с сервером
       if (kDebugMode) {
         print('🔄 Syncing bookmark for post $postId: $isBookmarked');
       }
@@ -186,24 +216,42 @@ class InteractionManager with ChangeNotifier {
     }
   }
 
-  // РЕПОСТЫ
-  Future<void> toggleRepost(String postId) async {
+  // ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ РЕПОСТОВ
+  Future<void> toggleRepost(
+      String postId, {
+        String? currentUserId,
+        String? currentUserName,
+      }) async {
     final state = _postStates[postId];
     if (state != null) {
-      state.isReposted = !state.isReposted;
-      state.repostsCount += state.isReposted ? 1 : -1;
-      state.lastUpdated = DateTime.now();
+      final wasReposted = state.isReposted;
 
-      _cacheTimestamps[postId] = DateTime.now();
-      notifyListeners();
+      // Обновляем состояние только если оно изменилось
+      if (wasReposted != !state.isReposted) {
+        state.isReposted = !state.isReposted;
+        state.repostsCount += state.isReposted ? 1 : -1;
+        state.lastUpdated = DateTime.now();
 
-      await _syncRepostWithServer(postId, state.isReposted, state.repostsCount);
+        _cacheTimestamps[postId] = DateTime.now();
+        _safeNotifyListeners();
+
+        // ВАЖНО: Вызываем колбэк только один раз
+        if (_onRepostCallback != null) {
+          print('🔄 InteractionManager: Calling repost callback for $postId');
+          _onRepostCallback!(
+              postId,
+              state.isReposted,
+              state.repostsCount,
+              currentUserId ?? '',
+              currentUserName ?? ''
+          );
+        }
+      }
     }
   }
-
+  // ДОБАВЛЕННЫЙ МЕТОД ДЛЯ СИНХРОНИЗАЦИИ РЕПОСТОВ
   Future<void> _syncRepostWithServer(String postId, bool isReposted, int repostsCount) async {
     try {
-      // Логика синхронизации с сервером
       if (kDebugMode) {
         print('🔄 Syncing repost for post $postId: $isReposted ($repostsCount reposts)');
       }
@@ -212,6 +260,11 @@ class InteractionManager with ChangeNotifier {
         print('❌ Error syncing repost: $e');
       }
     }
+  }
+
+  // Альтернативный метод для совместимости со старым кодом
+  Future<void> toggleRepostSimple(String postId) async {
+    await toggleRepost(postId);
   }
 
   // КОММЕНТАРИИ
@@ -237,7 +290,12 @@ class InteractionManager with ChangeNotifier {
       state.lastUpdated = DateTime.now();
 
       _cacheTimestamps[postId] = DateTime.now();
-      notifyListeners();
+      _safeNotifyListeners();
+
+      // Вызываем колбэк для NewsProvider
+      if (_onCommentCallback != null) {
+        _onCommentCallback!(postId, newComment);
+      }
 
       await _syncCommentWithServer(postId, newComment);
     }
@@ -250,7 +308,12 @@ class InteractionManager with ChangeNotifier {
       state.lastUpdated = DateTime.now();
 
       _cacheTimestamps[postId] = DateTime.now();
-      notifyListeners();
+      _safeNotifyListeners();
+
+      // Вызываем колбэк для NewsProvider
+      if (_onCommentRemovalCallback != null) {
+        _onCommentRemovalCallback!(postId, commentId);
+      }
 
       await _syncCommentRemovalWithServer(postId, commentId);
     }
@@ -273,7 +336,7 @@ class InteractionManager with ChangeNotifier {
         state.lastUpdated = DateTime.now();
 
         _cacheTimestamps[postId] = DateTime.now();
-        notifyListeners();
+        _safeNotifyListeners();
 
         await _syncCommentLikeWithServer(postId, commentId, !isLiked);
       }
@@ -332,7 +395,7 @@ class InteractionManager with ChangeNotifier {
         );
       }
     }
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   // ОБНОВЛЕНИЕ ОДНОГО ПОСТА
@@ -348,7 +411,20 @@ class InteractionManager with ChangeNotifier {
         repostsCount: post['reposts'] ?? 0,
         comments: List<Map<String, dynamic>>.from(post['comments'] ?? []),
       );
-      notifyListeners();
+      _safeNotifyListeners();
+    }
+  }
+
+  // ОБНОВЛЕНИЕ СОСТОЯНИЯ РЕПОСТА (для синхронизации с NewsProvider)
+  void updateRepostState(String postId, bool isReposted, int repostsCount) {
+    final state = _postStates[postId];
+    if (state != null) {
+      state.isReposted = isReposted;
+      state.repostsCount = repostsCount;
+      state.lastUpdated = DateTime.now();
+
+      _cacheTimestamps[postId] = DateTime.now();
+      _safeNotifyListeners();
     }
   }
 
@@ -357,16 +433,28 @@ class InteractionManager with ChangeNotifier {
     final totalPosts = _postStates.length;
     final totalLikes = _postStates.values.fold<int>(0, (sum, state) => sum + state.likesCount);
     final totalComments = _postStates.values.fold<int>(0, (sum, state) => sum + state.comments.length);
+    final totalReposts = _postStates.values.fold<int>(0, (sum, state) => sum + state.repostsCount);
     final likedPosts = _postStates.values.where((state) => state.isLiked).length;
     final bookmarkedPosts = _postStates.values.where((state) => state.isBookmarked).length;
+    final repostedPosts = _postStates.values.where((state) => state.isReposted).length;
 
     return {
       'totalPosts': totalPosts,
       'totalLikes': totalLikes,
       'totalComments': totalComments,
+      'totalReposts': totalReposts,
       'likedPosts': likedPosts,
       'bookmarkedPosts': bookmarkedPosts,
+      'repostedPosts': repostedPosts,
     };
+  }
+
+  // ПОЛУЧЕНИЕ РЕПОСТНУТЫХ ПОСТОВ
+  List<String> getRepostedPostIds() {
+    return _postStates.entries
+        .where((entry) => entry.value.isReposted)
+        .map((entry) => entry.key)
+        .toList();
   }
 
   // ОЧИСТКА КЭША
@@ -379,7 +467,6 @@ class InteractionManager with ChangeNotifier {
 
     for (final postId in expiredPosts) {
       _cacheTimestamps.remove(postId);
-      // Можно также очистить состояние поста, если нужно
     }
 
     if (expiredPosts.isNotEmpty && kDebugMode) {
@@ -391,14 +478,17 @@ class InteractionManager with ChangeNotifier {
   void clearAll() {
     _postStates.clear();
     _cacheTimestamps.clear();
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   // ПОДПИСКА НА ИЗМЕНЕНИЯ КОНКРЕТНОГО ПОСТА
   VoidCallback? addPostListener(String postId, VoidCallback listener) {
-    // Используем общий notifyListeners, но можно добавить логику для конкретных постов
     addListener(listener);
     return () => removeListener(listener);
+  }
+
+  void removePostListener(VoidCallback listener) {
+    removeListener(listener);
   }
 
   // ПРОВЕРКА СУЩЕСТВОВАНИЯ СОСТОЯНИЯ
@@ -409,5 +499,50 @@ class InteractionManager with ChangeNotifier {
   // ПОЛУЧЕНИЕ ВСЕХ СОСТОЯНИЙ (для отладки)
   Map<String, PostInteractionState> getAllStates() {
     return Map.from(_postStates);
+  }
+
+  // ДОБАВЛЕННЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С РЕПОСТАМИ
+
+  // Проверка, является ли пост репостнутым
+  bool isPostReposted(String postId) {
+    return _postStates[postId]?.isReposted ?? false;
+  }
+
+  // Получение количества репостов
+  int getRepostCount(String postId) {
+    return _postStates[postId]?.repostsCount ?? 0;
+  }
+
+  // Принудительное обновление состояния репоста
+  void forceUpdateRepost(String postId, bool isReposted, int repostsCount) {
+    final state = _postStates[postId];
+    if (state != null) {
+      state.isReposted = isReposted;
+      state.repostsCount = repostsCount;
+      state.lastUpdated = DateTime.now();
+      _safeNotifyListeners();
+    } else {
+      initializePostState(
+        postId: postId,
+        isReposted: isReposted,
+        repostsCount: repostsCount,
+      );
+    }
+  }
+
+  // Синхронизация с внешним состоянием (при загрузке данных)
+  void syncWithExternalState(Map<String, dynamic> externalState) {
+    final postId = externalState['id']?.toString() ?? '';
+    if (postId.isNotEmpty) {
+      initializePostState(
+        postId: postId,
+        isLiked: externalState['isLiked'] ?? false,
+        isBookmarked: externalState['isBookmarked'] ?? false,
+        isReposted: externalState['isReposted'] ?? false,
+        likesCount: externalState['likes'] ?? 0,
+        repostsCount: externalState['reposts'] ?? 0,
+        comments: List<Map<String, dynamic>>.from(externalState['comments'] ?? []),
+      );
+    }
   }
 }

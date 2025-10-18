@@ -11,28 +11,279 @@ import '../pages/news_page/mock_news_data.dart';
 import '../services/interaction_manager.dart';
 import '../services/storage_service.dart';
 
+// Модель профиля пользователя
+class UserProfile {
+  final String id;
+  final String userName;
+  final String userEmail;
+  String? profileImageUrl;
+  File? profileImageFile;
+  String? coverImageUrl;
+  File? coverImageFile;
+  DateTime? registrationDate;
+  Map<String, int> stats;
+
+  UserProfile({
+    required this.id,
+    required this.userName,
+    required this.userEmail,
+    this.profileImageUrl,
+    this.profileImageFile,
+    this.coverImageUrl,
+    this.coverImageFile,
+    this.registrationDate,
+    this.stats = const {},
+  });
+
+  UserProfile copyWith({
+    String? userName,
+    String? userEmail,
+    String? profileImageUrl,
+    File? profileImageFile,
+    String? coverImageUrl,
+    File? coverImageFile,
+    Map<String, int>? stats,
+  }) {
+    return UserProfile(
+      id: id,
+      userName: userName ?? this.userName,
+      userEmail: userEmail ?? this.userEmail,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      profileImageFile: profileImageFile ?? this.profileImageFile,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+      coverImageFile: coverImageFile ?? this.coverImageFile,
+      registrationDate: registrationDate,
+      stats: stats ?? this.stats,
+    );
+  }
+}
+
 class NewsProvider with ChangeNotifier {
   List<dynamic> _news = [];
   bool _isLoading = true;
   String? _errorMessage;
-  bool get mounted => !_isDisposed;
-  // НОВЫЕ ПОЛЯ ДЛЯ ФОТО ПРОФИЛЯ
-  String? _profileImageUrl;
-  File? _profileImageFile;
-
-  // Флаг для отслеживания disposed состояния
   bool _isDisposed = false;
+  bool get mounted => !_isDisposed;
+
+  // НОВЫЕ ПОЛЯ ДЛЯ ПОДДЕРЖКИ MULTIPLE USERS
+  final Map<String, UserProfile> _userProfiles = {};
+  String? _currentUserId;
 
   List<dynamic> get news => _news;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-
-  // НОВЫЕ ГЕТТЕРЫ ДЛЯ ФОТО ПРОФИЛЯ
-  String? get profileImageUrl => _profileImageUrl;
-  File? get profileImageFile => _profileImageFile;
-
-  // Геттер для проверки disposed состояния
   bool get isDisposed => _isDisposed;
+
+  // ГЕТТЕРЫ ДЛЯ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+  String? get profileImageUrl => _getCurrentUser()?.profileImageUrl;
+  File? get profileImageFile => _getCurrentUser()?.profileImageFile;
+  String? get coverImageUrl => _getCurrentUser()?.coverImageUrl;
+  File? get coverImageFile => _getCurrentUser()?.coverImageFile;
+
+
+  NewsProvider() {
+    _initializeInteractionManager();
+    print('✅ NewsProvider initialized with InteractionManager');
+  }
+
+  // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯМИ
+  void setCurrentUser(String userId, String userName, String userEmail) {
+    _currentUserId = userId;
+
+    // Создаем профиль если не существует
+    if (!_userProfiles.containsKey(userId)) {
+      _userProfiles[userId] = UserProfile(
+        id: userId,
+        userName: userName,
+        userEmail: userEmail,
+        registrationDate: DateTime.now(),
+        stats: {},
+      );
+
+      // Загружаем данные профиля из хранилища
+      _loadUserProfileData(userId);
+    }
+
+    _safeNotifyListeners();
+  }
+
+  UserProfile? _getCurrentUser() {
+    if (_currentUserId == null) return null;
+    return _userProfiles[_currentUserId!];
+  }
+
+  UserProfile? getUserProfile(String userId) {
+    return _userProfiles[userId];
+  }
+
+  String? getCurrentUserId() {
+    return _currentUserId;
+  }
+
+  // ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ПРОФИЛЕМ
+  Future<void> updateProfileImageUrl(String? url) async {
+    if (_isDisposed || _currentUserId == null) return;
+
+    final user = _userProfiles[_currentUserId!];
+    if (user == null) return;
+
+    // Валидация URL
+    if (url != null && url.isNotEmpty) {
+      try {
+        final uri = Uri.parse(url);
+        if (!uri.hasScheme) {
+          url = 'https://$url';
+        }
+
+        final response = await http.head(Uri.parse(url));
+        if (response.statusCode != 200) {
+          print('❌ Image URL not accessible: ${response.statusCode}');
+          return;
+        }
+      } catch (e) {
+        print('❌ Invalid image URL: $e');
+        return;
+      }
+    }
+
+    _userProfiles[_currentUserId!] = user.copyWith(
+      profileImageUrl: url,
+      profileImageFile: null,
+    );
+
+    _safeNotifyListeners();
+    await StorageService.saveProfileImageUrl(_currentUserId!, url);
+    print('✅ Profile image URL updated for user $_currentUserId: $url');
+  }
+
+  Future<void> updateProfileImageFile(File? file) async {
+    if (_isDisposed || _currentUserId == null) return;
+
+    final user = _userProfiles[_currentUserId!];
+    if (user == null) return;
+
+    _userProfiles[_currentUserId!] = user.copyWith(
+      profileImageFile: file,
+      profileImageUrl: null,
+    );
+
+    if (file != null) {
+      final exists = await file.exists();
+      if (exists) {
+        await StorageService.saveProfileImageFilePath(_currentUserId!, file.path);
+        print('✅ Profile image file updated for user $_currentUserId: ${file.path}');
+      } else {
+        print('❌ File does not exist: ${file.path}');
+        _userProfiles[_currentUserId!] = user.copyWith(profileImageFile: null);
+      }
+    } else {
+      await StorageService.saveProfileImageFilePath(_currentUserId!, null);
+      print('✅ Profile image file removed for user $_currentUserId');
+    }
+
+    _safeNotifyListeners();
+  }
+
+  // НОВЫЕ МЕТОДЫ ДЛЯ ОБЛОЖКИ
+  Future<void> updateCoverImageUrl(String? url) async {
+    if (_isDisposed || _currentUserId == null) return;
+
+    final user = _userProfiles[_currentUserId!];
+    if (user == null) return;
+
+    // Валидация URL
+    if (url != null && url.isNotEmpty) {
+      try {
+        final uri = Uri.parse(url);
+        if (!uri.hasScheme) {
+          url = 'https://$url';
+        }
+      } catch (e) {
+        print('❌ Invalid cover URL: $e');
+        return;
+      }
+    }
+
+    _userProfiles[_currentUserId!] = user.copyWith(coverImageUrl: url);
+    _safeNotifyListeners();
+    await StorageService.saveCoverImageUrl(_currentUserId!, url);
+    print('✅ Cover image URL updated for user $_currentUserId: $url');
+  }
+
+  Future<void> updateCoverImageFile(File? file) async {
+    if (_isDisposed || _currentUserId == null) return;
+
+    final user = _userProfiles[_currentUserId!];
+    if (user == null) return;
+
+    _userProfiles[_currentUserId!] = user.copyWith(coverImageFile: file);
+
+    if (file != null) {
+      final exists = await file.exists();
+      if (exists) {
+        await StorageService.saveCoverImageFilePath(_currentUserId!, file.path);
+        print('✅ Cover image file updated for user $_currentUserId: ${file.path}');
+      } else {
+        print('❌ Cover file does not exist: ${file.path}');
+        _userProfiles[_currentUserId!] = user.copyWith(coverImageFile: null);
+      }
+    } else {
+      await StorageService.saveCoverImageFilePath(_currentUserId!, null);
+      print('✅ Cover image file removed for user $_currentUserId');
+    }
+
+    _safeNotifyListeners();
+  }
+
+  // Загрузка данных профиля пользователя
+  Future<void> _loadUserProfileData(String userId) async {
+    if (_isDisposed) return;
+
+    try {
+      // Загружаем URL аватарки
+      final savedUrl = await StorageService.loadProfileImageUrl(userId);
+
+      // Загружаем файл аватарки
+      final savedFilePath = await StorageService.loadProfileImageFilePath(userId);
+      File? profileFile;
+      if (savedFilePath != null && savedFilePath.isNotEmpty) {
+        final file = File(savedFilePath);
+        if (await file.exists()) {
+          profileFile = file;
+        } else {
+          await StorageService.saveProfileImageFilePath(userId, null);
+        }
+      }
+
+      // Загружаем обложку
+      final savedCoverUrl = await StorageService.loadCoverImageUrl(userId);
+      final savedCoverPath = await StorageService.loadCoverImageFilePath(userId);
+      File? coverFile;
+      if (savedCoverPath != null && savedCoverPath.isNotEmpty) {
+        final file = File(savedCoverPath);
+        if (await file.exists()) {
+          coverFile = file;
+        } else {
+          await StorageService.saveCoverImageFilePath(userId, null);
+        }
+      }
+
+      // Обновляем профиль
+      if (_userProfiles.containsKey(userId)) {
+        _userProfiles[userId] = _userProfiles[userId]!.copyWith(
+          profileImageUrl: savedUrl,
+          profileImageFile: profileFile,
+          coverImageUrl: savedCoverUrl,
+          coverImageFile: coverFile,
+        );
+      }
+
+      print('✅ Profile data loaded for user $userId');
+      _safeNotifyListeners();
+    } catch (e) {
+      print('❌ Error loading profile data for user $userId: $e');
+    }
+  }
 
   // Безопасное уведомление слушателей
   void _safeNotifyListeners() {
@@ -64,104 +315,19 @@ class NewsProvider with ChangeNotifier {
     });
   }
 
-  // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ФОТО ПРОФИЛЯ
-  Future<void> updateProfileImageUrl(String? url) async {
-    if (_isDisposed) return;
-
-    if (url != null && url.isNotEmpty) {
-      // Проверяем валидность URL перед сохранением
-      try {
-        final uri = Uri.parse(url);
-        if (!uri.hasScheme) {
-          url = 'https://$url';
-        }
-
-        // Проверяем доступность изображения
-        final response = await http.head(Uri.parse(url));
-        if (response.statusCode != 200) {
-          print('❌ Image URL not accessible: ${response.statusCode}');
-          return;
-        }
-      } catch (e) {
-        print('❌ Invalid image URL: $e');
-        return;
-      }
-    }
-
-    _safeOperation(() {
-      _profileImageUrl = url;
-      _profileImageFile = null;
-      _safeNotifyListeners();
-    });
-
-    // Сохраняем в хранилище
-    await StorageService.saveProfileImageUrl(url);
-    print('✅ Profile image URL updated: $url');
-  }
-
-  Future<void> updateProfileImageFile(File? file) async {
-    if (_isDisposed) return;
-
-    _safeOperation(() {
-      _profileImageFile = file;
-      _profileImageUrl = null;
-    });
-
-    if (file != null) {
-      final exists = await file.exists();
-      if (exists) {
-        await StorageService.saveProfileImageFilePath(file.path);
-        print('✅ Profile image file updated: ${file.path}');
-      } else {
-        print('❌ File does not exist: ${file.path}');
-        _safeOperation(() {
-          _profileImageFile = null;
-        });
-      }
-    } else {
-      await StorageService.saveProfileImageFilePath(null);
-      print('✅ Profile image file removed');
-    }
-
-    _safeNotifyListeners();
-  }
-
   void clearData() {
     _safeOperation(() {
       _safeNotifyListeners();
     });
   }
 
-  // Загрузка данных профиля из хранилища
+  // Загрузка данных профиля для текущего пользователя
   Future<void> loadProfileData() async {
-    if (_isDisposed) return;
+    if (_isDisposed || _currentUserId == null) return;
 
     try {
-      // Загружаем URL фото профиля
-      final savedUrl = await StorageService.loadProfileImageUrl();
-      if (savedUrl != null && savedUrl.isNotEmpty) {
-        _safeOperation(() {
-          _profileImageUrl = savedUrl;
-        });
-      }
-
-      // Загружаем файл фото профиля
-      final savedFilePath = await StorageService.loadProfileImageFilePath();
-      if (savedFilePath != null && savedFilePath.isNotEmpty) {
-        final file = File(savedFilePath);
-        if (await file.exists()) {
-          _safeOperation(() {
-            _profileImageFile = file;
-          });
-        } else {
-          // Файл не существует, очищаем запись
-          await StorageService.saveProfileImageFilePath(null);
-          print('⚠️ Profile image file not found, clearing path');
-        }
-      }
-
-      print('✅ Profile data loaded: URL=$_profileImageUrl, File=${_profileImageFile?.path}');
-      _safeNotifyListeners();
+      await _loadUserProfileData(_currentUserId!);
+      print('✅ Profile data loaded for current user: $_currentUserId');
     } catch (e) {
       print('❌ Error loading profile data: $e');
     }
@@ -268,9 +434,13 @@ class NewsProvider with ChangeNotifier {
 
         // Сохраняем в локальное хранилище
         if (isFollowing) {
-          StorageService.addFollow(newsId);
+          if (_currentUserId != null) {
+            StorageService.addFollow(_currentUserId!, newsId);
+          }
         } else {
-          StorageService.removeFollow(newsId);
+          if (_currentUserId != null) {
+            StorageService.removeFollow(_currentUserId!, newsId);
+          }
         }
 
         _saveNewsToStorage();
@@ -337,6 +507,20 @@ class NewsProvider with ChangeNotifier {
 
             final tagColor = await _getTagColor(newsId, itemUserTags);
 
+            // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем аватар автора из API данных
+            final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
+            final authorAvatarFromApi = newsItem['author_avatar']?.toString() ?? '';
+
+            // Определяем финальный аватар: приоритет у API, затем fallback
+            String finalAuthorAvatar;
+            if (authorAvatarFromApi.isNotEmpty) {
+              finalAuthorAvatar = authorAvatarFromApi;
+              print('✅ Using author avatar from API: $authorAvatarFromApi for $authorName');
+            } else {
+              finalAuthorAvatar = _getFallbackAvatarUrl(authorName);
+              print('ℹ️ Using fallback avatar for $authorName: $finalAuthorAvatar');
+            }
+
             return {
               ...newsItem,
               'isLiked': localLikes.contains(newsId),
@@ -346,6 +530,8 @@ class NewsProvider with ChangeNotifier {
               'comments': newsItem['comments'] ?? [],
               'likes': newsItem['likes'] ?? 0,
               'tag_color': tagColor,
+              // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем аватар автора
+              'author_avatar': finalAuthorAvatar,
             };
           }));
 
@@ -359,6 +545,13 @@ class NewsProvider with ChangeNotifier {
             });
             await _saveNewsToStorage();
             print('🔄 Updated news from API: ${newItems.length} new items');
+
+            // Логируем аватары для отладки
+            for (final item in newItems.take(3)) {
+              final author = item['author_name'] ?? 'Unknown';
+              final avatar = item['author_avatar'] ?? 'No avatar';
+              print('👤 New item - Author: $author, Avatar: $avatar');
+            }
           } else {
             print('⚠️ No new items from API, keeping cached data');
           }
@@ -398,8 +591,10 @@ class NewsProvider with ChangeNotifier {
     if (_isDisposed) return;
 
     try {
-      // Сначала загружаем данные профиля
-      await loadProfileData();
+      // Сначала загружаем данные профиля для текущего пользователя
+      if (_currentUserId != null) {
+        await _loadUserProfileData(_currentUserId!);
+      }
 
       // Затем загружаем новости
       final cachedNews = await StorageService.loadNews();
@@ -527,8 +722,12 @@ class NewsProvider with ChangeNotifier {
       'assets/images/ava_news/ava12.png',
     ];
 
+    // Генерируем индекс на основе хеша имени для консистентности
     final index = userName.hashCode.abs() % avatars.length;
-    return avatars[index];
+    final selectedAvatar = avatars[index];
+
+    print('🎲 Generated fallback avatar for $userName: $selectedAvatar (index: $index)');
+    return selectedAvatar;
   }
 
   List<dynamic> _getMockNews() {
@@ -565,6 +764,9 @@ class NewsProvider with ChangeNotifier {
 
       // СОЗДАЕМ УНИКАЛЬНЫЙ ID если не предоставлен
       final uniqueId = newsItem['id']?.toString() ?? 'news-${DateTime.now().millisecondsSinceEpoch}';
+
+      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Получаем аватар автора из переданных данных
+      final authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
 
       // ВАЖНОЕ ИЗМЕНЕНИЕ: ИСПОЛЬЗУЕМ ПОСЛЕДНИЕ ТЕГИ ПОЛЬЗОВАТЕЛЯ
       Map<String, String> personalTags = <String, String>{};
@@ -611,6 +813,7 @@ class NewsProvider with ChangeNotifier {
         'description': newsItem['description']?.toString() ?? '',
         'image': newsItem['image']?.toString() ?? '',
         'author_name': authorName,
+        'author_avatar': authorAvatar, // ← ИСПРАВЛЕНО: сохраняем переданный аватар
         'channel_name': channelName,
         'channel_id': newsItem['channel_id']?.toString() ?? '',
         'created_at': newsItem['created_at']?.toString() ?? DateTime.now().toIso8601String(),
@@ -625,8 +828,6 @@ class NewsProvider with ChangeNotifier {
         'tag_color': tagColor.value,
         'is_channel_post': isChannelPost,
         'content_type': isChannelPost ? 'channel_post' : 'regular_post',
-        // ДОБАВЛЯЕМ АВАТАРКУ АВТОРА - используем локальную аватарку
-        'author_avatar': newsItem['author_avatar'] ?? _getFallbackAvatarUrl(authorName),
       };
 
       // ДОБАВЛЯЕМ в начало списка
@@ -650,7 +851,7 @@ class NewsProvider with ChangeNotifier {
         comments: List<Map<String, dynamic>>.from(cleanNewsItem['comments'] ?? []),
       );
 
-      print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Теги: $personalTags, Всего новостей: ${_news.length}');
+      print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Автор: $authorName, Аватар: $authorAvatar, Теги: $personalTags, Всего новостей: ${_news.length}');
 
     } catch (e) {
       print('❌ Ошибка при добавлении новости в NewsProvider: $e');
@@ -664,6 +865,249 @@ class NewsProvider with ChangeNotifier {
         );
       }
     }
+  }
+
+  Future<void> repostNews(int index, String currentUserId, String currentUserName) async {
+    if (_isDisposed || !_isValidIndex(index)) return;
+
+    try {
+      final originalNews = Map<String, dynamic>.from(_news[index]);
+      final originalNewsId = originalNews['id'].toString();
+
+      // Проверяем, не существует ли уже репост
+      final existingRepost = getRepostIdForOriginal(originalNewsId, currentUserId);
+      if (existingRepost != null) {
+        print('⚠️ Repost already exists: $existingRepost');
+        return;
+      }
+
+      // Создаем уникальный ID для репоста
+      final repostId = 'repost-${DateTime.now().millisecondsSinceEpoch}-$currentUserId';
+
+      print('🔄 Creating repost: $repostId for user: $currentUserId');
+
+      // Получаем аватар текущего пользователя
+      final currentUserAvatar = _getCurrentUserAvatarUrl(currentUserId);
+
+      // Создаем данные репоста
+      final repostData = {
+        'id': repostId,
+        'original_post_id': originalNewsId,
+        'is_repost': true,
+        'reposted_by': currentUserId,
+        'reposted_by_name': currentUserName,
+        'reposted_at': DateTime.now().toIso8601String(),
+        'title': originalNews['title'] ?? '',
+        'description': originalNews['description'] ?? '',
+        'image': originalNews['image'] ?? '',
+        'author_name': currentUserName,
+        'author_avatar': currentUserAvatar,
+        'channel_name': originalNews['channel_name'] ?? '',
+        'channel_id': originalNews['channel_id'] ?? '',
+        'created_at': DateTime.now().toIso8601String(),
+        'likes': 0,
+        'comments': [],
+        'hashtags': List<String>.from(originalNews['hashtags'] ?? []),
+        'user_tags': <String, String>{},
+        'isLiked': false,
+        'isBookmarked': false,
+        'isFollowing': false,
+        'tag_color': _generateColorFromId(repostId).value,
+        'is_channel_post': false,
+        'content_type': 'repost',
+        'original_author': originalNews['author_name'] ?? 'Пользователь',
+        'repost_user_avatar': currentUserAvatar,
+      };
+
+      // Добавляем репост в начало ленты
+      _safeOperation(() {
+        _news.insert(0, repostData);
+        _safeNotifyListeners();
+      });
+
+      // Сохраняем в хранилище
+      await _saveNewsToStorage();
+
+      // Сохраняем информацию о репосте
+      await StorageService.addRepost(currentUserId, repostId, originalNewsId);
+
+      print('✅ Репост создан: $repostId');
+      print('📊 Total news after repost: ${_news.length}');
+
+    } catch (e) {
+      print('❌ Ошибка при репосте: $e');
+      rethrow;
+    }
+  }
+
+
+
+
+
+  Future<void> cancelRepost(String repostId, String currentUserId) async {
+    if (_isDisposed) return;
+
+    try {
+      // Находим индекс репоста
+      final repostIndex = _news.indexWhere((item) =>
+      item['id'].toString() == repostId &&
+          item['is_repost'] == true);
+
+      if (repostIndex != -1) {
+        _safeOperation(() {
+          _news.removeAt(repostIndex);
+          _safeNotifyListeners();
+        });
+
+        // Удаляем из хранилища
+        await _saveNewsToStorage();
+        await StorageService.removeRepost(currentUserId, repostId);
+
+        print('✅ Репост отменен: $repostId');
+      }
+    } catch (e) {
+      print('❌ Ошибка при отмене репоста: $e');
+      rethrow;
+    }
+  }
+
+
+  List<dynamic> getUserReposts(String userId) {
+    if (_isDisposed) return [];
+
+    return _news.where((item) {
+      final newsItem = Map<String, dynamic>.from(item);
+      return newsItem['is_repost'] == true &&
+          newsItem['reposted_by'] == userId;
+    }).toList();
+  }
+
+// Проверка, является ли пост репостом пользователя
+  bool isNewsRepostedByUser(String newsId, String userId) {
+    if (_isDisposed) return false;
+
+    return _news.any((item) {
+      final newsItem = Map<String, dynamic>.from(item);
+      final isRepost = newsItem['is_repost'] == true;
+      final isRepostedByUser = newsItem['reposted_by'] == userId;
+      final isOriginalPost = newsItem['original_post_id'] == newsId;
+
+      return isRepost && isRepostedByUser && isOriginalPost;
+    });
+  }
+
+
+  String? getRepostIdForOriginal(String originalNewsId, String userId) {
+    if (_isDisposed) return null;
+
+    try {
+      final repost = _news.firstWhere((item) {
+        final newsItem = Map<String, dynamic>.from(item);
+        return newsItem['is_repost'] == true &&
+            newsItem['reposted_by'] == userId &&
+            newsItem['original_post_id'] == originalNewsId;
+      });
+
+      return repost['id'].toString();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String _getCurrentUserAvatarUrl(String userId) {
+    final userProfile = _userProfiles[userId];
+
+    if (userProfile?.profileImageFile != null) {
+      return userProfile!.profileImageFile!.path;
+    } else if (userProfile?.profileImageUrl != null &&
+        userProfile!.profileImageUrl!.isNotEmpty) {
+      return userProfile.profileImageUrl!;
+    } else {
+      return _getFallbackAvatarUrl(userProfile?.userName ?? 'Пользователь');
+    }
+  }
+
+
+  void _initializeInteractionManager() {
+    final interactionManager = InteractionManager();
+
+    interactionManager.setCallbacks(
+      onLike: (postId, isLiked, likesCount) {
+        // Обновляем состояние в NewsProvider
+        final index = findNewsIndexById(postId);
+        if (index != -1) {
+          updateNewsLikeStatus(index, isLiked, likesCount);
+        }
+      },
+      onBookmark: (postId, isBookmarked) {
+        final index = findNewsIndexById(postId);
+        if (index != -1) {
+          updateNewsBookmarkStatus(index, isBookmarked);
+        }
+      },
+      onRepost: (postId, isReposted, repostsCount, userId, userName) {
+        print('🔄 NewsProvider: Repost callback received');
+        print('   postId: $postId, isReposted: $isReposted');
+        print('   userId: $userId, userName: $userName');
+
+        final index = findNewsIndexById(postId);
+        if (index != -1) {
+          if (isReposted) {
+            // Создаем репост
+            print('✅ Creating repost for post $postId by user $userName');
+            repostNews(index, userId, userName);
+          } else {
+            // Отменяем репост
+            print('❌ Canceling repost for post $postId by user $userId');
+            final repostId = getRepostIdForOriginal(postId, userId);
+            if (repostId != null) {
+              cancelRepost(repostId, userId);
+            } else {
+              print('⚠️ No repost ID found for original post $postId and user $userId');
+            }
+          }
+        } else {
+          print('❌ NewsProvider: Post not found with ID $postId');
+        }
+      },
+      onComment: (postId, comment) {
+        addCommentToNews(postId, comment);
+      },
+      onCommentRemoval: (postId, commentId) {
+        final index = findNewsIndexById(postId);
+        if (index != -1) {
+          removeCommentFromNews(index, commentId);
+        }
+      },
+    );
+
+    print('✅ InteractionManager callbacks set in NewsProvider');
+  }
+
+
+// Обновленный метод toggleRepost для использования в UI
+  // ЗАМЕНИТЕ текущий метод toggleRepost на этот:
+  void toggleRepost(int index, String currentUserId, String currentUserName) {
+    if (_isDisposed || !_isValidIndex(index)) return;
+
+    final newsItem = Map<String, dynamic>.from(_news[index]);
+    final newsId = newsItem['id'].toString();
+
+    // Проверяем, не делал ли уже пользователь репост этой новости
+    final existingRepostId = getRepostIdForOriginal(newsId, currentUserId);
+
+    if (existingRepostId != null) {
+      // Отменяем существующий репост
+      cancelRepost(existingRepostId, currentUserId);
+    } else {
+      // Создаем новый репост
+      repostNews(index, currentUserId, currentUserName);
+    }
+  }
+
+// Вспомогательный метод проверки индекса
+  bool _isValidIndex(int index) {
+    return index >= 0 && index < _news.length;
   }
 
   void refreshAllPostsUserTags() {
@@ -794,7 +1238,6 @@ class NewsProvider with ChangeNotifier {
     });
   }
 
-  // ЗАМЕНИТЕ метод removeNews на этот:
   void removeNews(int index) async {
     if (_isDisposed) return;
 
@@ -1012,7 +1455,8 @@ class NewsProvider with ChangeNotifier {
   Future<List<dynamic>> getFollowedContent() async {
     if (_isDisposed) return [];
     try {
-      final followedIds = await StorageService.loadFollows();
+      if (_currentUserId == null) return [];
+      final followedIds = await StorageService.loadFollows(_currentUserId!);
       return _news.where((item) {
         try {
           final newsItem = item as Map<String, dynamic>;
@@ -1167,8 +1611,8 @@ class NewsProvider with ChangeNotifier {
       _news = [];
       _isLoading = false;
       _errorMessage = null;
-      _profileImageUrl = null;
-      _profileImageFile = null;
+      _userProfiles.clear();
+      _currentUserId = null;
       _safeNotifyListeners();
     });
 
@@ -1216,39 +1660,78 @@ class NewsProvider with ChangeNotifier {
     return List<dynamic>.from(_news);
   }
 
-  // НОВЫЙ МЕТОД: Удаление фото профиля
+  // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ПРОФИЛЕМ
   void removeProfileImage() {
-    _safeOperation(() {
-      _profileImageUrl = null;
-      _profileImageFile = null;
-      _safeNotifyListeners();
-    });
+    if (_isDisposed || _currentUserId == null) return;
+
+    final user = _userProfiles[_currentUserId!];
+    if (user == null) return;
+
+    _userProfiles[_currentUserId!] = user.copyWith(
+      profileImageUrl: null,
+      profileImageFile: null,
+    );
+
+    _safeNotifyListeners();
 
     // Очищаем в хранилище
-    StorageService.saveProfileImageUrl(null);
-    StorageService.saveProfileImageFilePath(null);
+    StorageService.saveProfileImageUrl(_currentUserId!, null);
+    StorageService.saveProfileImageFilePath(_currentUserId!, null);
 
-    print('✅ Profile image removed');
+    print('✅ Profile image removed for user $_currentUserId');
   }
 
-  // НОВЫЙ МЕТОД: Проверка наличия фото профиля
+  void removeCoverImage() {
+    if (_isDisposed || _currentUserId == null) return;
+
+    final user = _userProfiles[_currentUserId!];
+    if (user == null) return;
+
+    _userProfiles[_currentUserId!] = user.copyWith(
+      coverImageUrl: null,
+      coverImageFile: null,
+    );
+
+    _safeNotifyListeners();
+
+    // Очищаем в хранилище
+    StorageService.saveCoverImageUrl(_currentUserId!, null);
+    StorageService.saveCoverImageFilePath(_currentUserId!, null);
+
+    print('✅ Cover image removed for user $_currentUserId');
+  }
+
   bool hasProfileImage() {
-    if (_isDisposed) return false;
-    return _profileImageUrl != null || _profileImageFile != null;
+    if (_isDisposed || _currentUserId == null) return false;
+    final user = _userProfiles[_currentUserId!];
+    return user?.profileImageUrl != null || user?.profileImageFile != null;
   }
 
-  // НОВЫЙ МЕТОД: Получение текущего фото профиля (приоритет у файла)
+  bool hasCoverImage() {
+    if (_isDisposed || _currentUserId == null) return false;
+    final user = _userProfiles[_currentUserId!];
+    return user?.coverImageUrl != null || user?.coverImageFile != null;
+  }
+
   dynamic getCurrentProfileImage() {
-    if (_isDisposed) return null;
+    if (_isDisposed || _currentUserId == null) return null;
+    final user = _userProfiles[_currentUserId!];
     // Приоритет у файла, затем URL
-    if (_profileImageFile != null) return _profileImageFile;
-    if (_profileImageUrl != null && _profileImageUrl!.isNotEmpty) return _profileImageUrl;
+    if (user?.profileImageFile != null) return user!.profileImageFile;
+    if (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty) return user.profileImageUrl;
     return null;
   }
 
-  // ДОБАВИТЕ В КЛАСС NewsProvider:
+  dynamic getCurrentCoverImage() {
+    if (_isDisposed || _currentUserId == null) return null;
+    final user = _userProfiles[_currentUserId!];
+    // Приоритет у файла, затем URL
+    if (user?.coverImageFile != null) return user!.coverImageFile;
+    if (user?.coverImageUrl != null && user!.coverImageUrl!.isNotEmpty) return user.coverImageUrl;
+    return null;
+  }
 
-// НОВЫЙ МЕТОД: Получение контента по типу
+  // Получение контента по типу
   List<dynamic> getContentByType(String contentType) {
     if (_isDisposed) return [];
 
@@ -1268,7 +1751,7 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-// НОВЫЙ МЕТОД: Обновление нескольких новостей батчем
+  // Обновление нескольких новостей батчем
   void updateNewsBatch(List<Map<String, dynamic>> updates) {
     _safeOperation(() {
       for (final update in updates) {
@@ -1288,13 +1771,13 @@ class NewsProvider with ChangeNotifier {
     });
   }
 
-// НОВЫЙ МЕТОД: Проверка дубликатов
+  // Проверка дубликатов
   bool hasDuplicate(String newsId) {
     if (_isDisposed) return false;
     return _news.any((item) => item['id'].toString() == newsId);
   }
 
-// НОВЫЙ МЕТОД: Получение последних новостей
+  // Получение последних новостей
   List<dynamic> getLatestNews({int count = 10}) {
     if (_isDisposed) return [];
 
@@ -1309,7 +1792,7 @@ class NewsProvider with ChangeNotifier {
     return sortedNews.take(count).toList();
   }
 
-// НОВЫЙ МЕТОД: Получение статистики по периодам
+  // Получение статистики по периодам
   Map<String, int> getPeriodStats(Duration period) {
     if (_isDisposed) return {};
 

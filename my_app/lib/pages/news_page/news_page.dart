@@ -6,6 +6,7 @@ import 'package:my_app/pages/news_page/profile_menu_page.dart';
 import 'package:provider/provider.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../services/storage_service.dart';
 import 'dialogs.dart';
 import '../../../providers/news_provider.dart';
 import '../../../services/api_service.dart';
@@ -46,6 +47,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   late Animation<double> _fadeAnimation;
   bool _isMounted = false;
 
+  // ОБНОВИТЕ initState
   @override
   void initState() {
     super.initState();
@@ -64,6 +66,13 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!_isMounted) return;
+
+      // Устанавливаем текущего пользователя
+      _safeProviderOperation((newsProvider) {
+        final userId = _generateUserId(widget.userEmail);
+        newsProvider.setCurrentUser(userId, widget.userName, widget.userEmail);
+      });
+
       await _ensureDataPersistence();
       _loadNews(showLoading: true);
       _safeProviderOperation((newsProvider) => newsProvider.loadUserTags());
@@ -87,11 +96,16 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     }
   }
 
+// ОБНОВИТЕ ЭТОТ МЕТОД
   Future<void> _ensureDataPersistence() async {
     if (!_isMounted) return;
 
     try {
       _safeProviderOperation((newsProvider) async {
+        // Мигрируем старые данные пользователя
+        final userId = _generateUserId(widget.userEmail);
+        await StorageService.migrateOldUserData(userId);
+
         await newsProvider.ensureDataPersistence();
       });
     } catch (e) {
@@ -252,16 +266,27 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     });
   }
 
+  // ОБНОВИТЕ ЭТОТ МЕТОД
   Future<void> _toggleFollow(int index) async {
     if (!_isValidIndex(index) || !_isMounted) return;
 
     _safeProviderOperation((newsProvider) {
       final news = Map<String, dynamic>.from(newsProvider.news[index]);
       final bool isCurrentlyFollowing = news['isFollowing'] ?? false;
+      final userId = _generateUserId(widget.userEmail);
 
       try {
         HapticFeedback.mediumImpact();
         newsProvider.updateNewsFollowStatus(index, !isCurrentlyFollowing);
+
+        // Обновляем подписки в StorageService для текущего пользователя
+        final newsId = news['id'].toString();
+        if (!isCurrentlyFollowing) {
+          StorageService.addFollow(userId, newsId);
+        } else {
+          StorageService.removeFollow(userId, newsId);
+        }
+
         final isChannelPost = news['is_channel_post'] == true;
         final targetName = isChannelPost
             ? news['channel_name'] ?? 'канал'
@@ -308,23 +333,59 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   String _getUserAvatarUrl(String userName) {
-    String avatarUrl = '';
-    _safeProviderOperation((newsProvider) {
-      final currentProfileImage = newsProvider.getCurrentProfileImage();
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userId = _generateUserId(widget.userEmail);
+    final userProfile = newsProvider.getUserProfile(userId);
 
-      if (currentProfileImage is File) {
-        avatarUrl = _getFallbackAvatarUrl(userName);
-      } else if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-        avatarUrl = currentProfileImage;
-      } else {
-        avatarUrl = _getFallbackAvatarUrl(userName);
-      }
+    if (userProfile?.profileImageFile != null) {
+      return userProfile!.profileImageFile!.path;
+    } else if (userProfile?.profileImageUrl != null &&
+        userProfile!.profileImageUrl!.isNotEmpty) {
+      return userProfile.profileImageUrl!;
+    } else {
+      return _getFallbackAvatarUrl(userName);
+    }
+  }
+
+
+  // ДОБАВЬТЕ ЭТОТ МЕТОД
+  Future<List<dynamic>> _getUserFollowedNews() async {
+    if (!_isMounted) return [];
+
+    try {
+      final userId = _generateUserId(widget.userEmail);
+      final userFollows = await StorageService.loadFollows(userId);
+
+      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+      return newsProvider.news.where((item) {
+        final newsItem = Map<String, dynamic>.from(item);
+        final newsId = newsItem['id'].toString();
+        return userFollows.contains(newsId);
+      }).toList();
+    } catch (e) {
+      print('❌ Error loading user follows: $e');
+      return [];
+    }
+  }
+
+
+
+  void _onUserChanged() {
+    if (!_isMounted) return;
+
+    _safeProviderOperation((newsProvider) {
+      final userId = _generateUserId(widget.userEmail);
+      newsProvider.setCurrentUser(userId, widget.userName, widget.userEmail);
+
+      // Перезагружаем данные для нового пользователя
+      _loadNews(showLoading: true);
     });
-    return avatarUrl;
   }
 
   // ИСПРАВЛЕНИЕ: Улучшенный метод создания новости
   // ИСПРАВЛЕННЫЙ МЕТОД: Создание новости с ПУСТЫМИ тегами
+  // ИСПРАВЛЕННЫЙ МЕТОД: Создание новости с ПРАВИЛЬНЫМ аватаром
+  // ИСПРАВЛЕННЫЙ МЕТОД: Создание новости с ПРАВИЛЬНЫМ аватаром
   Future<void> _addNews(String title, String description, String hashtags) async {
     if (description.isEmpty || !_isMounted) return;
 
@@ -340,11 +401,14 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'hashtags': hashtagsArray,
       });
 
-      // УБИРАЕМ дефолтные теги - используем ПУСТЫЕ теги
+      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Используем аватар ТЕКУЩЕГО пользователя для его постов
+      final currentUserAvatar = _getCurrentUserAvatarUrl();
+      print('👤 Создание поста от пользователя: ${widget.userName} с аватаром: $currentUserAvatar');
+
       final Map<String, dynamic> newsItem = _convertToStringDynamicMap({
         ...newNews,
         'author_name': widget.userName,
-        'author_avatar': _getUserAvatarUrl(widget.userName),
+        'author_avatar': currentUserAvatar, // ← ИСПРАВЛЕНО: используем аватар текущего пользователя
         'isLiked': false,
         'isBookmarked': false,
         'isFollowing': false,
@@ -363,6 +427,10 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     } catch (e) {
       print('❌ Ошибка создания новости: $e');
 
+      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Используем аватар ТЕКУЩЕГО пользователя для локальной новости
+      final currentUserAvatar = _getCurrentUserAvatarUrl();
+      print('👤 Создание локального поста от пользователя: ${widget.userName} с аватаром: $currentUserAvatar');
+
       // ТОЛЬКО В СЛУЧАЕ ОШИБКИ создаем локальную новость с ПУСТЫМИ тегами
       final Map<String, dynamic> localNewsItem = _convertToStringDynamicMap({
         'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
@@ -370,7 +438,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'description': description.trim(),
         'hashtags': hashtagsArray,
         'author_name': widget.userName,
-        'author_avatar': _getUserAvatarUrl(widget.userName),
+        'author_avatar': currentUserAvatar, // ← ИСПРАВЛЕНО: используем аватар текущего пользователя
         'likes': 0,
         'comments': [],
         // ВАЖНОЕ ИЗМЕНЕНИЕ: используем ПУСТЫЕ теги вместо дефолтных
@@ -393,6 +461,26 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     }
   }
 
+// НОВЫЙ МЕТОД: Получение аватара текущего пользователя
+  String _getCurrentUserAvatarUrl() {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userId = _generateUserId(widget.userEmail);
+    final userProfile = newsProvider.getUserProfile(userId);
+
+    if (userProfile?.profileImageFile != null) {
+      return userProfile!.profileImageFile!.path;
+    } else if (userProfile?.profileImageUrl != null &&
+        userProfile!.profileImageUrl!.isNotEmpty) {
+      return userProfile.profileImageUrl!;
+    } else {
+      return _getFallbackAvatarUrl(widget.userName);
+    }
+  }
+  String _generateUserId(String email) {
+    return 'user_${email.hashCode.abs()}';
+  }
+
+// Обновленный метод получения fallback аватара
   String _getFallbackAvatarUrl(String userName) {
     // Используем локальный генератор аватаров вместо внешнего сервиса
     final name = userName.isNotEmpty ? userName : 'User';
@@ -410,9 +498,29 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     final colorIndex = name.codeUnits.reduce((a, b) => a + b) % colors.length;
     final color = colors[colorIndex];
 
-    // Возвращаем прозрачный цвет, так как будем использовать Text аватар
-    return ''; // Пустая строка, будем использовать Text виджет
+    // Используем локальные аватарки для консистентности
+    final avatars = [
+      'assets/images/ava_news/ava1.png',
+      'assets/images/ava_news/ava2.png',
+      'assets/images/ava_news/ava3.png',
+      'assets/images/ava_news/ava4.png',
+      'assets/images/ava_news/ava5.png',
+      'assets/images/ava_news/ava6.png',
+      'assets/images/ava_news/ava7.png',
+      'assets/images/ava_news/ava8.png',
+      'assets/images/ava_news/ava9.png',
+      'assets/images/ava_news/ava10.png',
+      'assets/images/ava_news/ava11.png',
+      'assets/images/ava_news/ava12.png',
+    ];
+
+    final index = userName.hashCode.abs() % avatars.length;
+    final selectedAvatar = avatars[index];
+
+    print('🎲 Generated fallback avatar for $userName: $selectedAvatar (index: $index)');
+    return selectedAvatar;
   }
+
 
   Map<String, dynamic> _convertToStringDynamicMap(Map<dynamic, dynamic> input) {
     final Map<String, dynamic> result = {};
@@ -425,7 +533,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       } else if (value is List) {
         result[stringKey] = _convertList(value);
       } else {
-        result[stringKey] = value;
+        // ВАЖНО: Сохраняем специальные поля как есть (особенно author_avatar)
+        if (stringKey == 'author_avatar' && value is String) {
+          result[stringKey] = value; // Сохраняем аватар как есть
+        } else {
+          result[stringKey] = value;
+        }
       }
     });
 
@@ -634,12 +747,11 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         }).toList();
         break;
       case 4: // Подписки
+      // Временно используем старый метод для совместимости
         filtered = filtered.where((item) {
           final newsItem = Map<String, dynamic>.from(item);
           return newsItem['isFollowing'] == true;
         }).toList();
-        break;
-      default: // Все новости
         break;
     }
 
@@ -686,10 +798,17 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   // ОБНОВЛЕННЫЙ МЕТОД: Открытие страницы профиля вместо модального окна
+  // ОБНОВИТЕ ЭТОТ МЕТОД
   void _showProfilePage(BuildContext context) {
     if (!_isMounted) return;
 
     _safeProviderOperation((newsProvider) {
+      final userId = _generateUserId(widget.userEmail);
+      final userProfile = newsProvider.getUserProfile(userId);
+
+      // Устанавливаем текущего пользователя перед открытием профиля
+      newsProvider.setCurrentUser(userId, widget.userName, widget.userEmail);
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -697,20 +816,29 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
             userName: widget.userName,
             userEmail: widget.userEmail,
             onLogout: () {
-              // Возвращаемся на предыдущую страницу перед выходом
               if (_isMounted) {
                 Navigator.pop(context);
                 widget.onLogout();
               }
             },
             newMessagesCount: 3,
-            profileImageUrl: newsProvider.profileImageUrl,
-            profileImageFile: newsProvider.profileImageFile,
+            profileImageUrl: userProfile?.profileImageUrl,
+            profileImageFile: userProfile?.profileImageFile,
             onProfileImageUrlChanged: (url) {
+              final currentUserId = _generateUserId(widget.userEmail);
               _safeProviderOperation((provider) => provider.updateProfileImageUrl(url));
             },
             onProfileImageFileChanged: (file) {
+              final currentUserId = _generateUserId(widget.userEmail);
               _safeProviderOperation((provider) => provider.updateProfileImageFile(file));
+            },
+            onCoverImageUrlChanged: (url) {
+              final currentUserId = _generateUserId(widget.userEmail);
+              _safeProviderOperation((provider) => provider.updateCoverImageUrl(url));
+            },
+            onCoverImageFileChanged: (file) {
+              final currentUserId = _generateUserId(widget.userEmail);
+              _safeProviderOperation((provider) => provider.updateCoverImageFile(file));
             },
             onMessagesTap: () {
               if (_isMounted) {
@@ -741,7 +869,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       );
     });
   }
-
   // ========== НОВЫЕ ФУНКЦИИ ==========
 
   void _scrollToTop() {
@@ -1030,6 +1157,17 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         },
       ),
     );
+  }
+
+
+  @override
+  void didUpdateWidget(NewsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Если пользователь изменился
+    if (oldWidget.userEmail != widget.userEmail) {
+      _onUserChanged();
+    }
   }
 
   @override

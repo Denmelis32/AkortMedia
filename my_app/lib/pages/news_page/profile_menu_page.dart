@@ -22,6 +22,8 @@ class ProfilePage extends StatefulWidget {
   final File? profileImageFile;
   final Function(String?)? onProfileImageUrlChanged;
   final Function(File?)? onProfileImageFileChanged;
+  final Function(String?)? onCoverImageUrlChanged;
+  final Function(File?)? onCoverImageFileChanged;
   final VoidCallback? onMessagesTap;
   final VoidCallback? onSettingsTap;
   final VoidCallback? onHelpTap;
@@ -37,6 +39,8 @@ class ProfilePage extends StatefulWidget {
     this.profileImageFile,
     this.onProfileImageUrlChanged,
     this.onProfileImageFileChanged,
+    this.onCoverImageUrlChanged,
+    this.onCoverImageFileChanged,
     this.onMessagesTap,
     this.onSettingsTap,
     this.onHelpTap,
@@ -54,9 +58,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String _searchQuery = '';
   int _selectedSection = 0; // 0 - Мои посты, 1 - Понравилось, 2 - Информация
 
-  // Переменные для обложки
-  File? _coverImageFile;
-  String? _coverImageUrl;
+
 
   // ТАКИЕ ЖЕ ОТСТУПЫ КАК В КАРТОЧКАХ НОВОСТЕЙ
   double _getHorizontalPadding(BuildContext context) {
@@ -77,6 +79,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    _setCurrentUser();
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase().trim();
@@ -85,23 +88,300 @@ class _ProfilePageState extends State<ProfilePage> {
 
     // УСТАНАВЛИВАЕМ АВАТАРКУ И ОБЛОЖКУ ПО УМОЛЧАНИЮ ПРИ ЗАГРУЗКЕ
     _setDefaultImages();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _debugReposts(); // Добавьте этот вызов для отладки
+    });
   }
+
+
+
+  void _debugReposts() {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userId = _generateUserId(widget.userEmail);
+
+    print('=== DEBUG REPOSTS ===');
+    print('User ID: $userId');
+    print('Total news: ${newsProvider.news.length}');
+
+    final allReposts = newsProvider.news.where((item) {
+      final newsItem = Map<String, dynamic>.from(item);
+      return newsItem['is_repost'] == true;
+    }).toList();
+
+    print('Total reposts in system: ${allReposts.length}');
+
+    for (final repost in allReposts) {
+      final repostItem = Map<String, dynamic>.from(repost);
+      print('Repost: ${repostItem['id']} by ${repostItem['reposted_by']}');
+    }
+
+    final userReposts = _getUserReposts(newsProvider.news);
+    print('User reposts count: ${userReposts.length}');
+    print('=== END DEBUG ===');
+  }
+
+
+
+  void _setCurrentUser() {
+    // Создаем уникальный ID пользователя на основе email
+    final userId = _generateUserId(widget.userEmail);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+      newsProvider.setCurrentUser(userId, widget.userName, widget.userEmail);
+    });
+  }
+
+  // Метод для генерации ID пользователя
+  String _generateUserId(String email) {
+    // Простой способ генерации ID пользователя
+    return 'user_${email.hashCode.abs()}';
+  }
+
+
+  List<dynamic> _getUserReposts(List<dynamic> news) {
+    final userId = _generateUserId(widget.userEmail);
+
+    print('🔍 Searching reposts for user: $userId');
+    print('📊 Total news items: ${news.length}');
+
+    final reposts = news.where((item) {
+      try {
+        final newsItem = Map<String, dynamic>.from(item);
+        final isRepost = newsItem['is_repost'] == true;
+        final repostedBy = newsItem['reposted_by']?.toString();
+
+        final isUserRepost = isRepost && repostedBy == userId;
+
+        if (isUserRepost) {
+          print('✅ Found user repost: ${newsItem['id']} - ${newsItem['title']}');
+        }
+
+        return isUserRepost;
+      } catch (e) {
+        print('❌ Error checking repost: $e');
+        return false;
+      }
+    }).toList();
+
+    print('📊 Total reposts found for user $userId: ${reposts.length}');
+
+    // Дополнительная проверка - логируем все найденные репосты
+    for (final repost in reposts) {
+      final repostItem = Map<String, dynamic>.from(repost);
+      print('📋 Repost details:');
+      print('   ID: ${repostItem['id']}');
+      print('   Title: ${repostItem['title']}');
+      print('   Reposted by: ${repostItem['reposted_by']}');
+      print('   Original post: ${repostItem['original_post_id']}');
+    }
+
+    return reposts;
+  }
+
+  void _showCoverPickerModal(BuildContext context) async {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userId = _generateUserId(widget.userEmail);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Выберите обложку профиля',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildCoverSourceButton(
+                context,
+                Icons.link_rounded,
+                'Загрузить по ссылке',
+                Colors.purple,
+                    () => _showCoverUrlInputDialog(context),
+              ),
+              const SizedBox(height: 12),
+              _buildCoverSourceButton(
+                context,
+                Icons.photo_library_rounded,
+                'Выбрать из галереи',
+                Colors.blue,
+                    () => _pickCoverImage(ImageSource.gallery, context),
+              ),
+              const SizedBox(height: 12),
+              _buildCoverSourceButton(
+                context,
+                Icons.photo_camera_rounded,
+                'Сделать фото',
+                Colors.green,
+                    () => _pickCoverImage(ImageSource.camera, context),
+              ),
+              const SizedBox(height: 12),
+              if (_getUserCoverUrl() != null) // ИСПРАВЬТЕ ЭТУ ПРОВЕРКУ
+                _buildCoverSourceButton(
+                  context,
+                  Icons.delete_rounded,
+                  'Удалить обложку',
+                  Colors.red,
+                      () async {
+                    await newsProvider.updateCoverImageUrl(null);
+                    await newsProvider.updateCoverImageFile(null);
+                    Navigator.pop(context);
+                    if (context.mounted) {
+                      _showSuccessSnackBar('Обложка профиля удалена');
+                    }
+                  },
+                ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey[700],
+                    side: BorderSide(color: Colors.grey[300]!),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('Отмена'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  void _showImagePickerModal(BuildContext context) {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userId = _generateUserId(widget.userEmail);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Выберите фото профиля',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildImageSourceButton(
+                context,
+                Icons.link_rounded,
+                'Загрузить по ссылке',
+                Colors.purple,
+                    () => _showUrlInputDialog(context),
+              ),
+              const SizedBox(height: 12),
+              _buildImageSourceButton(
+                context,
+                Icons.photo_library_rounded,
+                'Выбрать из галереи',
+                Colors.blue,
+                    () => _pickImage(ImageSource.gallery, context),
+              ),
+              const SizedBox(height: 12),
+              _buildImageSourceButton(
+                context,
+                Icons.photo_camera_rounded,
+                'Сделать фото',
+                Colors.green,
+                    () => _pickImage(ImageSource.camera, context),
+              ),
+              const SizedBox(height: 12),
+              if (widget.profileImageUrl != null || widget.profileImageFile != null)
+                _buildImageSourceButton(
+                  context,
+                  Icons.delete_rounded,
+                  'Удалить фото',
+                  Colors.red,
+                      () async {
+                    await newsProvider.updateProfileImageUrl(null);
+                    await newsProvider.updateProfileImageFile(null);
+                    Navigator.pop(context);
+                    if (context.mounted) {
+                      _showSuccessSnackBar('Фото профиля удалено');
+                    }
+                  },
+                ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey[700],
+                    side: BorderSide(color: Colors.grey[300]!),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('Отмена'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+
+
 
   // МЕТОД ДЛЯ УСТАНОВКИ ИЗОБРАЖЕНИЙ ПО УМОЛЧАНИЮ
   void _setDefaultImages() {
-    // Устанавливаем дефолтную обложку
-    _coverImageUrl = 'https://avatars.mds.yandex.net/i?id=fc2d5ddfd92d5662c03d983973cd433e_l-9044992-images-thumbs&n=13';
 
-    // Если нет установленной аватарки, устанавливаем дефолтную
-    if (widget.profileImageUrl == null && widget.profileImageFile == null) {
-      // Генерируем аватарку на основе имени пользователя
-      final encodedName = Uri.encodeComponent(widget.userName);
-      final defaultAvatarUrl = 'https://cdn.images.express.co.uk/img/dynamic/67/1200x630/5976229.jpg';
-
-      if (widget.onProfileImageUrlChanged != null) {
-        widget.onProfileImageUrlChanged!(defaultAvatarUrl);
-      }
-    }
   }
 
   @override
@@ -287,7 +567,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildSelectedSectionSliver(NewsProvider newsProvider) {
     final myPosts = newsProvider.news.where((item) {
       final newsItem = Map<String, dynamic>.from(item);
-      return newsItem['author_name'] == widget.userName;
+      return newsItem['author_name'] == widget.userName &&
+          newsItem['is_repost'] != true; // Исключаем репосты из "Мои посты"
     }).toList();
 
     final likedPosts = newsProvider.news.where((item) {
@@ -295,17 +576,93 @@ class _ProfilePageState extends State<ProfilePage> {
       return newsItem['isLiked'] == true;
     }).toList();
 
+    final repostedPosts = _getUserReposts(newsProvider.news); // Репосты пользователя
+
     switch (_selectedSection) {
       case 0:
         return _buildPostsSectionSliver(myPosts, newsProvider);
       case 1:
         return _buildLikedPostsSectionSliver(likedPosts, newsProvider);
-      case 2:
+      case 2: // Новая секция репостов
+        return _buildRepostsSectionSliver(repostedPosts, newsProvider);
+      case 3:
         return _buildInfoSectionSliver();
       default:
         return _buildPostsSectionSliver(myPosts, newsProvider);
     }
   }
+
+
+  Widget _buildRepostsSectionSliver(List<dynamic> reposts, NewsProvider newsProvider) {
+    if (reposts.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Container(
+          margin: EdgeInsets.only(
+            left: _getHorizontalPadding(context),
+            right: _getHorizontalPadding(context),
+            bottom: 16,
+          ),
+          constraints: BoxConstraints(maxWidth: _getContentMaxWidth(context)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: _buildEmptyState(
+            icon: Icons.repeat_rounded,
+            title: 'Пока нет репостов',
+            subtitle: 'Репостните интересные посты, чтобы они появились здесь',
+          ),
+        ),
+      );
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+            (context, index) {
+          final newsItem = Map<String, dynamic>.from(reposts[index]);
+
+          return NewsCard(
+            key: ValueKey('repost-${newsItem['id']}-$index'),
+            news: newsItem,
+            onLike: () => _handleLike(_getSafeNewsIndex(newsItem, newsProvider), newsProvider),
+            onBookmark: () => _handleBookmark(_getSafeNewsIndex(newsItem, newsProvider), newsProvider),
+            onFollow: () => _handleFollow(_getSafeNewsIndex(newsItem, newsProvider), newsProvider),
+            onComment: (text, userName, userAvatar) => _handleComment(
+              _getSafeNewsIndex(newsItem, newsProvider),
+              text,
+              userName,
+              userAvatar,
+              newsProvider,
+            ),
+            onRepost: () => _handleRepost(_getSafeNewsIndex(newsItem, newsProvider), newsProvider),
+            onEdit: () => _handleEdit(_getSafeNewsIndex(newsItem, newsProvider), context),
+            onDelete: () => _handleDelete(_getSafeNewsIndex(newsItem, newsProvider), newsProvider),
+            onShare: () => _handleShare(_getSafeNewsIndex(newsItem, newsProvider), context),
+            onTagEdit: (tagId, newTagName, color) => _handleTagEdit(
+              _getSafeNewsIndex(newsItem, newsProvider),
+              tagId,
+              newTagName,
+              color,
+              newsProvider,
+            ),
+            formatDate: formatDate,
+            getTimeAgo: getTimeAgo,
+            scrollController: _scrollController,
+            onLogout: widget.onLogout,
+          );
+        },
+        childCount: reposts.length,
+      ),
+    );
+  }
+
 
   Widget _buildPostsSectionSliver(List<dynamic> posts, NewsProvider newsProvider) {
     if (posts.isEmpty) {
@@ -930,7 +1287,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 16),
 
-          // Вкладки
+          // Вкладки - добавьте новую вкладку "Репосты"
           Container(
             height: 44,
             decoration: BoxDecoration(
@@ -945,7 +1302,8 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 _buildTab('Мои посты', 0),
                 _buildTab('Понравилось', 1),
-                _buildTab('Информация', 2),
+                _buildTab('Репосты', 2),
+                _buildTab('Информация', 3),
               ],
             ),
           ),
@@ -953,6 +1311,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
 
   Widget _buildTab(String text, int index) {
     final isActive = _selectedSection == index;
@@ -975,7 +1334,15 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => setState(() => _selectedSection = index),
+            onTap: () {
+              setState(() => _selectedSection = index);
+              // При переходе на вкладку репостов обновляем данные
+              if (index == 2) {
+                _debugReposts();
+                // Принудительно обновляем состояние
+                if (mounted) setState(() {});
+              }
+            },
             borderRadius: BorderRadius.circular(8),
             child: Center(
               child: Text(
@@ -992,6 +1359,11 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
+
+
+
+
 
   Widget _buildInfoSection() {
     return Padding(
@@ -1162,29 +1534,43 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ИЗОБРАЖЕНИЙ
   String? _getUserCoverUrl() {
-    if (_coverImageFile != null) {
-      return _coverImageFile!.path;
-    } else if (_coverImageUrl != null && _coverImageUrl!.isNotEmpty) {
-      return _coverImageUrl;
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userId = _generateUserId(widget.userEmail);
+    final userProfile = newsProvider.getUserProfile(userId);
+
+    if (userProfile?.coverImageFile != null) {
+      return userProfile!.coverImageFile!.path;
+    } else if (userProfile?.coverImageUrl != null &&
+        userProfile!.coverImageUrl!.isNotEmpty) {
+      return userProfile.coverImageUrl;
     }
-    // Обложка по умолчанию
+
+    // Обложка по умолчанию для этого пользователя
     return 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400';
   }
 
   Widget _getProfileImageWidget() {
-    if (widget.profileImageFile != null) {
-      return Image.file(widget.profileImageFile!, fit: BoxFit.cover);
-    } else if (widget.profileImageUrl != null && widget.profileImageUrl!.isNotEmpty) {
-      return Image.network(
-        widget.profileImageUrl!,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
+    return Consumer<NewsProvider>(
+      builder: (context, newsProvider, child) {
+        final userId = _generateUserId(widget.userEmail);
+        final userProfile = newsProvider.getUserProfile(userId);
+
+        if (userProfile?.profileImageFile != null) {
+          return Image.file(userProfile!.profileImageFile!, fit: BoxFit.cover);
+        } else if (userProfile?.profileImageUrl != null &&
+            userProfile!.profileImageUrl!.isNotEmpty) {
+          return Image.network(
+            userProfile.profileImageUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildDefaultAvatar();
+            },
+          );
+        } else {
           return _buildDefaultAvatar();
-        },
-      );
-    } else {
-      return _buildDefaultAvatar();
-    }
+        }
+      },
+    );
   }
 
   Widget _buildDefaultAvatar() {
@@ -1253,12 +1639,14 @@ class _ProfilePageState extends State<ProfilePage> {
         imageQuality: 85,
       );
       if (image != null) {
-        setState(() {
-          _coverImageFile = File(image.path);
-          _coverImageUrl = null;
-        });
+        final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+        final userId = _generateUserId(widget.userEmail);
+
+        await newsProvider.updateCoverImageFile(File(image.path));
+
         if (context.mounted) {
           _showSuccessSnackBar('Обложка профиля обновлена');
+          Navigator.pop(context); // Закрываем модальное окно
         }
       }
     } catch (e) {
@@ -1266,105 +1654,6 @@ class _ProfilePageState extends State<ProfilePage> {
         _showErrorSnackBar('Ошибка: $e');
       }
     }
-  }
-
-  void _showCoverPickerModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Выберите обложку профиля',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildCoverSourceButton(
-                context,
-                Icons.link_rounded,
-                'Загрузить по ссылке',
-                Colors.purple,
-                    () => _showCoverUrlInputDialog(context),
-              ),
-              const SizedBox(height: 12),
-              _buildCoverSourceButton(
-                context,
-                Icons.photo_library_rounded,
-                'Выбрать из галереи',
-                Colors.blue,
-                    () => _pickCoverImage(ImageSource.gallery, context),
-              ),
-              const SizedBox(height: 12),
-              _buildCoverSourceButton(
-                context,
-                Icons.photo_camera_rounded,
-                'Сделать фото',
-                Colors.green,
-                    () => _pickCoverImage(ImageSource.camera, context),
-              ),
-              const SizedBox(height: 12),
-              if (_coverImageUrl != null || _coverImageFile != null)
-                _buildCoverSourceButton(
-                  context,
-                  Icons.delete_rounded,
-                  'Удалить обложку',
-                  Colors.red,
-                      () {
-                    setState(() {
-                      _coverImageFile = null;
-                      _coverImageUrl = null;
-                    });
-                    Navigator.pop(context);
-                    if (context.mounted) {
-                      _showSuccessSnackBar('Обложка профиля удалена');
-                    }
-                  },
-                ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.grey[700],
-                    side: BorderSide(color: Colors.grey[300]!),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text('Отмена'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ).then((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
   }
 
   Widget _buildCoverSourceButton(BuildContext context, IconData icon, String text, Color color, VoidCallback onTap) {
@@ -1448,13 +1737,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     finalUrl = 'https://$url';
                   }
 
-                  setState(() {
-                    _coverImageUrl = finalUrl;
-                    _coverImageFile = null;
-                  });
+                  final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+                  final userId = _generateUserId(widget.userEmail);
 
-                  Navigator.pop(context);
-                  Navigator.pop(context);
+                  await newsProvider.updateCoverImageUrl(finalUrl);
+
+                  Navigator.pop(context); // Закрываем диалог
+                  Navigator.pop(context); // Закрываем модальное окно
 
                   _showSuccessSnackBar('Обложка установлена!');
 
@@ -1482,7 +1771,6 @@ class _ProfilePageState extends State<ProfilePage> {
     final newsId = newsItem['id'].toString();
     return newsProvider.findNewsIndexById(newsId);
   }
-
   void _handleLike(int index, NewsProvider newsProvider) {
     if (index == -1) return;
 
@@ -1495,6 +1783,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
     _showSuccessSnackBar('Лайк обновлен');
   }
+
+
+
+
+
+
 
   void _handleBookmark(int index, NewsProvider newsProvider) {
     if (index == -1) return;
@@ -1515,15 +1809,80 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final news = Map<String, dynamic>.from(newsProvider.news[index]);
     final newsId = news['id'].toString();
+    final userId = _generateUserId(widget.userEmail);
 
-    // Используем InteractionManager
+    print('🔄 ProfilePage: Handling repost for post: $newsId');
+    print('   User: $userId (${widget.userName})');
+    print('   Current repost state: ${news['isReposted'] ?? false}');
+
+    // Используем InteractionManager с передачей параметров пользователя
     final interactionManager = InteractionManager();
-    interactionManager.toggleRepost(newsId);
+    interactionManager.toggleRepost(
+      newsId,
+      currentUserId: userId,
+      currentUserName: widget.userName,
+    );
 
-    final isCurrentlyReposted = news['isReposted'] ?? false;
-    _showSuccessSnackBar(!isCurrentlyReposted ? '🔁 Новость репостнута' : '❌ Репост отменен');
+    // Принудительно обновляем состояние
+    setState(() {});
+
+    print('✅ Repost action completed for post $newsId');
   }
 
+
+  // Добавьте этот метод в _ProfilePageState для проверки
+  void _checkReposts() {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userId = _generateUserId(widget.userEmail);
+
+    print('🔍 Checking reposts for user: $userId');
+
+    final allReposts = newsProvider.news.where((item) {
+      final newsItem = Map<String, dynamic>.from(item);
+      return newsItem['is_repost'] == true;
+    }).toList();
+
+    print('📊 Total reposts in system: ${allReposts.length}');
+
+    final userReposts = allReposts.where((item) {
+      final newsItem = Map<String, dynamic>.from(item);
+      return newsItem['reposted_by'] == userId;
+    }).toList();
+
+    print('👤 Reposts by current user: ${userReposts.length}');
+
+    for (final repost in userReposts) {
+      final repostItem = Map<String, dynamic>.from(repost);
+      print('   - ${repostItem['id']}: ${repostItem['title']}');
+    }
+
+    // Вызываем при смене вкладки
+    if (_selectedSection == 2) { // Вкладка репостов
+      _checkReposts();
+    }
+  }
+
+
+  // Добавьте этот метод в _ProfilePageState для отладки
+  void _debugUserData() {
+    final userId = _generateUserId(widget.userEmail);
+    print('👤 Debug user data:');
+    print('   Name: ${widget.userName}');
+    print('   Email: ${widget.userEmail}');
+    print('   Generated ID: $userId');
+
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final allReposts = newsProvider.news.where((item) {
+      final newsItem = Map<String, dynamic>.from(item);
+      return newsItem['is_repost'] == true;
+    }).toList();
+
+    print('📊 Total reposts in system: ${allReposts.length}');
+    for (final repost in allReposts) {
+      final repostItem = Map<String, dynamic>.from(repost);
+      print('   - ${repostItem['id']} by ${repostItem['reposted_by']} (${repostItem['reposted_by_name']})');
+    }
+  }
   void _handleComment(int index, String commentText, String userName, String userAvatar, NewsProvider newsProvider) {
     if (index == -1 || commentText.trim().isEmpty) return;
 
@@ -1713,13 +2072,15 @@ class _ProfilePageState extends State<ProfilePage> {
         maxHeight: 512,
         imageQuality: 85,
       );
-      if (image != null && widget.onProfileImageFileChanged != null) {
-        widget.onProfileImageFileChanged!(File(image.path));
-        if (widget.onProfileImageUrlChanged != null) {
-          widget.onProfileImageUrlChanged!(null);
-        }
+      if (image != null) {
+        final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+        final userId = _generateUserId(widget.userEmail);
+
+        await newsProvider.updateProfileImageFile(File(image.path));
+
         if (context.mounted) {
           _showSuccessSnackBar('Фото профиля обновлено');
+          Navigator.pop(context); // Закрываем модальное окно
         }
       }
     } catch (e) {
@@ -1729,106 +2090,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _showImagePickerModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Выберите фото профиля',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildImageSourceButton(
-                context,
-                Icons.link_rounded,
-                'Загрузить по ссылке',
-                Colors.purple,
-                    () => _showUrlInputDialog(context),
-              ),
-              const SizedBox(height: 12),
-              _buildImageSourceButton(
-                context,
-                Icons.photo_library_rounded,
-                'Выбрать из галереи',
-                Colors.blue,
-                    () => _pickImage(ImageSource.gallery, context),
-              ),
-              const SizedBox(height: 12),
-              _buildImageSourceButton(
-                context,
-                Icons.photo_camera_rounded,
-                'Сделать фото',
-                Colors.green,
-                    () => _pickImage(ImageSource.camera, context),
-              ),
-              const SizedBox(height: 12),
-              if (widget.profileImageUrl != null || widget.profileImageFile != null)
-                _buildImageSourceButton(
-                  context,
-                  Icons.delete_rounded,
-                  'Удалить фото',
-                  Colors.red,
-                      () {
-                    if (widget.onProfileImageFileChanged != null) {
-                      widget.onProfileImageFileChanged!(null);
-                    }
-                    if (widget.onProfileImageUrlChanged != null) {
-                      widget.onProfileImageUrlChanged!(null);
-                    }
-                    Navigator.pop(context);
-                    if (context.mounted) {
-                      _showSuccessSnackBar('Фото профиля удалено');
-                    }
-                  },
-                ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.grey[700],
-                    side: BorderSide(color: Colors.grey[300]!),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text('Отмена'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ).then((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-  }
+
 
   Widget _buildImageSourceButton(BuildContext context, IconData icon, String text, Color color, VoidCallback onTap) {
     return Material(
@@ -1911,15 +2173,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     finalUrl = 'https://$url';
                   }
 
-                  if (widget.onProfileImageUrlChanged != null) {
-                    widget.onProfileImageUrlChanged!(finalUrl);
-                  }
-                  if (widget.onProfileImageFileChanged != null) {
-                    widget.onProfileImageFileChanged!(null);
-                  }
+                  final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+                  final userId = _generateUserId(widget.userEmail);
 
-                  Navigator.pop(context);
-                  Navigator.pop(context);
+                  await newsProvider.updateProfileImageUrl(finalUrl);
+
+                  Navigator.pop(context); // Закрываем диалог
+                  Navigator.pop(context); // Закрываем модальное окно
 
                   _showSuccessSnackBar('Фото установлено!');
 

@@ -588,13 +588,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     widget.onBookmark?.call();
   }
 
-  void _handleRepost() {
-    final postId = _getStringValue(widget.news['id']);
-    _interactionManager.toggleRepost(postId);
-
-    widget.onRepost?.call();
-  }
-
   void _handleComment(String text, String author, String avatar) {
     final postId = _getStringValue(widget.news['id']);
     _interactionManager.addComment(
@@ -769,6 +762,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  String _generateUserId(String email) {
+    if (email.isEmpty) return 'user_${DateTime.now().millisecondsSinceEpoch}';
+    return 'user_${email.hashCode.abs()}';
+  }
+
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -780,7 +778,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  // ИСПРАВЛЕННЫЙ МЕТОД: Получение аватара пользователя
   String _getUserAvatarUrl(String userName, {bool isCurrentUser = false}) {
+    // ЕСЛИ ЭТО ТЕКУЩИЙ ПОЛЬЗОВАТЕЛЬ - используем его реальный аватар
     if (isCurrentUser) {
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
       final currentProfileImage = newsProvider.getCurrentProfileImage();
@@ -793,8 +793,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       }
     }
 
-    // Для демо-данных используем локальные аватарки
-    // В реальном приложении здесь может быть URL из API
+    // ЕСЛИ ЭТО ДРУГОЙ ПОЛЬЗОВАТЕЛЬ - используем аватар ИЗ ДАННЫХ НОВОСТИ
+    final authorAvatarFromNews = _getStringValue(widget.news['author_avatar']);
+    if (authorAvatarFromNews.isNotEmpty) {
+      return authorAvatarFromNews;
+    }
+
+
+
+    // Fallback на локальные аватарки на основе имени пользователя
     final avatars = [
       'assets/images/ava_news/ava1.png',
       'assets/images/ava_news/ava2.png',
@@ -918,10 +925,103 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           ],
         ),
         child: ClipOval(
-          child: _buildImageWidgetWithFallback(
-              avatarUrl,
-              displayName,
-              size: size
+          child: _buildAvatarWidget(avatarUrl, displayName, size: size),
+        ),
+      ),
+    );
+  }
+
+// НОВЫЙ МЕТОД: Построение виджета аватара с улучшенной логикой
+  Widget _buildAvatarWidget(String avatarUrl, String displayName, {double? size}) {
+    if (avatarUrl.isEmpty) {
+      return _buildTextAvatar(displayName, size: size);
+    }
+
+    try {
+      // ПЕРВЫЙ ПРИОРИТЕТ: Локальные assets
+      if (avatarUrl.startsWith('assets/')) {
+        return Image.asset(
+          avatarUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Asset avatar error: $error for path: $avatarUrl');
+            return _buildTextAvatar(displayName, size: size);
+          },
+        );
+      }
+      // ВТОРОЙ ПРИОРИТЕТ: Локальные файлы
+      else if (avatarUrl.startsWith('/') || avatarUrl.contains(RegExp(r'[a-zA-Z]:\\'))) {
+        return Image.file(
+          File(avatarUrl),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ File avatar error: $error for path: $avatarUrl');
+            return _buildTextAvatar(displayName, size: size);
+          },
+        );
+      }
+      // ТРЕТИЙ ПРИОРИТЕТ: Сетевые изображения
+      else if (avatarUrl.startsWith('http')) {
+        return CachedNetworkImage(
+          imageUrl: avatarUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => _buildLoadingPlaceholder(width: size, height: size),
+          errorWidget: (context, url, error) {
+            print('❌ Network avatar error: $error for URL: $url');
+            return _buildTextAvatar(displayName, size: size);
+          },
+        );
+      }
+      // ПОСЛЕДНИЙ ВАРИАНТ: Пробуем как asset
+      else {
+        return Image.asset(
+          avatarUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Avatar loading failed: $error for path: $avatarUrl');
+            return _buildTextAvatar(displayName, size: size);
+          },
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading avatar: $e');
+      return _buildTextAvatar(displayName, size: size);
+    }
+  }
+
+// НОВЫЙ МЕТОД: Текстовый аватар как fallback
+  Widget _buildTextAvatar(String displayName, {double? size}) {
+    final firstLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+    ];
+    final colorIndex = displayName.hashCode.abs() % colors.length;
+    final color = colors[colorIndex];
+
+    return Container(
+      width: size,
+      height: size,
+      color: color,
+      child: Center(
+        child: Text(
+          firstLetter,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: (size ?? 40) * 0.4,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -1088,217 +1188,167 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
     final channelName = _getStringValue(widget.news['channel_name']);
     final channelId = _getStringValue(widget.news['channel_id']);
+    final isRepost = _getBoolValue(widget.news['is_repost']);
+    final repostedByName = _getStringValue(widget.news['reposted_by_name']);
+    final originalAuthor = _getStringValue(widget.news['original_author']);
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     String authorAvatar;
     String displayName;
 
-    if (isChannelPost && channelId.isNotEmpty) {
+    if (isRepost) {
+      // Для репостов используем аватар пользователя, сделавшего репост
+      final repostUserAvatar = _getStringValue(widget.news['repost_user_avatar']);
+      authorAvatar = repostUserAvatar.isNotEmpty ?
+      repostUserAvatar : _getUserAvatarUrl(repostedByName, isCurrentUser: false);
+      displayName = repostedByName;
+    } else if (isChannelPost && channelId.isNotEmpty) {
+      // Для канальных постов
       final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
       final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
       authorAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']) ?? _getFallbackAvatarUrl(channelName);
       displayName = channelName;
     } else {
-      final isCurrentUser = authorName == userProvider.userName;
-      authorAvatar = _getUserAvatarUrl(authorName, isCurrentUser: isCurrentUser);
+      // Для обычных постов
+      final avatarFromNews = _getStringValue(widget.news['author_avatar']);
+      if (avatarFromNews.isNotEmpty) {
+        authorAvatar = avatarFromNews;
+      } else {
+        final isCurrentUser = authorName == userProvider.userName;
+        authorAvatar = _getUserAvatarUrl(authorName, isCurrentUser: isCurrentUser);
+      }
       displayName = authorName;
     }
 
     final avatarSize = _getAvatarSize(context);
 
-    // ДЛЯ КАНАЛЬНЫХ ПОСТОВ НЕ ИСПОЛЬЗУЕМ ТЕГИ
-    final Map<String, String> personalTags = isChannelPost ? <String, String>{} : _getUserTags();
-
-    // ВАЖНОЕ ИЗМЕНЕНИЕ: Для новых постов показываем кнопку "Добавить тег"
-    final bool hasEmptyTag = personalTags.isEmpty;
-    final bool showAddTagButton = !isChannelPost && hasEmptyTag;
-
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildUserAvatar(authorAvatar, isChannelPost, displayName, avatarSize),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+        // Метка репоста
+        if (isRepost)
+          Padding(
+            padding: EdgeInsets.only(bottom: 8, left: avatarSize + 12), // УБРАТЬ const
+            child: Row(
+              children: [
+                Icon(
+                  Icons.repeat_rounded,
+                  size: 14,
+                  color: Colors.green,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$repostedByName репостнул(а)',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // Основной заголовок
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildUserAvatar(authorAvatar, isChannelPost, displayName, avatarSize),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: _openUserProfile,
-                      child: Text(
-                        displayName,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: _getTitleFontSize(context),
-                          color: Colors.black87,
-                          letterSpacing: -0.3,
-                          height: 1.1,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    child: PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_vert_rounded,
-                        color: Colors.grey[600],
-                        size: 18,
-                      ),
-                      onSelected: _handleMenuSelection,
-                      itemBuilder: (BuildContext context) => [
-                        PopupMenuItem<String>(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit_rounded, color: _contentColor, size: 18),
-                              const SizedBox(width: 8),
-                              Text('Редактировать', style: TextStyle(fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem<String>(
-                          value: 'share',
-                          child: Row(
-                            children: [
-                              Icon(Icons.share_rounded, color: Colors.blue, size: 18),
-                              const SizedBox(width: 8),
-                              Text('Поделиться', style: TextStyle(fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_rounded, color: Colors.red, size: 18),
-                              const SizedBox(width: 8),
-                              Text('Удалить', style: TextStyle(fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                      ],
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(minWidth: 140),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Container(
-                height: 28,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 12,
-                              color: Colors.grey[600],
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _openUserProfile,
+                          child: Text(
+                            displayName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: _getTitleFontSize(context),
+                              color: Colors.black87,
+                              letterSpacing: -0.3,
+                              height: 1.1,
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.getTimeAgo(createdAt),
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                height: 1.0,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        child: PopupMenuButton<String>(
+                          icon: Icon(
+                            Icons.more_vert_rounded,
+                            color: Colors.grey[600],
+                            size: 18,
+                          ),
+                          onSelected: _handleMenuSelection,
+                          itemBuilder: (BuildContext context) => [
+                            if (isRepost)
+                              PopupMenuItem<String>(
+                                value: 'cancel_repost',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_rounded, color: Colors.red, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text('Отменить репост', style: TextStyle(fontSize: 13)),
+                                  ],
+                                ),
+                              ),
+                            PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_rounded, color: _contentColor, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text('Редактировать', style: TextStyle(fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'share',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.share_rounded, color: Colors.blue, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text('Поделиться', style: TextStyle(fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_rounded, color: Colors.red, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text('Удалить', style: TextStyle(fontSize: 13)),
+                                ],
                               ),
                             ),
                           ],
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints(minWidth: 140),
                         ),
                       ),
-                      if (isChannelPost) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.group_rounded,
-                          size: 12,
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Канал',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            height: 1.0,
-                          ),
-                        ),
-                      ],
-                      if (_contentType != ContentType.general && !isChannelPost) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          _contentIcon,
-                          size: 12,
-                          color: _contentColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _getContentTypeText(),
-                          style: TextStyle(
-                            color: _contentColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            height: 1.0,
-                          ),
-                        ),
-                      ],
-                      // ОТОБРАЖАЕМ ПЕРВЫЙ ПЕРСОНАЛЬНЫЙ ТЕГ ТОЛЬКО ДЛЯ НЕКАНАЛЬНЫХ ПОСТОВ
-                      if (!isChannelPost && personalTags.isNotEmpty && personalTags.values.first.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        _buildUserTag(
-                            personalTags.values.first,
-                            personalTags.keys.first,
-                            _getTagColor(personalTags.keys.first),
-                            isChannelPost
-                        ),
-                      ],
-                      // КНОПКА "ДОБАВИТЬ ТЕГ" для постов без тегов
-                      if (showAddTagButton) ...[
-                        const SizedBox(width: 8),
-                        _buildAddTagButton(),
-                      ],
                     ],
                   ),
-                ),
+                  // ... остальная часть заголовка
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );
   }
+
 
 
   void _showAddTagDialog() {
@@ -1512,6 +1562,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
   void _handleMenuSelection(String value) {
     switch (value) {
+      case 'cancel_repost':
+        _cancelRepost();
+        break;
       case 'edit':
         widget.onEdit?.call();
         break;
@@ -1522,6 +1575,24 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         widget.onDelete?.call();
         break;
     }
+  }
+
+
+  void _cancelRepost() {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    final repostId = _getStringValue(widget.news['id']);
+    final currentUserId = userProvider.userId ?? _generateUserId(userProvider.userEmail);
+
+    newsProvider.cancelRepost(repostId, currentUserId);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Репост отменен'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   String _getFallbackAvatarUrl(String userName) {
@@ -1690,6 +1761,28 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  void _handleRepost() {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    final newsId = _getStringValue(widget.news['id']);
+    final currentUserId = userProvider.userId ?? _generateUserId(userProvider.userEmail);
+    final currentUserName = userProvider.userName;
+
+    print('🔄 NewsCard: Handling repost for post: $newsId');
+    print('   User: $currentUserId ($currentUserName)');
+
+    // Находим индекс текущего поста
+    final currentIndex = newsProvider.findNewsIndexById(newsId);
+
+    if (currentIndex != -1) {
+      // Используем напрямую NewsProvider для репостов
+      newsProvider.toggleRepost(currentIndex, currentUserId, currentUserName);
+    } else {
+      print('❌ NewsCard: Post not found with ID $newsId');
+    }
+  }
+
   Widget _buildActionButton({
     required IconData icon,
     required int count,
@@ -1697,6 +1790,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     required Color color,
     required VoidCallback onPressed,
   }) {
+    // Для репоста проверяем, сделал ли текущий пользователь репост
+    final isRepostAction = icon == Icons.repeat_rounded || icon == Icons.repeat_on_rounded;
+
+    if (isRepostAction) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+      final postId = _getStringValue(widget.news['id']);
+      final currentUserId = userProvider.userId ?? _generateUserId(userProvider.userEmail);
+
+      // Проверяем, сделал ли пользователь репост этого поста
+      final isRepostedByUser = newsProvider.isNewsRepostedByUser(postId, currentUserId);
+      isActive = isRepostedByUser;
+    }
+
     return GestureDetector(
       onTap: onPressed,
       child: AnimatedContainer(

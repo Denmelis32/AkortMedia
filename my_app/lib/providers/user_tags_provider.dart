@@ -168,21 +168,22 @@ class UserTagsProvider with ChangeNotifier {
   }
 
   // Создание дефолтных тегов для пользователя
+  // Создание дефолтных тегов для пользователя
   Future<void> _createDefaultTagsForUser(String userId) async {
     if (userId.isEmpty) return;
 
     _userTags[userId] = {
       'default': {
         'tag1': {
-          'name': 'Фанат Манчестера',
+          'name': 'Интересное',
           'color': Colors.blue,
         },
         'tag2': {
-          'name': 'Спорт',
+          'name': 'Контент',
           'color': Colors.green,
         },
         'tag3': {
-          'name': 'Новости',
+          'name': 'Обсуждение',
           'color': Colors.orange,
         },
       }
@@ -227,8 +228,8 @@ class UserTagsProvider with ChangeNotifier {
 
   Color getTagColorForPost(String postId, String tagId) {
     if (_currentUserId.isEmpty || !_userTags.containsKey(_currentUserId)) {
-      print('⚠️ UserTagsProvider: нет данных для получения цвета тега $tagId');
-      return _getDefaultColor(tagId);
+      print('⚠️ UserTagsProvider: нет данных для получения цвета тега $tagId, используем мок цвет');
+      return _getMockTagColor(postId, tagId);
     }
 
     final userTags = _userTags[_currentUserId]!;
@@ -253,10 +254,10 @@ class UserTagsProvider with ChangeNotifier {
       }
     }
 
-    // Если тег не найден, генерируем цвет на основе ID тега
-    final generatedColor = _getDefaultColor(tagId);
-    print('ℹ️ UserTagsProvider: цвет для тега $tagId сгенерирован: $generatedColor');
-    return generatedColor;
+    // Если тег не найден, используем цвет из мок данных
+    final mockColor = _getMockTagColor(postId, tagId);
+    print('ℹ️ UserTagsProvider: цвет для тега $tagId взят из мок данных: $mockColor');
+    return mockColor;
   }
 
   // ДОБАВЛЕН ОТСУТСТВУЮЩИЙ МЕТОД
@@ -474,17 +475,17 @@ class UserTagsProvider with ChangeNotifier {
   Map<String, String> getTagsForPost(String postId) {
     if (_currentUserId.isEmpty) {
       print('⚠️ UserTagsProvider: currentUserId не установлен при запросе тегов для поста $postId');
-      return <String, String>{};
+      return _getMockTagsForPost(postId); // Используем мок теги
     }
 
     if (!_isInitialized) {
       print('⚠️ UserTagsProvider: не инициализирован при запросе тегов для поста $postId');
-      return <String, String>{};
+      return _getMockTagsForPost(postId); // Используем мок теги
     }
 
     if (!_userTags.containsKey(_currentUserId)) {
       print('⚠️ UserTagsProvider: нет тегов для пользователя $_currentUserId');
-      return <String, String>{};
+      return _getMockTagsForPost(postId); // Используем мок теги
     }
 
     final userTags = _userTags[_currentUserId]!;
@@ -503,14 +504,72 @@ class UserTagsProvider with ChangeNotifier {
         print('✅ UserTagsProvider: найдены сохраненные теги для поста $postId: $filteredResult');
         return filteredResult;
       } else {
-        print('ℹ️ UserTagsProvider: для поста $postId только пустые теги, возвращаем пустые');
-        return <String, String>{};
+        print('ℹ️ UserTagsProvider: для поста $postId только пустые теги, используем мок теги');
+        return _getMockTagsForPost(postId); // Используем мок теги
       }
     }
 
-    // Если для поста нет сохраненных тегов, возвращаем ПУСТЫЕ теги
-    print('ℹ️ UserTagsProvider: для поста $postId нет сохраненных тегов, возвращаем пустые теги');
-    return <String, String>{};
+    // Если для поста нет сохраненных тегов, используем теги из мок данных
+    print('ℹ️ UserTagsProvider: для поста $postId нет сохраненных тегов, используем мок теги');
+    return _getMockTagsForPost(postId);
+  }
+
+// НОВЫЙ МЕТОД: Получение тегов из мок данных
+  // НОВЫЙ МЕТОД: Получение тегов из мок данных
+  Map<String, String> _getMockTagsForPost(String postId) {
+    // Обновленный маппинг ID постов на теги из новых мок данных
+    final mockTags = {
+      // Технологии
+      'tech-1': {'tag1': 'Технологии', 'tag2': 'ИИ', 'tag3': 'Будущее'},
+      'tech-2': {'tag1': 'Наука', 'tag2': 'Квант', 'tag3': 'Рекорд'},
+
+      // Спорт
+      'sport-1': {'tag1': 'Фанат Манчестера', 'tag2': 'Спорт', 'tag3': 'Футбол'},
+      'sport-2': {'tag1': 'Гонки', 'tag2': 'Автоспорт', 'tag3': 'Formula 1'},
+
+      // Путешествия
+      'travel-1': {'tag1': 'Путешествия', 'tag2': 'Япония', 'tag3': 'Советы'},
+      'travel-2': {'tag1': 'Бали', 'tag2': 'Пляжи', 'tag3': 'Приключения'},
+
+      // Кулинария
+      'food-1': {'tag1': 'Кулинария', 'tag2': 'Италия', 'tag3': 'Рецепты'},
+      'food-2': {'tag1': 'Выпечка', 'tag2': 'Хлеб', 'tag3': 'Дом'},
+
+      // Искусство
+      'art-1': {'tag1': 'Искусство', 'tag2': 'Выставка', 'tag3': 'Культура'},
+
+      // Образование
+      'edu-1': {'tag1': 'Образование', 'tag2': 'Курсы', 'tag3': 'Развитие'},
+
+      // Канальные посты
+      'channel-1': {'tag1': 'Официально', 'tag2': 'Обновление', 'tag3': 'Важно'},
+      'channel-2': {'tag1': 'Конкурс', 'tag2': 'События', 'tag3': 'Призы'},
+
+      // Личные истории
+      'story-1': {'tag1': 'История', 'tag2': 'Обучение', 'tag3': 'Успех'},
+
+      // Наука
+      'science-1': {'tag1': 'Наука', 'tag2': 'Космос', 'tag3': 'Открытие'},
+
+      // Старые ID для обратной совместимости
+      '1': {'tag1': 'Приветствие', 'tag2': 'Официально', 'tag3': 'Новости'},
+      '2': {'tag1': 'Фанат Манчестера', 'tag2': 'Спорт', 'tag3': 'Футбол'},
+      '3': {'tag1': 'Гонки', 'tag2': 'Автоспорт', 'tag3': 'Formula 1'},
+      '4': {'tag1': 'Технологии', 'tag2': 'ИИ', 'tag3': 'Инновации'},
+      '5': {'tag1': 'Путешествия', 'tag2': 'Япония', 'tag3': 'Культура'},
+      '6': {'tag1': 'Кулинария', 'tag2': 'Италия', 'tag3': 'Рецепты'},
+    };
+
+    // Возвращаем теги для конкретного поста или пустой map если не найдено
+    final tags = mockTags[postId] ?? <String, String>{};
+
+    if (tags.isNotEmpty) {
+      print('✅ UserTagsProvider: использованы мок теги для поста $postId: $tags');
+    } else {
+      print('⚠️ UserTagsProvider: не найдены мок теги для поста $postId');
+    }
+
+    return tags;
   }
 
   Color _getDefaultColor(String tagId) {
@@ -521,7 +580,8 @@ class UserTagsProvider with ChangeNotifier {
 
   Map<String, String> getLastUsedTags() {
     if (_currentUserId.isEmpty || !_userTags.containsKey(_currentUserId)) {
-      return {'tag1': 'Новый тег'};
+      // Возвращаем более универсальные теги для нового поста
+      return {'tag1': 'Интересное', 'tag2': 'Контент', 'tag3': 'Обсуждение'};
     }
 
     final userTags = _userTags[_currentUserId]!;
@@ -565,9 +625,41 @@ class UserTagsProvider with ChangeNotifier {
       }
     }
 
-    // Если ничего не найдено, используем базовые теги
-    return {'tag1': 'Новый тег'};
+    // Если ничего не найдено, используем универсальные теги
+    return {'tag1': 'Интересное', 'tag2': 'Контент', 'tag3': 'Обсуждение'};
   }
+
+  Color _getMockTagColor(String postId, String tagId) {
+    // Обновленные цвета для новых ID постов
+    final mockColors = {
+      'tech-1': Colors.purple,
+      'tech-2': Colors.indigo,
+      'sport-1': Colors.green,
+      'sport-2': Colors.red,
+      'travel-1': Colors.teal,
+      'travel-2': Colors.blue,
+      'food-1': Colors.orange,
+      'food-2': Colors.amber,
+      'art-1': Colors.deepPurple,
+      'edu-1': Colors.cyan,
+      'channel-1': Colors.blue,
+      'channel-2': Colors.pink,
+      'story-1': Colors.green,
+      'science-1': Colors.deepOrange,
+
+      // Старые ID для обратной совместимости
+      '1': Colors.blue,
+      '2': Colors.green,
+      '3': Colors.red,
+      '4': Colors.purple,
+      '5': Colors.teal,
+      '6': Colors.pink,
+      'channel-1': Colors.orange,
+    };
+
+    return mockColors[postId] ?? _getDefaultColor(tagId);
+  }
+
 
   Future<void> updateTagGlobally(String tagId, String newName, Color color, {BuildContext? context}) async {
     if (_currentUserId.isEmpty) {

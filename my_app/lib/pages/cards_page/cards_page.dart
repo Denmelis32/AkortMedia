@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../rooms_pages/models/filter_option.dart';
 import '../rooms_pages/models/room_category.dart';
 import '../rooms_pages/models/sort_option.dart';
@@ -55,6 +57,12 @@ class _CardsPageState extends State<CardsPage> {
     _isMounted = true;
     _initializeData();
     _setupListeners();
+
+    // Добавляем слушатель изменений провайдера
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<ChannelStateProvider>(context, listen: false);
+      provider.addListener(_onChannelStateChanged);
+    });
   }
 
   void _initializeData() {
@@ -71,6 +79,14 @@ class _CardsPageState extends State<CardsPage> {
         _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
+  }
+
+  void _onChannelStateChanged() {
+    if (_isMounted) {
+      setState(() {
+        // Принудительное обновление при изменении состояния каналов
+      });
+    }
   }
 
   // Создание тестовых данных с локальными изображениями
@@ -278,6 +294,8 @@ class _CardsPageState extends State<CardsPage> {
   @override
   void dispose() {
     _isMounted = false;
+    final provider = Provider.of<ChannelStateProvider>(context, listen: false);
+    provider.removeListener(_onChannelStateChanged);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -312,7 +330,7 @@ class _CardsPageState extends State<CardsPage> {
     return 0;
   }
 
-  // НОВЫЕ МЕТОДЫ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+  // УЛУЧШЕННЫЕ МЕТОДЫ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
   Widget _buildChannelAvatar(Channel channel, ChannelStateProvider stateProvider, {double size = 50}) {
     final channelId = channel.id.toString();
     final customAvatar = stateProvider.getAvatarForChannel(channelId);
@@ -336,18 +354,19 @@ class _CardsPageState extends State<CardsPage> {
 
     try {
       if (imageUrl.startsWith('http')) {
-        // Сетевые изображения
-        return Image.network(
-          imageUrl,
+        // Сетевые изображения с кэшированием
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
           width: isCover ? double.infinity : size,
           height: isCover ? size : size,
           fit: isCover ? BoxFit.cover : BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
+          placeholder: (context, url) => _buildLoadingPlaceholder(size, isCover: isCover),
+          errorWidget: (context, url, error) {
             print('❌ Network image error: $error');
             return _buildErrorImage(size, isCover: isCover);
           },
         );
-      } else {
+      } else if (imageUrl.startsWith('assets/')) {
         // Локальные assets
         return Image.asset(
           imageUrl,
@@ -359,11 +378,66 @@ class _CardsPageState extends State<CardsPage> {
             return _buildErrorImage(size, isCover: isCover);
           },
         );
+      } else if (imageUrl.startsWith('/') || imageUrl.contains(RegExp(r'[a-zA-Z]:\\'))) {
+        // Локальные файлы
+        return Image.file(
+          File(imageUrl),
+          width: isCover ? double.infinity : size,
+          height: isCover ? size : size,
+          fit: isCover ? BoxFit.cover : BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ File image error: $error for path: $imageUrl');
+            return _buildErrorImage(size, isCover: isCover);
+          },
+        );
+      } else {
+        // Попытка загрузить как asset, если путь не указан явно
+        return Image.asset(
+          imageUrl,
+          width: isCover ? double.infinity : size,
+          height: isCover ? size : size,
+          fit: isCover ? BoxFit.cover : BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Image loading failed: $error');
+            return _buildErrorImage(size, isCover: isCover);
+          },
+        );
       }
     } catch (e) {
       print('❌ Exception loading image: $e');
       return _buildErrorImage(size, isCover: isCover);
     }
+  }
+
+  Widget _buildLoadingPlaceholder(double size, {bool isCover = false}) {
+    return Container(
+      width: isCover ? double.infinity : size,
+      height: size,
+      color: Colors.grey[200],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: isCover ? 30 : 20,
+            height: isCover ? 30 : 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+            ),
+          ),
+          if (isCover) ...[
+            SizedBox(height: 8),
+            Text(
+              'Загрузка...',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildErrorImage(double size, {bool isCover = false}) {
@@ -400,9 +474,16 @@ class _CardsPageState extends State<CardsPage> {
       return _channels;
     }
 
-    final filtered = _channels.map((channel) =>
-        _getChannelWithActualState(channel, stateProvider)
-    ).where(_matchesFilters).toList();
+    // Используем актуальное состояние из провайдера
+    final filtered = _channels.map((channel) {
+      final channelId = channel.id.toString();
+
+      return channel.copyWith(
+        isSubscribed: stateProvider.isSubscribed(channelId),
+        subscribers: stateProvider.getSubscribers(channelId) ?? channel.subscribers,
+        imageUrl: stateProvider.getAvatarForChannel(channelId) ?? channel.imageUrl,
+      );
+    }).where(_matchesFilters).toList();
 
     _sortChannels(filtered);
     return filtered;
@@ -440,19 +521,13 @@ class _CardsPageState extends State<CardsPage> {
     }
   }
 
-  Channel _getChannelWithActualState(Channel channel, ChannelStateProvider stateProvider) {
-    if (stateProvider.isDisposed) {
-      return channel;
+  void _updateChannelInList(Channel updatedChannel) {
+    final index = _channels.indexWhere((c) => c.id == updatedChannel.id);
+    if (index != -1) {
+      setState(() {
+        _channels[index] = updatedChannel;
+      });
     }
-
-    final channelId = channel.id.toString();
-    final isSubscribed = stateProvider.isSubscribed(channelId);
-    final subscribers = stateProvider.getSubscribers(channelId) ?? channel.subscribers;
-
-    return channel.copyWith(
-      isSubscribed: isSubscribed,
-      subscribers: subscribers,
-    );
   }
 
   // Вспомогательные методы для безопасного доступа к данным
@@ -509,6 +584,16 @@ class _CardsPageState extends State<CardsPage> {
     setState(() {
       _channels.insert(0, newChannel);
     });
+
+    // Сохраняем в провайдер
+    final stateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    final channelId = newChannel.id.toString();
+    if (avatarUrl != null) {
+      stateProvider.setAvatarForChannel(channelId, avatarUrl);
+    }
+    if (coverUrl != null) {
+      stateProvider.setCoverForChannel(channelId, coverUrl);
+    }
 
     if (_isMounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1185,10 +1270,25 @@ class _CardsPageState extends State<CardsPage> {
     final channel = filteredChannels[index];
     final channelId = channel.id.toString();
 
-    // Переключаем подписку через ChannelStateProvider
-    stateProvider.toggleSubscription(channelId, channel.subscribers);
+    // Получаем актуальное количество подписчиков
+    final currentSubscribers = stateProvider.getSubscribers(channelId) ?? channel.subscribers;
 
+    // Переключаем подписку через ChannelStateProvider
+    stateProvider.toggleSubscription(channelId, currentSubscribers);
+
+    // Принудительно обновляем состояние
     if (_isMounted) {
+      setState(() {
+        // Обновляем локальный список каналов
+        final originalIndex = _channels.indexWhere((c) => c.id == channel.id);
+        if (originalIndex != -1) {
+          _channels[originalIndex] = _channels[originalIndex].copyWith(
+            isSubscribed: stateProvider.isSubscribed(channelId),
+            subscribers: stateProvider.getSubscribers(channelId) ?? _channels[originalIndex].subscribers,
+          );
+        }
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1463,6 +1563,9 @@ class _CardsPageState extends State<CardsPage> {
           );
         }
 
+        // Принудительно обновляем каналы при каждом изменении состояния
+        final channels = _getFilteredChannels(channelStateProvider);
+
         return Scaffold(
           backgroundColor: Colors.transparent,
           body: Container(
@@ -1595,7 +1698,7 @@ class _CardsPageState extends State<CardsPage> {
                     ),
                   ),
                   Expanded(
-                    child: _buildContent(channelStateProvider, horizontalPadding),
+                    child: _buildContent(channelStateProvider, horizontalPadding, channels),
                   ),
                 ],
               ),
@@ -1612,9 +1715,7 @@ class _CardsPageState extends State<CardsPage> {
     );
   }
 
-  Widget _buildContent(ChannelStateProvider stateProvider, double horizontalPadding) {
-    final channels = _getFilteredChannels(stateProvider);
-
+  Widget _buildContent(ChannelStateProvider stateProvider, double horizontalPadding, List<Channel> channels) {
     return CustomScrollView(
       controller: _scrollController,
       physics: const BouncingScrollPhysics(),
@@ -1660,11 +1761,16 @@ class _CardsPageState extends State<CardsPage> {
             sliver: _isMobile
                 ? SliverList(
               delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildChannelCard(
-                  channels[index],
-                  index,
-                  stateProvider,
-                ),
+                    (context, index) {
+                  final channel = channels[index];
+                  // Обновляем канал актуальным состоянием
+                  final updatedChannel = channel.copyWith(
+                    isSubscribed: stateProvider.isSubscribed(channel.id.toString()),
+                    subscribers: stateProvider.getSubscribers(channel.id.toString()) ?? channel.subscribers,
+                  );
+
+                  return _buildChannelCard(updatedChannel, index, stateProvider);
+                },
                 childCount: channels.length,
               ),
             )
@@ -1676,11 +1782,16 @@ class _CardsPageState extends State<CardsPage> {
                 childAspectRatio: _getCardAspectRatio(context),
               ),
               delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildChannelCard(
-                  channels[index],
-                  index,
-                  stateProvider,
-                ),
+                    (context, index) {
+                  final channel = channels[index];
+                  // Обновляем канал актуальным состоянием
+                  final updatedChannel = channel.copyWith(
+                    isSubscribed: stateProvider.isSubscribed(channel.id.toString()),
+                    subscribers: stateProvider.getSubscribers(channel.id.toString()) ?? channel.subscribers,
+                  );
+
+                  return _buildChannelCard(updatedChannel, index, stateProvider);
+                },
                 childCount: channels.length,
               ),
             ),

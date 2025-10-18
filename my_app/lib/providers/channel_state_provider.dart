@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../pages/cards_page/models/channel.dart';
+
 class ChannelStateProvider with ChangeNotifier {
   final Map<String, String?> _channelAvatars = {};
   final Map<String, String?> _channelCovers = {};
@@ -455,6 +457,38 @@ class ChannelStateProvider with ChangeNotifier {
       'version': '1.1.0',
       'exported_at': DateTime.now().toIso8601String(),
     };
+  }
+
+
+  void updateChannelData(Channel channel) {
+    _safeOperation(() {
+      final channelId = channel.id.toString();
+
+      // Обновляем аватар, если он изменился
+      if (channel.imageUrl != _channelAvatars[channelId]) {
+        _channelAvatars[channelId] = channel.imageUrl;
+      }
+
+      // Обновляем подписчиков
+      _channelSubscribersCount[channelId] = channel.subscribers;
+
+      // Обновляем подписку
+      _channelSubscriptions[channelId] = channel.isSubscribed;
+
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
+  }
+
+// Метод для получения актуального состояния канала
+  Channel getUpdatedChannel(Channel originalChannel) {
+    final channelId = originalChannel.id.toString();
+
+    return originalChannel.copyWith(
+      isSubscribed: isSubscribed(channelId),
+      subscribers: getSubscribers(channelId),
+      imageUrl: getAvatarForChannel(channelId) ?? originalChannel.imageUrl,
+    );
   }
 
   Future<void> importData(Map<String, dynamic> data) async {

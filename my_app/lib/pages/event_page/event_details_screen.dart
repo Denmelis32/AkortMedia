@@ -432,6 +432,74 @@ ${_currentEvent.description}
     );
   }
 
+  // НОВЫЙ МЕТОД: Загрузка изображения события (сетевого или локального)
+  Widget _buildEventImage(String? imageUrl, double height) {
+    if (imageUrl == null) {
+      return _buildErrorEventImage(height);
+    }
+
+    print('🖼️ Loading event image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Для сетевых изображений
+        return Image.network(
+          imageUrl,
+          height: height,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Network image error: $error');
+            return _buildErrorEventImage(height);
+          },
+        );
+      } else {
+        // Для локальных assets
+        return Image.asset(
+          imageUrl,
+          height: height,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Asset image error: $error for path: $imageUrl');
+            return _buildErrorEventImage(height);
+          },
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading event image: $e');
+      return _buildErrorEventImage(height);
+    }
+  }
+
+  // НОВЫЙ МЕТОД: Запасное изображение события при ошибке
+  Widget _buildErrorEventImage(double height) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: _currentEvent.color.withOpacity(0.1),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.event_rounded,
+            color: _currentEvent.color.withOpacity(0.5),
+            size: 60,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Изображение события',
+            style: TextStyle(
+              color: _currentEvent.color.withOpacity(0.7),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
@@ -528,11 +596,7 @@ ${_currentEvent.description}
             controller: _pageController,
             itemCount: images.length,
             onPageChanged: (index) => setState(() => _currentImageIndex = index),
-            itemBuilder: (context, index) => Image.network(
-              images[index],
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(),
-            ),
+            itemBuilder: (context, index) => _buildEventImage(images[index], 280),
           )
               : Container(),
         ),

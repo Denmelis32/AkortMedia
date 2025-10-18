@@ -116,6 +116,72 @@ class _ArticleCardState extends State<ArticleCard> {
     return number.toString();
   }
 
+  // Метод для загрузки изображения
+  Widget _buildArticleImage(double height) {
+    final imageUrl = widget.article.imageUrl;
+
+    // Для отладки
+    print('🖼️ Loading image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Для сетевых изображений
+        return Image.network(
+          imageUrl,
+          height: height,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Network image error: $error');
+            return _buildErrorImage(height);
+          },
+        );
+      } else {
+        // Для локальных assets
+        return Image.asset(
+          imageUrl,
+          height: height,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Asset image error: $error for path: $imageUrl');
+            return _buildErrorImage(height);
+          },
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading image: $e');
+      return _buildErrorImage(height);
+    }
+  }
+
+  Widget _buildErrorImage(double height) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_outlined,
+            color: Colors.grey[500],
+            size: 40,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Изображение\nне загружено',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoryColor = _categoryColors[widget.article.category] ?? const Color(0xFF78909C);
@@ -224,16 +290,8 @@ class _ArticleCardState extends State<ArticleCard> {
               // ОБЛОЖКА СТАТЬИ
               Stack(
                 children: [
-                  Container(
-                    height: imageHeight,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(widget.article.imageUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
+                  // Используем наш метод для загрузки изображения
+                  _buildArticleImage(imageHeight),
 
                   // Категория в левом верхнем углу
                   Positioned(
@@ -551,7 +609,7 @@ class _ArticleCardState extends State<ArticleCard> {
     );
   }
 
-  // ВЕРСИЯ ДЛЯ КОМПЬЮТЕРА (оставлена без изменений)
+  // ВЕРСИЯ ДЛЯ КОМПЬЮТЕРА
   Widget _buildDesktopCard(
       Color categoryColor,
       String readingTime,
@@ -579,20 +637,8 @@ class _ArticleCardState extends State<ArticleCard> {
                 // ОБЛОЖКА СТАТЬИ
                 Stack(
                   children: [
-                    Container(
-                      height: 120,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                        image: DecorationImage(
-                          image: NetworkImage(widget.article.imageUrl),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
+                    // Используем наш метод для загрузки изображения
+                    _buildArticleImage(120),
 
                     // Категория в левом верхнем углу
                     Positioned(

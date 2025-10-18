@@ -187,7 +187,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       'end_date': DateTime.now().add(const Duration(days: 15)).toIso8601String(),
       'category': 'esports',
       'author': 'Valve Corporation',
-      'image_url': 'assets/images/predictions_league_image/data.png',
+      'image_url': 'assets/images/predictions_league_image/dota.png',
       'is_active': true,
       'prize_pool': 25000.0,
       'progress': 0.4,

@@ -97,6 +97,69 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
     return double.infinity;
   }
 
+  // НОВЫЙ МЕТОД: Загрузка изображений (локальных и сетевых)
+  Widget _buildChannelImage(String imageUrl, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    print('🖼️ Loading channel detail image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Сетевые изображения
+        return Image.network(
+          imageUrl,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Network image error: $error');
+            return _buildErrorImage(width: width, height: height);
+          },
+        );
+      } else {
+        // Локальные assets
+        return Image.asset(
+          imageUrl,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Asset image error: $error for path: $imageUrl');
+            return _buildErrorImage(width: width, height: height);
+          },
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading image: $e');
+      return _buildErrorImage(width: width, height: height);
+    }
+  }
+
+  Widget _buildErrorImage({double? width, double? height}) {
+    return Container(
+      width: width,
+      height: height,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_outlined,
+            color: Colors.grey[500],
+            size: 40,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Изображение\nне загружено',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Виджет поля поиска для AppBar
   Widget _buildSearchField() {
     return Container(
@@ -151,6 +214,7 @@ class _ChannelDetailPageState extends State<ChannelDetailPage>
             searchController: _searchController,
             searchQuery: _searchQuery,
             onToggleSearch: () => setState(() => _showSearchBar = !_showSearchBar),
+            buildChannelImage: _buildChannelImage,
           ),
         ),
       ),
@@ -165,6 +229,7 @@ class _ChannelDetailContent extends StatefulWidget {
   final TextEditingController searchController;
   final String searchQuery;
   final VoidCallback onToggleSearch;
+  final Widget Function(String imageUrl, {double? width, double? height, BoxFit fit}) buildChannelImage;
 
   const _ChannelDetailContent({
     required this.channel,
@@ -173,6 +238,7 @@ class _ChannelDetailContent extends StatefulWidget {
     required this.searchController,
     required this.searchQuery,
     required this.onToggleSearch,
+    required this.buildChannelImage,
   });
 
   @override
@@ -311,7 +377,6 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  // APP BAR КАК В CARDS PAGE
   // APP BAR КАК В CARDS PAGE
   Widget _buildAppBar(
       BuildContext context,
@@ -464,34 +529,34 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
             Container(
               height: 140,
               width: double.infinity,
-              decoration: BoxDecoration(
-                image: coverUrl != null && coverUrl.isNotEmpty
-                    ? DecorationImage(
-                  image: NetworkImage(coverUrl),
-                  fit: BoxFit.cover,
-                )
-                    : null,
-                gradient: coverUrl == null || coverUrl.isEmpty
-                    ? LinearGradient(
-                  colors: [
-                    widget.channel.cardColor,
-                    _darkenColor(widget.channel.cardColor, 0.3),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                )
-                    : null,
-              ),
-              child: Container(
+              child: coverUrl != null && coverUrl.isNotEmpty
+                  ? widget.buildChannelImage(coverUrl, height: 140, fit: BoxFit.cover)
+                  : Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
                     colors: [
-                      Colors.black.withOpacity(0.4),
-                      Colors.transparent,
+                      widget.channel.cardColor,
+                      _darkenColor(widget.channel.cardColor, 0.3),
                     ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
+                ),
+              ),
+            ),
+
+            // Градиентный оверлей
+            Container(
+              height: 140,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.4),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
@@ -523,28 +588,11 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
                       ],
                     ),
                     child: ClipOval(
-                      child: Image.network(
+                      child: widget.buildChannelImage(
                         widget.channel.imageUrl,
+                        width: 80,
+                        height: 80,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  widget.channel.cardColor,
-                                  _darkenColor(widget.channel.cardColor, 0.2),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.group_rounded,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                          );
-                        },
                       ),
                     ),
                   ),
@@ -952,120 +1000,10 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
 
   // КНОПКИ ДЕЙСТВИЙ
   Widget _buildEnhancedActionButtons(ChannelDetailProvider provider, ChannelDetailState state) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Основные кнопки действий
-          Row(
-            children: [
-              Expanded(
-                child: _buildEnhancedActionButton(
-                  'Подписаться',
-                  Icons.notifications_active_rounded,
-                  widget.channel.cardColor,
-                  true,
-                  provider.toggleSubscription,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildEnhancedActionButton(
-                  'Сообщение',
-                  Icons.chat_rounded,
-                  Colors.blue,
-                  false,
-                      () => _showChatDialog(context),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Дополнительные кнопки
-          Row(
-            children: [
-              Expanded(
-                child: _buildEnhancedActionButton(
-                  'Поделиться',
-                  Icons.share_rounded,
-                  Colors.green,
-                  false,
-                      () => _shareChannel(context),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildEnhancedActionButton(
-                  'Ещё',
-                  Icons.more_horiz_rounded,
-                  Colors.grey[600]!,
-                  false,
-                      () => _showChannelOptions(context, provider),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEnhancedActionButton(String text, IconData icon, Color color, bool isPrimary, VoidCallback onPressed) {
-    return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        gradient: isPrimary
-            ? LinearGradient(
-          colors: [color, _darkenColor(color, 0.1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        )
-            : null,
-        color: isPrimary ? null : color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: isPrimary
-            ? null
-            : Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
-        boxShadow: isPrimary
-            ? [
-          BoxShadow(
-            color: color.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ]
-            : [],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: isPrimary ? Colors.white : color,
-                size: 18,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                text,
-                style: TextStyle(
-                  color: isPrimary ? Colors.white : color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return ActionButtonsSection(
+      channel: widget.channel,
+      provider: provider,
+      state: state,
     );
   }
 
@@ -1337,7 +1275,6 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
     );
   }
 
-  // Остальные методы остаются без изменений...
   void _showAddPostDialog(BuildContext context) {
     _postTitleController.clear();
     _postDescriptionController.clear();

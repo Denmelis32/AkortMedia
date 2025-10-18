@@ -133,9 +133,9 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1000) return 0; // УБИРАЕМ ОТСТУПЫ НА КОМПЬЮТЕРЕ
-    if (width > 700) return 0;  // УБИРАЕМ ОТСТУПЫ НА ПЛАНШЕТАХ
-    return 0;                    // НЕТ ОТСТУПОВ НА МОБИЛЬНЫХ
+    if (width > 1000) return 0;
+    if (width > 700) return 0;
+    return 0;
   }
 
   double _getContentMaxWidth(BuildContext context) {
@@ -146,7 +146,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return double.infinity;
   }
 
-  // Twitter-like размеры элементов
   double _getAvatarSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     if (width > 700) return 40;
@@ -165,17 +164,16 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return 14;
   }
 
-  // АДАПТИВНЫЕ СТИЛИ ДЛЯ КАРТОЧЕК - УБИРАЕМ СКОЛЛ И ДЕЛАЕМ КАК В ОРИГИНАЛЕ
   double _getCardBorderRadius(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 700) return 0.0; // НЕТ ЗАКРУГЛЕНИЙ НА КОМПЬЮТЕРЕ
-    return 0.0;                   // НЕТ ЗАКРУГЛЕНИЙ НА МОБИЛЬНЫХ
+    if (width > 700) return 0.0;
+    return 0.0;
   }
 
   EdgeInsets _getCardMargin(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 700) return EdgeInsets.only(bottom: 0.0); // НЕТ ОТСТУПОВ МЕЖДУ ПОСТАМИ
-    return EdgeInsets.only(bottom: 0.0);                   // НЕТ ОТСТУПОВ МЕЖДУ ПОСТАМИ
+    if (width > 700) return EdgeInsets.only(bottom: 0.0);
+    return EdgeInsets.only(bottom: 0.0);
   }
 
   bool _shouldShowTopLine(BuildContext context) {
@@ -209,19 +207,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
-    channelStateProvider.addListener(_onChannelStateChanged);
-  }
-
-  void _onChannelStateChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
   void didUpdateWidget(PostItem oldWidget) {
     super.didUpdateWidget(oldWidget);
 
@@ -237,14 +222,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   void dispose() {
     _commentController.dispose();
     _expandController.dispose();
-
-    try {
-      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
-      channelStateProvider.removeListener(_onChannelStateChanged);
-    } catch (e) {
-      print('⚠️ ChannelStateProvider already disposed: $e');
-    }
-
     super.dispose();
   }
 
@@ -271,8 +248,90 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return List<dynamic>.from(widget.post['comments'] ?? []);
   }
 
-  // УПРОЩЕННАЯ КАРТОЧКА БЕЗ ОТСТУПОВ И ТЕНИ - КАК В ОРИГИНАЛЕ
-  // УПРОЩЕННАЯ КАРТОЧКА БЕЗ ОТСТУПОВ И ТЕНИ - КАК В ОРИГИНАЛЕ
+  // УЛУЧШЕННАЯ ЗАГРУЗКА ИЗОБРАЖЕНИЙ
+  Widget _buildNetworkImage(String imageUrl, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    print('🖼️ Loading post image: $imageUrl');
+
+    try {
+      return Image.network(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: width,
+            height: height,
+            color: Colors.grey[200],
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 2,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Network image error: $error');
+          return _buildErrorImage(width: width, height: height);
+        },
+      );
+    } catch (e) {
+      print('❌ Exception loading image: $e');
+      return _buildErrorImage(width: width, height: height);
+    }
+  }
+
+  Widget _buildAssetImage(String imagePath, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    print('🖼️ Loading asset image: $imagePath');
+
+    try {
+      return Image.asset(
+        imagePath,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Asset image error: $error for path: $imagePath');
+          return _buildErrorImage(width: width, height: height);
+        },
+      );
+    } catch (e) {
+      print('❌ Exception loading asset image: $e');
+      return _buildErrorImage(width: width, height: height);
+    }
+  }
+
+  Widget _buildErrorImage({double? width, double? height}) {
+    return Container(
+      width: width,
+      height: height,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_outlined,
+            color: Colors.grey[500],
+            size: width != null ? width * 0.3 : 40,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Изображение\nне загружено',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: width != null ? width * 0.05 : 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCard({required Widget child}) {
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
@@ -301,13 +360,12 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ТОНКАЯ ТЕМНО-СЕРАЯ ЛИНИЯ ТОЛЬКО НА ТЕЛЕФОНЕ
               if (showTopLine)
                 Container(
-                  height: 1, // Тонкая линия
-                  margin: const EdgeInsets.symmetric(horizontal: 16), // Отступы от краев
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: Colors.grey[300], // Темно-серый цвет
+                    color: Colors.grey[300],
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
@@ -322,7 +380,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
-  // ЗАГОЛОВОК КАНАЛА
+  // УЛУЧШЕННАЯ ЗАГРУЗКА АВАТАРКИ КАНАЛА
   Widget _buildChannelHeader() {
     return Consumer<ChannelStateProvider>(
       builder: (context, channelStateProvider, child) {
@@ -345,7 +403,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Первая строка: название канала и кнопка меню
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -365,7 +422,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                           ),
                         ),
                       ),
-                      // Кнопка трех точек
                       Container(
                         width: 28,
                         height: 28,
@@ -397,12 +453,10 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                     ],
                   ),
                   const SizedBox(height: 2),
-                  // Вторая строка: мета-информация
                   Container(
                     height: 16,
                     child: Row(
                       children: [
-                        // Время
                         Row(
                           children: [
                             Icon(
@@ -422,7 +476,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                             ),
                           ],
                         ),
-                        // Канал
                         const SizedBox(width: 8),
                         Container(
                           width: 3,
@@ -448,7 +501,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                             height: 1.0,
                           ),
                         ),
-                        // Тип контента
                         if (_contentType != ContentType.general) ...[
                           const SizedBox(width: 8),
                           Container(
@@ -489,7 +541,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   void _openChannelProfile() {
-    // Навигация к странице канала
     print('Opening channel profile: ${widget.channel.title}');
   }
 
@@ -501,6 +552,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     }
   }
 
+  // УЛУЧШЕННАЯ ЗАГРУЗКА АВАТАРКИ
   Widget _buildChannelAvatar(String? avatarUrl, String channelName, double size) {
     return GestureDetector(
       onTap: _openChannelProfile,
@@ -522,22 +574,34 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
           ],
         ),
         child: ClipOval(
-          child: avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl.startsWith('http')
-              ? Image.network(
-            avatarUrl,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return _buildChannelGradientAvatar(channelName, size);
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return _buildChannelGradientAvatar(channelName, size);
-            },
-          )
-              : _buildChannelGradientAvatar(channelName, size),
+          child: _buildAvatarImage(avatarUrl, channelName, size),
         ),
       ),
     );
+  }
+
+  Widget _buildAvatarImage(String? avatarUrl, String channelName, double size) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return _buildChannelGradientAvatar(channelName, size);
+    }
+
+    if (avatarUrl.startsWith('http')) {
+      return _buildNetworkImage(
+        avatarUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      );
+    } else if (avatarUrl.startsWith('assets/')) {
+      return _buildAssetImage(
+        avatarUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      );
+    } else {
+      return _buildChannelGradientAvatar(channelName, size);
+    }
   }
 
   Widget _buildChannelGradientAvatar(String channelName, double size) {
@@ -651,7 +715,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
-  // ДЕЙСТВИЯ
   Widget _buildPostActions({int commentCount = 0}) {
     final likes = _getIntValue(widget.post['likes']);
     final reposts = _getIntValue(widget.post['reposts'] ?? 0);
@@ -785,7 +848,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return count.toString();
   }
 
-  // СЕКЦИЯ КОММЕНТАРИЕВ
   Widget _buildCommentsSection() {
     return Column(
       children: [
@@ -886,73 +948,25 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCommentAvatar(String avatarUrl, String authorName) {
-    if (avatarUrl.isNotEmpty && avatarUrl.startsWith('http')) {
-      return Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withOpacity(0.4),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ClipOval(
-          child: Image.network(
-            avatarUrl,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return _buildCommentGradientAvatar(authorName);
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return _buildCommentGradientAvatar(authorName);
-            },
-          ),
-        ),
-      );
-    }
-
-    return _buildCommentGradientAvatar(authorName);
-  }
-
-  Widget _buildCommentGradientAvatar(String authorName) {
-    final gradientColors = _getAvatarGradient(authorName);
-
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
         shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withOpacity(0.4),
+          width: 2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: gradientColors[0].withOpacity(0.2),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Center(
-        child: Text(
-          authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+      child: ClipOval(
+        child: _buildAvatarImage(avatarUrl, authorName, 40),
       ),
     );
   }
@@ -991,19 +1005,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                   ),
                 ),
                 child: ClipOval(
-                  child: currentUserAvatar.isNotEmpty && currentUserAvatar.startsWith('http')
-                      ? Image.network(
-                    currentUserAvatar,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return _buildCommentGradientAvatar(userProvider.userName);
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildCommentGradientAvatar(userProvider.userName);
-                    },
-                  )
-                      : _buildCommentGradientAvatar(userProvider.userName),
+                  child: _buildAvatarImage(currentUserAvatar, userProvider.userName, 40),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1131,7 +1133,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildChannelHeader(),
-          // ФИКСИРОВАННЫЙ ОТСТУП ПОД АВАТАРОМ
           Padding(
             padding: EdgeInsets.only(left: _getAvatarSize(context) + 12),
             child: Column(

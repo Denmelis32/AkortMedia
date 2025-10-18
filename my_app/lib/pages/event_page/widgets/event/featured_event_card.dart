@@ -52,15 +52,30 @@ class FeaturedEventCard extends StatelessWidget {
 
   Widget _buildBackground() {
     if (event.imageUrl != null) {
-      return Image.network(
-        event.imageUrl!,
-        width: double.infinity,
-        height: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return _buildGradientBackground();
-        },
-      );
+      // УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ЛОКАЛЬНЫХ И СЕТЕВЫХ ИЗОБРАЖЕНИЙ
+      if (event.imageUrl!.startsWith('http')) {
+        return Image.network(
+          event.imageUrl!,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Featured event network image error: $error');
+            return _buildGradientBackground();
+          },
+        );
+      } else {
+        return Image.asset(
+          event.imageUrl!,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Featured event asset image error: $error');
+            return _buildGradientBackground();
+          },
+        );
+      }
     } else {
       return _buildGradientBackground();
     }

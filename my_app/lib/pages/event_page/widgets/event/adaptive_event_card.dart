@@ -31,6 +31,66 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
     return MediaQuery.of(context).size.width <= 600;
   }
 
+  // УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+  Widget _buildEventImage(double height, {double? width}) {
+    final imageUrl = widget.event.imageUrl;
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return _buildGradientBackground(height, width);
+    }
+
+    print('🖼️ Loading event image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Для сетевых изображений
+        return Image.network(
+          imageUrl,
+          height: height,
+          width: width ?? double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Event network image error: $error');
+            return _buildGradientBackground(height, width);
+          },
+        );
+      } else {
+        // Для локальных assets
+        return Image.asset(
+          imageUrl,
+          height: height,
+          width: width ?? double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Event asset image error: $error for path: $imageUrl');
+            return _buildGradientBackground(height, width);
+          },
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading event image: $e');
+      return _buildGradientBackground(height, width);
+    }
+  }
+
+  Widget _buildGradientBackground([double? height, double? width]) {
+    return Container(
+      height: height,
+      width: width ?? double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            widget.event.color.withOpacity(0.9),
+            widget.event.color.withOpacity(0.7),
+            widget.event.color.withOpacity(0.8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return _isMobile(context)
@@ -66,89 +126,18 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
                 // ЛЕВАЯ ЧАСТЬ - ИЗОБРАЖЕНИЕ
                 Container(
                   width: 100,
-                  decoration: widget.event.imageUrl != null && widget.event.imageUrl!.isNotEmpty
-                      ? BoxDecoration(
+                  decoration: BoxDecoration(
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(12),
                       bottomLeft: Radius.circular(12),
-                    ),
-                    image: DecorationImage(
-                      image: NetworkImage(widget.event.imageUrl!),
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                      : BoxDecoration(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        widget.event.color.withOpacity(0.9),
-                        widget.event.color.withOpacity(0.7),
-                        widget.event.color.withOpacity(0.8),
-                      ],
                     ),
                   ),
-                  child: Stack(
-                    children: [
-                      // Дата в левом верхнем углу
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _formatDay(widget.event.date),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: widget.event.color,
-                                ),
-                              ),
-                              Text(
-                                _formatMonthShort(widget.event.date),
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w700,
-                                  color: widget.event.color,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Цена в правом нижнем углу
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.85),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            widget.event.price == 0 ? 'БЕСПЛАТНО' : '${widget.event.price}₽',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
+                    ),
+                    child: _buildEventImage(140, width: 100),
                   ),
                 ),
 
@@ -316,39 +305,22 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
                   // ВЕРХНЯЯ ЧАСТЬ С ИЗОБРАЖЕНИЕМ
                   Stack(
                     children: [
-                      // ОСНОВНОЕ ИЗОБРАЖЕНИЕ - обновлено для поддержки NetworkImage
-                      widget.event.imageUrl != null && widget.event.imageUrl!.isNotEmpty
-                          ? Container(
+                      // ОСНОВНОЕ ИЗОБРАЖЕНИЕ - универсальное для локальных и сетевых
+                      Container(
                         height: 140,
                         width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.only(
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.only(
                             topLeft: Radius.circular(16),
                             topRight: Radius.circular(16),
-                          ),
-                          image: DecorationImage(
-                            image: NetworkImage(widget.event.imageUrl!),
-                            fit: BoxFit.cover,
                           ),
                         ),
-                      )
-                          : Container(
-                        height: 140,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
+                        child: ClipRRect(
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(16),
                             topRight: Radius.circular(16),
                           ),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              widget.event.color.withOpacity(0.9),
-                              widget.event.color.withOpacity(0.7),
-                              widget.event.color.withOpacity(0.8),
-                            ],
-                          ),
+                          child: _buildEventImage(140),
                         ),
                       ),
 

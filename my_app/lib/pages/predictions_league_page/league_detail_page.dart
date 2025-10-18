@@ -487,6 +487,97 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
     );
   }
 
+  // НОВЫЙ МЕТОД: Загрузка изображения обложки (сетевого или локального)
+  Widget _buildCoverImage(String imageUrl, double height) {
+    print('🖼️ Loading league cover image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Для сетевых изображений
+        return Container(
+          height: height,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: NetworkImage(imageUrl),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.7),
+                  Colors.transparent,
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        );
+      } else {
+        // Для локальных assets
+        return Container(
+          height: height,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(imageUrl),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.7),
+                  Colors.transparent,
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading league cover image: $e');
+      return _buildErrorCoverImage(height);
+    }
+  }
+
+  // НОВЫЙ МЕТОД: Запасная обложка при ошибке
+  Widget _buildErrorCoverImage(double height) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_outlined,
+            color: Colors.grey[500],
+            size: 50,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Обложка лиги\nне загружена',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTabItem(int index, String title) {
     final isSelected = _selectedTabIndex == index;
     final isMobile = MediaQuery.of(context).size.width <= 600;
@@ -676,29 +767,7 @@ class _LeagueDetailPageState extends State<LeagueDetailPage> {
                               margin: const EdgeInsets.only(bottom: 20),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(isMobile ? 12 : 16), // Уменьшен радиус
-                                child: Container(
-                                  height: isMobile ? 200 : 280, // Уменьшена высота
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    image: DecorationImage(
-                                      image: NetworkImage(widget.league.imageUrl),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
-                                        colors: [
-                                          Colors.black.withOpacity(0.7),
-                                          Colors.transparent,
-                                          Colors.transparent,
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                                child: _buildCoverImage(widget.league.imageUrl, isMobile ? 200 : 280),
                               ),
                             ),
 

@@ -3,11 +3,19 @@ import 'package:flutter/foundation.dart';
 class ChannelPostsProvider with ChangeNotifier {
   final Map<int, List<Map<String, dynamic>>> _channelPostsMap = {};
 
+  // === ОСНОВНЫЕ МЕТОДЫ ДОСТУПА К ДАННЫМ ===
+
   List<Map<String, dynamic>> getPostsForChannel(int channelId) {
     return _channelPostsMap[channelId] ?? [];
   }
 
-  // ИСПРАВЛЕНИЕ: Улучшенный метод добавления поста с проверкой дубликатов
+  // Синоним для совместимости
+  List<Map<String, dynamic>> getChannelPosts(int channelId) {
+    return getPostsForChannel(channelId);
+  }
+
+  // === ДОБАВЛЕНИЕ И ОБНОВЛЕНИЕ ПОСТОВ ===
+
   void addPostToChannel(int channelId, Map<String, dynamic> post) {
     if (!_channelPostsMap.containsKey(channelId)) {
       _channelPostsMap[channelId] = [];
@@ -27,29 +35,18 @@ class ChannelPostsProvider with ChangeNotifier {
       }
     }
 
-    final postWithDefaults = {
-      ...post,
-      'id': postId ?? 'post_${DateTime.now().millisecondsSinceEpoch}_$channelId',
-      'likes': _getIntValue(post['likes']),
-      'isLiked': _getBoolValue(post['isLiked']),
-      'isBookmarked': _getBoolValue(post['isBookmarked']),
-      'comments': List<Map<String, dynamic>>.from(post['comments'] ?? []),
-      'created_at': post['created_at'] ?? DateTime.now().toIso8601String(),
-      'channel_id': channelId,
-    };
-
+    final postWithDefaults = _preparePostData(post, channelId);
     _channelPostsMap[channelId]!.insert(0, postWithDefaults);
     notifyListeners();
 
     print('✅ Post added to channel $channelId. Total posts: ${_channelPostsMap[channelId]!.length}');
   }
 
-  // ИСПРАВЛЕНИЕ: Добавляем синоним метода для совместимости
+  // Синоним для совместимости с ContentManager
   void addPost(int channelId, Map<String, dynamic> post) {
     addPostToChannel(channelId, post);
   }
 
-  // НОВЫЙ МЕТОД: Обновление существующего поста
   void _updateExistingPost(int channelId, int index, Map<String, dynamic> updates) {
     final existingPost = _channelPostsMap[channelId]![index];
     _channelPostsMap[channelId]![index] = {
@@ -63,27 +60,25 @@ class ChannelPostsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // ИСПРАВЛЕНИЕ: Обновленный метод для обновления поста
   void updatePost(int channelId, String postId, Map<String, dynamic> updates) {
     final posts = _channelPostsMap[channelId];
     if (posts != null) {
       final index = posts.indexWhere((post) => post['id']?.toString() == postId);
       if (index != -1) {
         _updateExistingPost(channelId, index, updates);
+        print('✅ Post $postId updated in channel $channelId');
+      } else {
+        print('❌ Post $postId not found in channel $channelId for update');
       }
+    } else {
+      print('❌ Channel $channelId not found for post update');
     }
   }
 
   void loadPostsForChannel(int channelId, List<Map<String, dynamic>> posts) {
-    final postsWithDefaults = posts.map((post) => {
-      ...post,
-      'likes': _getIntValue(post['likes']),
-      'isLiked': _getBoolValue(post['isLiked']),
-      'isBookmarked': _getBoolValue(post['isBookmarked']),
-      'comments': List<Map<String, dynamic>>.from(post['comments'] ?? []),
-      'created_at': post['created_at'] ?? DateTime.now().toIso8601String(),
-      'channel_id': channelId,
-    }).toList();
+    final postsWithDefaults = posts.map((post) =>
+        _preparePostData(post, channelId)
+    ).toList();
 
     _channelPostsMap[channelId] = postsWithDefaults;
     notifyListeners();
@@ -91,7 +86,8 @@ class ChannelPostsProvider with ChangeNotifier {
     print('📥 Loaded ${postsWithDefaults.length} posts for channel $channelId');
   }
 
-  // ИСПРАВЛЕНИЕ: Улучшенный toggleLike с проверкой типа
+  // === ВЗАИМОДЕЙСТВИЯ С ПОСТАМИ ===
+
   void toggleLike(String postId) {
     bool found = false;
 
@@ -119,7 +115,6 @@ class ChannelPostsProvider with ChangeNotifier {
     }
   }
 
-  // ИСПРАВЛЕНИЕ: Улучшенный toggleBookmark
   void toggleBookmark(String postId) {
     bool found = false;
 
@@ -142,7 +137,8 @@ class ChannelPostsProvider with ChangeNotifier {
     }
   }
 
-  // ИСПРАВЛЕНИЕ: Улучшенный addComment с полными данными комментария
+  // === КОММЕНТАРИИ ===
+
   void addComment(String postId, String text, {String? userName, String? userAvatar}) {
     bool found = false;
 
@@ -176,7 +172,6 @@ class ChannelPostsProvider with ChangeNotifier {
     }
   }
 
-  // НОВЫЙ МЕТОД: Добавление комментария с полным объектом
   void addCommentToPost(String postId, Map<String, dynamic> comment) {
     bool found = false;
 
@@ -231,26 +226,27 @@ class ChannelPostsProvider with ChangeNotifier {
     }
   }
 
-  // ИСПРАВЛЕНИЕ: Улучшенный deletePost с указанием канала
+  // === УДАЛЕНИЕ ПОСТОВ ===
+
   void deletePost(String postId, [int? channelId]) {
     bool found = false;
 
     if (channelId != null && _channelPostsMap.containsKey(channelId)) {
-      // Удаляем из конкретного канала
       final initialLength = _channelPostsMap[channelId]!.length;
       _channelPostsMap[channelId]!.removeWhere((post) => post['id']?.toString() == postId);
 
       if (_channelPostsMap[channelId]!.length != initialLength) {
         found = true;
+        print('🗑️ Post $postId deleted from channel $channelId');
       }
     } else {
-      // Ищем во всех каналах
       for (final channelPosts in _channelPostsMap.values) {
         final initialLength = channelPosts.length;
         channelPosts.removeWhere((post) => post['id']?.toString() == postId);
 
         if (channelPosts.length != initialLength) {
           found = true;
+          print('🗑️ Post $postId deleted from channel');
           break;
         }
       }
@@ -258,16 +254,16 @@ class ChannelPostsProvider with ChangeNotifier {
 
     if (found) {
       notifyListeners();
-      print('🗑️ Post $postId deleted');
     } else {
       print('❌ Post $postId not found for deletion');
     }
   }
 
-  // НОВЫЙ МЕТОД: Удаление поста из конкретного канала
   void removePost(int channelId, String postId) {
     deletePost(postId, channelId);
   }
+
+  // === ПОИСК И ФИЛЬТРАЦИЯ ===
 
   Map<String, dynamic>? getPostById(String postId) {
     for (final channelPosts in _channelPostsMap.values) {
@@ -280,7 +276,6 @@ class ChannelPostsProvider with ChangeNotifier {
     return null;
   }
 
-  // НОВЫЙ МЕТОД: Получение поста с указанием канала
   Map<String, dynamic>? getPostFromChannel(int channelId, String postId) {
     final channelPosts = _channelPostsMap[channelId];
     if (channelPosts != null) {
@@ -295,9 +290,55 @@ class ChannelPostsProvider with ChangeNotifier {
     return null;
   }
 
-  int getPostCountForChannel(int channelId) {
-    return _channelPostsMap[channelId]?.length ?? 0;
+  List<Map<String, dynamic>> searchPosts(String query) {
+    if (query.isEmpty) return getAllPosts();
+
+    final results = <Map<String, dynamic>>[];
+    final lowercaseQuery = query.toLowerCase().trim();
+
+    for (final channelPosts in _channelPostsMap.values) {
+      for (final post in channelPosts) {
+        final title = (post['title'] ?? '').toString().toLowerCase();
+        final description = (post['description'] ?? '').toString().toLowerCase();
+        final content = (post['content'] ?? '').toString().toLowerCase();
+        final hashtags = (post['hashtags'] is List
+            ? (post['hashtags'] as List).join(' ').toLowerCase()
+            : '');
+
+        if (title.contains(lowercaseQuery) ||
+            description.contains(lowercaseQuery) ||
+            content.contains(lowercaseQuery) ||
+            hashtags.contains(lowercaseQuery)) {
+          results.add(post);
+        }
+      }
+    }
+
+    return results;
   }
+
+  List<Map<String, dynamic>> searchByHashtag(String hashtag) {
+    final cleanHashtag = hashtag.replaceAll('#', '').toLowerCase().trim();
+    if (cleanHashtag.isEmpty) return [];
+
+    final results = <Map<String, dynamic>>[];
+
+    for (final channelPosts in _channelPostsMap.values) {
+      for (final post in channelPosts) {
+        final hashtags = post['hashtags'] is List
+            ? (post['hashtags'] as List).map((tag) => tag.toString().toLowerCase()).toList()
+            : [];
+
+        if (hashtags.any((tag) => tag.contains(cleanHashtag))) {
+          results.add(post);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  // === ПОЛУЧЕНИЕ СПИСКОВ ПОСТОВ ===
 
   List<Map<String, dynamic>> getAllPosts() {
     final allPosts = <Map<String, dynamic>>[];
@@ -329,71 +370,41 @@ class ChannelPostsProvider with ChangeNotifier {
     return popularPosts;
   }
 
-  // ИСПРАВЛЕНИЕ: Улучшенный поиск с поддержкой хештегов
-  List<Map<String, dynamic>> searchPosts(String query) {
-    if (query.isEmpty) return getAllPosts();
+  List<Map<String, dynamic>> getRecentPosts({int limit = 10}) {
+    final allPosts = getAllPosts();
 
-    final results = <Map<String, dynamic>>[];
-    final lowercaseQuery = query.toLowerCase().trim();
+    allPosts.sort((a, b) {
+      final dateA = DateTime.parse(a['created_at'] ?? DateTime.now().toIso8601String());
+      final dateB = DateTime.parse(b['created_at'] ?? DateTime.now().toIso8601String());
+      return dateB.compareTo(dateA);
+    });
 
-    for (final channelPosts in _channelPostsMap.values) {
-      for (final post in channelPosts) {
-        final title = (post['title'] ?? '').toString().toLowerCase();
-        final description = (post['description'] ?? '').toString().toLowerCase();
-        final hashtags = (post['hashtags'] is List
-            ? (post['hashtags'] as List).join(' ').toLowerCase()
-            : '');
+    return allPosts.take(limit).toList();
+  }
 
-        if (title.contains(lowercaseQuery) ||
-            description.contains(lowercaseQuery) ||
-            hashtags.contains(lowercaseQuery)) {
-          results.add(post);
-        }
+  List<Map<String, dynamic>> getPostsFromPeriod(DateTime start, DateTime end) {
+    final allPosts = getAllPosts();
+
+    return allPosts.where((post) {
+      try {
+        final postDate = DateTime.parse(post['created_at'] ?? '');
+        return postDate.isAfter(start) && postDate.isBefore(end);
+      } catch (e) {
+        return false;
       }
-    }
-
-    return results;
+    }).toList();
   }
 
-  // НОВЫЙ МЕТОД: Поиск по хештегам
-  List<Map<String, dynamic>> searchByHashtag(String hashtag) {
-    final cleanHashtag = hashtag.replaceAll('#', '').toLowerCase().trim();
-    if (cleanHashtag.isEmpty) return [];
+  // === СТАТИСТИКА И АНАЛИТИКА ===
 
-    final results = <Map<String, dynamic>>[];
-
-    for (final channelPosts in _channelPostsMap.values) {
-      for (final post in channelPosts) {
-        final hashtags = post['hashtags'] is List
-            ? (post['hashtags'] as List).map((tag) => tag.toString().toLowerCase()).toList()
-            : [];
-
-        if (hashtags.any((tag) => tag.contains(cleanHashtag))) {
-          results.add(post);
-        }
-      }
-    }
-
-    return results;
+  int getPostCountForChannel(int channelId) {
+    return _channelPostsMap[channelId]?.length ?? 0;
   }
 
-  void clearPostsForChannel(int channelId) {
-    if (_channelPostsMap.containsKey(channelId)) {
-      final count = _channelPostsMap[channelId]!.length;
-      _channelPostsMap[channelId]!.clear();
-      notifyListeners();
-      print('🧹 Cleared $count posts from channel $channelId');
-    }
+  int getTotalPostsCount() {
+    return _channelPostsMap.values.fold<int>(0, (sum, posts) => sum + posts.length);
   }
 
-  void clearAll() {
-    final totalPosts = getAllPosts().length;
-    _channelPostsMap.clear();
-    notifyListeners();
-    print('🧹 Cleared all $totalPosts posts from all channels');
-  }
-
-  // ИСПРАВЛЕНИЕ: Улучшенная статистика с безопасными вычислениями
   Map<String, dynamic> getChannelStats(int channelId) {
     final posts = _channelPostsMap[channelId] ?? [];
 
@@ -411,38 +422,20 @@ class ChannelPostsProvider with ChangeNotifier {
     };
   }
 
-  List<Map<String, dynamic>> getRecentPosts({int limit = 10}) {
-    final allPosts = getAllPosts();
-
-    allPosts.sort((a, b) {
-      final dateA = DateTime.parse(a['created_at'] ?? DateTime.now().toIso8601String());
-      final dateB = DateTime.parse(b['created_at'] ?? DateTime.now().toIso8601String());
-      return dateB.compareTo(dateA);
-    });
-
-    return allPosts.take(limit).toList();
+  Map<int, List<Map<String, dynamic>>> getAllChannelPosts() {
+    return Map.from(_channelPostsMap);
   }
 
-  // НОВЫЙ МЕТОД: Получение постов за период
-  List<Map<String, dynamic>> getPostsFromPeriod(DateTime start, DateTime end) {
-    final allPosts = getAllPosts();
-
-    return allPosts.where((post) {
-      try {
-        final postDate = DateTime.parse(post['created_at'] ?? '');
-        return postDate.isAfter(start) && postDate.isBefore(end);
-      } catch (e) {
-        return false;
-      }
-    }).toList();
+  int getChannelCount() {
+    return _channelPostsMap.length;
   }
 
-  // НОВЫЙ МЕТОД: Проверка существования поста
+  // === ВАЛИДАЦИЯ И ПРОВЕРКИ ===
+
   bool containsPost(String postId) {
     return getPostById(postId) != null;
   }
 
-  // НОВЫЙ МЕТОД: Получение индекса поста в канале
   int getPostIndexInChannel(int channelId, String postId) {
     final posts = _channelPostsMap[channelId];
     if (posts != null) {
@@ -451,7 +444,49 @@ class ChannelPostsProvider with ChangeNotifier {
     return -1;
   }
 
-  // Вспомогательные методы для безопасного получения значений
+  bool channelExists(int channelId) {
+    return _channelPostsMap.containsKey(channelId);
+  }
+
+  // === ОЧИСТКА ДАННЫХ ===
+
+  void clearPostsForChannel(int channelId) {
+    if (_channelPostsMap.containsKey(channelId)) {
+      final count = _channelPostsMap[channelId]!.length;
+      _channelPostsMap[channelId]!.clear();
+      notifyListeners();
+      print('🧹 Cleared $count posts from channel $channelId');
+    }
+  }
+
+  void clearAllPosts() {
+    final totalPosts = getTotalPostsCount();
+    _channelPostsMap.clear();
+    notifyListeners();
+    print('🧹 Cleared all $totalPosts posts from all channels');
+  }
+
+  // Синоним для совместимости
+  void clearAll() {
+    clearAllPosts();
+  }
+
+  // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
+
+  Map<String, dynamic> _preparePostData(Map<String, dynamic> post, int channelId) {
+    return {
+      ...post,
+      'id': post['id']?.toString() ?? 'post_${DateTime.now().millisecondsSinceEpoch}_$channelId',
+      'likes': _getIntValue(post['likes']),
+      'isLiked': _getBoolValue(post['isLiked']),
+      'isBookmarked': _getBoolValue(post['isBookmarked']),
+      'comments': List<Map<String, dynamic>>.from(post['comments'] ?? []),
+      'hashtags': List<String>.from(post['hashtags'] ?? []),
+      'created_at': post['created_at'] ?? DateTime.now().toIso8601String(),
+      'channel_id': channelId,
+    };
+  }
+
   int _getIntValue(dynamic value) {
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? 0;
@@ -464,21 +499,6 @@ class ChannelPostsProvider with ChangeNotifier {
     if (value is String) return value.toLowerCase() == 'true';
     if (value is int) return value == 1;
     return false;
-  }
-
-  // НОВЫЙ МЕТОД: Получение всех каналов с постами
-  Map<int, List<Map<String, dynamic>>> getAllChannelPosts() {
-    return Map.from(_channelPostsMap);
-  }
-
-  // НОВЫЙ МЕТОД: Получение количества каналов с постами
-  int getChannelCount() {
-    return _channelPostsMap.length;
-  }
-
-  // НОВЫЙ МЕТОД: Получение общего количества постов
-  int getTotalPostCount() {
-    return _channelPostsMap.values.fold<int>(0, (sum, posts) => sum + posts.length);
   }
 
   @override

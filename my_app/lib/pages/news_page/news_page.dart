@@ -44,10 +44,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   late NewsPageState _pageState;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  bool _isMounted = false;
 
   @override
   void initState() {
     super.initState();
+    _isMounted = true;
     _pageState = NewsPageState();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -61,17 +63,37 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!_isMounted) return;
       await _ensureDataPersistence();
       _loadNews(showLoading: true);
-      Provider.of<NewsProvider>(context, listen: false).loadUserTags();
+      _safeProviderOperation((newsProvider) => newsProvider.loadUserTags());
       _animationController.forward();
     });
   }
 
-  Future<void> _ensureDataPersistence() async {
+  // Безопасная операция с провайдером
+  void _safeProviderOperation(Function(NewsProvider) operation) {
+    if (!_isMounted) return;
+
     try {
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-      await newsProvider.ensureDataPersistence();
+      if (!newsProvider.isDisposed) {
+        operation(newsProvider);
+      } else {
+        print('⚠️ NewsProvider is disposed, skipping operation');
+      }
+    } catch (e) {
+      print('❌ Error in provider operation: $e');
+    }
+  }
+
+  Future<void> _ensureDataPersistence() async {
+    if (!_isMounted) return;
+
+    try {
+      _safeProviderOperation((newsProvider) async {
+        await newsProvider.ensureDataPersistence();
+      });
     } catch (e) {
       print('❌ Error ensuring data persistence: $e');
     }
@@ -95,33 +117,59 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _loadNews({bool showLoading = false}) async {
+    if (!_isMounted) return;
+
     try {
       if (showLoading) {
-        Provider.of<NewsProvider>(context, listen: false).setLoading(true);
+        _safeProviderOperation((newsProvider) => newsProvider.setLoading(true));
       }
-      await Provider.of<NewsProvider>(context, listen: false).loadNews();
+
+      await _safeProviderOperationAsync((newsProvider) => newsProvider.loadNews());
     } catch (e) {
       _showErrorSnackBar('Ошибка загрузки: ${e.toString()}');
     } finally {
-      if (showLoading) {
-        Provider.of<NewsProvider>(context, listen: false).setLoading(false);
+      if (showLoading && _isMounted) {
+        _safeProviderOperation((newsProvider) => newsProvider.setLoading(false));
       }
+    }
+  }
+
+  // Безопасная асинхронная операция с провайдером
+  Future<void> _safeProviderOperationAsync(Future Function(NewsProvider) operation) async {
+    if (!_isMounted) return;
+
+    try {
+      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+      if (!newsProvider.isDisposed) {
+        await operation(newsProvider);
+      } else {
+        print('⚠️ NewsProvider is disposed, skipping async operation');
+      }
+    } catch (e) {
+      print('❌ Error in async provider operation: $e');
+      rethrow;
     }
   }
 
   Future<void> _onRefresh() async {
+    if (!_isMounted) return;
+
     try {
-      await Provider.of<NewsProvider>(context, listen: false).loadNews();
-      _refreshController.refreshCompleted();
-      _showSuccessSnackBar('Новости обновлены');
+      await _safeProviderOperationAsync((newsProvider) => newsProvider.loadNews());
+      if (_isMounted) {
+        _refreshController.refreshCompleted();
+        _showSuccessSnackBar('Новости обновлены');
+      }
     } catch (e) {
-      _refreshController.refreshFailed();
-      _showErrorSnackBar('Ошибка обновления: ${e.toString()}');
+      if (_isMounted) {
+        _refreshController.refreshFailed();
+        _showErrorSnackBar('Ошибка обновления: ${e.toString()}');
+      }
     }
   }
 
   void _showErrorSnackBar(String message) {
-    if (mounted) {
+    if (_isMounted && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -140,7 +188,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   void _showSuccessSnackBar(String message) {
-    if (mounted) {
+    if (_isMounted && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -161,122 +209,128 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   // ========== УЛУЧШЕННЫЕ МЕТОДЫ ВЗАИМОДЕЙСТВИЯ С НОВОСТЯМИ ==========
 
   Future<void> _toggleLike(int index) async {
-    if (!_isValidIndex(index)) return;
+    if (!_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyLiked = news['isLiked'] ?? false;
-    final int currentLikes = news['likes'] ?? 0;
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
+      final bool isCurrentlyLiked = news['isLiked'] ?? false;
+      final int currentLikes = news['likes'] ?? 0;
 
-    try {
-      HapticFeedback.lightImpact();
-      newsProvider.updateNewsLikeStatus(
-          index,
-          !isCurrentlyLiked,
-          isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1
-      );
-    } catch (e) {
-      newsProvider.updateNewsLikeStatus(index, isCurrentlyLiked, currentLikes);
-      _showErrorSnackBar('Не удалось поставить лайк');
-    }
+      try {
+        HapticFeedback.lightImpact();
+        newsProvider.updateNewsLikeStatus(
+            index,
+            !isCurrentlyLiked,
+            isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1
+        );
+      } catch (e) {
+        newsProvider.updateNewsLikeStatus(index, isCurrentlyLiked, currentLikes);
+        _showErrorSnackBar('Не удалось поставить лайк');
+      }
+    });
   }
 
   Future<void> _toggleBookmark(int index) async {
-    if (!_isValidIndex(index)) return;
+    if (!_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyBookmarked = news['isBookmarked'] ?? false;
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
+      final bool isCurrentlyBookmarked = news['isBookmarked'] ?? false;
 
-    try {
-      HapticFeedback.lightImpact();
-      newsProvider.updateNewsBookmarkStatus(index, !isCurrentlyBookmarked);
-      _showSuccessSnackBar(
-          !isCurrentlyBookmarked
-              ? 'Добавлено в избранное'
-              : 'Удалено из избранного'
-      );
-    } catch (e) {
-      newsProvider.updateNewsBookmarkStatus(index, isCurrentlyBookmarked);
-      _showErrorSnackBar('Не удалось добавить в закладки');
-    }
+      try {
+        HapticFeedback.lightImpact();
+        newsProvider.updateNewsBookmarkStatus(index, !isCurrentlyBookmarked);
+        _showSuccessSnackBar(
+            !isCurrentlyBookmarked
+                ? 'Добавлено в избранное'
+                : 'Удалено из избранное'
+        );
+      } catch (e) {
+        newsProvider.updateNewsBookmarkStatus(index, isCurrentlyBookmarked);
+        _showErrorSnackBar('Не удалось добавить в закладки');
+      }
+    });
   }
 
   Future<void> _toggleFollow(int index) async {
-    if (!_isValidIndex(index)) return;
+    if (!_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyFollowing = news['isFollowing'] ?? false;
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
+      final bool isCurrentlyFollowing = news['isFollowing'] ?? false;
 
-    try {
-      HapticFeedback.mediumImpact();
-      newsProvider.updateNewsFollowStatus(index, !isCurrentlyFollowing);
-      final isChannelPost = news['is_channel_post'] == true;
-      final targetName = isChannelPost
-          ? news['channel_name'] ?? 'канал'
-          : news['author_name'] ?? 'пользователя';
+      try {
+        HapticFeedback.mediumImpact();
+        newsProvider.updateNewsFollowStatus(index, !isCurrentlyFollowing);
+        final isChannelPost = news['is_channel_post'] == true;
+        final targetName = isChannelPost
+            ? news['channel_name'] ?? 'канал'
+            : news['author_name'] ?? 'пользователя';
 
-      if (!isCurrentlyFollowing) {
-        _showSuccessSnackBar('✅ Вы подписались на $targetName');
-      } else {
-        _showSuccessSnackBar('❌ Вы отписались от $targetName');
+        if (!isCurrentlyFollowing) {
+          _showSuccessSnackBar('✅ Вы подписались на $targetName');
+        } else {
+          _showSuccessSnackBar('❌ Вы отписались от $targetName');
+        }
+      } catch (e) {
+        newsProvider.updateNewsFollowStatus(index, isCurrentlyFollowing);
+        _showErrorSnackBar('Не удалось изменить подписку');
       }
-    } catch (e) {
-      newsProvider.updateNewsFollowStatus(index, isCurrentlyFollowing);
-      _showErrorSnackBar('Не удалось изменить подписку');
-    }
+    });
   }
 
   // ИСПРАВЛЕНИЕ: Обновленный метод добавления комментария
   Future<void> _addComment(int index, String commentText, String userName, String userAvatar) async {
-    if (commentText.trim().isEmpty || !_isValidIndex(index)) return;
+    if (commentText.trim().isEmpty || !_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final newsId = news['id'].toString();
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
+      final newsId = news['id'].toString();
 
-    try {
-      final newComment = {
-        'id': 'comment-${DateTime.now().millisecondsSinceEpoch}-${news['id']}',
-        'author': userName,
-        'text': commentText.trim(),
-        'time': 'Только что',
-        'author_avatar': userAvatar,
-        'created_at': DateTime.now().toIso8601String(),
-      };
+      try {
+        final newComment = {
+          'id': 'comment-${DateTime.now().millisecondsSinceEpoch}-${news['id']}',
+          'author': userName,
+          'text': commentText.trim(),
+          'time': 'Только что',
+          'author_avatar': userAvatar,
+          'created_at': DateTime.now().toIso8601String(),
+        };
 
-      newsProvider.addCommentToNews(newsId, newComment);
-      _showSuccessSnackBar('Комментарий добавлен');
+        newsProvider.addCommentToNews(newsId, newComment);
+        _showSuccessSnackBar('Комментарий добавлен');
 
-    } catch (e) {
-      print('❌ Ошибка добавления комментария: $e');
-      _showErrorSnackBar('Не удалось добавить комментарий');
-    }
+      } catch (e) {
+        print('❌ Ошибка добавления комментария: $e');
+        _showErrorSnackBar('Не удалось добавить комментарий');
+      }
+    });
   }
 
   String _getUserAvatarUrl(String userName) {
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final currentProfileImage = newsProvider.getCurrentProfileImage();
+    String avatarUrl = '';
+    _safeProviderOperation((newsProvider) {
+      final currentProfileImage = newsProvider.getCurrentProfileImage();
 
-    if (currentProfileImage is File) {
-      return _getFallbackAvatarUrl(userName);
-    } else if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-      return currentProfileImage;
-    } else {
-      return _getFallbackAvatarUrl(userName);
-    }
+      if (currentProfileImage is File) {
+        avatarUrl = _getFallbackAvatarUrl(userName);
+      } else if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+        avatarUrl = currentProfileImage;
+      } else {
+        avatarUrl = _getFallbackAvatarUrl(userName);
+      }
+    });
+    return avatarUrl;
   }
 
   // ИСПРАВЛЕНИЕ: Улучшенный метод создания новости
   Future<void> _addNews(String title, String description, String hashtags) async {
-    if (description.isEmpty) return;
+    if (description.isEmpty || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final hashtagsArray = _formatHashtags(hashtags);
 
     // Показываем индикатор загрузки
-    newsProvider.setLoading(true);
+    _safeProviderOperation((newsProvider) => newsProvider.setLoading(true));
 
     try {
       final newNews = await ApiService.createNews({
@@ -301,7 +355,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       });
 
       // Добавляем новость только один раз
-      newsProvider.addNews(newsItem);
+      _safeProviderOperation((newsProvider) => newsProvider.addNews(newsItem));
       _showSuccessSnackBar('🎉 Новость успешно создана!');
 
     } catch (e) {
@@ -326,11 +380,13 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'is_channel_post': false, // ЯВНО указываем, что это не канальный пост
       });
 
-      newsProvider.addNews(localNewsItem);
+      _safeProviderOperation((newsProvider) => newsProvider.addNews(localNewsItem));
       _showSuccessSnackBar('📝 Новость создана локально (ошибка сети)');
     } finally {
       // Всегда убираем индикатор загрузки
-      newsProvider.setLoading(false);
+      if (_isMounted) {
+        _safeProviderOperation((newsProvider) => newsProvider.setLoading(false));
+      }
     }
   }
 
@@ -417,89 +473,109 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _editNews(int index, String title, String description, String hashtags) async {
-    if (description.isEmpty || !_isValidIndex(index)) return;
+    if (description.isEmpty || !_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
     final hashtagsArray = _formatHashtags(hashtags);
 
-    try {
-      await ApiService.updateNews(news['id'].toString(), {
-        'title': title,
-        'description': description,
-        'hashtags': hashtagsArray,
-      });
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
 
-      newsProvider.updateNews(index, {
-        ...news,
-        'title': title,
-        'description': description,
-        'hashtags': hashtagsArray,
-      });
-
-      _showSuccessSnackBar('📝 Новость обновлена');
-    } catch (e) {
-      newsProvider.updateNews(index, {
-        ...news,
-        'title': title,
-        'description': description,
-        'hashtags': hashtagsArray,
-      });
-      _showSuccessSnackBar('💾 Изменения сохранены локально');
-    }
+      try {
+        ApiService.updateNews(news['id'].toString(), {
+          'title': title,
+          'description': description,
+          'hashtags': hashtagsArray,
+        }).then((_) {
+          newsProvider.updateNews(index, {
+            ...news,
+            'title': title,
+            'description': description,
+            'hashtags': hashtagsArray,
+          });
+          _showSuccessSnackBar('📝 Новость обновлена');
+        }).catchError((e) {
+          newsProvider.updateNews(index, {
+            ...news,
+            'title': title,
+            'description': description,
+            'hashtags': hashtagsArray,
+          });
+          _showSuccessSnackBar('💾 Изменения сохранены локально');
+        });
+      } catch (e) {
+        newsProvider.updateNews(index, {
+          ...news,
+          'title': title,
+          'description': description,
+          'hashtags': hashtagsArray,
+        });
+        _showSuccessSnackBar('💾 Изменения сохранены локально');
+      }
+    });
   }
 
   Future<void> _deleteNews(int index) async {
-    if (!_isValidIndex(index)) return;
+    if (!_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
 
-    try {
-      await ApiService.deleteNews(news['id'].toString());
-      newsProvider.removeNews(index);
-      _showSuccessSnackBar('🗑️ Новость удалена');
-    } catch (e) {
-      newsProvider.removeNews(index);
-      _showSuccessSnackBar('🗑️ Новость удалена локально');
-    }
+      try {
+        ApiService.deleteNews(news['id'].toString()).then((_) {
+          newsProvider.removeNews(index);
+          _showSuccessSnackBar('🗑️ Новость удалена');
+        }).catchError((e) {
+          newsProvider.removeNews(index);
+          _showSuccessSnackBar('🗑️ Новость удалена локально');
+        });
+      } catch (e) {
+        newsProvider.removeNews(index);
+        _showSuccessSnackBar('🗑️ Новость удалена локально');
+      }
+    });
   }
 
   void _editUserTag(int newsIndex, String tagId, String newTagName, Color color) {
-    if (!_isValidIndex(newsIndex)) return;
+    if (!_isValidIndex(newsIndex) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    try {
-      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
-      _showSuccessSnackBar('🏷️ Тег обновлен');
-    } catch (e) {
-      newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
-    }
+    _safeProviderOperation((newsProvider) {
+      try {
+        newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
+        _showSuccessSnackBar('🏷️ Тег обновлен');
+      } catch (e) {
+        newsProvider.updateNewsUserTag(newsIndex, tagId, newTagName, color: color);
+      }
+    });
   }
 
   Future<void> _shareNews(int index) async {
-    if (!_isValidIndex(index)) return;
+    if (!_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
 
-    final title = news['title'] ?? '';
-    final description = news['description'] ?? '';
-    final url = 'https://example.com/news/${news['id']}';
+      final title = news['title'] ?? '';
+      final description = news['description'] ?? '';
+      final url = 'https://example.com/news/${news['id']}';
 
-    await Share.share('$title\n\n$description\n\n$url');
-    _showSuccessSnackBar('📤 Новость опубликована');
+      Share.share('$title\n\n$description\n\n$url').then((_) {
+        _showSuccessSnackBar('📤 Новость опубликована');
+      });
+    });
   }
 
   // ========== БЕЗОПАСНЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ИНДЕКСАМИ ==========
 
   bool _isValidIndex(int index) {
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    return index >= 0 && index < newsProvider.news.length;
+    bool isValid = false;
+    _safeProviderOperation((newsProvider) {
+      isValid = index >= 0 && index < newsProvider.news.length;
+    });
+    return isValid;
   }
 
   void _safeNewsAction(int originalIndex, Function(int) action) {
-    if (_isValidIndex(originalIndex)) {
+    if (_isValidIndex(originalIndex) && _isMounted) {
       action(originalIndex);
     } else {
       print('⚠️ Invalid news index: $originalIndex');
@@ -510,6 +586,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   // ========== УЛУЧШЕННАЯ ФИЛЬТРАЦИЯ ==========
 
   List<dynamic> _getFilteredNews(List<dynamic> news) {
+    if (!_isMounted) return [];
+
     List<dynamic> filtered = List.from(news); // Создаем копию для безопасности
 
     if (_pageState.searchQuery.isNotEmpty) {
@@ -567,6 +645,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
   // ========== УЛУЧШЕННЫЕ ДИАЛОГИ ==========
   void _showAddNewsDialog() {
+    if (!_isMounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AddNewsDialog(
@@ -576,21 +656,24 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   void _showEditNewsDialog(int index) {
-    if (!_isValidIndex(index)) return;
+    if (!_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
 
-    showDialog(
-      context: context,
-      builder: (context) => EditNewsDialog(
-        news: news,
-        onEditNews: (title, description, hashtags) => _editNews(index, title, description, hashtags),
-      ),
-    );
+      showDialog(
+        context: context,
+        builder: (context) => EditNewsDialog(
+          news: news,
+          onEditNews: (title, description, hashtags) => _editNews(index, title, description, hashtags),
+        ),
+      );
+    });
   }
 
   void _showDeleteConfirmationDialog(int index) {
+    if (!_isMounted) return;
+
     showDialog(
       context: context,
       builder: (context) => DeleteConfirmationDialog(
@@ -601,52 +684,65 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
   // ОБНОВЛЕННЫЙ МЕТОД: Открытие страницы профиля вместо модального окна
   void _showProfilePage(BuildContext context) {
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    if (!_isMounted) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ProfilePage(
-          userName: widget.userName,
-          userEmail: widget.userEmail,
-          onLogout: () {
-            // Возвращаемся на предыдущую страницу перед выходом
-            Navigator.pop(context);
-            widget.onLogout();
-          },
-          newMessagesCount: 3,
-          profileImageUrl: newsProvider.profileImageUrl,
-          profileImageFile: newsProvider.profileImageFile,
-          onProfileImageUrlChanged: (url) {
-            newsProvider.updateProfileImageUrl(url);
-          },
-          onProfileImageFileChanged: (file) {
-            newsProvider.updateProfileImageFile(file);
-          },
-          onMessagesTap: () {
-            Navigator.pop(context);
-            _showSuccessSnackBar('Переход к сообщениям');
-          },
-          onSettingsTap: () {
-            Navigator.pop(context);
-            _showSuccessSnackBar('Переход к настройкам');
-          },
-          onHelpTap: () {
-            Navigator.pop(context);
-            _showSuccessSnackBar('Переход к разделу помощи');
-          },
-          onAboutTap: () {
-            Navigator.pop(context);
-            _showSuccessSnackBar('Информация о приложении');
-          },
+    _safeProviderOperation((newsProvider) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProfilePage(
+            userName: widget.userName,
+            userEmail: widget.userEmail,
+            onLogout: () {
+              // Возвращаемся на предыдущую страницу перед выходом
+              if (_isMounted) {
+                Navigator.pop(context);
+                widget.onLogout();
+              }
+            },
+            newMessagesCount: 3,
+            profileImageUrl: newsProvider.profileImageUrl,
+            profileImageFile: newsProvider.profileImageFile,
+            onProfileImageUrlChanged: (url) {
+              _safeProviderOperation((provider) => provider.updateProfileImageUrl(url));
+            },
+            onProfileImageFileChanged: (file) {
+              _safeProviderOperation((provider) => provider.updateProfileImageFile(file));
+            },
+            onMessagesTap: () {
+              if (_isMounted) {
+                Navigator.pop(context);
+                _showSuccessSnackBar('Переход к сообщениям');
+              }
+            },
+            onSettingsTap: () {
+              if (_isMounted) {
+                Navigator.pop(context);
+                _showSuccessSnackBar('Переход к настройкам');
+              }
+            },
+            onHelpTap: () {
+              if (_isMounted) {
+                Navigator.pop(context);
+                _showSuccessSnackBar('Переход к разделу помощи');
+              }
+            },
+            onAboutTap: () {
+              if (_isMounted) {
+                Navigator.pop(context);
+                _showSuccessSnackBar('Информация о приложении');
+              }
+            },
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   // ========== НОВЫЕ ФУНКЦИИ ==========
 
   void _scrollToTop() {
+    if (!_isMounted) return;
     _pageState.scrollController.animateTo(
       0,
       duration: const Duration(milliseconds: 500),
@@ -656,33 +752,35 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
   // ИСПРАВЛЕНИЕ: Обновленный метод репоста
   void _toggleRepost(int index) {
-    if (!_isValidIndex(index)) return;
+    if (!_isValidIndex(index) || !_isMounted) return;
 
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final bool isCurrentlyReposted = news['isReposted'] ?? false;
-    final int currentReposts = news['reposts'] ?? 0;
+    _safeProviderOperation((newsProvider) {
+      final news = Map<String, dynamic>.from(newsProvider.news[index]);
+      final bool isCurrentlyReposted = news['isReposted'] ?? false;
+      final int currentReposts = news['reposts'] ?? 0;
 
-    try {
-      HapticFeedback.lightImpact();
-      newsProvider.updateNewsRepostStatus(
-          index,
-          !isCurrentlyReposted,
-          isCurrentlyReposted ? currentReposts - 1 : currentReposts + 1
-      );
+      try {
+        HapticFeedback.lightImpact();
+        newsProvider.updateNewsRepostStatus(
+            index,
+            !isCurrentlyReposted,
+            isCurrentlyReposted ? currentReposts - 1 : currentReposts + 1
+        );
 
-      _showSuccessSnackBar(
-          !isCurrentlyReposted
-              ? '🔁 Новость репостнута'
-              : '❌ Репост отменен'
-      );
-    } catch (e) {
-      newsProvider.updateNewsRepostStatus(index, isCurrentlyReposted, currentReposts);
-      _showErrorSnackBar('Не удалось выполнить репост');
-    }
+        _showSuccessSnackBar(
+            !isCurrentlyReposted
+                ? '🔁 Новость репостнута'
+                : '❌ Репост отменен'
+        );
+      } catch (e) {
+        newsProvider.updateNewsRepostStatus(index, isCurrentlyReposted, currentReposts);
+        _showErrorSnackBar('Не удалось выполнить репост');
+      }
+    });
   }
 
   void _clearAllFilters() {
+    if (!_isMounted) return;
     _pageState.setFilter(0);
     _pageState.clearSearch();
     _showSuccessSnackBar('Фильтры сброшены');
@@ -719,6 +817,25 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       value: _pageState,
       child: Consumer2<NewsPageState, NewsProvider>(
         builder: (context, pageState, newsProvider, child) {
+          // Проверяем disposed состояние провайдера
+          if (newsProvider.isDisposed) {
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Загрузка новостей...',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
           final filteredNews = _getFilteredNews(newsProvider.news);
           final hasActiveFilters = pageState.currentFilter != 0 || pageState.searchQuery.isNotEmpty;
 
@@ -732,12 +849,16 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                 isSearching: pageState.isSearching,
                 searchQuery: pageState.searchQuery,
                 onSearchChanged: (query) {
+                  if (!_isMounted) return;
                   pageState.setSearchQuery(query);
                   if (query.isNotEmpty) {
                     pageState.addToRecentSearches(query);
                   }
                 },
-                onSearchToggled: () => pageState.setSearching(!pageState.isSearching),
+                onSearchToggled: () {
+                  if (!_isMounted) return;
+                  pageState.setSearching(!pageState.isSearching);
+                },
                 onProfilePressed: () => _showProfilePage(context),
                 onClearFilters: _clearAllFilters,
                 hasActiveFilters: hasActiveFilters,
@@ -910,6 +1031,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
+    _isMounted = false;
     _refreshController.dispose();
     _pageState.dispose();
     _animationController.dispose();

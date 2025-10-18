@@ -23,6 +23,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
   bool _isBookmarked = false;
   bool _isLiked = false;
   int _likeCount = 24;
+  bool _imageError = false;
 
   // Цвета для категорий
   final Map<String, Color> _categoryColors = {
@@ -99,6 +100,72 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
     if (width <= 420) return _ScreenSize.medium;
     if (width <= 600) return _ScreenSize.large;
     return _ScreenSize.desktop;
+  }
+
+  // УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+  Widget _buildLeagueImage(double height, {double? width}) {
+    final imageUrl = widget.league.imageUrl;
+
+    // Для отладки
+    print('🖼️ Loading league image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Для сетевых изображений
+        return Image.network(
+          imageUrl,
+          height: height,
+          width: width ?? double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Network image error: $error');
+            return _buildErrorImage(height, width);
+          },
+        );
+      } else {
+        // Для локальных assets
+        return Image.asset(
+          imageUrl,
+          height: height,
+          width: width ?? double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Asset image error: $error for path: $imageUrl');
+            return _buildErrorImage(height, width);
+          },
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading image: $e');
+      return _buildErrorImage(height, width);
+    }
+  }
+
+  Widget _buildErrorImage(double height, [double? width]) {
+    return Container(
+      height: height,
+      width: width ?? double.infinity,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_outlined,
+            color: Colors.grey[500],
+            size: 40,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Изображение\nне загружено',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -209,16 +276,8 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
               // ОБЛОЖКА ЛИГИ
               Stack(
                 children: [
-                  Container(
-                    height: imageHeight,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(widget.league.imageUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
+                  // Используем универсальный метод для загрузки изображения
+                  _buildLeagueImage(imageHeight),
 
                   // Категория в левом верхнем углу
                   Positioned(
@@ -681,7 +740,7 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
     );
   }
 
-  // ВЕРСИЯ ДЛЯ КОМПЬЮТЕРА (оставлена без изменений)
+  // ВЕРСИЯ ДЛЯ КОМПЬЮТЕРА
   Widget _buildDesktopCard(
       Color categoryColor,
       String timeLeft,
@@ -709,20 +768,8 @@ class _PredictionLeagueCardState extends State<PredictionLeagueCard> {
                 // ОБЛОЖКА ЛИГИ
                 Stack(
                   children: [
-                    Container(
-                      height: 120,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                        image: DecorationImage(
-                          image: NetworkImage(widget.league.imageUrl),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
+                    // Используем универсальный метод для загрузки изображения
+                    _buildLeagueImage(120),
 
                     // Категория в левом верхнем углу
                     Positioned(

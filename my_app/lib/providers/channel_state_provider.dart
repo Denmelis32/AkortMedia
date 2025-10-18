@@ -1,4 +1,3 @@
-// providers/channel_state_provider.dart
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,55 +15,83 @@ class ChannelStateProvider with ChangeNotifier {
   static const String _subscriptionsKey = 'channel_subscriptions';
   static const String _subscribersCountKey = 'channel_subscribers_count';
 
+  bool _isDisposed = false;
+
   ChannelStateProvider() {
     _loadFromStorage();
   }
 
+  // Безопасное уведомление слушателей
+  void _safeNotifyListeners() {
+    if (!_isDisposed && hasListeners) {
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
+  // Проверка доступности провайдера
+  bool get isDisposed => _isDisposed;
+
+  // Безопасное выполнение операций
+  void _safeOperation(Function operation) {
+    if (!_isDisposed) {
+      operation();
+    }
+  }
+
+  // МЕТОД ДЛЯ БЕЗОПАСНОГО УДАЛЕНИЯ СЛУШАТЕЛЕЙ
+  void safeRemoveListener(VoidCallback listener) {
+    if (!_isDisposed && hasListeners) {
+      removeListener(listener);
+    }
+  }
+
   // === МЕТОДЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ===
 
-  /// [УСТАРЕВШИЙ] Получение аватарки канала - используйте getCurrentAvatar вместо этого
   String? getAvatarForChannel(String channelId) => _channelAvatars[channelId];
 
-  /// [УСТАРЕВШИЙ] Получение обложки канала - используйте getCurrentCover вместо этого
   String? getCoverForChannel(String channelId) => _channelCovers[channelId];
 
   // === НОВЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С АВАТАРКАМИ ===
 
-  /// Получение текущей аватарки канала с приоритетом: кастомная → дефолтная
   String? getCurrentAvatar(String channelId, {String? defaultAvatar}) {
     return _channelAvatars[channelId] ?? defaultAvatar;
   }
 
   void clearData() {
-    // Очистите состояние каналов
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
-  /// Установка аватарки канала
   void setAvatarForChannel(String channelId, String? avatarUrl) {
-    if (avatarUrl == null) {
-      _channelAvatars.remove(channelId);
-    } else {
-      _channelAvatars[channelId] = avatarUrl;
-    }
-    notifyListeners();
-    _saveToStorage();
+    _safeOperation(() {
+      if (avatarUrl == null) {
+        _channelAvatars.remove(channelId);
+      } else {
+        _channelAvatars[channelId] = avatarUrl;
+      }
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
   }
 
-  /// Очистка аватарки канала (возврат к дефолтной)
   void clearAvatarForChannel(String channelId) {
-    _channelAvatars.remove(channelId);
-    notifyListeners();
-    _saveToStorage();
+    _safeOperation(() {
+      _channelAvatars.remove(channelId);
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
   }
 
-  /// Проверка наличия кастомной аватарки
   bool hasCustomAvatar(String channelId) {
     final avatar = _channelAvatars[channelId];
     return avatar != null && avatar.isNotEmpty;
   }
 
-  /// Получение всех кастомных аватарок
   Map<String, String?> getAllCustomAvatars() {
     return Map.from(_channelAvatars)
       ..removeWhere((key, value) => value == null || value.isEmpty);
@@ -72,36 +99,35 @@ class ChannelStateProvider with ChangeNotifier {
 
   // === МЕТОДЫ ДЛЯ ОБЛОЖЕК ===
 
-  /// Получение текущей обложки канала с приоритетом: кастомная → дефолтная
   String? getCurrentCover(String channelId, {String? defaultCover}) {
     return _channelCovers[channelId] ?? defaultCover;
   }
 
-  /// Установка обложки канала
   void setCoverForChannel(String channelId, String? coverUrl) {
-    if (coverUrl == null) {
-      _channelCovers.remove(channelId);
-    } else {
-      _channelCovers[channelId] = coverUrl;
-    }
-    notifyListeners();
-    _saveToStorage();
+    _safeOperation(() {
+      if (coverUrl == null) {
+        _channelCovers.remove(channelId);
+      } else {
+        _channelCovers[channelId] = coverUrl;
+      }
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
   }
 
-  /// Очистка обложки канала (возврат к дефолтной)
   void clearCoverForChannel(String channelId) {
-    _channelCovers.remove(channelId);
-    notifyListeners();
-    _saveToStorage();
+    _safeOperation(() {
+      _channelCovers.remove(channelId);
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
   }
 
-  /// Проверка наличия кастомной обложки
   bool hasCustomCover(String channelId) {
     final cover = _channelCovers[channelId];
     return cover != null && cover.isNotEmpty;
   }
 
-  /// Получение всех кастомных обложек
   Map<String, String?> getAllCustomCovers() {
     return Map.from(_channelCovers)
       ..removeWhere((key, value) => value == null || value.isEmpty);
@@ -109,46 +135,48 @@ class ChannelStateProvider with ChangeNotifier {
 
   // === МЕТОДЫ ДЛЯ ХЕШТЕГОВ ===
 
-  /// Получение хештегов канала
   List<String> getHashtagsForChannel(String channelId) => _channelHashtags[channelId] ?? [];
 
-  /// Установка хештегов канала
   void setHashtagsForChannel(String channelId, List<String> hashtags) {
-    _channelHashtags[channelId] = List.from(hashtags);
-    notifyListeners();
-    _saveToStorage();
+    _safeOperation(() {
+      _channelHashtags[channelId] = List.from(hashtags);
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
   }
 
-  /// Добавление хештега к каналу
   void addHashtagToChannel(String channelId, String hashtag) {
-    if (!_channelHashtags.containsKey(channelId)) {
-      _channelHashtags[channelId] = [];
-    }
-    final cleanHashtag = _cleanHashtag(hashtag);
-    if (!_channelHashtags[channelId]!.contains(cleanHashtag)) {
-      _channelHashtags[channelId]!.add(cleanHashtag);
-      notifyListeners();
-      _saveToStorage();
-    }
+    _safeOperation(() {
+      if (!_channelHashtags.containsKey(channelId)) {
+        _channelHashtags[channelId] = [];
+      }
+      final cleanHashtag = _cleanHashtag(hashtag);
+      if (!_channelHashtags[channelId]!.contains(cleanHashtag)) {
+        _channelHashtags[channelId]!.add(cleanHashtag);
+        _safeNotifyListeners();
+        _saveToStorage();
+      }
+    });
   }
 
-  /// Удаление хештега из канала
   void removeHashtagFromChannel(String channelId, String hashtag) {
-    if (_channelHashtags.containsKey(channelId)) {
-      _channelHashtags[channelId]!.remove(hashtag);
-      notifyListeners();
-      _saveToStorage();
-    }
+    _safeOperation(() {
+      if (_channelHashtags.containsKey(channelId)) {
+        _channelHashtags[channelId]!.remove(hashtag);
+        _safeNotifyListeners();
+        _saveToStorage();
+      }
+    });
   }
 
-  /// Очистка всех хештегов канала
   void clearHashtagsForChannel(String channelId) {
-    _channelHashtags.remove(channelId);
-    notifyListeners();
-    _saveToStorage();
+    _safeOperation(() {
+      _channelHashtags.remove(channelId);
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
   }
 
-  /// Получение всех кастомных хештегов
   Map<String, List<String>> getAllCustomHashtags() {
     return Map.from(_channelHashtags)
       ..removeWhere((key, value) => value == null || value.isEmpty);
@@ -156,36 +184,35 @@ class ChannelStateProvider with ChangeNotifier {
 
   // === МЕТОДЫ ДЛЯ ПОДПИСОК ===
 
-  /// Проверка подписки на канал
   bool isSubscribed(String channelId) {
     return _channelSubscriptions[channelId] ?? false;
   }
 
-  /// Получение количества подписчиков
   int getSubscribers(String channelId) {
     return _channelSubscribersCount[channelId] ?? 0;
   }
 
-  /// Обновление подписки
   void updateChannelSubscription(String channelId, bool isSubscribed, int subscribersCount) {
-    _channelSubscriptions[channelId] = isSubscribed;
-    _channelSubscribersCount[channelId] = subscribersCount;
-    notifyListeners();
-    _saveToStorage();
+    _safeOperation(() {
+      _channelSubscriptions[channelId] = isSubscribed;
+      _channelSubscribersCount[channelId] = subscribersCount;
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
   }
 
-  /// Переключение подписки
   void toggleSubscription(String channelId, int currentSubscribers) {
-    final currentIsSubscribed = isSubscribed(channelId);
-    final newSubscribedState = !currentIsSubscribed;
-    final newSubscribersCount = newSubscribedState
-        ? currentSubscribers + 1
-        : currentSubscribers - 1;
+    _safeOperation(() {
+      final currentIsSubscribed = isSubscribed(channelId);
+      final newSubscribedState = !currentIsSubscribed;
+      final newSubscribersCount = newSubscribedState
+          ? currentSubscribers + 1
+          : currentSubscribers - 1;
 
-    updateChannelSubscription(channelId, newSubscribedState, newSubscribersCount);
+      updateChannelSubscription(channelId, newSubscribedState, newSubscribersCount);
+    });
   }
 
-  /// Получение всех подписок
   List<String> getSubscribedChannels() {
     return _channelSubscriptions.entries
         .where((entry) => entry.value)
@@ -193,40 +220,37 @@ class ChannelStateProvider with ChangeNotifier {
         .toList();
   }
 
-  /// Получение количества подписок
   int getSubscriptionsCount() {
     return _channelSubscriptions.values.where((isSubscribed) => isSubscribed).length;
   }
 
-  /// Получение всех подписок
   Map<String, bool> getAllSubscriptions() {
     return Map.from(_channelSubscriptions);
   }
 
   // === ОБЩИЕ МЕТОДЫ ===
 
-  /// Проверка наличия кастомных данных у канала
   bool hasCustomData(String channelId) {
     return hasCustomAvatar(channelId) || hasCustomCover(channelId) || (_channelHashtags[channelId]?.isNotEmpty ?? false);
   }
 
-  /// Инициализация канала
   void initializeChannelIfNeeded(String channelId, {String? defaultAvatar, String? defaultCover, List<String>? defaultTags, int? defaultSubscribers}) {
-    if (!_channelAvatars.containsKey(channelId) && defaultAvatar != null) {
-      _channelAvatars[channelId] = defaultAvatar;
-    }
-    if (!_channelCovers.containsKey(channelId) && defaultCover != null) {
-      _channelCovers[channelId] = defaultCover;
-    }
-    if (!_channelHashtags.containsKey(channelId) && defaultTags != null) {
-      _channelHashtags[channelId] = List.from(defaultTags);
-    }
-    if (!_channelSubscribersCount.containsKey(channelId) && defaultSubscribers != null) {
-      _channelSubscribersCount[channelId] = defaultSubscribers;
-    }
+    _safeOperation(() {
+      if (!_channelAvatars.containsKey(channelId) && defaultAvatar != null) {
+        _channelAvatars[channelId] = defaultAvatar;
+      }
+      if (!_channelCovers.containsKey(channelId) && defaultCover != null) {
+        _channelCovers[channelId] = defaultCover;
+      }
+      if (!_channelHashtags.containsKey(channelId) && defaultTags != null) {
+        _channelHashtags[channelId] = List.from(defaultTags);
+      }
+      if (!_channelSubscribersCount.containsKey(channelId) && defaultSubscribers != null) {
+        _channelSubscribersCount[channelId] = defaultSubscribers;
+      }
+    });
   }
 
-  /// Получение полной информации о канале
   Map<String, dynamic> getChannelData(String channelId) {
     return {
       'avatar': _channelAvatars[channelId],
@@ -240,53 +264,52 @@ class ChannelStateProvider with ChangeNotifier {
     };
   }
 
-  /// Очистка данных канала
   void clearChannelData(String channelId) {
-    _channelAvatars.remove(channelId);
-    _channelCovers.remove(channelId);
-    _channelHashtags.remove(channelId);
-    _channelSubscriptions.remove(channelId);
-    _channelSubscribersCount.remove(channelId);
-    notifyListeners();
-    _saveToStorage();
+    _safeOperation(() {
+      _channelAvatars.remove(channelId);
+      _channelCovers.remove(channelId);
+      _channelHashtags.remove(channelId);
+      _channelSubscriptions.remove(channelId);
+      _channelSubscribersCount.remove(channelId);
+      _safeNotifyListeners();
+      _saveToStorage();
+    });
   }
 
-  /// Очистка всех данных
   void clearAllData() {
-    _channelAvatars.clear();
-    _channelCovers.clear();
-    _channelHashtags.clear();
-    _channelSubscriptions.clear();
-    _channelSubscribersCount.clear();
-    notifyListeners();
-    _clearStorage();
+    _safeOperation(() {
+      _channelAvatars.clear();
+      _channelCovers.clear();
+      _channelHashtags.clear();
+      _channelSubscriptions.clear();
+      _channelSubscribersCount.clear();
+      _safeNotifyListeners();
+      _clearStorage();
+    });
   }
 
   // === РАБОТА С ХРАНИЛИЩЕМ ===
 
   Future<void> _saveToStorage() async {
+    if (_isDisposed) return;
+
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Сохраняем аватарки
       final avatarsJson = json.encode(_channelAvatars);
       await prefs.setString(_avatarsKey, avatarsJson);
 
-      // Сохраняем обложки
       final coversJson = json.encode(_channelCovers);
       await prefs.setString(_coversKey, coversJson);
 
-      // Сохраняем хештеги
       final hashtagsJson = json.encode(_channelHashtags.map(
               (key, value) => MapEntry(key, value)
       ));
       await prefs.setString(_hashtagsKey, hashtagsJson);
 
-      // Сохраняем подписки
       final subscriptionsJson = json.encode(_channelSubscriptions);
       await prefs.setString(_subscriptionsKey, subscriptionsJson);
 
-      // Сохраняем количество подписчиков
       final subscribersCountJson = json.encode(_channelSubscribersCount);
       await prefs.setString(_subscribersCountKey, subscribersCountJson);
 
@@ -301,10 +324,11 @@ class ChannelStateProvider with ChangeNotifier {
   }
 
   Future<void> _loadFromStorage() async {
+    if (_isDisposed) return;
+
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Загружаем аватарки
       final avatarsJson = prefs.getString(_avatarsKey);
       if (avatarsJson != null) {
         final avatarsMap = json.decode(avatarsJson) as Map<String, dynamic>;
@@ -314,7 +338,6 @@ class ChannelStateProvider with ChangeNotifier {
         });
       }
 
-      // Загружаем обложки
       final coversJson = prefs.getString(_coversKey);
       if (coversJson != null) {
         final coversMap = json.decode(coversJson) as Map<String, dynamic>;
@@ -324,7 +347,6 @@ class ChannelStateProvider with ChangeNotifier {
         });
       }
 
-      // Загружаем хештеги
       final hashtagsJson = prefs.getString(_hashtagsKey);
       if (hashtagsJson != null) {
         final hashtagsMap = json.decode(hashtagsJson) as Map<String, dynamic>;
@@ -336,7 +358,6 @@ class ChannelStateProvider with ChangeNotifier {
         });
       }
 
-      // Загружаем подписки
       final subscriptionsJson = prefs.getString(_subscriptionsKey);
       if (subscriptionsJson != null) {
         final subscriptionsMap = json.decode(subscriptionsJson) as Map<String, dynamic>;
@@ -346,7 +367,6 @@ class ChannelStateProvider with ChangeNotifier {
         });
       }
 
-      // Загружаем количество подписчиков
       final subscribersCountJson = prefs.getString(_subscribersCountKey);
       if (subscribersCountJson != null) {
         final subscribersCountMap = json.decode(subscribersCountJson) as Map<String, dynamic>;
@@ -359,7 +379,7 @@ class ChannelStateProvider with ChangeNotifier {
       if (kDebugMode) {
         print('✅ Channel state loaded from storage');
       }
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error loading channel state: $e');
@@ -368,6 +388,8 @@ class ChannelStateProvider with ChangeNotifier {
   }
 
   Future<void> _clearStorage() async {
+    if (_isDisposed) return;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_avatarsKey);
@@ -387,7 +409,6 @@ class ChannelStateProvider with ChangeNotifier {
 
   // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
 
-  /// Валидация и очистка хештегов
   String _cleanHashtag(String hashtag) {
     return hashtag.replaceAll(RegExp(r'#'), '').trim();
   }
@@ -396,7 +417,6 @@ class ChannelStateProvider with ChangeNotifier {
     return hashtags.map(_cleanHashtag).where((tag) => tag.isNotEmpty).toList();
   }
 
-  /// Получение статистики
   Map<String, int> getStats() {
     return {
       'channels_with_avatars': getAllCustomAvatars().length,
@@ -407,7 +427,6 @@ class ChannelStateProvider with ChangeNotifier {
     };
   }
 
-  /// Поиск каналов по хештегам
   List<String> findChannelsByHashtag(String hashtag) {
     final cleanHashtag = _cleanHashtag(hashtag);
     return _channelHashtags.entries
@@ -416,7 +435,6 @@ class ChannelStateProvider with ChangeNotifier {
         .toList();
   }
 
-  /// Проверка существования канала
   bool channelExists(String channelId) {
     return _channelAvatars.containsKey(channelId) ||
         _channelCovers.containsKey(channelId) ||
@@ -427,7 +445,6 @@ class ChannelStateProvider with ChangeNotifier {
 
   // === ИМПОРТ/ЭКСПОРТ ДАННЫХ ===
 
-  /// Экспорт всех данных
   Map<String, dynamic> exportData() {
     return {
       'avatars': _channelAvatars,
@@ -440,8 +457,9 @@ class ChannelStateProvider with ChangeNotifier {
     };
   }
 
-  /// Импорт данных
   Future<void> importData(Map<String, dynamic> data) async {
+    if (_isDisposed) return;
+
     try {
       if (data['avatars'] is Map) {
         _channelAvatars.clear();
@@ -480,7 +498,7 @@ class ChannelStateProvider with ChangeNotifier {
         });
       }
 
-      notifyListeners();
+      _safeNotifyListeners();
       await _saveToStorage();
       if (kDebugMode) {
         print('✅ Channel state imported successfully');

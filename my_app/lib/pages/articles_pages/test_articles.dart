@@ -2,7 +2,7 @@ class TestArticles {
   static List<Map<String, dynamic>> get testArticles => [
     {
       "id": "1",
-      "title": "Легенда футбола: Карьера Криштиану Роналду",
+      "title": "Крутые бобры в современном мире",
       "description": "От скромного начала в Мадейре до мировой славы - полная история карьеры Криштиану Роналду.",
       "content": """
 [HEADING:Путь к великому]
@@ -26,7 +26,7 @@ class TestArticles {
 - Более 850 голов в карьере
 - Рекордсмен по голам в Лиге чемпионов
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_1.png]
+[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_5.png]
 
 Роналду продолжает вдохновлять миллионы фанатов по всему миру своей целеустремленностью и профессионализмом.
 """,
@@ -36,7 +36,7 @@ class TestArticles {
       "likes": 2187,
       "author": "Спортивный аналитик",
       "publish_date": "2024-01-15T10:00:00Z",
-      "image_url": "assets/images/articles_images/article_cover/ronaldo.png",
+      "image_url": "assets/images/articles_images/photo_for_articles/photo_for_articles_5.png",
       "author_level": "expert",
     },
     {
@@ -63,7 +63,7 @@ class TestArticles {
 - Профессиональные игроки: 15,000+
 - Крупнейший призовой фонд: 40 млн (The International 2023)
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_2.png]
+[IMAGE:assets/images/articles_images/article_cover/esports.png]
 
 Киберспорт продолжает расти, привлекая новых спонсоров и телевизионные трансляции.
 """,
@@ -100,7 +100,7 @@ class TestArticles {
 • Ужин: легкие белки и овощи
 • Перекусы: орехи, фрукты, йогурт
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_3.png]
+[IMAGE:assets/images/articles_images/article_cover/food.png]
 
 Помните: вы - то, что вы едите. Качество питания напрямую влияет на качество жизни.
 """,
@@ -137,7 +137,7 @@ class TestArticles {
 • PlayStation VR2 - эксклюзивы для консолей
 • Valve Deckard - следующее поколение VR
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_4.png]
+[IMAGE:assets/images/articles_images/article_cover/games_will_become_a_reality.jpeg]
 
 К 2025 году ожидается рост рынка VR/AR игр до 45 млрд.
 """,
@@ -175,7 +175,7 @@ class TestArticles {
 • Code review с носителями языка
 • Специализированные курсы для разработчиков
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_5.png]
+[IMAGE:assets/images/articles_images/article_cover/learning_english_it.png]
 
 Уровень английского напрямую влияет на зарплату IT-специалиста - разница может достигать 40%.
 """,
@@ -212,7 +212,7 @@ class TestArticles {
 • Принцип "Трех П" (Понимание, Принятие, Помощь)
 • Метод "Ненасильственного общения"
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_6.png]
+[IMAGE:assets/images/articles_images/article_cover/psychology_of_communication.png]
 
 Помните: качество вашей жизни определяется качеством вашего общения.
 """,
@@ -250,7 +250,7 @@ class TestArticles {
 • Стоимость строительства: £90 млн (в современных ценах)
 • Рекорд посещаемости: 76,962 (1939)
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_7.png]
+[IMAGE:assets/images/articles_images/article_cover/mufc_stadium.png]
 
 Олд Траффорд не просто стадион - это место, где рождаются легенды.
 """,
@@ -288,7 +288,7 @@ class TestArticles {
 • Техническое оснащение домашнего офиса
 • Социальное взаимодействие: онлайн-активности
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_8.png]
+[IMAGE:assets/images/articles_images/article_cover/remote_work.png]
 
 Исследования показывают, что 74% компаний планируют сохранить удаленный формат после пандемии.
 """,
@@ -326,7 +326,7 @@ class TestArticles {
 - MRR/ARR - ежемесячный/ежегодный доход
 - Burn Rate - скорость расходования средств
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_1.png]
+[IMAGE:assets/images/articles_images/article_cover/startup_business.png]
 
 Только 10% стартапов достигают успеха, но правильная стратегия значительно увеличивает шансы.
 """,
@@ -370,7 +370,7 @@ PS5: Final Fantasy VII Rebirth, Spider-Man 2 DLC
 Xbox: Avowed, Hellblade II
 Switch: Metroid Prime 4, New Zelda
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_2.png]
+[IMAGE:assets/images/articles_images/article_cover/the_best_games.png]
 
 Выбор игр на 2024 год удовлетворит вкусы самых требовательных геймеров.
 """,
@@ -415,7 +415,7 @@ Switch: Metroid Prime 4, New Zelda
 - Bun - альтернатива Node.js
 - TypeScript 5.0 - улучшенная типизация
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_3.png]
+[IMAGE:assets/images/articles_images/article_cover/web_development_trends.png]
 
 В 2024 году ожидается рост использования AI в веб-разработке на 45%.
 """,
@@ -460,7 +460,7 @@ Switch: Metroid Prime 4, New Zelda
 - Пользователи DeFi: 5 млн+
 - Объем NFT рынка: 25 млрд
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_4.png]
+[IMAGE:assets/images/articles_images/article_cover/blockchain_technologies.png]
 
 К 2025 году 10% мирового ВВП будет храниться в блокчейн-технологиях.
 """,
@@ -506,7 +506,7 @@ Switch: Metroid Prime 4, New Zelda
 - Кибербезопасность
 - Устойчивое развитие (ESG)
 
-[IMAGE:assets/images/articles_images/photo_for_articles/photo_for_articles_5.png]
+[IMAGE:assets/images/articles_images/article_cover/work.png]
 
 65% сегодняшних школьников будут работать по профессиям, которых еще не существует.
 """,

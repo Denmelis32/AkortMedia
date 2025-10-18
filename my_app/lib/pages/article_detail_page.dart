@@ -211,29 +211,7 @@ class ArticleDetailPage extends StatelessWidget {
                                           ),
                                           child: ClipRRect(
                                             borderRadius: BorderRadius.circular(isMobile ? 0 : 16), // На телефоне убираем закругление
-                                            child: Container(
-                                              height: coverHeight,
-                                              width: double.infinity,
-                                              decoration: BoxDecoration(
-                                                image: DecorationImage(
-                                                  image: NetworkImage(article.imageUrl),
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.bottomCenter,
-                                                    end: Alignment.topCenter,
-                                                    colors: [
-                                                      Colors.black.withOpacity(0.7),
-                                                      Colors.transparent,
-                                                      Colors.transparent,
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
+                                            child: _buildCoverImage(article.imageUrl, coverHeight),
                                           ),
                                         ),
 
@@ -450,6 +428,96 @@ class ArticleDetailPage extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // НОВЫЙ МЕТОД: Загрузка обложки (сетевой или локальной)
+  Widget _buildCoverImage(String imageUrl, double height) {
+    print('🖼️ Loading cover image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Для сетевых изображений
+        return Container(
+          height: height,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: NetworkImage(imageUrl),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.7),
+                  Colors.transparent,
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        );
+      } else {
+        // Для локальных assets
+        return Container(
+          height: height,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(imageUrl),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.7),
+                  Colors.transparent,
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading cover image: $e');
+      return _buildErrorCoverImage(height);
+    }
+  }
+
+  // НОВЫЙ МЕТОД: Запасная обложка при ошибке
+  Widget _buildErrorCoverImage(double height) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_outlined,
+            color: Colors.grey[500],
+            size: 50,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Обложка не загружена',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -884,53 +952,7 @@ class ArticleDetailPage extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                imageUrl,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                height: 200,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                            : null,
-                      ),
-                    ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, color: Colors.grey[400], size: 40),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Не удалось загрузить изображение',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: _getContentFontSize(context) - 2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              child: _buildContentImage(imageUrl, 200),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -956,6 +978,88 @@ class ArticleDetailPage extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // НОВЫЙ МЕТОД: Загрузка изображения контента (сетевого или локального)
+  Widget _buildContentImage(String imageUrl, double height) {
+    print('🖼️ Loading content image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Для сетевых изображений
+        return Image.network(
+          imageUrl,
+          width: double.infinity,
+          height: height,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              height: height,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                      : null,
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Network image error: $error');
+            return _buildErrorContentImage(height);
+          },
+        );
+      } else {
+        // Для локальных assets
+        return Image.asset(
+          imageUrl,
+          width: double.infinity,
+          height: height,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Asset image error: $error for path: $imageUrl');
+            return _buildErrorContentImage(height);
+          },
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading image: $e');
+      return _buildErrorContentImage(height);
+    }
+  }
+
+  // НОВЫЙ МЕТОД: Запасное изображение контента при ошибке
+  Widget _buildErrorContentImage(double height) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_outlined,
+            color: Colors.grey[500],
+            size: 40,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Изображение\nне загружено',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1082,4 +1186,22 @@ class ArticleDetailPage extends StatelessWidget {
     final readingTime = (words / 200).ceil();
     return readingTime < 1 ? 1 : readingTime;
   }
+}
+
+// Классы для работы с контентом (должны быть в отдельном файле models/article.dart)
+enum ContentBlockType {
+  heading,
+  subheading,
+  text,
+  image,
+}
+
+class ContentBlock {
+  final ContentBlockType type;
+  final String content;
+
+  ContentBlock({
+    required this.type,
+    required this.content,
+  });
 }

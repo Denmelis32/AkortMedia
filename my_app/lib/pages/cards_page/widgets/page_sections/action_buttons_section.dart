@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/channel_detail_provider.dart';
+import '../../../../providers/channel_state_provider.dart';
 import '../../models/channel.dart';
 import '../../dialogs/chat_dialog.dart';
 import '../../models/channel_detail_state.dart';
@@ -19,33 +20,41 @@ class ActionButtonsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Статистика канала
-          _buildChannelStats(),
-          const SizedBox(height: 20),
+    return Consumer<ChannelStateProvider>(
+      builder: (context, channelStateProvider, child) {
+        final channelId = channel.id.toString();
+        final isSubscribed = channelStateProvider.isSubscribed(channelId);
+        final subscribersCount = channelStateProvider.getSubscribers(channelId) ?? channel.subscribers;
 
-          // Основные кнопки действий
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSubscribeButton(),
-              _buildNotificationsButton(),
-              _buildChatButton(context),
-              _buildShareButton(context),
+              // Статистика канала с обновленными данными
+              _buildChannelStats(subscribersCount, channelStateProvider),
+              const SizedBox(height: 20),
+
+              // Основные кнопки действий
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  _buildSubscribeButton(isSubscribed, channelStateProvider, context),
+                  _buildNotificationsButton(),
+                  _buildChatButton(context),
+                  _buildShareButton(context),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildChannelStats() {
+  Widget _buildChannelStats(int subscribersCount, ChannelStateProvider stateProvider) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -63,19 +72,19 @@ class ActionButtonsSection extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatItem(
-            value: channel.subscribers.toString(),
+            value: _formatNumber(subscribersCount),
             label: 'Подписчиков',
             icon: Icons.people_rounded,
             color: Colors.blue,
           ),
           _buildStatItem(
             value: channel.videos.toString(),
-            label: 'Видео',
+            label: 'Публикаций',
             icon: Icons.video_library_rounded,
             color: Colors.green,
           ),
           _buildStatItem(
-            value: channel.views.toString(),
+            value: _formatNumber(channel.views),
             label: 'Просмотров',
             icon: Icons.visibility_rounded,
             color: Colors.orange,
@@ -128,13 +137,13 @@ class ActionButtonsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildSubscribeButton() {
+  Widget _buildSubscribeButton(bool isSubscribed, ChannelStateProvider stateProvider, BuildContext context) {
     return SizedBox(
       width: 180,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
-          gradient: state.isSubscribed
+          gradient: isSubscribed
               ? LinearGradient(
             colors: [Colors.grey[300]!, Colors.grey[200]!],
           )
@@ -149,7 +158,7 @@ class ActionButtonsSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (state.isSubscribed ? Colors.grey : channel.cardColor)
+              color: (isSubscribed ? Colors.grey : channel.cardColor)
                   .withOpacity(0.3),
               blurRadius: 16,
               offset: const Offset(0, 8),
@@ -157,10 +166,10 @@ class ActionButtonsSection extends StatelessWidget {
           ],
         ),
         child: ElevatedButton(
-          onPressed: provider.toggleSubscription,
+          onPressed: () => _toggleSubscription(stateProvider, context),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
-            foregroundColor: state.isSubscribed ? Colors.grey[700] : Colors.white,
+            foregroundColor: isSubscribed ? Colors.grey[700] : Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             elevation: 0,
@@ -172,17 +181,17 @@ class ActionButtonsSection extends StatelessWidget {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Icon(
-                  state.isSubscribed ? Icons.check_circle_rounded : Icons.person_add_alt_1,
+                  isSubscribed ? Icons.check_circle_rounded : Icons.person_add_alt_1,
                   size: 20,
-                  key: ValueKey(state.isSubscribed),
+                  key: ValueKey(isSubscribed),
                 ),
               ),
               const SizedBox(width: 8),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Text(
-                  state.isSubscribed ? 'ПОДПИСАН' : 'ПОДПИСАТЬСЯ',
-                  key: ValueKey(state.isSubscribed),
+                  isSubscribed ? 'ПОДПИСАН' : 'ПОДПИСАТЬСЯ',
+                  key: ValueKey(isSubscribed),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -298,6 +307,35 @@ class ActionButtonsSection extends StatelessWidget {
     );
   }
 
+  void _toggleSubscription(ChannelStateProvider stateProvider, BuildContext context) {
+    final channelId = channel.id.toString();
+
+    // Переключаем подписку через ChannelStateProvider
+    stateProvider.toggleSubscription(channelId, channel.subscribers);
+
+    // Также обновляем локальное состояние в ChannelDetailProvider
+    provider.toggleSubscription();
+
+    // Показываем уведомление
+    final isSubscribed = stateProvider.isSubscribed(channelId);
+    final message = isSubscribed
+        ? '✅ Подписались на канал "${channel.title}"'
+        : '❌ Отписались от канала "${channel.title}"';
+
+    // Показываем уведомление через ScaffoldMessenger
+    _showSubscriptionNotification(message, context);
+  }
+
+  void _showSubscriptionNotification(String message, BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _showChatDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -311,7 +349,7 @@ class ActionButtonsSection extends StatelessWidget {
           // Показываем уведомление об отправке
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Сообщение отправлено в чат $channel'),
+              content: Text('Сообщение отправлено в чат ${channel.title}'),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
             ),
@@ -323,6 +361,18 @@ class ActionButtonsSection extends StatelessWidget {
 
   void _shareChannel(BuildContext context) async {
     try {
+      final shareText = '''
+🎉 ${channel.title}
+
+${channel.description}
+
+📊 ${_formatNumber(channel.subscribers)} подписчиков
+⭐ Рейтинг: ${channel.rating}/5
+🎥 ${channel.videos} публикаций
+
+Присоединяйтесь к каналу! 🚀
+''';
+
       // Имитация шаринга
       await Future.delayed(const Duration(milliseconds: 300));
 
@@ -334,13 +384,8 @@ class ActionButtonsSection extends StatelessWidget {
           action: SnackBarAction(
             label: 'Скопировать',
             onPressed: () {
-              // Копирование ссылки в буфер обмена
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Ссылка скопирована в буфер обмена'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
+              // Копирование текста в буфер обмена
+              _copyToClipboard(shareText, context);
             },
           ),
         ),
@@ -354,5 +399,24 @@ class ActionButtonsSection extends StatelessWidget {
         ),
       );
     }
+  }
+
+  void _copyToClipboard(String text, BuildContext context) {
+    // Имитация копирования в буфер обмена
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Текст скопирован в буфер обмена'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  String _formatNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
   }
 }

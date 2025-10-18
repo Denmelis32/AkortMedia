@@ -41,6 +41,7 @@ class _CardsPageState extends State<CardsPage> {
   bool _isLoading = false;
   bool _showSearchBar = false;
   bool _showFilters = false;
+  bool _isMounted = false;
 
   // Данные
   late List<Channel> _channels;
@@ -51,6 +52,7 @@ class _CardsPageState extends State<CardsPage> {
   @override
   void initState() {
     super.initState();
+    _isMounted = true;
     _initializeData();
     _setupListeners();
   }
@@ -64,19 +66,21 @@ class _CardsPageState extends State<CardsPage> {
 
   void _setupListeners() {
     _searchController.addListener(() {
+      if (!_isMounted) return;
       setState(() {
         _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
   }
 
+  // Создание тестовых данных с локальными изображениями
   List<Channel> _createSampleChannels() {
     return [
       Channel(
         id: 1,
         title: 'Спортивные новости',
         description: 'Последние события в мире спорта и аналитика матчей. Эксклюзивные интервью с атлетами.',
-        imageUrl: 'assets/images/cards_image/avatarka/sportAvatarka.png',
+        imageUrl: 'assets/images/cards_image/avatarka/ava2.png',
         subscribers: 17800,
         videos: 95,
         isSubscribed: true,
@@ -91,7 +95,7 @@ class _CardsPageState extends State<CardsPage> {
         comments: 3200,
         owner: 'Дмитрий Спортивный',
         author: 'Дмитрий Спортивный',
-        authorImageUrl: 'assets/images/cards_image/avatarka/sportAvatarka.png',
+        authorImageUrl: 'assets/images/cards_image/avatarka/ava2.png',
         tags: ['спорт', 'новости', 'аналитика', 'матчи'],
         isLive: false,
         liveViewers: 0,
@@ -104,7 +108,7 @@ class _CardsPageState extends State<CardsPage> {
         id: 2,
         title: 'Игровые обзоры',
         description: 'Новинки игровой индустрии и геймплей по всем платформам. Только честные обзоры!',
-        imageUrl: 'assets/images/cards_image/avatarka/avatarka1.png',
+        imageUrl: 'assets/images/cards_image/avatarka/ava1.png',
         subscribers: 15600,
         videos: 120,
         isSubscribed: false,
@@ -119,7 +123,7 @@ class _CardsPageState extends State<CardsPage> {
         comments: 4500,
         owner: 'Алексей Геймеров',
         author: 'Алексей Геймеров',
-        authorImageUrl: 'assets/images/cards_image/avatarka/avatarka1.png',
+        authorImageUrl: 'assets/images/cards_image/avatarka/ava1.png',
         tags: ['игры', 'гейминг', 'обзоры', 'стримы'],
         isLive: false,
         liveViewers: 0,
@@ -132,7 +136,7 @@ class _CardsPageState extends State<CardsPage> {
         id: 3,
         title: 'Акортовский Мемасник',
         description: 'Обсуждаем мемы и разные новости о МЮ.',
-        imageUrl: 'assets/images/cards_image/avatarka/avatarka2.png',
+        imageUrl: 'assets/images/cards_image/avatarka/ava3.png',
         subscribers: 12450,
         videos: 89,
         isSubscribed: false,
@@ -147,14 +151,14 @@ class _CardsPageState extends State<CardsPage> {
         comments: 2300,
         owner: 'Иван Технолог',
         author: 'Иван Технолог',
-        authorImageUrl: 'assets/images/cards_image/avatarka/avatarka2.png',
+        authorImageUrl: 'assets/images/cards_image/avatarka/ava3.png',
         tags: ['технологии', 'IT', 'инновации', 'робототехника'],
         isLive: false,
         liveViewers: 0,
         websiteUrl: 'https://tech-future.ru',
         socialMedia: '@tech_future',
         commentsCount: 2300,
-        coverImageUrl: 'assets/images/cards_image/owner/the_soul_channel.png',
+        coverImageUrl: 'assets/images/cards_image/owner/kote.png',
       ),
       Channel(
         id: 4,
@@ -210,7 +214,7 @@ class _CardsPageState extends State<CardsPage> {
         websiteUrl: 'https://business-finance.ru',
         socialMedia: '@business_finance',
         commentsCount: 2900,
-        coverImageUrl: 'assets/images/cards_image/owner/sptort_channel.png',
+        coverImageUrl: 'assets/images/cards_image/owner/joker.png',
       ),
       Channel(
         id: 6,
@@ -238,7 +242,7 @@ class _CardsPageState extends State<CardsPage> {
         websiteUrl: 'https://art-creative.ru',
         socialMedia: '@art_creative',
         commentsCount: 2100,
-        coverImageUrl: 'assets/images/cards_image/owner/game_channel.png',
+        coverImageUrl: 'assets/images/cards_image/owner/pingvin_pistolet.png',
       ),
     ];
   }
@@ -248,8 +252,10 @@ class _CardsPageState extends State<CardsPage> {
       RoomCategory(id: 'all', title: 'Все', icon: Icons.explore, color: Colors.blue),
       RoomCategory(id: 'sport', title: 'Спорт', icon: Icons.sports_soccer, color: Colors.red),
       RoomCategory(id: 'games', title: 'Игры', icon: Icons.sports_esports, color: Colors.green),
+      RoomCategory(id: 'psychology', title: 'Психология', icon: Icons.psychology, color: Colors.purple),
       RoomCategory(id: 'tech', title: 'Технологии', icon: Icons.memory, color: Colors.orange),
-      RoomCategory(id: 'business', title: 'Бизнес', icon: Icons.business_center, color: Colors.purple),
+      RoomCategory(id: 'business', title: 'Бизнес', icon: Icons.business_center, color: Colors.teal),
+      RoomCategory(id: 'art', title: 'Искусство', icon: Icons.palette, color: Colors.pink),
     ];
   }
 
@@ -271,6 +277,7 @@ class _CardsPageState extends State<CardsPage> {
 
   @override
   void dispose() {
+    _isMounted = false;
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -305,8 +312,94 @@ class _CardsPageState extends State<CardsPage> {
     return 0;
   }
 
+  // НОВЫЕ МЕТОДЫ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+  Widget _buildChannelAvatar(Channel channel, ChannelStateProvider stateProvider, {double size = 50}) {
+    final channelId = channel.id.toString();
+    final customAvatar = stateProvider.getAvatarForChannel(channelId);
+    final avatarUrl = customAvatar ?? channel.imageUrl;
+
+    return ClipOval(
+      child: _buildChannelImage(avatarUrl, size),
+    );
+  }
+
+  Widget _buildChannelCover(Channel channel, ChannelStateProvider stateProvider, {double height = 120}) {
+    final channelId = channel.id.toString();
+    final customCover = stateProvider.getCoverForChannel(channelId);
+    final coverUrl = customCover ?? channel.coverImageUrl ?? channel.imageUrl;
+
+    return _buildChannelImage(coverUrl, height, isCover: true);
+  }
+
+  Widget _buildChannelImage(String imageUrl, double size, {bool isCover = false}) {
+    print('🖼️ Loading channel image: $imageUrl');
+
+    try {
+      if (imageUrl.startsWith('http')) {
+        // Сетевые изображения
+        return Image.network(
+          imageUrl,
+          width: isCover ? double.infinity : size,
+          height: isCover ? size : size,
+          fit: isCover ? BoxFit.cover : BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Network image error: $error');
+            return _buildErrorImage(size, isCover: isCover);
+          },
+        );
+      } else {
+        // Локальные assets
+        return Image.asset(
+          imageUrl,
+          width: isCover ? double.infinity : size,
+          height: isCover ? size : size,
+          fit: isCover ? BoxFit.cover : BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Asset image error: $error for path: $imageUrl');
+            return _buildErrorImage(size, isCover: isCover);
+          },
+        );
+      }
+    } catch (e) {
+      print('❌ Exception loading image: $e');
+      return _buildErrorImage(size, isCover: isCover);
+    }
+  }
+
+  Widget _buildErrorImage(double size, {bool isCover = false}) {
+    return Container(
+      width: isCover ? double.infinity : size,
+      height: size,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isCover ? Icons.photo_library : Icons.person,
+            color: Colors.grey[500],
+            size: isCover ? 40 : 24,
+          ),
+          if (isCover) ...[
+            SizedBox(height: 8),
+            Text(
+              'Обложка не загружена',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   // Основные методы
   List<Channel> _getFilteredChannels(ChannelStateProvider stateProvider) {
+    if (stateProvider.isDisposed) {
+      return _channels;
+    }
+
     final filtered = _channels.map((channel) =>
         _getChannelWithActualState(channel, stateProvider)
     ).where(_matchesFilters).toList();
@@ -348,6 +441,10 @@ class _CardsPageState extends State<CardsPage> {
   }
 
   Channel _getChannelWithActualState(Channel channel, ChannelStateProvider stateProvider) {
+    if (stateProvider.isDisposed) {
+      return channel;
+    }
+
     final channelId = channel.id.toString();
     final isSubscribed = stateProvider.isSubscribed(channelId);
     final subscribers = stateProvider.getSubscribers(channelId) ?? channel.subscribers;
@@ -379,8 +476,10 @@ class _CardsPageState extends State<CardsPage> {
     return _getCategoryById(categoryId).color;
   }
 
-  // НОВЫЙ МЕТОД: Создание нового канала через диалог
+  // Создание нового канала через диалог
   void _createNewChannel() {
+    if (!_isMounted) return;
+
     showDialog(
       context: context,
       builder: (context) => CreateChannelDialog(
@@ -392,9 +491,10 @@ class _CardsPageState extends State<CardsPage> {
     );
   }
 
-  // НОВЫЙ МЕТОД: Добавление нового канала в список
-  // В методе _addNewChannel
+  // Добавление нового канала в список
   void _addNewChannel(String title, String description, String categoryId, String? avatarUrl, String? coverUrl) {
+    if (!_isMounted) return;
+
     final newChannel = ChannelUtils.createNewChannel(
       id: _channels.length + 1,
       title: title,
@@ -410,28 +510,30 @@ class _CardsPageState extends State<CardsPage> {
       _channels.insert(0, newChannel);
     });
 
-    // Показать уведомление
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Канал "$title" успешно создан!'),
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Открыть',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChannelDetailPage(channel: newChannel),
-              ),
-            );
-          },
+    if (_isMounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Канал "$title" успешно создан!'),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Открыть',
+            onPressed: () {
+              if (!_isMounted) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChannelDetailPage(channel: newChannel),
+                ),
+              );
+            },
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
-  // ДОБАВЛЕННЫЙ МЕТОД: Построение карточки канала
+  // Построение карточки канала
   Widget _buildChannelCard(Channel channel, int index, ChannelStateProvider stateProvider) {
     return _isMobile
         ? _buildMobileChannelCard(channel, index, stateProvider)
@@ -456,6 +558,7 @@ class _CardsPageState extends State<CardsPage> {
         color: Colors.white,
         child: InkWell(
           onTap: () {
+            if (!_isMounted) return;
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -473,12 +576,7 @@ class _CardsPageState extends State<CardsPage> {
                   Container(
                     height: 140,
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(channel.coverImageUrl ?? channel.imageUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                    child: _buildChannelCover(channel, stateProvider, height: 140),
                   ),
                   // Категория в левом верхнем углу
                   Positioned(
@@ -545,34 +643,27 @@ class _CardsPageState extends State<CardsPage> {
                               ),
                             ],
                           ),
-                          child: ClipOval(
-                            child: Stack(
-                              children: [
-                                Image.network(
-                                  channel.imageUrl,
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                ),
-                                if (channel.isVerified)
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.blue,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.verified,
-                                        color: Colors.white,
-                                        size: 10,
-                                      ),
+                          child: Stack(
+                            children: [
+                              _buildChannelAvatar(channel, stateProvider, size: 50),
+                              if (channel.isVerified)
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.blue,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.verified,
+                                      color: Colors.white,
+                                      size: 10,
                                     ),
                                   ),
-                              ],
-                            ),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -634,7 +725,7 @@ class _CardsPageState extends State<CardsPage> {
               // ОСНОВНОЙ КОНТЕНТ ПОД ОБЛОЖКОЙ - ВЫРАВНЕН ПО АВАТАРКЕ
               Container(
                 padding: const EdgeInsets.only(
-                  left: 68, // 8 (left обложки) + 50 (ширина аватарки) + 10 (отступ) = 68
+                  left: 68,
                   right: 12,
                   top: 12,
                   bottom: 12,
@@ -722,6 +813,7 @@ class _CardsPageState extends State<CardsPage> {
                               ),
                               child: IconButton(
                                 onPressed: () {
+                                  if (!_isMounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('Репост канала ${channel.title}'),
@@ -804,6 +896,7 @@ class _CardsPageState extends State<CardsPage> {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {
+            if (!_isMounted) return;
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -821,24 +914,7 @@ class _CardsPageState extends State<CardsPage> {
                   Container(
                     height: coverHeight,
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(channel.coverImageUrl ?? channel.imageUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.4),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
+                    child: _buildChannelCover(channel, stateProvider, height: coverHeight),
                   ),
                   Positioned(
                     bottom: -avatarSize * 0.3,
@@ -862,34 +938,27 @@ class _CardsPageState extends State<CardsPage> {
                             ),
                           ],
                         ),
-                        child: ClipOval(
-                          child: Stack(
-                            children: [
-                              Image.network(
-                                channel.imageUrl,
-                                width: avatarSize,
-                                height: avatarSize,
-                                fit: BoxFit.cover,
-                              ),
-                              if (channel.isVerified)
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.blue,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.verified,
-                                      color: Colors.white,
-                                      size: avatarSize * 0.25,
-                                    ),
+                        child: Stack(
+                          children: [
+                            _buildChannelAvatar(channel, stateProvider, size: avatarSize),
+                            if (channel.isVerified)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.blue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.verified,
+                                    color: Colors.white,
+                                    size: avatarSize * 0.25,
                                   ),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
@@ -1110,16 +1179,16 @@ class _CardsPageState extends State<CardsPage> {
 
   // Вспомогательные методы
   void _toggleSubscription(int index, ChannelStateProvider stateProvider) {
+    if (!_isMounted || stateProvider.isDisposed) return;
+
     final filteredChannels = _getFilteredChannels(stateProvider);
     final channel = filteredChannels[index];
-    final globalIndex = _channels.indexWhere((c) => c.id == channel.id);
+    final channelId = channel.id.toString();
 
-    if (globalIndex != -1) {
-      final channelId = channel.id.toString();
-      final currentSubscribers = channel.subscribers;
+    // Переключаем подписку через ChannelStateProvider
+    stateProvider.toggleSubscription(channelId, channel.subscribers);
 
-      stateProvider.toggleSubscription(channelId, currentSubscribers);
-
+    if (_isMounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1170,7 +1239,7 @@ class _CardsPageState extends State<CardsPage> {
     );
   }
 
-  // УЛУЧШЕННЫЕ ВИДЖЕТЫ ФИЛЬТРОВ И КАТЕГОРИЙ - КАК В ROOM_PAGE
+  // ВИДЖЕТЫ ФИЛЬТРОВ И КАТЕГОРИЙ
   Widget _buildFiltersCard(double horizontalPadding) {
     if (!_showFilters) return const SizedBox.shrink();
 
@@ -1270,7 +1339,10 @@ class _CardsPageState extends State<CardsPage> {
         color: isSelected ? category.color : Colors.transparent,
         borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
         child: InkWell(
-          onTap: () => setState(() => _selectedCategoryId = category.id),
+          onTap: () {
+            if (!_isMounted) return;
+            setState(() => _selectedCategoryId = category.id);
+          },
           borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
           child: Container(
             padding: EdgeInsets.symmetric(
@@ -1319,6 +1391,7 @@ class _CardsPageState extends State<CardsPage> {
         borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
         child: InkWell(
           onTap: () {
+            if (!_isMounted) return;
             setState(() {
               if (isActive) {
                 _activeFilters.remove(filter.id);
@@ -1367,150 +1440,175 @@ class _CardsPageState extends State<CardsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => ChannelStateProvider(),
-      child: Consumer<ChannelStateProvider>(
-        builder: (context, channelStateProvider, child) {
-          final horizontalPadding = _getHorizontalPadding(context);
+    final horizontalPadding = _getHorizontalPadding(context);
 
+    return Consumer<ChannelStateProvider>(
+      builder: (context, channelStateProvider, child) {
+        // Проверяем состояние провайдера перед использованием
+        if (channelStateProvider.isDisposed) {
           return Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFF5F5F5),
-                    Color(0xFFE8E8E8),
-                  ],
-                ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Загрузка каналов...',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
               ),
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    // AppBar
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.symmetric(
-                          horizontal: _isMobile ? 16 : horizontalPadding,
-                          vertical: 8
-                      ),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                      ),
-                      child: Row(
-                        children: [
-                          if (!_showSearchBar) ...[
-                            const Text(
-                              'Каналы',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFF5F5F5),
+                  Color(0xFFE8E8E8),
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // AppBar
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: _isMobile ? 16 : horizontalPadding,
+                        vertical: 8
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                    ),
+                    child: Row(
+                      children: [
+                        if (!_showSearchBar) ...[
+                          const Text(
+                            'Каналы',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const Spacer(),
-                          ],
-                          if (_showSearchBar)
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildSearchField(),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[100],
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.close,
-                                        color: Colors.black,
-                                        size: 18,
-                                      ),
+                          ),
+                          const Spacer(),
+                        ],
+                        if (_showSearchBar)
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildSearchField(),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      shape: BoxShape.circle,
                                     ),
-                                    onPressed: () => setState(() {
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.black,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    if (!_isMounted) return;
+                                    setState(() {
                                       _showSearchBar = false;
                                       _searchController.clear();
                                       _searchQuery = '';
-                                    }),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.search,
-                                      color: Colors.black,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  onPressed: () => setState(() => _showSearchBar = true),
-                                ),
-                                IconButton(
-                                  icon: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      _showFilters ? Icons.filter_alt_off : Icons.filter_alt,
-                                      color: Colors.black,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  onPressed: () => setState(() => _showFilters = !_showFilters),
-                                ),
-                                IconButton(
-                                  icon: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.sort,
-                                      color: Colors.black,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  onPressed: _showSortBottomSheet,
+                                    });
+                                  },
                                 ),
                               ],
                             ),
-                        ],
-                      ),
+                          )
+                        else
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.search,
+                                    color: Colors.black,
+                                    size: 18,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  if (!_isMounted) return;
+                                  setState(() => _showSearchBar = true);
+                                },
+                              ),
+                              IconButton(
+                                icon: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    _showFilters ? Icons.filter_alt_off : Icons.filter_alt,
+                                    color: Colors.black,
+                                    size: 18,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  if (!_isMounted) return;
+                                  setState(() => _showFilters = !_showFilters);
+                                },
+                              ),
+                              IconButton(
+                                icon: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.sort,
+                                    color: Colors.black,
+                                    size: 18,
+                                  ),
+                                ),
+                                onPressed: _showSortBottomSheet,
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
-                    Expanded(
-                      child: _buildContent(channelStateProvider, horizontalPadding),
-                    ),
-                  ],
-                ),
+                  ),
+                  Expanded(
+                    child: _buildContent(channelStateProvider, horizontalPadding),
+                  ),
+                ],
               ),
             ),
-            floatingActionButton: FloatingActionButton(
-              onPressed: _createNewChannel,
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              child: const Icon(Icons.add, size: 24),
-            ),
-          );
-        },
-      ),
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: _createNewChannel,
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            child: const Icon(Icons.add, size: 24),
+          ),
+        );
+      },
     );
   }
 
@@ -1592,6 +1690,8 @@ class _CardsPageState extends State<CardsPage> {
   }
 
   void _showSortBottomSheet() {
+    if (!_isMounted) return;
+
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -1623,6 +1723,7 @@ class _CardsPageState extends State<CardsPage> {
                   ? const Icon(Icons.check, color: Colors.blue, size: 18)
                   : null,
               onTap: () {
+                if (!_isMounted) return;
                 setState(() => _selectedSort = option.id);
                 Navigator.pop(context);
               },

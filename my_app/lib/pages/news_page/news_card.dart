@@ -9,6 +9,7 @@ import '../../providers/user_tags_provider.dart';
 import '../../providers/user_provider.dart';
 import '../cards_page/channel_detail_page.dart';
 import '../cards_page/models/channel.dart';
+import 'mock_news_data.dart';
 import 'theme/news_theme.dart';
 import '../../providers/channel_state_provider.dart';
 import '../../services/interaction_manager.dart';
@@ -781,37 +782,38 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   String _getUserAvatarUrl(String userName, {bool isCurrentUser = false}) {
+    // ПЕРВЫЙ ПРИОРИТЕТ: Для текущего пользователя используем фото профиля
     if (isCurrentUser) {
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
       final currentProfileImage = newsProvider.getCurrentProfileImage();
 
-      if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-        return currentProfileImage;
-      }
-      if (currentProfileImage is File) {
-        return currentProfileImage.path;
+      if (currentProfileImage != null) {
+        if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+          // Проверяем, это локальный asset или файл
+          if (currentProfileImage.startsWith('assets/')) {
+            return currentProfileImage;
+          }
+          // Если это URL, игнорируем и используем локальные аватарки
+        } else if (currentProfileImage is File) {
+          // Используем путь к файлу
+          return currentProfileImage.path;
+        }
       }
     }
 
-    // Для демо-данных используем локальные аватарки
-    // В реальном приложении здесь может быть URL из API
-    final avatars = [
-      'assets/images/ava_news/ava1.png',
-      'assets/images/ava_news/ava2.png',
-      'assets/images/ava_news/ava3.png',
-      'assets/images/ava_news/ava4.png',
-      'assets/images/ava_news/ava5.png',
-      'assets/images/ava_news/ava6.png',
-      'assets/images/ava_news/ava7.png',
-      'assets/images/ava_news/ava8.png',
-      'assets/images/ava_news/ava9.png',
-      'assets/images/ava_news/ava10.png',
-      'assets/images/ava_news/ava11.png',
-      'assets/images/ava_news/ava12.png',
-    ];
+    // ВТОРОЙ ПРИОРИТЕТ: Всегда используем аватарки из MockNewsData
+    try {
+      final authorAvatar = MockNewsData.getAuthorAvatar(userName);
+      if (authorAvatar.isNotEmpty) {
+        print('✅ Используем аватар из MockNewsData для $userName: $authorAvatar');
+        return authorAvatar;
+      }
+    } catch (e) {
+      print('❌ Ошибка получения аватара из MockNewsData: $e');
+    }
 
-    final index = userName.hashCode.abs() % avatars.length;
-    return avatars[index];
+    // Fallback на случай ошибки
+    return 'assets/images/ava_news/ava1.png';
   }
 
   // УЛУЧШЕННЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
@@ -824,69 +826,17 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     print('🖼️ Loading image: $imageUrl');
 
     try {
-      // ПЕРВЫЙ ПРИОРИТЕТ: Локальные assets
-      if (imageUrl.startsWith('assets/')) {
-        return Image.asset(
-          imageUrl,
-          width: width,
-          height: height,
-          fit: fit,
-          errorBuilder: (context, error, stackTrace) {
-            print('❌ Asset image error: $error for path: $imageUrl');
-            return _buildErrorImage(width: width, height: height);
-          },
-        );
-      }
-      // ВТОРОЙ ПРИОРИТЕТ: Сетевые изображения с улучшенной обработкой ошибок
-      else if (imageUrl.startsWith('http')) {
-        return CachedNetworkImage(
-          imageUrl: imageUrl,
-          width: width,
-          height: height,
-          fit: fit,
-          placeholder: (context, url) => _buildLoadingPlaceholder(width: width, height: height),
-          errorWidget: (context, url, error) {
-            print('❌ Network image error: $error for URL: $url');
-            // Пробуем загрузить через обычный Image.network как fallback
-            return Image.network(
-              url,
-              width: width,
-              height: height,
-              fit: fit,
-              errorBuilder: (context, error, stackTrace) {
-                print('❌ Fallback network image also failed: $error');
-                return _buildErrorImage(width: width, height: height);
-              },
-            );
-          },
-        );
-      }
-      // ТРЕТИЙ ПРИОРИТЕТ: Локальные файлы
-      else if (imageUrl.startsWith('/') || imageUrl.contains(RegExp(r'[a-zA-Z]:\\'))) {
-        return Image.file(
-          File(imageUrl),
-          width: width,
-          height: height,
-          fit: fit,
-          errorBuilder: (context, error, stackTrace) {
-            print('❌ File image error: $error for path: $imageUrl');
-            return _buildErrorImage(width: width, height: height);
-          },
-        );
-      }
-      // ПОСЛЕДНИЙ ВАРИАНТ: Пробуем как asset
-      else {
-        return Image.asset(
-          imageUrl,
-          width: width,
-          height: height,
-          fit: fit,
-          errorBuilder: (context, error, stackTrace) {
-            print('❌ Image loading failed: $error for path: $imageUrl');
-            return _buildErrorImage(width: width, height: height);
-          },
-        );
-      }
+      // ВСЕГДА используем локальные assets
+      return Image.asset(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Asset image error: $error for path: $imageUrl');
+          return _buildErrorImage(width: width, height: height);
+        },
+      );
     } catch (e) {
       print('❌ Exception loading image: $e');
       return _buildErrorImage(width: width, height: height);

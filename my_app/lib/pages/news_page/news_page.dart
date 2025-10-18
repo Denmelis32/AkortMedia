@@ -593,6 +593,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
     List<dynamic> filtered = List.from(news); // Создаем копию для безопасности
 
+    // Сначала применяем поиск
     if (_pageState.searchQuery.isNotEmpty) {
       filtered = filtered.where((item) {
         final newsItem = Map<String, dynamic>.from(item);
@@ -606,14 +607,16 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
             ? (newsItem['user_tags'] as Map).values.join(' ').toLowerCase()
             : '');
 
-        return title.contains(_pageState.searchQuery.toLowerCase()) ||
-            description.contains(_pageState.searchQuery.toLowerCase()) ||
-            hashtags.contains(_pageState.searchQuery.toLowerCase()) ||
-            author.contains(_pageState.searchQuery.toLowerCase()) ||
-            userTags.contains(_pageState.searchQuery.toLowerCase());
+        final query = _pageState.searchQuery.toLowerCase();
+        return title.contains(query) ||
+            description.contains(query) ||
+            hashtags.contains(query) ||
+            author.contains(query) ||
+            userTags.contains(query);
       }).toList();
     }
 
+    // Затем применяем фильтр
     switch (_pageState.currentFilter) {
       case 1: // Мои новости
         filtered = filtered.where((item) {
@@ -639,11 +642,32 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
           return newsItem['isFollowing'] == true;
         }).toList();
         break;
-      default: // Все новости
+      default: // Все новости (0)
+      // Ничего не фильтруем
         break;
     }
 
+    print('🔍 Filtered news: ${filtered.length} items (filter: ${_pageState.currentFilter}, search: "${_pageState.searchQuery}")');
     return filtered;
+  }
+
+  String _getFilterDescription(int filter, String searchQuery, int count) {
+    final filterNames = ['Все новости', 'Мои новости', 'Популярные', 'Избранное', 'Подписки'];
+    String description = '';
+
+    if (filter != 0) {
+      description = '${filterNames[filter]} • $count записей';
+    }
+
+    if (searchQuery.isNotEmpty) {
+      if (description.isNotEmpty) {
+        description += ' • Поиск: "$searchQuery"';
+      } else {
+        description = 'Поиск: "$searchQuery" • $count записей';
+      }
+    }
+
+    return description;
   }
 
   // ========== УЛУЧШЕННЫЕ ДИАЛОГИ ==========
@@ -913,37 +937,57 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
                               // Индикатор активных фильтров
                               if (hasActiveFilters && filteredNews.isNotEmpty)
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: _getHorizontalPadding(context), // Адаптивный отступ
-                                    vertical: 8,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.filter_alt_rounded,
-                                          size: 16, color: NewsTheme.primaryColor),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Найдено: ${filteredNews.length}',
-                                        style: TextStyle(
-                                          color: NewsTheme.primaryColor,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  child: Center(
+                                    child: Container(
+                                      constraints: BoxConstraints(
+                                        maxWidth: MediaQuery.of(context).size.width > 700 ? 600 : double.infinity,
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: NewsTheme.primaryColor.withOpacity(0.05),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: NewsTheme.primaryColor.withOpacity(0.1)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.filter_alt_rounded, size: 16, color: NewsTheme.primaryColor),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                _getFilterDescription(pageState.currentFilter, pageState.searchQuery, filteredNews.length),
+                                                style: TextStyle(
+                                                  color: NewsTheme.primaryColor,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                            GestureDetector(
+                                              onTap: _clearAllFilters,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: NewsTheme.primaryColor.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  'Очистить',
+                                                  style: TextStyle(
+                                                    color: NewsTheme.primaryColor,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const Spacer(),
-                                      GestureDetector(
-                                        onTap: _clearAllFilters,
-                                        child: Text(
-                                          'Очистить',
-                                          style: TextStyle(
-                                            color: NewsTheme.secondaryTextColor,
-                                            fontSize: 12,
-                                            decoration: TextDecoration.underline,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                             ],

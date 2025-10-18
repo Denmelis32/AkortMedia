@@ -51,15 +51,15 @@ class AdvancedMockChatService implements ChatApiService {
         avatarUrl: 'https://i.pravatar.cc/150?img=1',
         isOnline: true,
         lastSeen: DateTime.now(),
-        status: 'Разрабатываю новый фичи 🚀',
+        status: 'Ищу цветы 🌸',
       ),
       ChatUser(
         id: 'user2',
         name: 'Мария Иванова',
         avatarUrl: 'https://i.pravatar.cc/150?img=2',
         isOnline: false,
-        lastSeen: DateTime.now().subtract(const Duration(minutes: 15)),
-        status: 'На встрече',
+        lastSeen: DateTime.now().subtract(const Duration(minutes: 3)),
+        status: 'В цветочном магазине',
       ),
       ChatUser(
         id: 'user3',
@@ -67,47 +67,122 @@ class AdvancedMockChatService implements ChatApiService {
         avatarUrl: 'https://i.pravatar.cc/150?img=3',
         isOnline: true,
         lastSeen: DateTime.now(),
-        status: 'Доступен для обсуждения',
+        status: 'Заказываю букет',
       ),
     ]);
 
-    // Реалистичная история сообщений
+    // Переписка про подарок с акцентом на цветы
     final now = DateTime.now();
     _mockMessages.addAll([
       ChatMessage(
         id: '1',
-        text: 'Привет всем! Как успехи с новой архитектурой?',
+        text: 'Денис, ты приготовил уже подарок Насте?',
         author: _mockUsers[0],
-        timestamp: now.subtract(const Duration(hours: 3)),
+        timestamp: now.subtract(const Duration(minutes: 45)),
         status: MessageStatus.read,
         reactions: [
           Reaction(
-            emoji: '👍',
-            user: _mockUsers[1],
-            timestamp: now.subtract(const Duration(hours: 2)),
+            emoji: '😱',
+            user: _mockUsers[2],
+            timestamp: now.subtract(const Duration(minutes: 40)),
           ),
         ],
       ),
       ChatMessage(
         id: '2',
-        text: 'Всё отлично! Завершил работу над модулем аутентификации',
-        author: _mockUsers[1],
-        timestamp: now.subtract(const Duration(hours: 2, minutes: 45)),
+        text: 'Что?! Завтра?! Я думал через неделю! Я совсем забыли про др 😅',
+        author: _currentUser,
+        timestamp: now.subtract(const Duration(minutes: 40)),
         status: MessageStatus.read,
       ),
       ChatMessage(
         id: '3',
-        text: 'Отлично! У меня тоже хороший прогресс. UI компоненты почти готовы',
-        author: _currentUser,
-        timestamp: now.subtract(const Duration(hours: 2, minutes: 30)),
+        text: 'Ты как обычно:D',
+        author: _mockUsers[2],
+        timestamp: now.subtract(const Duration(minutes: 35)),
+        status: MessageStatus.read,
+        reactions: [
+          Reaction(
+            emoji: '🌸',
+            user: _mockUsers[1],
+            timestamp: now.subtract(const Duration(minutes: 33)),
+          ),
+        ],
+      ),
+      ChatMessage(
+        id: '4',
+        text: 'Ты правда забыл про подарок?',
+        author: _mockUsers[1],
+        timestamp: now.subtract(const Duration(minutes: 32)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: '5',
+        text: 'Или ты пошутил?',
+        author: _mockUsers[0],
+        timestamp: now.subtract(const Duration(minutes: 28)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: '6',
+        text: 'Правда интересно?',
+        author: _mockUsers[2],
+        timestamp: now.subtract(const Duration(minutes: 25)),
         status: MessageStatus.read,
         reactions: [
           Reaction(
             emoji: '❤️',
-            user: _mockUsers[0],
-            timestamp: now.subtract(const Duration(hours: 2)),
+            user: _currentUser,
+            timestamp: now.subtract(const Duration(minutes: 23)),
           ),
         ],
+      ),
+      ChatMessage(
+        id: '7',
+        text: 'Нет, конечно. :D Я себе даже напоминание в приложение в своем сделал',
+        author: _currentUser,
+        timestamp: now.subtract(const Duration(minutes: 22)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: '8',
+        text: 'АХАХХАХАХАХАХ',
+        author: _mockUsers[1],
+        timestamp: now.subtract(const Duration(minutes: 18)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: '9',
+        text: 'Типичный Маринцев',
+        author: _mockUsers[0],
+        timestamp: now.subtract(const Duration(minutes: 15)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: '10',
+        text: ':D я не специально, оно само так выходит, что я как обычно перемудряю',
+        author: _currentUser,
+        timestamp: now.subtract(const Duration(minutes: 10)),
+        status: MessageStatus.read,
+        reactions: [
+          Reaction(
+            emoji: '✅',
+            user: _currentUser,
+            timestamp: now.subtract(const Duration(minutes: 8)),
+          ),
+          Reaction(
+            emoji: '🎉',
+            user: _mockUsers[2],
+            timestamp: now.subtract(const Duration(minutes: 7)),
+          ),
+        ],
+      ),
+      ChatMessage(
+        id: '11',
+        text: 'Главное, чтобы теперь успеть все сделать до завтра. ИБО Я НИЧЕГО НЕ УСПЕЮ!!!!Буду из говна и палок все собирать сейчас, чтобы успеть',
+        author: _currentUser,
+        timestamp: now.subtract(const Duration(minutes: 5)),
+        status: MessageStatus.read,
       ),
     ]);
   }

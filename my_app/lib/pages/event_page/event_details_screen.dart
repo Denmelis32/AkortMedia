@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'event_model.dart';
@@ -63,7 +64,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> with TickerProv
     if (width > 1200) return 200;
     if (width > 800) return 100;
     if (width > 600) return 60;
-    return 0; // На телефоне 0
+    return 16;
   }
 
   double _getContentMaxWidth(BuildContext context) {
@@ -505,52 +506,76 @@ ${_currentEvent.description}
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          // AppBar с обложкой
-          SliverAppBar(
-            expandedHeight: 280,
-            floating: false,
-            pinned: true,
-            backgroundColor: Colors.transparent,
-            leading: Padding(
-              padding: EdgeInsets.only(left: _isMobile ? 8 : horizontalPadding),
-              child: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.arrow_back_rounded, color: Colors.black, size: 20),
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (bool didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // AppBar с обложкой
+            SliverAppBar(
+              expandedHeight: 280,
+              floating: false,
+              pinned: true,
+              backgroundColor: Colors.transparent,
+              leading: _buildBackButton(horizontalPadding),
+              actions: [
+                _buildActionButton(Icons.share_rounded, 'Поделиться', _shareEvent),
+                if (_isMobile) _buildActionButton(Icons.more_vert_rounded, 'Еще', _showOptionsBottomSheet),
+              ],
+              flexibleSpace: _buildEventCover(horizontalPadding),
             ),
-            actions: [
-              _buildActionButton(Icons.share_rounded, 'Поделиться', _shareEvent),
-              if (_isMobile) _buildActionButton(Icons.more_vert_rounded, 'Еще', _showOptionsBottomSheet),
-            ],
-            flexibleSpace: _buildEventCover(horizontalPadding),
-          ),
 
-          // Основной контент
-          SliverToBoxAdapter(
-            child: Container(
-              width: double.infinity,
-              child: Center(
-                child: Container(
-                  constraints: BoxConstraints(maxWidth: contentMaxWidth),
-                  child: _buildMainContent(horizontalPadding),
+            // Основной контент
+            SliverToBoxAdapter(
+              child: Container(
+                width: double.infinity,
+                child: Center(
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: contentMaxWidth),
+                    child: _buildMainContent(horizontalPadding),
+                  ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ИСПРАВЛЕННЫЙ МЕТОД: Кнопка назад
+  Widget _buildBackButton(double horizontalPadding) {
+    return Padding(
+      padding: EdgeInsets.only(left: _isMobile ? 8 : horizontalPadding),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            Navigator.of(context).pop();
+          },
+          child: Container(
+            width: 40,
+            height: 40,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.arrow_back_rounded,
+              color: Colors.black,
+              size: 20,
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -558,17 +583,20 @@ ${_currentEvent.description}
   Widget _buildActionButton(IconData icon, String tooltip, VoidCallback onPressed) {
     return Padding(
       padding: EdgeInsets.only(right: _isMobile ? 8 : 16),
-      child: IconButton(
-        icon: Container(
-          padding: EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            shape: BoxShape.circle,
+      child: Material(
+        type: MaterialType.transparency,
+        child: IconButton(
+          icon: Container(
+            padding: EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.black, size: 18),
           ),
-          child: Icon(icon, color: Colors.black, size: 18),
+          tooltip: tooltip,
+          onPressed: onPressed,
         ),
-        tooltip: tooltip,
-        onPressed: onPressed,
       ),
     );
   }

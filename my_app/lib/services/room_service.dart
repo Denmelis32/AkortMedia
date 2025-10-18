@@ -12,9 +12,9 @@ class RoomService {
     return [
       Room(
         id: '1',
-        title: 'Крутые бобры',
-        description: 'Обсуждаем почему Акорт Медиа еще не вышло в релиз',
-        imageUrl: 'https://avatars.mds.yandex.net/i?id=4cf91ca61c32ca14e0f69f3d57c2c51be59007dd-2455126-images-thumbs&n=13',
+        title: 'Маринцев и его Друзья',
+        description: 'Обсуждаем Наськин День Рождения',
+        imageUrl: 'assets/images/ava_news/ava29.png',
         currentParticipants: 12450,
         messageCount: 89456,
         isJoined: true,
@@ -22,11 +22,11 @@ class RoomService {
         lastActivity: now.subtract(const Duration(minutes: 5)),
         category: RoomCategory.youtube, // ИСПРАВЛЕНО: tech → technology
         creatorId: 'user1',
-        creatorName: 'Нонаши ПочЧекКэк',
-        creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=2154efb7672c374c3a7d819f4f4590e55315e1d1-4316446-images-thumbs&n=13', // НОВОЕ ПОЛЕ
+        creatorName: 'Маринцев',
+        creatorAvatarUrl: 'assets/images/ava_news/ava29.png', // НОВОЕ ПОЛЕ
         moderators: ['user2', 'user3'],
         isPrivate: false,
-        tags: ['технологии', 'инновации', 'IT', 'будущее'],
+        tags: ['НаськинДень', 'День Рождения'],
         language: 'ru', // НОВОЕ ПОЛЕ
         isPinned: true,
         maxParticipants: 15000,
@@ -47,7 +47,7 @@ class RoomService {
         id: '2',
         title: 'Flutter Development',
         description: 'Сообщество разработчиков Flutter. Помощь, обмен опытом, лучшие практики',
-        imageUrl: 'https://avatars.mds.yandex.net/i?id=2154efb7672c374c3a7d819f4f4590e55315e1d1-4316446-images-thumbs&n=13',
+        imageUrl: 'assets/images/ava_news/ava28.png',
         currentParticipants: 8734,
         messageCount: 45678,
         isJoined: false,
@@ -56,7 +56,7 @@ class RoomService {
         category: RoomCategory.programming,
         creatorId: 'user4',
         creatorName: 'Мария Разработчик',
-        creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=2154efb7672c374c3a7d819f4f4590e55315e1d1-4316446-images-thumbs&n=13', // НОВОЕ ПОЛЕ
+        creatorAvatarUrl: 'assets/images/ava_news/ava28.png', // НОВОЕ ПОЛЕ
         moderators: ['user5'],
         isPrivate: false,
         tags: ['flutter', 'dart', 'mobile', 'development', 'программирование'],
@@ -80,7 +80,7 @@ class RoomService {
         id: '3',
         title: 'Бизнес и Стартапы',
         description: 'Обсуждение бизнес-идей, инвестиций и развития стартапов',
-        imageUrl: 'https://avatars.mds.yandex.net/i?id=fa4deba2bbe9b1d248f5cfdcf22d147d5100663f-10151263-images-thumbs&n=13',
+        imageUrl: 'assets/images/ava_news/ava27.png',
         currentParticipants: 5432,
         messageCount: 23456,
         isJoined: true,
@@ -89,7 +89,7 @@ class RoomService {
         category: RoomCategory.business,
         creatorId: 'user6',
         creatorName: 'Дмитрий Бизнесмен',
-        creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=fa4deba2bbe9b1d248f5cfdcf22d147d5100663f-10151263-images-thumbs&n=13', // НОВОЕ ПОЛЕ
+        creatorAvatarUrl: 'assets/images/ava_news/ava27.png',// НОВОЕ ПОЛЕ
         moderators: ['user7', 'user8'],
         isPrivate: true,
         tags: ['бизнес', 'стартапы', 'инвестиции', 'предпринимательство'],
@@ -113,7 +113,7 @@ class RoomService {
         id: '4',
         title: 'Игровая индустрия',
         description: 'Новости игр, разработка, геймдизайн и киберспорт и много-много всего обсуждаем',
-        imageUrl: 'https://avatars.mds.yandex.net/i?id=ff9534c959febb7b446ee3db1f6b9bb0fcb9b6ce-5546664-images-thumbs&n=13',
+        imageUrl: 'assets/images/ava_news/ava26.png',
         currentParticipants: 15678,
         messageCount: 67890,
         isJoined: false,
@@ -122,7 +122,7 @@ class RoomService {
         category: RoomCategory.games,
         creatorId: 'user9',
         creatorName: 'Иван Геймер',
-        creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=ff9534c959febb7b446ee3db1f6b9bb0fcb9b6ce-5546664-images-thumbs&n=13', // НОВОЕ ПОЛЕ
+        creatorAvatarUrl: 'assets/images/ava_news/ava26.png',// НОВОЕ ПОЛЕ
         moderators: ['user10'],
         isPrivate: false,
         tags: ['игры', 'геймдев', 'киберспорт', 'streaming'],

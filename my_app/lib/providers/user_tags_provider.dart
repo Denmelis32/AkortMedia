@@ -519,45 +519,53 @@ class UserTagsProvider with ChangeNotifier {
   Map<String, String> _getMockTagsForPost(String postId) {
     // Обновленный маппинг ID постов на теги из новых мок данных
     final mockTags = {
+      // Поздравления с днем рождения
+      'bday-1': {'tag1': 'Программист', 'tag2': 'Котики', 'tag3': 'Геймер'},
+      'bday-2': {'tag1': 'Фотограф', 'tag2': 'Путешественник', 'tag3': 'Кофе'},
+      'bday-3': {'tag1': 'Художник', 'tag2': 'Книголюб', 'tag3': 'Растения'},
+      'bday-4': {'tag1': 'Музыкант', 'tag2': 'Спортсмен', 'tag3': 'Психология'},
+      'bday-5': {'tag1': 'Йога', 'tag2': 'Медитация', 'tag3': 'Веган'},
+      'bday-6': {'tag1': 'Студент', 'tag2': 'Наука', 'tag3': 'Технологии'},
+      'bday-7': {'tag1': 'Бьюти', 'tag2': 'Мода', 'tag3': 'Танцы'},
+      'bday-8': {'tag1': 'Кино', 'tag2': 'Игры', 'tag3': 'IT'},
+      'bday-9': {'tag1': 'Психология', 'tag2': 'ЗОЖ', 'tag3': 'Природа'},
+      'bday-10': {'tag1': 'Бизнес', 'tag2': 'Карьера', 'tag3': 'Финансы'},
+
       // Технологии
-      'tech-1': {'tag1': 'Технологии', 'tag2': 'ИИ', 'tag3': 'Будущее'},
-      'tech-2': {'tag1': 'Наука', 'tag2': 'Квант', 'tag3': 'Рекорд'},
+      'tech-1': {'tag1': 'Программист', 'tag2': 'Геймер', 'tag3': 'Технологии'},
+      'tech-2': {'tag1': 'Физика', 'tag2': 'Наука', 'tag3': 'IT'},
+      'tech-3': {'tag1': 'Разработчик', 'tag2': 'Flutter', 'tag3': 'IT'},
 
       // Спорт
-      'sport-1': {'tag1': 'Фанат Манчестера', 'tag2': 'Спорт', 'tag3': 'Футбол'},
-      'sport-2': {'tag1': 'Гонки', 'tag2': 'Автоспорт', 'tag3': 'Formula 1'},
+      'sport-1': {'tag1': 'Спорт', 'tag2': 'Фитнес', 'tag3': 'ЗОЖ'},
+      'sport-2': {'tag1': 'Спорт', 'tag2': 'Бег', 'tag3': 'ЗОЖ'},
 
-      // Путешествия
-      'travel-1': {'tag1': 'Путешествия', 'tag2': 'Япония', 'tag3': 'Советы'},
-      'travel-2': {'tag1': 'Бали', 'tag2': 'Пляжи', 'tag3': 'Приключения'},
+      // Личные мысли
+      'thought-1': {'tag1': 'Философия', 'tag2': 'Книги', 'tag3': 'Мысли'},
+      'thought-2': {'tag1': 'Кофе', 'tag2': 'Утро', 'tag3': 'Настроение'},
 
-      // Кулинария
-      'food-1': {'tag1': 'Кулинария', 'tag2': 'Италия', 'tag3': 'Рецепты'},
-      'food-2': {'tag1': 'Выпечка', 'tag2': 'Хлеб', 'tag3': 'Дом'},
+      // Юмор
+      'funny-1': {'tag1': 'Котики', 'tag2': 'Юмор', 'tag3': 'Домашние'},
+      'funny-2': {'tag1': 'Юмор', 'tag2': 'Семья', 'tag3': 'IT'},
 
-      // Искусство
-      'art-1': {'tag1': 'Искусство', 'tag2': 'Выставка', 'tag3': 'Культура'},
+      // Новости
+      'news-1': {'tag1': 'Новости', 'tag2': 'Город', 'tag3': 'События'},
 
-      // Образование
-      'edu-1': {'tag1': 'Образование', 'tag2': 'Курсы', 'tag3': 'Развитие'},
+      // Вопросы
+      'question-1': {'tag1': 'Вопрос', 'tag2': 'Отдых', 'tag3': 'Сообщество'},
+      'question-2': {'tag1': 'Книги', 'tag2': 'Чтение', 'tag3': 'Образование'},
 
-      // Канальные посты
-      'channel-1': {'tag1': 'Официально', 'tag2': 'Обновление', 'tag3': 'Важно'},
-      'channel-2': {'tag1': 'Конкурс', 'tag2': 'События', 'tag3': 'Призы'},
+      // Достижения
+      'achieve-1': {'tag1': 'Разработка', 'tag2': 'Flutter', 'tag3': 'Успех'},
 
-      // Личные истории
-      'story-1': {'tag1': 'История', 'tag2': 'Обучение', 'tag3': 'Успех'},
-
-      // Наука
-      'science-1': {'tag1': 'Наука', 'tag2': 'Космос', 'tag3': 'Открытие'},
+      // Повседневные посты
+      'daily-1': {'tag1': 'Будни', 'tag2': 'Настроение', 'tag3': 'Юмор'},
+      'daily-2': {'tag1': 'Воспоминания', 'tag2': 'Друзья', 'tag3': 'Фото'},
 
       // Старые ID для обратной совместимости
-      '1': {'tag1': 'Приветствие', 'tag2': 'Официально', 'tag3': 'Новости'},
-      '2': {'tag1': 'Фанат Манчестера', 'tag2': 'Спорт', 'tag3': 'Футбол'},
-      '3': {'tag1': 'Гонки', 'tag2': 'Автоспорт', 'tag3': 'Formula 1'},
-      '4': {'tag1': 'Технологии', 'tag2': 'ИИ', 'tag3': 'Инновации'},
-      '5': {'tag1': 'Путешествия', 'tag2': 'Япония', 'tag3': 'Культура'},
-      '6': {'tag1': 'Кулинария', 'tag2': 'Италия', 'tag3': 'Рецепты'},
+      '1': {'tag1': 'Фанат Манчестера', 'tag2': 'Спорт', 'tag3': 'Футбол'},
+      '2': {'tag1': 'Гонки', 'tag2': 'Автоспорт', 'tag3': 'Formula 1'},
+      '3': {'tag1': 'Программист', 'tag2': 'Котики', 'tag3': 'Геймер'},
     };
 
     // Возвращаем теги для конкретного поста или пустой map если не найдено
@@ -632,34 +640,57 @@ class UserTagsProvider with ChangeNotifier {
   Color _getMockTagColor(String postId, String tagId) {
     // Обновленные цвета для новых ID постов
     final mockColors = {
+      // Поздравления с днем рождения
+      'bday-1': Colors.pink,
+      'bday-2': Colors.blue,
+      'bday-3': Colors.purple,
+      'bday-4': Colors.green,
+      'bday-5': Colors.orange,
+      'bday-6': Colors.red,
+      'bday-7': Colors.pinkAccent,
+      'bday-8': Colors.blueAccent,
+      'bday-9': Colors.yellow,
+      'bday-10': Colors.amber,
+
+      // Технологии
       'tech-1': Colors.purple,
       'tech-2': Colors.indigo,
+      'tech-3': Colors.blue,
+
+      // Спорт
       'sport-1': Colors.green,
       'sport-2': Colors.red,
-      'travel-1': Colors.teal,
-      'travel-2': Colors.blue,
-      'food-1': Colors.orange,
-      'food-2': Colors.amber,
-      'art-1': Colors.deepPurple,
-      'edu-1': Colors.cyan,
-      'channel-1': Colors.blue,
-      'channel-2': Colors.pink,
-      'story-1': Colors.green,
-      'science-1': Colors.deepOrange,
+
+      // Личные мысли
+      'thought-1': Colors.deepPurple,
+      'thought-2': Colors.brown,
+
+      // Юмор
+      'funny-1': Colors.orange,
+      'funny-2': Colors.amber,
+
+      // Новости
+      'news-1': Colors.teal,
+
+      // Вопросы
+      'question-1': Colors.cyan,
+      'question-2': Colors.deepOrange,
+
+      // Достижения
+      'achieve-1': Colors.blueAccent,
+
+      // Повседневные посты
+      'daily-1': Colors.grey,
+      'daily-2': Colors.pinkAccent,
 
       // Старые ID для обратной совместимости
       '1': Colors.blue,
       '2': Colors.green,
-      '3': Colors.red,
-      '4': Colors.purple,
-      '5': Colors.teal,
-      '6': Colors.pink,
-      'channel-1': Colors.orange,
+      '3': Colors.purple,
     };
 
     return mockColors[postId] ?? _getDefaultColor(tagId);
   }
-
 
   Future<void> updateTagGlobally(String tagId, String newName, Color color, {BuildContext? context}) async {
     if (_currentUserId.isEmpty) {

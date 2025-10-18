@@ -480,6 +480,11 @@ class ChannelStateProvider with ChangeNotifier {
     });
   }
 
+  void initialize() {
+    print('✅ ChannelStateProvider: инициализирован');
+    // Здесь можно добавить дополнительную логику инициализации если нужно
+  }
+
 // Метод для получения актуального состояния канала
   Channel getUpdatedChannel(Channel originalChannel) {
     final channelId = originalChannel.id.toString();

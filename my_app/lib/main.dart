@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:my_app/providers/channel_state_provider.dart';
 import 'package:my_app/providers/communities_provider.dart';
 import 'package:my_app/providers/community_state_provider.dart';
+import 'package:my_app/providers/user_tags_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/news_provider.dart';
 import 'providers/channel_posts_provider.dart';
@@ -94,6 +95,10 @@ class _MyAppState extends State<MyApp> {
       final newsProvider = Provider.of<NewsProvider>(_navigatorKey.currentContext!, listen: false);
       newsProvider.clearData();
 
+      // Очищаем UserTagsProvider
+      final userTagsProvider = Provider.of<UserTagsProvider>(_navigatorKey.currentContext!, listen: false);
+      userTagsProvider.clearCurrentUserTags();
+
       // ДОБАВИТЬ: Очищаем InteractionManager
       final interactionManager = Provider.of<InteractionManager>(_navigatorKey.currentContext!, listen: false);
       interactionManager.clearAll();
@@ -121,6 +126,74 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  // Инициализация провайдеров после входа пользователя
+  Future<void> _initializeProvidersAfterLogin(BuildContext context, Map<String, dynamic> user) async {
+    try {
+      // Устанавливаем данные пользователя в провайдер
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userId = user['id']?.toString() ?? 'user_${DateTime.now().millisecondsSinceEpoch}';
+
+      userProvider.setUserData(
+        user['name'] ?? 'Пользователь',
+        user['email'] ?? '',
+        userId: userId,
+      );
+
+      print('✅ UserProvider инициализирован: ${userProvider.userName}, ID: ${userProvider.userId}');
+
+      // Инициализируем UserTagsProvider с данными пользователя
+      final userTagsProvider = Provider.of<UserTagsProvider>(context, listen: false);
+      await userTagsProvider.initializeWithUserId(userId);
+
+      print('✅ UserTagsProvider инициализирован для пользователя: $userId');
+
+      // Загружаем данные новостей
+      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+      await newsProvider.ensureDataPersistence();
+
+      print('✅ NewsProvider инициализирован с ${newsProvider.news.length} новостями');
+
+      // Инициализируем InteractionManager с данными новостей
+      final interactionManager = Provider.of<InteractionManager>(context, listen: false);
+
+      if (newsProvider.news.isNotEmpty) {
+        // Конвертируем List<dynamic> в List<Map<String, dynamic>>
+        final List<Map<String, dynamic>> newsList = newsProvider.news.map((item) {
+          if (item is Map<String, dynamic>) {
+            return item;
+          } else {
+            // Если элемент не Map, конвертируем его
+            return {'id': item.toString(), 'isLiked': false, 'isBookmarked': false};
+          }
+        }).toList();
+
+        interactionManager.bulkUpdatePostStates(newsList);
+        print('✅ InteractionManager инициализирован с ${newsList.length} постами');
+      }
+
+      // Инициализируем другие провайдеры
+      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+      channelStateProvider.initialize();
+
+      final communitiesProvider = Provider.of<CommuninitiesProvider>(context, listen: false);
+      communitiesProvider.initialize();
+
+      print('✅ Все провайдеры успешно инициализированы');
+
+    } catch (e) {
+      print('❌ Ошибка инициализации провайдеров: $e');
+      // Показываем ошибку пользователю
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка загрузки данных: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -134,6 +207,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => RoomProvider(RoomService())),
         ChangeNotifierProvider(create: (_) => CommuninitiesProvider()),
         ChangeNotifierProvider(create: (_) => CommunityStateProvider()),
+        ChangeNotifierProvider(create: (_) => UserTagsProvider()),
 
         // Новый провайдер для чата
         ChangeNotifierProvider(create: (_) => _createChatController()),
@@ -274,34 +348,11 @@ class _MyAppState extends State<MyApp> {
 
             final user = snapshot.data;
 
-            // Устанавливаем данные пользователя в провайдер
+            // Инициализируем провайдеры после получения данных пользователя
             if (user != null) {
-              final userProvider = Provider.of<UserProvider>(context, listen: false);
-              userProvider.setUserData(
-                user['name'] ?? 'Пользователь',
-                user['email'] ?? '',
-                userId: user['id'] ?? 'current-user', // Передаем userId если есть
-              );
-
-              // ДОБАВИТЬ: Инициализируем InteractionManager с данными новостей
-              final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-              final interactionManager = Provider.of<InteractionManager>(context, listen: false);
-
-              // Ждем немного чтобы NewsProvider успел загрузить данные
+              // Используем addPostFrameCallback чтобы дождаться построения виджета
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (newsProvider.news.isNotEmpty) {
-                  // ИСПРАВЛЕНО: Конвертируем List<dynamic> в List<Map<String, dynamic>>
-                  final List<Map<String, dynamic>> newsList = newsProvider.news.map((item) {
-                    if (item is Map<String, dynamic>) {
-                      return item;
-                    } else {
-                      // Если элемент не Map, конвертируем его
-                      return {'id': item.toString(), 'isLiked': false, 'isBookmarked': false};
-                    }
-                  }).toList();
-
-                  interactionManager.bulkUpdatePostStates(newsList);
-                }
+                _initializeProvidersAfterLogin(context, user);
               });
             }
 

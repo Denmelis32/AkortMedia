@@ -324,6 +324,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   // ИСПРАВЛЕНИЕ: Улучшенный метод создания новости
+  // ИСПРАВЛЕННЫЙ МЕТОД: Создание новости с ПУСТЫМИ тегами
   Future<void> _addNews(String title, String description, String hashtags) async {
     if (description.isEmpty || !_isMounted) return;
 
@@ -339,7 +340,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'hashtags': hashtagsArray,
       });
 
-      // УБИРАЕМ дублирование - используем ТОЛЬКО данные от API
+      // УБИРАЕМ дефолтные теги - используем ПУСТЫЕ теги
       final Map<String, dynamic> newsItem = _convertToStringDynamicMap({
         ...newNews,
         'author_name': widget.userName,
@@ -349,19 +350,20 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'isFollowing': false,
         'likes': 0,
         'comments': [],
-        'user_tags': {'tag1': 'Новый тег'},
+        // ВАЖНОЕ ИЗМЕНЕНИЕ: используем ПУСТЫЕ теги вместо дефолтных
+        'user_tags': <String, String>{}, // ПУСТОЙ Map вместо {'tag1': 'Новый тег'}
         'tag_color': _generateColorFromId(newNews['id']?.toString() ?? '').value,
         'is_channel_post': false, // ЯВНО указываем, что это не канальный пост
       });
 
       // Добавляем новость только один раз
-      _safeProviderOperation((newsProvider) => newsProvider.addNews(newsItem));
+      _safeProviderOperation((newsProvider) => newsProvider.addNews(newsItem, context: context));
       _showSuccessSnackBar('🎉 Новость успешно создана!');
 
     } catch (e) {
       print('❌ Ошибка создания новости: $e');
 
-      // ТОЛЬКО В СЛУЧАЕ ОШИБКИ создаем локальную новость
+      // ТОЛЬКО В СЛУЧАЕ ОШИБКИ создаем локальную новость с ПУСТЫМИ тегами
       final Map<String, dynamic> localNewsItem = _convertToStringDynamicMap({
         'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
         'title': title.trim(),
@@ -371,7 +373,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'author_avatar': _getUserAvatarUrl(widget.userName),
         'likes': 0,
         'comments': [],
-        'user_tags': {'tag1': 'Новый тег'},
+        // ВАЖНОЕ ИЗМЕНЕНИЕ: используем ПУСТЫЕ теги вместо дефолтных
+        'user_tags': <String, String>{}, // ПУСТОЙ Map вместо {'tag1': 'Новый тег'}
         'created_at': DateTime.now().toIso8601String(),
         'isLiked': false,
         'isBookmarked': false,
@@ -380,7 +383,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'is_channel_post': false, // ЯВНО указываем, что это не канальный пост
       });
 
-      _safeProviderOperation((newsProvider) => newsProvider.addNews(localNewsItem));
+      _safeProviderOperation((newsProvider) => newsProvider.addNews(localNewsItem, context: context));
       _showSuccessSnackBar('📝 Новость создана локально (ошибка сети)');
     } finally {
       // Всегда убираем индикатор загрузки

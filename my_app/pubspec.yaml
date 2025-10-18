@@ -61,3 +61,4 @@ flutter:
     - assets/images/cards_image/owner/
     # Прогнозы лиги (добавьте эту строку)
     - assets/images/predictions_league_image/
+    - assets/images/ava_news/

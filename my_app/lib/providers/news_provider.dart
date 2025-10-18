@@ -4,7 +4,10 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:my_app/providers/user_tags_provider.dart';
+import 'package:provider/provider.dart';
 import '../../../services/api_service.dart';
+import '../pages/news_page/mock_news_data.dart';
 import '../services/interaction_manager.dart';
 import '../services/storage_service.dart';
 
@@ -12,7 +15,7 @@ class NewsProvider with ChangeNotifier {
   List<dynamic> _news = [];
   bool _isLoading = true;
   String? _errorMessage;
-
+  bool get mounted => !_isDisposed;
   // НОВЫЕ ПОЛЯ ДЛЯ ФОТО ПРОФИЛЯ
   String? _profileImageUrl;
   File? _profileImageFile;
@@ -164,9 +167,6 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  // НОВЫЙ МЕТОД: Обеспечение сохранности данных
-
-
   // МЕТОД ДЛЯ СОХРАНЕНИЯ НОВОСТЕЙ В ХРАНИЛИЩЕ
   Future<void> _saveNewsToStorage() async {
     if (_isDisposed) return;
@@ -177,6 +177,15 @@ class NewsProvider with ChangeNotifier {
       print('✅ Новости сохранены в хранилище');
     } catch (e) {
       print('❌ Ошибка автосохранения новостей: $e');
+    }
+  }
+
+  UserTagsProvider? _getUserTagsProvider(BuildContext context) {
+    try {
+      return Provider.of<UserTagsProvider>(context, listen: false);
+    } catch (e) {
+      print('⚠️ UserTagsProvider not available: $e');
+      return null;
     }
   }
 
@@ -385,7 +394,6 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-
   Future<void> ensureDataPersistence() async {
     if (_isDisposed) return;
 
@@ -397,7 +405,7 @@ class NewsProvider with ChangeNotifier {
       final cachedNews = await StorageService.loadNews();
       if (cachedNews.isEmpty) {
         // Если данных нет, создаем начальные mock данные
-        final mockNews = _getMockNews();
+        final mockNews = MockNewsData.getMockNews();
         await _saveNewsToStorage();
         _safeOperation(() {
           _news = mockNews;
@@ -423,7 +431,7 @@ class NewsProvider with ChangeNotifier {
     } catch (e) {
       print('❌ Error ensuring data persistence: $e');
       // Создаем mock данные при ошибке
-      final mockNews = _getMockNews();
+      final mockNews = MockNewsData.getMockNews();
       _safeOperation(() {
         _news = mockNews;
       });
@@ -502,87 +510,33 @@ class NewsProvider with ChangeNotifier {
     return colors[hash.abs() % colors.length];
   }
 
+  // ИСПРАВЛЕННЫЙ МЕТОД: Используем локальные аватарки вместо URL
   String _getFallbackAvatarUrl(String userName) {
-    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff';
+    final avatars = [
+      'assets/images/ava_news/ava1.png',
+      'assets/images/ava_news/ava2.png',
+      'assets/images/ava_news/ava3.png',
+      'assets/images/ava_news/ava4.png',
+      'assets/images/ava_news/ava5.png',
+      'assets/images/ava_news/ava6.png',
+      'assets/images/ava_news/ava7.png',
+      'assets/images/ava_news/ava8.png',
+      'assets/images/ava_news/ava9.png',
+      'assets/images/ava_news/ava10.png',
+      'assets/images/ava_news/ava11.png',
+      'assets/images/ava_news/ava12.png',
+    ];
+
+    final index = userName.hashCode.abs() % avatars.length;
+    return avatars[index];
   }
 
   List<dynamic> _getMockNews() {
-    return [
-      {
-        "id": "1",
-        "title": "Добро пожаловать!",
-        "description": "Это ваша первая новость. Создавайте свои посты!",
-        "image": "👋",
-        "likes": 1,
-        "author_name": "Система",
-        "created_at": DateTime.now().toIso8601String(),
-        "comments": [],
-        "hashtags": ["добропожаловать"],
-        "user_tags": {"tag1": "Приветствие"},
-        "isLiked": false,
-        "isBookmarked": false,
-        "tag_color": Colors.blue.value,
-        "is_channel_post": true,
-        "author_avatar": _getFallbackAvatarUrl("Система"),
-      },
-      {
-        "id": "2",
-        "title": "Манчестер Сити выиграл Лигу Чемпионов",
-        "description": "Манчестер Сити в драматичном матче обыграл Интер со счетом 1:0",
-        "image": "⚽",
-        "likes": 45,
-        "author_name": "Администратор",
-        "created_at": "2025-09-09T16:33:18.417Z",
-        "comments": [],
-        "hashtags": ["футбол", "лигачемпионов"],
-        "user_tags": {"tag1": "Фанат Манчестера"},
-        "isLiked": false,
-        "isBookmarked": false,
-        "tag_color": Colors.blue.value,
-        "is_channel_post": false,
-        "author_avatar": _getFallbackAvatarUrl("Система"),
-      },
-      {
-        "id": "3",
-        "title": "Новый сезон Formula 1",
-        "description": "Начало нового сезона Formula 1 обещает быть захватывающим с новыми правилами и командами",
-        "image": "🏎️",
-        "likes": 23,
-        "author_name": "Спортивный обозреватель",
-        "created_at": "2025-09-08T10:15:30.123Z",
-        "comments": [],
-        "hashtags": ["formula1", "автоспорт"],
-        "user_tags": {"tag1": "Болельщик"},
-        "isLiked": false,
-        "isBookmarked": false,
-        "tag_color": Colors.red.value,
-        "is_channel_post": false,
-        "author_avatar": _getFallbackAvatarUrl("Система"),
-      },
-      {
-        "id": "channel-1",
-        "title": "Важное обновление системы",
-        "description": "В этом обновлении мы добавили новые функции и улучшили производительность",
-        "image": "📢",
-        "likes": 156,
-        "author_name": "Система",
-        "channel_name": "Официальные новости",
-        "created_at": "2025-09-10T09:00:00.000Z",
-        "comments": [],
-        "hashtags": ["обновление", "новости"],
-        "user_tags": {"tag1": "Официально"},
-        "isLiked": false,
-        "isBookmarked": false,
-        "tag_color": Colors.purple.value,
-        "is_channel_post": true,
-        "author_avatar": _getFallbackAvatarUrl("Система"),
-      }
-    ];
+    return MockNewsData.getMockNews();
   }
 
   // ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
-  // ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
-  Future<void> addNews(Map<String, dynamic> newsItem) async {
+  Future<void> addNews(Map<String, dynamic> newsItem, {BuildContext? context}) async {
     if (_isDisposed) return;
 
     try {
@@ -604,11 +558,34 @@ class NewsProvider with ChangeNotifier {
           return;
         }
       }
-      // УБРАТЬ отсюда initializeInteractions() - он теперь отдельный метод
 
       final isChannelPost = newsItem['is_channel_post'] == true;
       final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
       final channelName = newsItem['channel_name']?.toString() ?? '';
+
+      // СОЗДАЕМ УНИКАЛЬНЫЙ ID если не предоставлен
+      final uniqueId = newsItem['id']?.toString() ?? 'news-${DateTime.now().millisecondsSinceEpoch}';
+
+      // ВАЖНОЕ ИЗМЕНЕНИЕ: ИСПОЛЬЗУЕМ ПОСЛЕДНИЕ ТЕГИ ПОЛЬЗОВАТЕЛЯ
+      Map<String, String> personalTags = <String, String>{};
+
+      // Инициализируем UserTagsProvider для нового поста
+      if (context != null) {
+        try {
+          final userTagsProvider = Provider.of<UserTagsProvider>(context, listen: false);
+          if (userTagsProvider != null && userTagsProvider.isInitialized) {
+            // Получаем последние теги пользователя
+            personalTags = userTagsProvider.getLastUsedTags();
+            print('✅ Используем последние теги пользователя для нового поста: $personalTags');
+
+            // Инициализируем теги для нового поста
+            await userTagsProvider.initializeTagsForNewPost(uniqueId);
+            print('✅ Инициализированы теги для нового поста: $uniqueId');
+          }
+        } catch (e) {
+          print('⚠️ Не удалось инициализировать UserTagsProvider для нового поста: $e');
+        }
+      }
 
       // АГРЕССИВНАЯ ОЧИСТКА ХЕШТЕГОВ
       List<String> cleanHashtags = [];
@@ -625,8 +602,8 @@ class NewsProvider with ChangeNotifier {
         }).where((tag) => tag.isNotEmpty).toList();
       }
 
-      // СОЗДАЕМ УНИКАЛЬНЫЙ ID если не предоставлен
-      final uniqueId = newsItem['id']?.toString() ?? 'news-${DateTime.now().millisecondsSinceEpoch}';
+      // ОПРЕДЕЛЯЕМ ЦВЕТ ТЕГА - используем дефолтный
+      Color tagColor = _generateColorFromId(uniqueId);
 
       final Map<String, dynamic> cleanNewsItem = {
         'id': uniqueId,
@@ -640,13 +617,16 @@ class NewsProvider with ChangeNotifier {
         'likes': newsItem['likes'] ?? 0,
         'comments': newsItem['comments'] ?? [],
         'hashtags': cleanHashtags,
-        'user_tags': newsItem['user_tags'] ?? {'tag1': 'Новый тег'},
+        // ВАЖНОЕ ИЗМЕНЕНИЕ: используем ПОСЛЕДНИЕ ТЕГИ пользователя
+        'user_tags': personalTags,
         'isLiked': newsItem['isLiked'] ?? false,
         'isBookmarked': newsItem['isBookmarked'] ?? false,
         'isFollowing': newsItem['isFollowing'] ?? false,
-        'tag_color': newsItem['tag_color'] ?? _generateColorFromId(uniqueId).value,
+        'tag_color': tagColor.value,
         'is_channel_post': isChannelPost,
-        'content_type': isChannelPost ? 'channel_post' : 'regular_post', // Добавляем тип контента
+        'content_type': isChannelPost ? 'channel_post' : 'regular_post',
+        // ДОБАВЛЯЕМ АВАТАРКУ АВТОРА - используем локальную аватарку
+        'author_avatar': newsItem['author_avatar'] ?? _getFallbackAvatarUrl(authorName),
       };
 
       // ДОБАВЛЯЕМ в начало списка
@@ -670,18 +650,32 @@ class NewsProvider with ChangeNotifier {
         comments: List<Map<String, dynamic>>.from(cleanNewsItem['comments'] ?? []),
       );
 
-      print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Всего: ${_news.length}');
+      print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Теги: $personalTags, Всего новостей: ${_news.length}');
 
     } catch (e) {
       print('❌ Ошибка при добавлении новости в NewsProvider: $e');
+      // Показываем ошибку пользователю если контекст доступен
+      if (context != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при создании поста: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
+  void refreshAllPostsUserTags() {
+    if (_isDisposed) return;
 
+    _safeOperation(() {
+      _safeNotifyListeners();
+    });
+    print('✅ NewsProvider: все посты обновлены для отображения новых тегов');
+  }
 
-  // ПЕРЕМЕСТИТЕ этот метод из addNews() на уровень класса NewsProvider:
-
-// НОВЫЙ МЕТОД: Инициализация Interaction Manager
+  // НОВЫЙ МЕТОД: Инициализация Interaction Manager
   void initializeInteractions() {
     final interactionManager = InteractionManager();
 

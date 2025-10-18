@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/news_provider.dart';
+import '../../providers/user_tags_provider.dart';
 import '../../providers/user_provider.dart';
 import '../cards_page/channel_detail_page.dart';
 import '../cards_page/models/channel.dart';
@@ -66,6 +67,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   ChannelStateProvider? _channelStateProvider;
   bool _isChannelPost = false;
   String _channelId = '';
+  UserTagsProvider? _userTagsProvider;
 
   // ИСПОЛЬЗУЕМ INTERACTION MANAGER ВМЕСТО ЛОКАЛЬНОГО СОСТОЯНИЯ
   late InteractionManager _interactionManager;
@@ -166,6 +168,191 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
+  void _setupUserTagsListener() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      try {
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        final userTagsProvider = Provider.of<UserTagsProvider>(context, listen: false);
+        _userTagsProvider = userTagsProvider;
+
+        // Убедимся, что UserProvider имеет данные
+        if (!userProvider.isLoggedIn) {
+          print('⚠️ UserProvider не инициализирован, устанавливаем временные данные');
+          userProvider.setUserData(
+            'Гость',
+            'guest@example.com',
+            userId: 'guest_${DateTime.now().millisecondsSinceEpoch}',
+          );
+        }
+
+        // Инициализируем провайдер с UserProvider
+        if (!userTagsProvider.isInitialized) {
+          await userTagsProvider.initialize(userProvider);
+        } else {
+          print('✅ UserTagsProvider уже инициализирован');
+        }
+
+        userTagsProvider.addListener(_onUserTagsChanged);
+
+        // Форсируем обновление UI после инициализации
+        if (mounted) {
+          setState(() {});
+        }
+
+        print('✅ UserTagsProvider listener установлен для пользователя: ${userTagsProvider.currentUserId}');
+      } catch (e) {
+        print('❌ Ошибка инициализации UserTagsProvider: $e');
+      }
+    });
+  }
+  Map<String, String> _getUserTags() {
+    final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+    final postId = _getStringValue(widget.news['id']);
+
+    // ДЛЯ КАНАЛЬНЫХ ПОСТОВ ВОЗВРАЩАЕМ ПУСТОЙ MAP
+    if (isChannelPost) {
+      return <String, String>{};
+    }
+
+    // Для обычных постов используем персональные теги
+    if (_userTagsProvider != null && _userTagsProvider!.isInitialized) {
+      try {
+        final personalTags = _userTagsProvider!.getTagsForPost(postId);
+
+        // ВАЖНОЕ ИЗМЕНЕНИЕ: Для новых постов возвращаем пустые теги вместо дефолтных
+        if (personalTags.isNotEmpty) {
+          print('✅ Используем ПЕРСОНАЛЬНЫЕ теги для поста $postId:');
+          personalTags.forEach((key, value) {
+            print('   - $key: $value');
+          });
+          return personalTags;
+        } else {
+          print('ℹ️ Для поста $postId нет сохраненных персональных тегов, используем ПУСТЫЕ теги');
+          // Возвращаем пустые теги вместо дефолтных
+          return <String, String>{};
+        }
+      } catch (e) {
+        print('❌ Ошибка получения тегов из UserTagsProvider: $e');
+        return <String, String>{};
+      }
+    } else {
+      print('⚠️ UserTagsProvider не инициализирован для поста $postId');
+      return <String, String>{};
+    }
+  }
+  // В NewsCard замените _initializeUserTags на:
+  void _initializeUserTags() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      try {
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        final userTagsProvider = Provider.of<UserTagsProvider>(context, listen: false);
+
+        // Убедимся, что UserProvider имеет данные
+        if (!userProvider.isLoggedIn) {
+          print('⚠️ UserProvider не инициализирован, устанавливаем временные данные');
+          userProvider.setUserData(
+            'Гость',
+            'guest@example.com',
+            userId: 'guest_${DateTime.now().millisecondsSinceEpoch}',
+          );
+        }
+
+        // Инициализируем UserTagsProvider
+        if (!userTagsProvider.isInitialized) {
+          await userTagsProvider.initialize(userProvider);
+        }
+
+        _userTagsProvider = userTagsProvider;
+
+        print('✅ UserTagsProvider успешно инициализирован в NewsCard');
+
+        userTagsProvider.addListener(_onUserTagsChanged);
+
+        if (mounted) {
+          setState(() {});
+        }
+      } catch (e) {
+        print('❌ Ошибка инициализации UserTagsProvider в NewsCard: $e');
+      }
+    });
+  }
+
+// Добавьте метод для дефолтных тегов
+  Map<String, String> _getDefaultTags() {
+    return {
+      'tag1': 'Фанат Манчестера',
+      'tag2': 'Спорт',
+      'tag3': 'Новости',
+    };
+  }
+
+  void _onUserTagsChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+
+
+  Color _getTagColor(String tagId) {
+    final postId = _getStringValue(widget.news['id']);
+    final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+
+    // ДЛЯ КАНАЛЬНЫХ ПОСТОВ ИСПОЛЬЗУЕМ ЦВЕТ ИЗ ДИЗАЙНА
+    if (isChannelPost) {
+      return _cardDesign.accentColor;
+    }
+
+    // ПРИОРИТЕТ 1: Цвет из персональных тегов ДЛЯ КОНКРЕТНОГО ПОСТА
+    if (_userTagsProvider != null && _userTagsProvider!.isInitialized) {
+      try {
+        final color = _userTagsProvider!.getTagColorForPost(postId, tagId);
+        if (color != null) {
+          print('✅ NewsCard: цвет тега $tagId из UserTagsProvider: $color');
+          return color;
+        }
+      } catch (e) {
+        print('❌ Ошибка получения цвета тега из UserTagsProvider: $e');
+      }
+    }
+
+    // ПРИОРИТЕТ 2: Цвет из данных новости
+    if (widget.news['tag_color'] != null) {
+      try {
+        final color = Color(widget.news['tag_color']);
+        print('✅ NewsCard: цвет тега $tagId из данных новости: $color');
+        return color;
+      } catch (e) {
+        print('❌ Ошибка парсинга цвета из новости: $e');
+      }
+    }
+
+    // ПРИОРИТЕТ 3: Цвет из дизайна карточки
+    final designColor = _cardDesign.accentColor;
+    print('✅ NewsCard: цвет тега $tagId из дизайна карточки: $designColor');
+    return designColor;
+  }
+  Color _generateColorFromTagId(String tagId) {
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+      Colors.pink,
+      Colors.indigo,
+      Colors.amber,
+      Colors.cyan,
+    ];
+
+    final hash = tagId.hashCode;
+    return colors[hash.abs() % colors.length];
+  }
   // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -239,7 +426,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         parent: _expandController,
         curve: const Interval(0.3, 1, curve: Curves.easeOut),
       ),
+
     );
+    _setupUserTagsListener();
 
     // ИСПОЛЬЗУЕМ INTERACTION MANAGER ВМЕСТО ЛОКАЛЬНОГО СОСТОЯНИЯ
     _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
@@ -339,13 +528,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
-    _commentController.dispose();
-    _tagEditController.dispose();
     _expandController.dispose();
 
-    // Удаляем слушатель провайдера
+    // Безопасная очистка контроллеров - ПРОСТО ВЫЗЫВАЕМ dispose() БЕЗ ПРОВЕРОК
+    _commentController.dispose();
+    _tagEditController.dispose();
+
+    // Удаляем слушатель провайдера каналов
     if (_channelStateProvider != null) {
       _channelStateProvider!.removeListener(_onChannelStateChanged);
+    }
+
+    // Удаляем слушатель провайдера тегов
+    if (_userTagsProvider != null) {
+      _userTagsProvider!.removeListener(_onUserTagsChanged);
     }
 
     // Удаляем слушатель interaction manager
@@ -354,6 +550,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     super.dispose();
   }
+
 
   // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ТИПОВ
   bool _getBoolValue(dynamic value) {
@@ -591,33 +788,44 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
         return currentProfileImage;
       }
+      if (currentProfileImage is File) {
+        return currentProfileImage.path;
+      }
     }
 
-    return _getFallbackAvatarUrl(userName);
+    // Для демо-данных используем локальные аватарки
+    // В реальном приложении здесь может быть URL из API
+    final avatars = [
+      'assets/images/ava_news/ava1.png',
+      'assets/images/ava_news/ava2.png',
+      'assets/images/ava_news/ava3.png',
+      'assets/images/ava_news/ava4.png',
+      'assets/images/ava_news/ava5.png',
+      'assets/images/ava_news/ava6.png',
+      'assets/images/ava_news/ava7.png',
+      'assets/images/ava_news/ava8.png',
+      'assets/images/ava_news/ava9.png',
+      'assets/images/ava_news/ava10.png',
+      'assets/images/ava_news/ava11.png',
+      'assets/images/ava_news/ava12.png',
+    ];
+
+    final index = userName.hashCode.abs() % avatars.length;
+    return avatars[index];
   }
 
   // УЛУЧШЕННЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+  // В классе _NewsCardState найдите метод _buildImageWidget и замените его:
   Widget _buildImageWidget(String imageUrl, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
     if (imageUrl.isEmpty) {
       return _buildErrorImage(width: width, height: height);
     }
 
+    print('🖼️ Loading image: $imageUrl');
+
     try {
-      if (imageUrl.startsWith('http')) {
-        // Сетевые изображения с кэшированием
-        return CachedNetworkImage(
-          imageUrl: imageUrl,
-          width: width,
-          height: height,
-          fit: fit,
-          placeholder: (context, url) => _buildLoadingPlaceholder(width: width, height: height),
-          errorWidget: (context, url, error) {
-            print('❌ Network image error: $error for URL: $url');
-            return _buildErrorImage(width: width, height: height);
-          },
-        );
-      } else if (imageUrl.startsWith('assets/')) {
-        // Локальные assets
+      // ПЕРВЫЙ ПРИОРИТЕТ: Локальные assets
+      if (imageUrl.startsWith('assets/')) {
         return Image.asset(
           imageUrl,
           width: width,
@@ -628,8 +836,33 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             return _buildErrorImage(width: width, height: height);
           },
         );
-      } else if (imageUrl.startsWith('/') || imageUrl.contains(RegExp(r'[a-zA-Z]:\\'))) {
-        // Локальные файлы
+      }
+      // ВТОРОЙ ПРИОРИТЕТ: Сетевые изображения с улучшенной обработкой ошибок
+      else if (imageUrl.startsWith('http')) {
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
+          width: width,
+          height: height,
+          fit: fit,
+          placeholder: (context, url) => _buildLoadingPlaceholder(width: width, height: height),
+          errorWidget: (context, url, error) {
+            print('❌ Network image error: $error for URL: $url');
+            // Пробуем загрузить через обычный Image.network как fallback
+            return Image.network(
+              url,
+              width: width,
+              height: height,
+              fit: fit,
+              errorBuilder: (context, error, stackTrace) {
+                print('❌ Fallback network image also failed: $error');
+                return _buildErrorImage(width: width, height: height);
+              },
+            );
+          },
+        );
+      }
+      // ТРЕТИЙ ПРИОРИТЕТ: Локальные файлы
+      else if (imageUrl.startsWith('/') || imageUrl.contains(RegExp(r'[a-zA-Z]:\\'))) {
         return Image.file(
           File(imageUrl),
           width: width,
@@ -640,8 +873,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             return _buildErrorImage(width: width, height: height);
           },
         );
-      } else {
-        // Попытка загрузить как asset, если путь не указан явно
+      }
+      // ПОСЛЕДНИЙ ВАРИАНТ: Пробуем как asset
+      else {
         return Image.asset(
           imageUrl,
           width: width,
@@ -659,6 +893,50 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
+
+
+  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size) {
+    print('🔄 Building avatar for $displayName: $avatarUrl');
+
+    return GestureDetector(
+      onTap: _openUserProfile,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.4),
+            width: 2.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: _buildImageWidgetWithFallback(
+              avatarUrl,
+              displayName,
+              size: size
+          ),
+        ),
+      ),
+    );
+  }
+
+// Новый метод с улучшенной обработкой fallback
+  Widget _buildImageWidgetWithFallback(String imageUrl, String displayName, {double? size}) {
+    return _buildImageWidget(
+      imageUrl,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+    );
+  }
   Widget _buildLoadingPlaceholder({double? width, double? height}) {
     return Container(
       width: width,
@@ -682,10 +960,24 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       width: width,
       height: height,
       color: Colors.grey[300],
-      child: Icon(
-        Icons.error_outline,
-        color: Colors.grey[500],
-        size: width != null ? width * 0.5 : 24,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: Colors.grey[500],
+            size: width != null ? width * 0.3 : 24,
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Ошибка\nзагрузки',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 10,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -789,6 +1081,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   // ОБНОВЛЕННЫЙ МЕТОД: Построение заголовка
+  // ОБНОВЛЕННЫЙ МЕТОД: Построение заголовка
   Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
     final authorName = _getStringValue(widget.news['author_name']);
     final createdAt = _getStringValue(widget.news['created_at']);
@@ -812,6 +1105,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
 
     final avatarSize = _getAvatarSize(context);
+
+    // ДЛЯ КАНАЛЬНЫХ ПОСТОВ НЕ ИСПОЛЬЗУЕМ ТЕГИ
+    final Map<String, String> personalTags = isChannelPost ? <String, String>{} : _getUserTags();
+
+    // ВАЖНОЕ ИЗМЕНЕНИЕ: Для новых постов показываем кнопку "Добавить тег"
+    final bool hasEmptyTag = personalTags.isEmpty;
+    final bool showAddTagButton = !isChannelPost && hasEmptyTag;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -974,9 +1274,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                           ),
                         ),
                       ],
-                      if (userTags.isNotEmpty && userTags.values.first.isNotEmpty) ...[
+                      // ОТОБРАЖАЕМ ПЕРВЫЙ ПЕРСОНАЛЬНЫЙ ТЕГ ТОЛЬКО ДЛЯ НЕКАНАЛЬНЫХ ПОСТОВ
+                      if (!isChannelPost && personalTags.isNotEmpty && personalTags.values.first.isNotEmpty) ...[
                         const SizedBox(width: 8),
-                        _buildUserTag(userTags.values.first, userTags.keys.first, tagColor, isChannelPost),
+                        _buildUserTag(
+                            personalTags.values.first,
+                            personalTags.keys.first,
+                            _getTagColor(personalTags.keys.first),
+                            isChannelPost
+                        ),
+                      ],
+                      // КНОПКА "ДОБАВИТЬ ТЕГ" для постов без тегов
+                      if (showAddTagButton) ...[
+                        const SizedBox(width: 8),
+                        _buildAddTagButton(),
                       ],
                     ],
                   ),
@@ -988,6 +1299,216 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       ],
     );
   }
+
+
+  void _showAddTagDialog() {
+    final postId = _getStringValue(widget.news['id']);
+    _tagEditController.text = '';
+    _editingTagId = 'tag1'; // Используем tag1 для нового тега
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        Color dialogSelectedColor = _contentColor;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(24),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 25,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Добавить персональный тег',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _tagEditController,
+                        style: TextStyle(color: Colors.black87, fontSize: 15),
+                        decoration: InputDecoration(
+                          hintText: 'Название тега',
+                          hintStyle: TextStyle(color: Colors.grey[600]),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey[400]!),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: _contentColor, width: 2),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Выберите цвет:',
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 45,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _userTagsProvider?.availableColors.length ?? _availableColors.length,
+                          itemBuilder: (context, index) {
+                            final color = _userTagsProvider?.availableColors[index] ?? _availableColors[index];
+                            return GestureDetector(
+                              onTap: () => setState(() => dialogSelectedColor = color),
+                              child: AnimatedContainer(
+                                duration: Duration(milliseconds: 200),
+                                width: 36,
+                                height: 36,
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: dialogSelectedColor == color ? Colors.white : Colors.transparent,
+                                    width: 3,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withOpacity(0.4),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: dialogSelectedColor == color
+                                    ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.grey[700],
+                                side: BorderSide(color: Colors.grey[400]!),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text('Отмена', style: TextStyle(fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _tagEditController.text.trim().isNotEmpty ? () {
+                                final text = _tagEditController.text.trim();
+
+                                // Сохраняем в персональные теги ДЛЯ КОНКРЕТНОГО ПОСТА
+                                if (_userTagsProvider != null) {
+                                  _userTagsProvider!.updateTagForPost(
+                                    postId: postId,
+                                    tagId: _editingTagId,
+                                    newName: text,
+                                    color: dialogSelectedColor,
+                                  );
+                                }
+
+                                Navigator.pop(context);
+                              } : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _contentColor,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 0,
+                                shadowColor: _contentColor.withOpacity(0.4),
+                              ),
+                              child: const Text(
+                                'Сохранить',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  Widget _buildAddTagButton() {
+    return GestureDetector(
+      onTap: () => _showAddTagDialog(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: _contentColor.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _contentColor.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.add_rounded,
+              size: 12,
+              color: _contentColor,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Добавить тег',
+              style: TextStyle(
+                color: _contentColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                height: 1.0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 
   void _handleMenuSelection(String value) {
     switch (value) {
@@ -1004,7 +1525,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   String _getFallbackAvatarUrl(String userName) {
-    return 'https://ui-avatars.com/api/?name=$userName&background=667eea&color=ffffff&bold=true';
+    final encodedName = Uri.encodeComponent(userName);
+    return 'https://ui-avatars.com/api/?name=$encodedName&background=667eea&color=ffffff&bold=true';
   }
 
   Widget _buildUserTag(String tag, String tagId, Color color, bool isChannelPost) {
@@ -1047,37 +1569,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size) {
-    return GestureDetector(
-      onTap: _openUserProfile,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withOpacity(0.4),
-            width: 2.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: ClipOval(
-          child: _buildImageWidget(
-            avatarUrl,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-          ),
-        ),
-      ),
-    );
-  }
+
 
   String _getContentTypeText() {
     switch (_contentType) {
@@ -1311,8 +1803,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   void _showTagEditDialog(String tag, String tagId, Color currentColor) {
+    final postId = _getStringValue(widget.news['id']);
     _tagEditController.text = tag;
     _editingTagId = tagId;
+    if (!mounted) return;
+
+    // НОВАЯ ПЕРЕМЕННАЯ ДЛЯ ВЫБОРА ОБНОВЛЕНИЯ
+    bool updateGlobally = true;
 
     showDialog(
       context: context,
@@ -1342,7 +1839,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Редактировать тег',
+                        'Редактировать персональный тег',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -1381,9 +1878,9 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         height: 45,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          itemCount: _availableColors.length,
+                          itemCount: _userTagsProvider?.availableColors.length ?? _availableColors.length,
                           itemBuilder: (context, index) {
-                            final color = _availableColors[index];
+                            final color = _userTagsProvider?.availableColors[index] ?? _availableColors[index];
                             return GestureDetector(
                               onTap: () => setState(() => dialogSelectedColor = color),
                               child: AnimatedContainer(
@@ -1414,6 +1911,54 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                           },
                         ),
                       ),
+
+                      // НОВЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ ГЛОБАЛЬНОГО ОБНОВЛЕНИЯ
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.sync_rounded,
+                              color: updateGlobally ? _contentColor : Colors.grey,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Обновить во всех постах',
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Switch(
+                              value: updateGlobally,
+                              onChanged: (value) => setState(() => updateGlobally = value),
+                              activeColor: _contentColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (updateGlobally) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Этот тег будет обновлен во всех ваших постах',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 20),
                       Row(
                         children: [
@@ -1436,8 +1981,27 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             child: ElevatedButton(
                               onPressed: _tagEditController.text.trim().isNotEmpty ? () {
                                 final text = _tagEditController.text.trim();
-                                widget.onTagEdit?.call(_editingTagId, text, dialogSelectedColor);
+
+                                // Сохраняем в персональные теги ДЛЯ КОНКРЕТНОГО ПОСТА
+                                if (_userTagsProvider != null) {
+                                  _userTagsProvider!.updateTagForPost(
+                                    postId: postId,
+                                    tagId: _editingTagId,
+                                    newName: text,
+                                    color: dialogSelectedColor,
+                                    updateGlobally: updateGlobally,
+                                    context: context, // ПЕРЕДАЕМ CONTEXT ДЛЯ ГЛОБАЛЬНОГО ОБНОВЛЕНИЯ
+                                  );
+                                }
+
                                 Navigator.pop(context);
+
+                                // Показываем уведомление
+                                if (updateGlobally) {
+                                  _showSuccessSnackBar('Тег обновлен во всех постах');
+                                } else {
+                                  _showSuccessSnackBar('Тег обновлен только в этом посте');
+                                }
                               } : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _contentColor,
@@ -1466,7 +2030,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       },
     );
   }
-
   // ОБНОВЛЕННЫЙ МЕТОД: Секция комментариев с использованием Interaction Manager
   Widget _buildCommentsSection() {
     return Column(
@@ -1672,7 +2235,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   icon: Icon(Icons.send_rounded, color: Colors.white, size: 20),
                   onPressed: () {
                     final text = _commentController.text.trim();
-                    if (text.isNotEmpty) {
+                    if (text.isNotEmpty && mounted) { // ДОБАВЬТЕ ПРОВЕРКУ mounted
                       _handleComment(text, userProvider.userName, currentUserAvatar);
                       _commentController.clear();
 
@@ -1708,10 +2271,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   Map<String, String> _parseUserTags(dynamic userTags) {
-    if (userTags is Map) {
-      return userTags.map((key, value) => MapEntry(key.toString(), value.toString()));
+    if (userTags is Map<String, String>) {
+      return userTags;
     }
-    return {'tag1': 'Фанат Манчестера'};
+
+    if (userTags is Map) {
+      try {
+        return userTags.map((key, value) => MapEntry(
+            key.toString(),
+            value.toString()
+        ));
+      } catch (e) {
+        print('❌ Ошибка парсинга userTags: $e');
+      }
+    }
+
+    // Возвращаем пустой Map вместо стандартных тегов
+    return {};
   }
 
   void _toggleExpanded() {
@@ -1728,7 +2304,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   Widget _buildRegularPost() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final hashtags = _parseHashtags(widget.news['hashtags']);
-    final userTags = _parseUserTags(widget.news['user_tags']);
+    final userTags = _getUserTags();
     final tagColor = _selectedTagColor;
 
     final authorName = _getStringValue(widget.news['author_name']);
@@ -1800,6 +2376,10 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final hashtags = _parseHashtags(widget.news['hashtags']);
     final channelId = _getStringValue(widget.news['channel_id']);
 
+    // ДЛЯ КАНАЛЬНЫХ ПОСТОВ НЕ ИСПОЛЬЗУЕМ ТЕГИ - ЯВНО УКАЗЫВАЕМ ТИП
+    final Map<String, String> userTags = <String, String>{};
+    final tagColor = _cardDesign.accentColor;
+
     final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
     final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
     final channelAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']);
@@ -1810,7 +2390,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildPostHeader(false, {}, _cardDesign.accentColor),
+          // ДЛЯ КАНАЛЬНЫХ ПОСТОВ ПЕРЕДАЕМ ПУСТЫЕ ТЕГИ
+          _buildPostHeader(false, userTags, tagColor),
           Padding(
             padding: EdgeInsets.only(left: _getAvatarSize(context) + 12),
             child: Column(

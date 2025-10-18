@@ -37,6 +37,11 @@ class CommuninitiesProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void initialize() {
+    print('✅ CommunitiesProvider: инициализирован');
+    // Здесь можно добавить дополнительную логику инициализации если нужно
+  }
+
   // Удалить сообщество
   void removeCommunity(String id) {
     _communities.removeWhere((community) => community.id.toString() == id);

@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../services/api_service.dart';
 import '../pages/news_page/mock_news_data.dart';
 import '../services/interaction_manager.dart';
+import '../services/repost_manager.dart'; // НОВЫЙ ИМПОРТ
 import '../services/storage_service.dart';
 
 // Модель профиля пользователя
@@ -69,6 +70,10 @@ class NewsProvider with ChangeNotifier {
   final Map<String, UserProfile> _userProfiles = {};
   String? _currentUserId;
 
+  // МЕНЕДЖЕРЫ
+  final RepostManager _repostManager = RepostManager();
+  final InteractionManager _interactionManager = InteractionManager();
+
   List<dynamic> get news => _news;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -80,10 +85,83 @@ class NewsProvider with ChangeNotifier {
   String? get coverImageUrl => _getCurrentUser()?.coverImageUrl;
   File? get coverImageFile => _getCurrentUser()?.coverImageFile;
 
-
   NewsProvider() {
+    _initializeManagers();
+    print('✅ NewsProvider initialized with InteractionManager & RepostManager');
+  }
+
+  // ИНИЦИАЛИЗАЦИЯ МЕНЕДЖЕРОВ
+  void _initializeManagers() {
     _initializeInteractionManager();
-    print('✅ NewsProvider initialized with InteractionManager');
+    _initializeRepostManager();
+  }
+
+  void _initializeInteractionManager() {
+    _interactionManager.setCallbacks(
+      onLike: (postId, isLiked, likesCount) {
+        final index = findNewsIndexById(postId);
+        if (index != -1) {
+          updateNewsLikeStatus(index, isLiked, likesCount);
+        }
+      },
+      onBookmark: (postId, isBookmarked) {
+        final index = findNewsIndexById(postId);
+        if (index != -1) {
+          updateNewsBookmarkStatus(index, isBookmarked);
+        }
+      },
+      onRepost: (postId, isReposted, repostsCount, userId, userName) {
+        print('🔄 NewsProvider: Repost callback received');
+        print('   postId: $postId, isReposted: $isReposted');
+        print('   userId: $userId, userName: $userName');
+
+        if (isReposted) {
+          // Создаем репост через RepostManager
+          final index = findNewsIndexById(postId);
+          if (index != -1) {
+            _repostManager.createRepost(
+              newsProvider: this,
+              originalIndex: index,
+              currentUserId: userId,
+              currentUserName: userName,
+            );
+          }
+        } else {
+          // Отменяем репост через RepostManager - ИСПРАВЛЕННЫЙ ВЫЗОВ
+          final repostId = _repostManager.getRepostIdForOriginal(this, postId, userId);
+          if (repostId != null) {
+            _repostManager.cancelRepost(
+              newsProvider: this,
+              repostId: repostId,
+              currentUserId: userId,
+            );
+          }
+        }
+      },
+      onComment: (postId, comment) {
+        addCommentToNews(postId, comment);
+      },
+      onCommentRemoval: (postId, commentId) {
+        final index = findNewsIndexById(postId);
+        if (index != -1) {
+          removeCommentFromNews(index, commentId);
+        }
+      },
+    );
+  }
+
+  void _initializeRepostManager() {
+    _repostManager.initialize(
+      onRepostStateChanged: () {
+        _safeNotifyListeners();
+      },
+      onRepostUpdated: (postId, isReposted, repostsCount) {
+        final index = findNewsIndexById(postId);
+        if (index != -1) {
+          updateNewsRepostStatus(index, isReposted, repostsCount);
+        }
+      },
+    );
   }
 
   // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯМИ
@@ -355,7 +433,7 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  // МЕТОДЫ ДЛЯ РЕПОСТА
+  // МЕТОДЫ ДЛЯ РЕПОСТА - ОБНОВЛЕННЫЕ С REPOST MANAGER
   void updateNewsRepostStatus(int index, bool isReposted, int repostsCount) {
     _safeOperation(() {
       if (index >= 0 && index < _news.length) {
@@ -365,6 +443,45 @@ class NewsProvider with ChangeNotifier {
         _saveNewsToStorage();
       }
     });
+  }
+
+  // ОБНОВЛЕННЫЕ МЕТОДЫ РЕПОСТА ЧЕРЕЗ REPOST MANAGER
+  Future<void> repostNews(int index, String currentUserId, String currentUserName) async {
+    await _repostManager.createRepost(
+      newsProvider: this,
+      originalIndex: index,
+      currentUserId: currentUserId,
+      currentUserName: currentUserName,
+    );
+  }
+
+  Future<void> cancelRepost(String repostId, String currentUserId) async {
+    await _repostManager.cancelRepost(
+      newsProvider: this,
+      repostId: repostId,
+      currentUserId: currentUserId,
+    );
+  }
+
+  void toggleRepost(int index, String currentUserId, String currentUserName) {
+    _repostManager.toggleRepost(
+      newsProvider: this,
+      originalIndex: index,
+      currentUserId: currentUserId,
+      currentUserName: currentUserName,
+    );
+  }
+
+  List<dynamic> getUserReposts(String userId) {
+    return _repostManager.getUserReposts(this, userId);
+  }
+
+  bool isNewsRepostedByUser(String newsId, String userId) {
+    return _repostManager.isNewsRepostedByUser(this, newsId, userId);
+  }
+
+  String? getRepostIdForOriginal(String originalNewsId, String userId) {
+    return _repostManager.getRepostIdForOriginal(this, originalNewsId, userId);
   }
 
   // ОСТАЛЬНЫЕ МЕТОДЫ ОБНОВЛЕНИЯ СТАТУСОВ
@@ -735,99 +852,85 @@ class NewsProvider with ChangeNotifier {
   }
 
   // ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
+  // В КЛАССЕ NewsProvider, ОБНОВИТЕ МЕТОД addNews
   Future<void> addNews(Map<String, dynamic> newsItem, {BuildContext? context}) async {
     if (_isDisposed) return;
 
     try {
-      // ПРОВЕРЯЕМ на дублирование по ID - более строгая проверка
       final newNewsId = newsItem['id']?.toString();
+
+      // ПРОВЕРКА НА ДУБЛИКАТЫ - БОЛЕЕ ГИБКАЯ ДЛЯ РЕПОСТОВ
       if (newNewsId != null) {
-        // Проверяем все возможные форматы ID
         final exists = _news.any((item) {
           final itemId = item['id']?.toString();
-          return itemId == newNewsId ||
-              itemId == 'post-$newNewsId' ||
-              itemId == 'channel-$newNewsId' ||
-              newNewsId == 'post-$itemId' ||
-              newNewsId == 'channel-$itemId';
+          return itemId == newNewsId;
         });
 
         if (exists) {
-          print('⚠️ News with similar ID already exists: $newNewsId, skipping...');
+          print('⚠️ News with ID already exists: $newNewsId, skipping...');
           return;
         }
       }
 
       final isChannelPost = newsItem['is_channel_post'] == true;
+      final isRepost = newsItem['is_repost'] == true;
       final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
       final channelName = newsItem['channel_name']?.toString() ?? '';
 
       // СОЗДАЕМ УНИКАЛЬНЫЙ ID если не предоставлен
       final uniqueId = newsItem['id']?.toString() ?? 'news-${DateTime.now().millisecondsSinceEpoch}';
 
-      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Получаем аватар автора из переданных данных
-      final authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
+      // ДЛЯ РЕПОСТОВ: сохраняем все данные репоста
+      String authorAvatar;
+      if (isRepost) {
+        // Для репостов используем аватар репостнувшего пользователя
+        authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
 
-      // ВАЖНОЕ ИЗМЕНЕНИЕ: ИСПОЛЬЗУЕМ ПОСЛЕДНИЕ ТЕГИ ПОЛЬЗОВАТЕЛЯ
-      Map<String, String> personalTags = <String, String>{};
-
-      // Инициализируем UserTagsProvider для нового поста
-      if (context != null) {
-        try {
-          final userTagsProvider = Provider.of<UserTagsProvider>(context, listen: false);
-          if (userTagsProvider != null && userTagsProvider.isInitialized) {
-            // Получаем последние теги пользователя
-            personalTags = userTagsProvider.getLastUsedTags();
-            print('✅ Используем последние теги пользователя для нового поста: $personalTags');
-
-            // Инициализируем теги для нового поста
-            await userTagsProvider.initializeTagsForNewPost(uniqueId);
-            print('✅ Инициализированы теги для нового поста: $uniqueId');
-          }
-        } catch (e) {
-          print('⚠️ Не удалось инициализировать UserTagsProvider для нового поста: $e');
-        }
+        print('🔄 ADDING REPOST TO PROVIDER:');
+        print('   Repost ID: $uniqueId');
+        print('   Reposted by: ${newsItem['reposted_by_name']}');
+        print('   Original author: ${newsItem['original_author_name']}');
+        print('   Original channel: ${newsItem['original_channel_name']}');
+        print('   Is original channel: ${newsItem['is_original_channel_post']}');
+      } else {
+        // Для обычных постов
+        authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
       }
 
-      // АГРЕССИВНАЯ ОЧИСТКА ХЕШТЕГОВ
-      List<String> cleanHashtags = [];
-      if (newsItem['hashtags'] is List) {
-        cleanHashtags = (newsItem['hashtags'] as List).map((tag) {
-          String cleanTag;
-          if (tag is String) {
-            cleanTag = tag.replaceAll(RegExp(r'#'), '').trim();
-          } else {
-            cleanTag = tag.toString().replaceAll(RegExp(r'#'), '').trim();
-          }
-          cleanTag = cleanTag.replaceAll(RegExp(r'\s+'), '');
-          return cleanTag;
-        }).where((tag) => tag.isNotEmpty).toList();
-      }
-
-      // ОПРЕДЕЛЯЕМ ЦВЕТ ТЕГА - используем дефолтный
-      Color tagColor = _generateColorFromId(uniqueId);
-
+      // ВАЖНОЕ ИЗМЕНЕНИЕ: сохраняем ВСЕ переданные данные, включая репост
       final Map<String, dynamic> cleanNewsItem = {
         'id': uniqueId,
         'title': newsItem['title']?.toString() ?? '',
         'description': newsItem['description']?.toString() ?? '',
         'image': newsItem['image']?.toString() ?? '',
         'author_name': authorName,
-        'author_avatar': authorAvatar, // ← ИСПРАВЛЕНО: сохраняем переданный аватар
+        'author_avatar': authorAvatar,
         'channel_name': channelName,
         'channel_id': newsItem['channel_id']?.toString() ?? '',
         'created_at': newsItem['created_at']?.toString() ?? DateTime.now().toIso8601String(),
         'likes': newsItem['likes'] ?? 0,
         'comments': newsItem['comments'] ?? [],
-        'hashtags': cleanHashtags,
-        // ВАЖНОЕ ИЗМЕНЕНИЕ: используем ПОСЛЕДНИЕ ТЕГИ пользователя
-        'user_tags': personalTags,
+        'hashtags': _parseHashtags(newsItem['hashtags']),
+
+        // ВАЖНО: сохраняем ВСЕ данные репоста если они есть
+        'is_repost': isRepost,
+        'reposted_by': newsItem['reposted_by']?.toString(),
+        'reposted_by_name': newsItem['reposted_by_name']?.toString(),
+        'reposted_at': newsItem['reposted_at']?.toString(),
+        'original_post_id': newsItem['original_post_id']?.toString(),
+        'original_author_name': newsItem['original_author_name']?.toString(),
+        'original_author_avatar': newsItem['original_author_avatar']?.toString(),
+        'original_channel_name': newsItem['original_channel_name']?.toString(),
+        'is_original_channel_post': newsItem['is_original_channel_post'] ?? false,
+
+        // Обычные поля
+        'user_tags': newsItem['user_tags'] ?? <String, String>{},
         'isLiked': newsItem['isLiked'] ?? false,
         'isBookmarked': newsItem['isBookmarked'] ?? false,
         'isFollowing': newsItem['isFollowing'] ?? false,
-        'tag_color': tagColor.value,
+        'tag_color': newsItem['tag_color'] ?? _generateColorFromId(uniqueId).value,
         'is_channel_post': isChannelPost,
-        'content_type': isChannelPost ? 'channel_post' : 'regular_post',
+        'content_type': isChannelPost ? 'channel_post' : (isRepost ? 'repost' : 'regular_post'),
       };
 
       // ДОБАВЛЯЕМ в начало списка
@@ -840,8 +943,7 @@ class NewsProvider with ChangeNotifier {
       await _saveNewsToStorage();
 
       // ИНИЦИАЛИЗИРУЕМ взаимодействия для новой новости
-      final interactionManager = InteractionManager();
-      interactionManager.initializePostState(
+      _interactionManager.initializePostState(
         postId: uniqueId,
         isLiked: cleanNewsItem['isLiked'],
         isBookmarked: cleanNewsItem['isBookmarked'],
@@ -851,11 +953,10 @@ class NewsProvider with ChangeNotifier {
         comments: List<Map<String, dynamic>>.from(cleanNewsItem['comments'] ?? []),
       );
 
-      print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Автор: $authorName, Аватар: $authorAvatar, Теги: $personalTags, Всего новостей: ${_news.length}');
+      print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Тип: ${isRepost ? 'РЕПОСТ' : 'обычный'}, Всего новостей: ${_news.length}');
 
     } catch (e) {
       print('❌ Ошибка при добавлении новости в NewsProvider: $e');
-      // Показываем ошибку пользователю если контекст доступен
       if (context != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -867,245 +968,7 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> repostNews(int index, String currentUserId, String currentUserName) async {
-    if (_isDisposed || !_isValidIndex(index)) return;
-
-    try {
-      final originalNews = Map<String, dynamic>.from(_news[index]);
-      final originalNewsId = originalNews['id'].toString();
-
-      // Проверяем, не существует ли уже репост
-      final existingRepost = getRepostIdForOriginal(originalNewsId, currentUserId);
-      if (existingRepost != null) {
-        print('⚠️ Repost already exists: $existingRepost');
-        return;
-      }
-
-      // Создаем уникальный ID для репоста
-      final repostId = 'repost-${DateTime.now().millisecondsSinceEpoch}-$currentUserId';
-
-      print('🔄 Creating repost: $repostId for user: $currentUserId');
-
-      // Получаем аватар текущего пользователя
-      final currentUserAvatar = _getCurrentUserAvatarUrl(currentUserId);
-
-      // Создаем данные репоста
-      final repostData = {
-        'id': repostId,
-        'original_post_id': originalNewsId,
-        'is_repost': true,
-        'reposted_by': currentUserId,
-        'reposted_by_name': currentUserName,
-        'reposted_at': DateTime.now().toIso8601String(),
-        'title': originalNews['title'] ?? '',
-        'description': originalNews['description'] ?? '',
-        'image': originalNews['image'] ?? '',
-        'author_name': currentUserName,
-        'author_avatar': currentUserAvatar,
-        'channel_name': originalNews['channel_name'] ?? '',
-        'channel_id': originalNews['channel_id'] ?? '',
-        'created_at': DateTime.now().toIso8601String(),
-        'likes': 0,
-        'comments': [],
-        'hashtags': List<String>.from(originalNews['hashtags'] ?? []),
-        'user_tags': <String, String>{},
-        'isLiked': false,
-        'isBookmarked': false,
-        'isFollowing': false,
-        'tag_color': _generateColorFromId(repostId).value,
-        'is_channel_post': false,
-        'content_type': 'repost',
-        'original_author': originalNews['author_name'] ?? 'Пользователь',
-        'repost_user_avatar': currentUserAvatar,
-      };
-
-      // Добавляем репост в начало ленты
-      _safeOperation(() {
-        _news.insert(0, repostData);
-        _safeNotifyListeners();
-      });
-
-      // Сохраняем в хранилище
-      await _saveNewsToStorage();
-
-      // Сохраняем информацию о репосте
-      await StorageService.addRepost(currentUserId, repostId, originalNewsId);
-
-      print('✅ Репост создан: $repostId');
-      print('📊 Total news after repost: ${_news.length}');
-
-    } catch (e) {
-      print('❌ Ошибка при репосте: $e');
-      rethrow;
-    }
-  }
-
-
-
-
-
-  Future<void> cancelRepost(String repostId, String currentUserId) async {
-    if (_isDisposed) return;
-
-    try {
-      // Находим индекс репоста
-      final repostIndex = _news.indexWhere((item) =>
-      item['id'].toString() == repostId &&
-          item['is_repost'] == true);
-
-      if (repostIndex != -1) {
-        _safeOperation(() {
-          _news.removeAt(repostIndex);
-          _safeNotifyListeners();
-        });
-
-        // Удаляем из хранилища
-        await _saveNewsToStorage();
-        await StorageService.removeRepost(currentUserId, repostId);
-
-        print('✅ Репост отменен: $repostId');
-      }
-    } catch (e) {
-      print('❌ Ошибка при отмене репоста: $e');
-      rethrow;
-    }
-  }
-
-
-  List<dynamic> getUserReposts(String userId) {
-    if (_isDisposed) return [];
-
-    return _news.where((item) {
-      final newsItem = Map<String, dynamic>.from(item);
-      return newsItem['is_repost'] == true &&
-          newsItem['reposted_by'] == userId;
-    }).toList();
-  }
-
-// Проверка, является ли пост репостом пользователя
-  bool isNewsRepostedByUser(String newsId, String userId) {
-    if (_isDisposed) return false;
-
-    return _news.any((item) {
-      final newsItem = Map<String, dynamic>.from(item);
-      final isRepost = newsItem['is_repost'] == true;
-      final isRepostedByUser = newsItem['reposted_by'] == userId;
-      final isOriginalPost = newsItem['original_post_id'] == newsId;
-
-      return isRepost && isRepostedByUser && isOriginalPost;
-    });
-  }
-
-
-  String? getRepostIdForOriginal(String originalNewsId, String userId) {
-    if (_isDisposed) return null;
-
-    try {
-      final repost = _news.firstWhere((item) {
-        final newsItem = Map<String, dynamic>.from(item);
-        return newsItem['is_repost'] == true &&
-            newsItem['reposted_by'] == userId &&
-            newsItem['original_post_id'] == originalNewsId;
-      });
-
-      return repost['id'].toString();
-    } catch (e) {
-      return null;
-    }
-  }
-
-  String _getCurrentUserAvatarUrl(String userId) {
-    final userProfile = _userProfiles[userId];
-
-    if (userProfile?.profileImageFile != null) {
-      return userProfile!.profileImageFile!.path;
-    } else if (userProfile?.profileImageUrl != null &&
-        userProfile!.profileImageUrl!.isNotEmpty) {
-      return userProfile.profileImageUrl!;
-    } else {
-      return _getFallbackAvatarUrl(userProfile?.userName ?? 'Пользователь');
-    }
-  }
-
-
-  void _initializeInteractionManager() {
-    final interactionManager = InteractionManager();
-
-    interactionManager.setCallbacks(
-      onLike: (postId, isLiked, likesCount) {
-        // Обновляем состояние в NewsProvider
-        final index = findNewsIndexById(postId);
-        if (index != -1) {
-          updateNewsLikeStatus(index, isLiked, likesCount);
-        }
-      },
-      onBookmark: (postId, isBookmarked) {
-        final index = findNewsIndexById(postId);
-        if (index != -1) {
-          updateNewsBookmarkStatus(index, isBookmarked);
-        }
-      },
-      onRepost: (postId, isReposted, repostsCount, userId, userName) {
-        print('🔄 NewsProvider: Repost callback received');
-        print('   postId: $postId, isReposted: $isReposted');
-        print('   userId: $userId, userName: $userName');
-
-        final index = findNewsIndexById(postId);
-        if (index != -1) {
-          if (isReposted) {
-            // Создаем репост
-            print('✅ Creating repost for post $postId by user $userName');
-            repostNews(index, userId, userName);
-          } else {
-            // Отменяем репост
-            print('❌ Canceling repost for post $postId by user $userId');
-            final repostId = getRepostIdForOriginal(postId, userId);
-            if (repostId != null) {
-              cancelRepost(repostId, userId);
-            } else {
-              print('⚠️ No repost ID found for original post $postId and user $userId');
-            }
-          }
-        } else {
-          print('❌ NewsProvider: Post not found with ID $postId');
-        }
-      },
-      onComment: (postId, comment) {
-        addCommentToNews(postId, comment);
-      },
-      onCommentRemoval: (postId, commentId) {
-        final index = findNewsIndexById(postId);
-        if (index != -1) {
-          removeCommentFromNews(index, commentId);
-        }
-      },
-    );
-
-    print('✅ InteractionManager callbacks set in NewsProvider');
-  }
-
-
-// Обновленный метод toggleRepost для использования в UI
-  // ЗАМЕНИТЕ текущий метод toggleRepost на этот:
-  void toggleRepost(int index, String currentUserId, String currentUserName) {
-    if (_isDisposed || !_isValidIndex(index)) return;
-
-    final newsItem = Map<String, dynamic>.from(_news[index]);
-    final newsId = newsItem['id'].toString();
-
-    // Проверяем, не делал ли уже пользователь репост этой новости
-    final existingRepostId = getRepostIdForOriginal(newsId, currentUserId);
-
-    if (existingRepostId != null) {
-      // Отменяем существующий репост
-      cancelRepost(existingRepostId, currentUserId);
-    } else {
-      // Создаем новый репост
-      repostNews(index, currentUserId, currentUserName);
-    }
-  }
-
-// Вспомогательный метод проверки индекса
+  // Вспомогательный метод проверки индекса
   bool _isValidIndex(int index) {
     return index >= 0 && index < _news.length;
   }
@@ -1121,8 +984,6 @@ class NewsProvider with ChangeNotifier {
 
   // НОВЫЙ МЕТОД: Инициализация Interaction Manager
   void initializeInteractions() {
-    final interactionManager = InteractionManager();
-
     // Конвертируем List<dynamic> в List<Map<String, dynamic>>
     final List<Map<String, dynamic>> newsList = _news.map((item) {
       if (item is Map<String, dynamic>) {
@@ -1133,7 +994,7 @@ class NewsProvider with ChangeNotifier {
       }
     }).toList();
 
-    interactionManager.bulkUpdatePostStates(newsList);
+    _interactionManager.bulkUpdatePostStates(newsList);
   }
 
   bool _containsNewsWithId(String newsId) {
@@ -1818,9 +1679,14 @@ class NewsProvider with ChangeNotifier {
     };
   }
 
+  // НОВЫЕ МЕТОДЫ ДЛЯ ДОСТУПА К МЕНЕДЖЕРАМ
+  InteractionManager get interactionManager => _interactionManager;
+  RepostManager get repostManager => _repostManager;
+
   @override
   void dispose() {
     _isDisposed = true;
+    _repostManager.dispose();
     super.dispose();
   }
 }

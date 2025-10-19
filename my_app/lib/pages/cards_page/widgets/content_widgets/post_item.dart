@@ -8,13 +8,14 @@ import '../../../../providers/user_provider.dart';
 import '../../../news_page/theme/news_theme.dart';
 import '../../models/channel.dart';
 import '../../../../providers/channel_state_provider.dart';
-import '../../../../services/interaction_manager.dart'; // НОВЫЙ ИМПОРТ
+import '../../../../services/interaction_manager.dart';
 
 class PostItem extends StatefulWidget {
   final Map<String, dynamic> post;
   final Channel channel;
   final bool isAkorTab;
   final VoidCallback? onShare;
+  final VoidCallback? onRepost; // ДОБАВИТЬ ЭТО СВОЙСТВО
   final String Function(String) getTimeAgo;
   final String? customAvatarUrl;
 
@@ -24,6 +25,7 @@ class PostItem extends StatefulWidget {
     required this.channel,
     this.isAkorTab = false,
     this.onShare,
+    this.onRepost, // ДОБАВИТЬ В КОНСТРУКТОР
     required this.getTimeAgo,
     this.customAvatarUrl,
   });
@@ -283,7 +285,57 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
 
   void _handleRepost() {
     final postId = _getStringValue(widget.post['id']);
-    _interactionManager.toggleRepost(postId);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // ИСПРАВЛЕННЫЙ ВЫЗОВ
+    _interactionManager.toggleRepost(
+      postId: postId,
+      currentUserId: userProvider.userId ?? '',
+      currentUserName: userProvider.userName,
+    );
+
+    // ПОКАЗЫВАЕМ УВЕДОМЛЕНИЕ О РЕПОСТЕ
+    _showRepostSuccessSnackBar();
+
+    // ВЫЗЫВАЕМ КОЛБЭК ЕСЛИ ОН ПРЕДОСТАВЛЕН
+    if (widget.onRepost != null) {
+      widget.onRepost!();
+    }
+  }
+
+// ДОБАВИТЬ МЕТОД ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ О РЕПОСТЕ
+  void _showRepostSuccessSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.repeat_rounded, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Репостнул на свою страничку',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'ОК',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
   }
 
   void _handleComment(String text, String author, String avatar) {
@@ -429,11 +481,28 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   // УЛУЧШЕННАЯ ЗАГРУЗКА АВАТАРКИ КАНАЛА
+  // В PostItem в методе _buildChannelHeader добавим проверку на репост
   Widget _buildChannelHeader() {
     return Consumer<ChannelStateProvider>(
       builder: (context, channelStateProvider, child) {
         final channelName = widget.channel.title;
         final createdAt = _getStringValue(widget.post['created_at']);
+
+        // ПРОВЕРЯЕМ, ЯВЛЯЕТСЯ ЛИ ПОСТ РЕПОСТОМ
+        final isRepost = _getBoolValue(widget.post['is_repost']);
+        final repostedByName = _getStringValue(widget.post['reposted_by_name']);
+        final originalAuthorName = _getStringValue(widget.post['original_author_name']);
+        final originalChannelName = _getStringValue(widget.post['original_channel_name']);
+        final isOriginalChannelPost = _getBoolValue(widget.post['is_original_channel_post']);
+
+        // ОТЛАДКА ДАННЫХ РЕПОСТА
+        if (isRepost) {
+          print('🎯 CHANNEL REPOST HEADER DATA:');
+          print('   reposted_by_name: $repostedByName');
+          print('   original_author_name: $originalAuthorName');
+          print('   original_channel_name: $originalChannelName');
+          print('   is_original_channel_post: $isOriginalChannelPost');
+        }
 
         // Получаем актуальную аватарку из провайдера
         final currentAvatarUrl = channelStateProvider.getAvatarForChannel(widget.channel.id.toString());
@@ -441,150 +510,189 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
 
         final avatarSize = _getAvatarSize(context);
 
-        return Row(
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildChannelAvatar(channelAvatar, channelName, avatarSize),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+            // ИНФОРМАЦИЯ О РЕПОСТЕ - УЛУЧШЕННЫЙ ВАРИАНТ
+            if (isRepost && repostedByName.isNotEmpty)
+              _buildEnhancedRepostHeader(),
+
+            // ОСНОВНАЯ ИНФОРМАЦИЯ О КАНАЛЕ
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildChannelAvatar(channelAvatar, channelName, avatarSize),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: _openChannelProfile,
-                          child: Text(
-                            channelName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: _getTitleFontSize(context),
-                              color: Colors.black87,
-                              letterSpacing: -0.3,
-                              height: 1.1,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        width: 28,
-                        height: 28,
-                        child: PopupMenuButton<String>(
-                          icon: Icon(
-                            Icons.more_vert_rounded,
-                            color: Colors.grey[600],
-                            size: 18,
-                          ),
-                          onSelected: (value) {
-                            _handleMenuSelection(value);
-                          },
-                          itemBuilder: (BuildContext context) => [
-                            PopupMenuItem<String>(
-                              value: 'share',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.share_rounded, color: Colors.blue, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text('Поделиться', style: TextStyle(fontSize: 13)),
-                                ],
+                      // ИМЯ КАНАЛА
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: _openChannelProfile,
+                              child: Text(
+                                channelName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: _getTitleFontSize(context),
+                                  color: Colors.black87,
+                                  letterSpacing: -0.3,
+                                  height: 1.1,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          ],
-                          padding: EdgeInsets.zero,
-                          constraints: BoxConstraints(minWidth: 140),
-                        ),
+                          ),
+                          // КНОПКА МЕНЮ
+                          _buildMenuButton(),
+                        ],
                       ),
+                      const SizedBox(height: 2),
+                      // ВРЕМЯ И СТАТУС
+                      _buildChannelMetaInfo(isRepost, createdAt),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Container(
-                    height: 16,
-                    child: Row(
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 12,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.getTimeAgo(createdAt),
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                height: 1.0,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.verified_rounded,
-                          size: 12,
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Канал',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            height: 1.0,
-                          ),
-                        ),
-                        if (_contentType != ContentType.general) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            width: 3,
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.6),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            _contentIcon,
-                            size: 12,
-                            color: _contentColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _getContentTypeText(),
-                            style: TextStyle(
-                              color: _contentColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              height: 1.0,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         );
       },
+    );
+  }
+
+
+  // УЛУЧШЕННЫЙ ЗАГОЛОВОК РЕПОСТА ДЛЯ КАНАЛЬНЫХ ПОСТОВ
+  Widget _buildEnhancedRepostHeader() {
+    final repostedByName = _getStringValue(widget.post['reposted_by_name']);
+    final originalAuthorName = _getStringValue(widget.post['original_author_name']);
+    final originalChannelName = _getStringValue(widget.post['original_channel_name']);
+    final isOriginalChannelPost = _getBoolValue(widget.post['is_original_channel_post']);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8, left: _getAvatarSize(context) + 12),
+      child: Container(
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.repeat_rounded, size: 14, color: Colors.green),
+            SizedBox(width: 6),
+            Text('Репост от ', style: TextStyle(color: Colors.green, fontSize: 12)),
+            Text(repostedByName,
+                style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+            SizedBox(width: 4),
+            Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.green),
+            SizedBox(width: 4),
+            if (isOriginalChannelPost && originalChannelName.isNotEmpty)
+              Text(originalChannelName,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12))
+            else if (originalAuthorName.isNotEmpty)
+              Text(originalAuthorName,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12))
+            else
+              Text('оригинальный пост',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+// МЕТА-ИНФОРМАЦИЯ КАНАЛА
+  Widget _buildChannelMetaInfo(bool isRepost, String createdAt) {
+    return Container(
+      height: 16,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // ВРЕМЯ
+            Row(
+              children: [
+                Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
+                SizedBox(width: 4),
+                Text(
+                  widget.getTimeAgo(createdAt),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+
+            // СТАТУС РЕПОСТА ИЛИ КАНАЛА
+            if (isRepost) ...[
+              SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
+              SizedBox(width: 8),
+              Icon(Icons.repeat_rounded, size: 12, color: Colors.green),
+              SizedBox(width: 4),
+              Text('Репост', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w700)),
+            ] else ...[
+              // СТАТУС КАНАЛА
+              SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
+              SizedBox(width: 8),
+              Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
+              SizedBox(width: 4),
+              Text('Канал', style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w700)),
+            ],
+
+            // ТИП КОНТЕНТА
+            if (_contentType != ContentType.general) ...[
+              SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
+              SizedBox(width: 8),
+              Icon(_contentIcon, size: 12, color: _contentColor),
+              SizedBox(width: 4),
+              Text(_getContentTypeText(), style: TextStyle(color: _contentColor, fontSize: 11, fontWeight: FontWeight.w700)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+// КНОПКА МЕНЮ ДЛЯ КАНАЛЬНЫХ ПОСТОВ
+  Widget _buildMenuButton() {
+    return Container(
+      width: 28,
+      height: 28,
+      child: PopupMenuButton<String>(
+        icon: Icon(
+          Icons.more_vert_rounded,
+          color: Colors.grey[600],
+          size: 18,
+        ),
+        onSelected: _handleMenuSelection,
+        itemBuilder: (BuildContext context) => [
+          PopupMenuItem<String>(
+            value: 'share',
+            child: Row(
+              children: [
+                Icon(Icons.share_rounded, color: Colors.blue, size: 18),
+                const SizedBox(width: 8),
+                const Text('Поделиться', style: TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+        ],
+        padding: EdgeInsets.zero,
+        constraints: BoxConstraints(minWidth: 140),
+      ),
     );
   }
 

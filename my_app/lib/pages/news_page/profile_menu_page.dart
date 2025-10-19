@@ -10,8 +10,9 @@ import 'package:provider/provider.dart';
 // Импортируем необходимые утилиты из news_page
 import 'news_card.dart';
 import 'utils.dart';
-import '../../services/interaction_manager.dart'; // ДОБАВИТЬ
-import '../../providers/channel_state_provider.dart'; // ДОБАВИТЬ
+import '../../services/interaction_manager.dart';
+import '../../providers/channel_state_provider.dart';
+import '../../providers/user_provider.dart'; // ДОБАВИТЬ
 
 class ProfilePage extends StatefulWidget {
   final String userName;
@@ -56,9 +57,27 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _searchController = TextEditingController();
   bool _showSearchBar = false;
   String _searchQuery = '';
-  int _selectedSection = 0; // 0 - Мои посты, 1 - Понравилось, 2 - Информация
+  int _selectedSection = 0; // 0 - Мои посты, 1 - Понравилось, 2 - Репосты, 3 - Информация
 
+  // Вспомогательные методы для типов
+  String _getStringValue(dynamic value) {
+    if (value is String) return value;
+    if (value != null) return value.toString();
+    return '';
+  }
 
+  bool _getBoolValue(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return false;
+  }
+
+  int _getIntValue(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
 
   // ТАКИЕ ЖЕ ОТСТУПЫ КАК В КАРТОЧКАХ НОВОСТЕЙ
   double _getHorizontalPadding(BuildContext context) {
@@ -93,8 +112,6 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-
-
   void _debugReposts() {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final userId = _generateUserId(widget.userEmail);
@@ -120,8 +137,6 @@ class _ProfilePageState extends State<ProfilePage> {
     print('=== END DEBUG ===');
   }
 
-
-
   void _setCurrentUser() {
     // Создаем уникальный ID пользователя на основе email
     final userId = _generateUserId(widget.userEmail);
@@ -134,10 +149,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Метод для генерации ID пользователя
   String _generateUserId(String email) {
-    // Простой способ генерации ID пользователя
-    return 'user_${email.hashCode.abs()}';
+    // Более надежный способ генерации ID пользователя
+    final cleanEmail = email.trim().toLowerCase();
+    final userId = 'user_${cleanEmail.hashCode.abs()}';
+    print('🆔 Generated User ID: $userId from email: $cleanEmail');
+    return userId;
   }
-
 
   List<dynamic> _getUserReposts(List<dynamic> news) {
     final userId = _generateUserId(widget.userEmail);
@@ -151,10 +168,12 @@ class _ProfilePageState extends State<ProfilePage> {
         final isRepost = newsItem['is_repost'] == true;
         final repostedBy = newsItem['reposted_by']?.toString();
 
+        // ВАЖНОЕ ИСПРАВЛЕНИЕ: сравниваем с userId пользователя
         final isUserRepost = isRepost && repostedBy == userId;
 
         if (isUserRepost) {
           print('✅ Found user repost: ${newsItem['id']} - ${newsItem['title']}');
+          print('   Reposted by: $repostedBy, User ID: $userId');
         }
 
         return isUserRepost;
@@ -174,6 +193,7 @@ class _ProfilePageState extends State<ProfilePage> {
       print('   Title: ${repostItem['title']}');
       print('   Reposted by: ${repostItem['reposted_by']}');
       print('   Original post: ${repostItem['original_post_id']}');
+      print('   Author name: ${repostItem['author_name']}');
     }
 
     return reposts;
@@ -239,7 +259,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     () => _pickCoverImage(ImageSource.camera, context),
               ),
               const SizedBox(height: 12),
-              if (_getUserCoverUrl() != null) // ИСПРАВЬТЕ ЭТУ ПРОВЕРКУ
+              if (_getUserCoverUrl() != null)
                 _buildCoverSourceButton(
                   context,
                   Icons.delete_rounded,
@@ -274,7 +294,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
 
   void _showImagePickerModal(BuildContext context) {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
@@ -376,12 +395,9 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-
-
-
   // МЕТОД ДЛЯ УСТАНОВКИ ИЗОБРАЖЕНИЙ ПО УМОЛЧАНИЮ
   void _setDefaultImages() {
-
+    // Можно добавить логику установки изображений по умолчанию
   }
 
   @override
@@ -592,7 +608,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-
   Widget _buildRepostsSectionSliver(List<dynamic> reposts, NewsProvider newsProvider) {
     if (reposts.isEmpty) {
       return SliverToBoxAdapter(
@@ -641,7 +656,7 @@ class _ProfilePageState extends State<ProfilePage> {
               userAvatar,
               newsProvider,
             ),
-            onRepost: () => _handleRepost(_getSafeNewsIndex(newsItem, newsProvider), newsProvider),
+            onRepost: () => _handleRepost(), // ИСПРАВЛЕНО: убраны параметры
             onEdit: () => _handleEdit(_getSafeNewsIndex(newsItem, newsProvider), context),
             onDelete: () => _handleDelete(_getSafeNewsIndex(newsItem, newsProvider), newsProvider),
             onShare: () => _handleShare(_getSafeNewsIndex(newsItem, newsProvider), context),
@@ -662,7 +677,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
 
   Widget _buildPostsSectionSliver(List<dynamic> posts, NewsProvider newsProvider) {
     if (posts.isEmpty) {
@@ -710,7 +724,7 @@ class _ProfilePageState extends State<ProfilePage> {
               userAvatar,
               newsProvider,
             ),
-            onRepost: () => _handleRepost(_getSafeNewsIndex(posts[index], newsProvider), newsProvider),
+            onRepost: () => _handleRepost(), // ИСПРАВЛЕНО: убраны параметры
             onEdit: () => _handleEdit(_getSafeNewsIndex(posts[index], newsProvider), context),
             onDelete: () => _handleDelete(_getSafeNewsIndex(posts[index], newsProvider), newsProvider),
             onShare: () => _handleShare(_getSafeNewsIndex(posts[index], newsProvider), context),
@@ -778,7 +792,7 @@ class _ProfilePageState extends State<ProfilePage> {
               userAvatar,
               newsProvider,
             ),
-            onRepost: () => _handleRepost(_getSafeNewsIndex(likedPosts[index], newsProvider), newsProvider),
+            onRepost: () => _handleRepost(), // ИСПРАВЛЕНО: убраны параметры
             onEdit: () => _handleEdit(_getSafeNewsIndex(likedPosts[index], newsProvider), context),
             onDelete: () => _handleDelete(_getSafeNewsIndex(likedPosts[index], newsProvider), newsProvider),
             onShare: () => _handleShare(_getSafeNewsIndex(likedPosts[index], newsProvider), context),
@@ -1266,7 +1280,7 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Заголовок секции
+          // Заголовок секции с кнопкой обновления
           Row(
             children: [
               Icon(
@@ -1283,6 +1297,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   color: Colors.black87,
                 ),
               ),
+              const Spacer(),
+              // КНОПКА ОБНОВЛЕНИЯ ДЛЯ ОТЛАДКИ РЕПОСТОВ
+              IconButton(
+                icon: Icon(Icons.refresh_rounded, color: _getUserColor(), size: 20),
+                onPressed: () {
+                  print('🔄 Manual refresh triggered');
+                  _debugReposts();
+                  setState(() {});
+                  _showSuccessSnackBar('Данные обновлены');
+                },
+                tooltip: 'Обновить отладку репостов',
+              ),
+              // КНОПКА ТЕСТОВОГО РЕПОСТА (ТОЛЬКО ДЛЯ ОТЛАДКИ)
             ],
           ),
           const SizedBox(height: 16),
@@ -1300,20 +1327,54 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             child: Row(
               children: [
-                _buildTab('Мои посты', 0),
-                _buildTab('Понравилось', 1),
-                _buildTab('Репосты', 2),
-                _buildTab('Информация', 3),
+                _buildTab('Мои посты', 0, Icons.article_rounded),
+                _buildTab('Понравилось', 1, Icons.favorite_rounded),
+                _buildTab('Репосты', 2, Icons.repeat_rounded),
+                _buildTab('Информация', 3, Icons.info_rounded),
               ],
             ),
+          ),
+
+          // СТАТУС РЕПОСТОВ ДЛЯ ОТЛАДКИ
+          Consumer<NewsProvider>(
+            builder: (context, newsProvider, child) {
+              final userReposts = _getUserReposts(newsProvider.news);
+              final totalReposts = newsProvider.news.where((item) {
+                final newsItem = Map<String, dynamic>.from(item);
+                return newsItem['is_repost'] == true;
+              }).length;
+
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Всего репостов в системе: $totalReposts',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      'Ваших репостов: ${userReposts.length}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _getUserColor(),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-
-  Widget _buildTab(String text, int index) {
+  Widget _buildTab(String text, int index, IconData icon) {
     final isActive = _selectedSection == index;
     return Expanded(
       child: Container(
@@ -1338,6 +1399,7 @@ class _ProfilePageState extends State<ProfilePage> {
               setState(() => _selectedSection = index);
               // При переходе на вкладку репостов обновляем данные
               if (index == 2) {
+                print('🎯 Switching to Reposts tab');
                 _debugReposts();
                 // Принудительно обновляем состояние
                 if (mounted) setState(() {});
@@ -1345,13 +1407,25 @@ class _ProfilePageState extends State<ProfilePage> {
             },
             borderRadius: BorderRadius.circular(8),
             child: Center(
-              child: Text(
-                text,
-                style: TextStyle(
-                  color: isActive ? Colors.white : Colors.grey[700],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 16,
+                    color: isActive ? Colors.white : Colors.grey[600],
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    text,
+                    style: TextStyle(
+                      color: isActive ? Colors.white : Colors.grey[700],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1359,11 +1433,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-
-
-
-
 
   Widget _buildInfoSection() {
     return Padding(
@@ -1771,6 +1840,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final newsId = newsItem['id'].toString();
     return newsProvider.findNewsIndexById(newsId);
   }
+
   void _handleLike(int index, NewsProvider newsProvider) {
     if (index == -1) return;
 
@@ -1783,12 +1853,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
     _showSuccessSnackBar('Лайк обновлен');
   }
-
-
-
-
-
-
 
   void _handleBookmark(int index, NewsProvider newsProvider) {
     if (index == -1) return;
@@ -1804,85 +1868,47 @@ class _ProfilePageState extends State<ProfilePage> {
     _showSuccessSnackBar(!isCurrentlyBookmarked ? 'Добавлено в избранное' : 'Удалено из избранного');
   }
 
-  void _handleRepost(int index, NewsProvider newsProvider) {
-    if (index == -1) return;
+  // ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ РЕПОСТА
+  void _handleRepost() {
+    // Этот метод будет вызываться из NewsCard, но здесь мы показываем уведомление
+    _showRepostSuccessSnackBar();
+  }
 
-    final news = Map<String, dynamic>.from(newsProvider.news[index]);
-    final newsId = news['id'].toString();
-    final userId = _generateUserId(widget.userEmail);
-
-    print('🔄 ProfilePage: Handling repost for post: $newsId');
-    print('   User: $userId (${widget.userName})');
-    print('   Current repost state: ${news['isReposted'] ?? false}');
-
-    // Используем InteractionManager с передачей параметров пользователя
-    final interactionManager = InteractionManager();
-    interactionManager.toggleRepost(
-      newsId,
-      currentUserId: userId,
-      currentUserName: widget.userName,
+// ДОБАВИТЬ МЕТОД ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ О РЕПОСТЕ
+  void _showRepostSuccessSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.repeat_rounded, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Репостнул на свою страничку',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'ОК',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
     );
-
-    // Принудительно обновляем состояние
-    setState(() {});
-
-    print('✅ Repost action completed for post $newsId');
   }
 
-
-  // Добавьте этот метод в _ProfilePageState для проверки
-  void _checkReposts() {
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final userId = _generateUserId(widget.userEmail);
-
-    print('🔍 Checking reposts for user: $userId');
-
-    final allReposts = newsProvider.news.where((item) {
-      final newsItem = Map<String, dynamic>.from(item);
-      return newsItem['is_repost'] == true;
-    }).toList();
-
-    print('📊 Total reposts in system: ${allReposts.length}');
-
-    final userReposts = allReposts.where((item) {
-      final newsItem = Map<String, dynamic>.from(item);
-      return newsItem['reposted_by'] == userId;
-    }).toList();
-
-    print('👤 Reposts by current user: ${userReposts.length}');
-
-    for (final repost in userReposts) {
-      final repostItem = Map<String, dynamic>.from(repost);
-      print('   - ${repostItem['id']}: ${repostItem['title']}');
-    }
-
-    // Вызываем при смене вкладки
-    if (_selectedSection == 2) { // Вкладка репостов
-      _checkReposts();
-    }
-  }
-
-
-  // Добавьте этот метод в _ProfilePageState для отладки
-  void _debugUserData() {
-    final userId = _generateUserId(widget.userEmail);
-    print('👤 Debug user data:');
-    print('   Name: ${widget.userName}');
-    print('   Email: ${widget.userEmail}');
-    print('   Generated ID: $userId');
-
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final allReposts = newsProvider.news.where((item) {
-      final newsItem = Map<String, dynamic>.from(item);
-      return newsItem['is_repost'] == true;
-    }).toList();
-
-    print('📊 Total reposts in system: ${allReposts.length}');
-    for (final repost in allReposts) {
-      final repostItem = Map<String, dynamic>.from(repost);
-      print('   - ${repostItem['id']} by ${repostItem['reposted_by']} (${repostItem['reposted_by_name']})');
-    }
-  }
   void _handleComment(int index, String commentText, String userName, String userAvatar, NewsProvider newsProvider) {
     if (index == -1 || commentText.trim().isEmpty) return;
 
@@ -2089,8 +2115,6 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
-
-
 
   Widget _buildImageSourceButton(BuildContext context, IconData icon, String text, Color color, VoidCallback onTap) {
     return Material(

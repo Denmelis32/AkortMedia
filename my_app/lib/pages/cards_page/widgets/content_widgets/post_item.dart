@@ -15,7 +15,7 @@ class PostItem extends StatefulWidget {
   final Channel channel;
   final bool isAkorTab;
   final VoidCallback? onShare;
-  final VoidCallback? onRepost; // ДОБАВИТЬ ЭТО СВОЙСТВО
+  final VoidCallback? onRepost;
   final String Function(String) getTimeAgo;
   final String? customAvatarUrl;
 
@@ -25,7 +25,7 @@ class PostItem extends StatefulWidget {
     required this.channel,
     this.isAkorTab = false,
     this.onShare,
-    this.onRepost, // ДОБАВИТЬ В КОНСТРУКТОР
+    this.onRepost,
     required this.getTimeAgo,
     this.customAvatarUrl,
   });
@@ -272,6 +272,19 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return false;
   }
 
+  int _getIntValue(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
+  String _getStringValue(dynamic value) {
+    if (value is String) return value;
+    if (value != null) return value.toString();
+    return '';
+  }
+
   // ОБРАБОТЧИКИ ВЗАИМОДЕЙСТВИЙ ЧЕРЕЗ INTERACTION MANAGER
   void _handleLike() {
     final postId = _getStringValue(widget.post['id']);
@@ -303,7 +316,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     }
   }
 
-// ДОБАВИТЬ МЕТОД ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ О РЕПОСТЕ
+  // ДОБАВИТЬ МЕТОД ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ О РЕПОСТЕ
   void _showRepostSuccessSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -481,7 +494,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   // УЛУЧШЕННАЯ ЗАГРУЗКА АВАТАРКИ КАНАЛА
-  // В PostItem в методе _buildChannelHeader добавим проверку на репост
   Widget _buildChannelHeader() {
     return Consumer<ChannelStateProvider>(
       builder: (context, channelStateProvider, child) {
@@ -495,6 +507,10 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         final originalChannelName = _getStringValue(widget.post['original_channel_name']);
         final isOriginalChannelPost = _getBoolValue(widget.post['is_original_channel_post']);
 
+        // ПРОВЕРЯЕМ КОММЕНТАРИЙ РЕПОСТА
+        final repostComment = _getStringValue(widget.post['repost_comment']);
+        final hasRepostComment = isRepost && repostComment.isNotEmpty;
+
         // ОТЛАДКА ДАННЫХ РЕПОСТА
         if (isRepost) {
           print('🎯 CHANNEL REPOST HEADER DATA:');
@@ -502,6 +518,8 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
           print('   original_author_name: $originalAuthorName');
           print('   original_channel_name: $originalChannelName');
           print('   is_original_channel_post: $isOriginalChannelPost');
+          print('   repost_comment: "$repostComment"');
+          print('   has_repost_comment: $hasRepostComment');
         }
 
         // Получаем актуальную аватарку из провайдера
@@ -513,9 +531,13 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ИНФОРМАЦИЯ О РЕПОСТЕ - УЛУЧШЕННЫЙ ВАРИАНТ
+            // ИНФОРМАЦИЯ О РЕПОСТЕ - ПРОСТОЙ ЗАГОЛОВОК БЕЗ ДУБЛИРОВАНИЯ
             if (isRepost && repostedByName.isNotEmpty)
-              _buildEnhancedRepostHeader(),
+              _buildSimpleRepostHeader(repostedByName, hasRepostComment),
+
+            // КОММЕНТАРИЙ К РЕПОСТУ (если есть) - ТОЛЬКО ЗДЕСЬ!
+            if (hasRepostComment)
+              _buildRepostCommentSection(repostComment, repostedByName, originalAuthorName, originalChannelName, isOriginalChannelPost),
 
             // ОСНОВНАЯ ИНФОРМАЦИЯ О КАНАЛЕ
             Row(
@@ -553,7 +575,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                       ),
                       const SizedBox(height: 2),
                       // ВРЕМЯ И СТАТУС
-                      _buildChannelMetaInfo(isRepost, createdAt),
+                      _buildChannelMetaInfo(isRepost, hasRepostComment, createdAt),
                     ],
                   ),
                 ),
@@ -565,16 +587,10 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
-
-  // УЛУЧШЕННЫЙ ЗАГОЛОВОК РЕПОСТА ДЛЯ КАНАЛЬНЫХ ПОСТОВ
-  Widget _buildEnhancedRepostHeader() {
-    final repostedByName = _getStringValue(widget.post['reposted_by_name']);
-    final originalAuthorName = _getStringValue(widget.post['original_author_name']);
-    final originalChannelName = _getStringValue(widget.post['original_channel_name']);
-    final isOriginalChannelPost = _getBoolValue(widget.post['is_original_channel_post']);
-
+  // ПРОСТОЙ ЗАГОЛОВОК РЕПОСТА БЕЗ ДУБЛИРОВАНИЯ
+  Widget _buildSimpleRepostHeader(String repostedByName, bool hasRepostComment) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8, left: _getAvatarSize(context) + 12),
+      padding: EdgeInsets.only(bottom: hasRepostComment ? 8 : 12, left: _getAvatarSize(context) + 12),
       child: Container(
         padding: EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -585,31 +601,130 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.repeat_rounded, size: 14, color: Colors.green),
+            Icon(
+              Icons.repeat_rounded,
+              size: 14,
+              color: Colors.green,
+            ),
             SizedBox(width: 6),
-            Text('Репост от ', style: TextStyle(color: Colors.green, fontSize: 12)),
-            Text(repostedByName,
-                style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
-            SizedBox(width: 4),
-            Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.green),
-            SizedBox(width: 4),
-            if (isOriginalChannelPost && originalChannelName.isNotEmpty)
-              Text(originalChannelName,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12))
-            else if (originalAuthorName.isNotEmpty)
-              Text(originalAuthorName,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12))
-            else
-              Text('оригинальный пост',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            Text(
+              'Репост от ',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              repostedByName,
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-// МЕТА-ИНФОРМАЦИЯ КАНАЛА
-  Widget _buildChannelMetaInfo(bool isRepost, String createdAt) {
+  // СЕКЦИЯ КОММЕНТАРИЯ РЕПОСТА (ТОЛЬКО ОДИН РАЗ!)
+  Widget _buildRepostCommentSection(String repostComment, String repostedByName,
+      String originalAuthorName, String originalChannelName, bool isOriginalChannelPost) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    print('✅ Building SINGLE repost comment section: "$repostComment"');
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12, left: _getAvatarSize(context) + 12),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.edit_rounded, size: 14, color: Colors.blue),
+                SizedBox(width: 6),
+                Text(
+                  'Комментарий репоста:',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 6),
+            Text(
+              repostComment,
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            // ИНФОРМАЦИЯ О АВТОРЕ КОММЕНТАРИЯ
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1),
+                  ),
+                  child: ClipOval(
+                    child: _buildAvatarImage(
+                        _getCurrentUserAvatarUrl(null),
+                        repostedByName,
+                        20
+                    ),
+                  ),
+                ),
+                SizedBox(width: 6),
+                Text(
+                  repostedByName,
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  isOriginalChannelPost && originalChannelName.isNotEmpty
+                      ? originalChannelName
+                      : originalAuthorName.isNotEmpty
+                      ? originalAuthorName
+                      : 'оригинальный пост',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // МЕТА-ИНФОРМАЦИЯ КАНАЛА С УЧЕТОМ РЕПОСТОВ
+  Widget _buildChannelMetaInfo(bool isRepost, bool hasRepostComment, String createdAt) {
     return Container(
       height: 16,
       child: SingleChildScrollView(
@@ -638,9 +753,20 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
               SizedBox(width: 8),
               Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
               SizedBox(width: 8),
-              Icon(Icons.repeat_rounded, size: 12, color: Colors.green),
+              Icon(
+                  hasRepostComment ? Icons.edit_rounded : Icons.repeat_rounded,
+                  size: 12,
+                  color: hasRepostComment ? Colors.blue : Colors.green
+              ),
               SizedBox(width: 4),
-              Text('Репост', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w700)),
+              Text(
+                hasRepostComment ? 'Репост с комментарием' : 'Репост',
+                style: TextStyle(
+                    color: hasRepostComment ? Colors.blue : Colors.green,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700
+                ),
+              ),
             ] else ...[
               // СТАТУС КАНАЛА
               SizedBox(width: 8),
@@ -666,7 +792,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
-// КНОПКА МЕНЮ ДЛЯ КАНАЛЬНЫХ ПОСТОВ
+  // КНОПКА МЕНЮ ДЛЯ КАНАЛЬНЫХ ПОСТОВ
   Widget _buildMenuButton() {
     return Container(
       width: 28,
@@ -1259,19 +1385,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   // ИСПОЛЬЗУЕМ КОММЕНТАРИИ ИЗ INTERACTION MANAGER
   List<dynamic> get _currentComments {
     return _postState?.comments ?? [];
-  }
-
-  String _getStringValue(dynamic value) {
-    if (value is String) return value;
-    if (value != null) return value.toString();
-    return '';
-  }
-
-  int _getIntValue(dynamic value) {
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value) ?? 0;
-    if (value is double) return value.toInt();
-    return 0;
   }
 
   List<String> _parseHashtags(dynamic hashtags) {

@@ -638,13 +638,26 @@ class NewsProvider with ChangeNotifier {
               print('ℹ️ Using fallback avatar for $authorName: $finalAuthorAvatar');
             }
 
+            // ВАЖНОЕ ИСПРАВЛЕНИЕ: Для репостов гарантируем правильную структуру данных
+            final isRepost = newsItem['is_repost'] == true;
+            final repostComment = newsItem['repost_comment']?.toString() ?? '';
+            List<dynamic> finalComments;
+
+            if (isRepost && repostComment.isNotEmpty) {
+              // ДЛЯ РЕПОСТОВ С КОММЕНТАРИЕМ: гарантируем пустой массив комментариев
+              finalComments = [];
+              print('✅ [LOAD NEWS] Ensuring empty comments for repost with comment: $newsId');
+            } else {
+              finalComments = newsItem['comments'] ?? [];
+            }
+
             return {
               ...newsItem,
               'isLiked': localLikes.contains(newsId),
               'isBookmarked': localBookmarks.contains(newsId),
               'hashtags': _parseHashtags(newsItem['hashtags']),
               'user_tags': itemUserTags,
-              'comments': newsItem['comments'] ?? [],
+              'comments': finalComments, // ИСПОЛЬЗУЕМ ПРАВИЛЬНЫЕ КОММЕНТАРИИ
               'likes': newsItem['likes'] ?? 0,
               'tag_color': tagColor,
               // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем аватар автора
@@ -700,7 +713,55 @@ class NewsProvider with ChangeNotifier {
         _isLoading = false;
         _safeNotifyListeners();
       });
+
+      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Очищаем дубликаты комментариев репостов
+      await _cleanupRepostCommentDuplicates();
       initializeInteractions();
+      fixRepostCommentsDuplication();
+    }
+  }
+
+// НОВЫЙ МЕТОД: Очистка дубликатов комментариев репостов
+  Future<void> _cleanupRepostCommentDuplicates() async {
+    try {
+      int cleanedCount = 0;
+
+      for (int i = 0; i < _news.length; i++) {
+        final newsItem = Map<String, dynamic>.from(_news[i]);
+        final isRepost = newsItem['is_repost'] == true;
+        final repostComment = newsItem['repost_comment']?.toString() ?? '';
+        final comments = List<dynamic>.from(newsItem['comments'] ?? []);
+
+        // Если это репост с комментарием И есть обычные комментарии - очищаем
+        if (isRepost && repostComment.isNotEmpty && comments.isNotEmpty) {
+          print('❌ [CLEANUP] Found duplication in repost: ${newsItem['id']}');
+          print('   Repost comment: "$repostComment"');
+          print('   Regular comments count: ${comments.length}');
+
+          final cleanItem = {
+            ...newsItem,
+            'comments': [], // Очищаем обычные комментарии
+          };
+
+          _news[i] = cleanItem;
+          cleanedCount++;
+          print('✅ [CLEANUP] Cleaned repost: ${newsItem['id']}');
+
+          // Также обновляем InteractionManager
+          final postId = newsItem['id'].toString();
+          _interactionManager.updateComments(postId, []);
+        }
+      }
+
+      if (cleanedCount > 0) {
+        await _saveNewsToStorage();
+        _safeNotifyListeners();
+        print('🎉 [CLEANUP] Cleaned $cleanedCount reposts with comment duplication');
+      } else {
+        print('✅ [CLEANUP] No repost duplicates found');
+      }
+    } catch (e) {
+      print('❌ [CLEANUP] Error cleaning repost duplicates: $e');
     }
   }
 
@@ -851,13 +912,24 @@ class NewsProvider with ChangeNotifier {
     return MockNewsData.getMockNews();
   }
 
-  // ИСПРАВЛЕННЫЙ МЕТОД ДОБАВЛЕНИЯ НОВОСТИ
-  // В КЛАССЕ NewsProvider, ОБНОВИТЕ МЕТОД addNews
+  // ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ МЕТОД addNews В news_provider.dart
+  // ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ МЕТОД addNews В news_provider.dart
   Future<void> addNews(Map<String, dynamic> newsItem, {BuildContext? context}) async {
     if (_isDisposed) return;
 
     try {
       final newNewsId = newsItem['id']?.toString();
+
+      // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ О РЕПОСТАХ
+      final isRepost = newsItem['is_repost'] == true;
+      final repostComment = newsItem['repost_comment']?.toString() ?? '';
+
+      print('🔄 ADDING NEWS TO PROVIDER:');
+      print('   ID: $newNewsId');
+      print('   Is repost: $isRepost');
+      print('   Repost comment: "$repostComment"');
+      print('   Repost comment length: ${repostComment.length}');
+      print('   Input comments count: ${(newsItem['comments'] ?? []).length}');
 
       // ПРОВЕРКА НА ДУБЛИКАТЫ - БОЛЕЕ ГИБКАЯ ДЛЯ РЕПОСТОВ
       if (newNewsId != null) {
@@ -873,7 +945,6 @@ class NewsProvider with ChangeNotifier {
       }
 
       final isChannelPost = newsItem['is_channel_post'] == true;
-      final isRepost = newsItem['is_repost'] == true;
       final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
       final channelName = newsItem['channel_name']?.toString() ?? '';
 
@@ -892,12 +963,29 @@ class NewsProvider with ChangeNotifier {
         print('   Original author: ${newsItem['original_author_name']}');
         print('   Original channel: ${newsItem['original_channel_name']}');
         print('   Is original channel: ${newsItem['is_original_channel_post']}');
+        print('   Repost comment: "$repostComment"');
       } else {
         // Для обычных постов
         authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
       }
 
-      // ВАЖНОЕ ИЗМЕНЕНИЕ: сохраняем ВСЕ переданные данные, включая репост
+      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Для репостов с комментариями - ГАРАНТИРУЕМ, что обычные комментарии ПУСТЫЕ
+      final List<dynamic> comments;
+      if (isRepost && repostComment.isNotEmpty) {
+        // ДЛЯ РЕПОСТОВ С КОММЕНТАРИЕМ: принудительно устанавливаем пустой массив комментариев
+        comments = [];
+        print('✅ [ADD NEWS] Forcing empty comments array for repost with comment');
+      } else if (isRepost) {
+        // ДЛЯ РЕПОСТОВ БЕЗ КОММЕНТАРИЯ: также используем пустой массив для консистентности
+        comments = [];
+        print('✅ [ADD NEWS] Using empty comments array for repost without comment');
+      } else {
+        // ДЛЯ ОБЫЧНЫХ ПОСТОВ: используем переданные комментарии
+        comments = newsItem['comments'] ?? [];
+        print('✅ [ADD NEWS] Using provided comments for regular post: ${comments.length} items');
+      }
+
+      // ВАЖНОЕ ИЗМЕНЕНИЕ: сохраняем ВСЕ переданные данные, включая репост и комментарий
       final Map<String, dynamic> cleanNewsItem = {
         'id': uniqueId,
         'title': newsItem['title']?.toString() ?? '',
@@ -909,7 +997,7 @@ class NewsProvider with ChangeNotifier {
         'channel_id': newsItem['channel_id']?.toString() ?? '',
         'created_at': newsItem['created_at']?.toString() ?? DateTime.now().toIso8601String(),
         'likes': newsItem['likes'] ?? 0,
-        'comments': newsItem['comments'] ?? [],
+        'comments': comments, // ИСПРАВЛЕНИЕ: используем гарантированно правильные комментарии
         'hashtags': _parseHashtags(newsItem['hashtags']),
 
         // ВАЖНО: сохраняем ВСЕ данные репоста если они есть
@@ -923,6 +1011,9 @@ class NewsProvider with ChangeNotifier {
         'original_channel_name': newsItem['original_channel_name']?.toString(),
         'is_original_channel_post': newsItem['is_original_channel_post'] ?? false,
 
+        // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем комментарий репоста если он есть
+        'repost_comment': repostComment, // Явно сохраняем комментарий
+
         // Обычные поля
         'user_tags': newsItem['user_tags'] ?? <String, String>{},
         'isLiked': newsItem['isLiked'] ?? false,
@@ -932,6 +1023,25 @@ class NewsProvider with ChangeNotifier {
         'is_channel_post': isChannelPost,
         'content_type': isChannelPost ? 'channel_post' : (isRepost ? 'repost' : 'regular_post'),
       };
+
+      // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА КОММЕНТАРИЯ РЕПОСТА
+      if (isRepost && repostComment.isNotEmpty) {
+        print('✅ [ADD NEWS] Repost comment successfully saved: "$repostComment"');
+        print('   Regular comments count: ${(cleanNewsItem['comments'] as List).length}');
+
+        // ФИНАЛЬНАЯ ПРОВЕРКА: убедимся, что комментарии действительно пустые
+        if (cleanNewsItem['comments'] is List && (cleanNewsItem['comments'] as List).isNotEmpty) {
+          print('❌ [ADD NEWS] CRITICAL ERROR: Comments array is not empty for repost with comment!');
+          print('   Forcing comments to empty array...');
+          cleanNewsItem['comments'] = [];
+        } else {
+          print('✅ [ADD NEWS] Comments array is properly empty for repost with comment');
+        }
+      } else if (isRepost) {
+        print('ℹ️ [ADD NEWS] Repost without comment - comments count: ${(cleanNewsItem['comments'] as List).length}');
+      } else {
+        print('📝 [ADD NEWS] Regular post - comments count: ${(cleanNewsItem['comments'] as List).length}');
+      }
 
       // ДОБАВЛЯЕМ в начало списка
       _safeOperation(() {
@@ -955,8 +1065,52 @@ class NewsProvider with ChangeNotifier {
 
       print('✅ Новость добавлена в NewsProvider. ID: $uniqueId, Тип: ${isRepost ? 'РЕПОСТ' : 'обычный'}, Всего новостей: ${_news.length}');
 
+      // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ ПОСЛЕ ДОБАВЛЕНИЯ
+      if (isRepost) {
+        print('🔍 [ADD NEWS] FINAL REPOST DATA VERIFICATION:');
+        print('   repost_comment: "${cleanNewsItem['repost_comment']}"');
+        print('   comments array: ${cleanNewsItem['comments']}');
+        print('   comments count: ${(cleanNewsItem['comments'] as List).length}');
+
+        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: если все еще есть проблема, исправляем немедленно
+        if (repostComment.isNotEmpty && (cleanNewsItem['comments'] as List).isNotEmpty) {
+          print('❌ [ADD NEWS] URGENT: Still have duplication! Fixing immediately...');
+          final fixedIndex = _news.indexWhere((item) => item['id'] == uniqueId);
+          if (fixedIndex != -1) {
+            _news[fixedIndex] = {
+              ...cleanNewsItem,
+              'comments': [],
+            };
+            await _saveNewsToStorage();
+            _safeNotifyListeners();
+            print('✅ [ADD NEWS] Immediately fixed duplication for: $uniqueId');
+          }
+        }
+      }
+
+      // ПОКАЗЫВАЕМ УВЕДОМЛЕНИЕ О УСПЕШНОМ ДОБАВЛЕНИИ
+      if (context != null && mounted) {
+        final message = isRepost
+            ? (repostComment.isNotEmpty ? 'Репост с комментарием создан!' : 'Репост создан!')
+            : 'Пост создан!';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
     } catch (e) {
       print('❌ Ошибка при добавлении новости в NewsProvider: $e');
+
+      // ДЕТАЛЬНАЯ ОШИБКА ДЛЯ ОТЛАДКИ
+      if (e is Error) {
+        print('❌ Stack trace: ${e.stackTrace}');
+      }
+
       if (context != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -965,6 +1119,62 @@ class NewsProvider with ChangeNotifier {
           ),
         );
       }
+    }
+  }
+
+  // ДОБАВЬТЕ этот метод в класс NewsProvider
+  void fixRepostCommentsDuplication() {
+    _safeOperation(() {
+      int fixedCount = 0;
+
+      for (int i = 0; i < _news.length; i++) {
+        final newsItem = Map<String, dynamic>.from(_news[i]);
+
+        // Проверяем репосты с комментариями
+        if (newsItem['is_repost'] == true && newsItem['repost_comment'] != null) {
+          final repostComment = newsItem['repost_comment'].toString();
+          final comments = List<Map<String, dynamic>>.from(newsItem['comments'] ?? []);
+
+          // Убеждаемся, что комментарии репоста не дублируются в обычных комментариях
+          final hasDuplicate = comments.any((comment) {
+            final commentText = comment['text']?.toString() ?? '';
+            return commentText == repostComment;
+          });
+
+          if (hasDuplicate) {
+            // Очищаем обычные комментарии для репостов с комментариями
+            _news[i] = {
+              ...newsItem,
+              'comments': [], // Принудительно очищаем обычные комментарии
+            };
+            fixedCount++;
+            print('✅ Fixed repost comments duplication: ${newsItem['id']}');
+          }
+        }
+      }
+
+      if (fixedCount > 0) {
+        _safeNotifyListeners();
+        _saveNewsToStorage();
+        print('🎉 Fixed $fixedCount reposts with comment duplication');
+      }
+    });
+  }
+
+
+
+  void debugRepostData(String repostId) {
+    if (_isDisposed) return;
+
+    final repostIndex = _news.indexWhere((item) => item['id'] == repostId);
+    if (repostIndex != -1) {
+      final repost = _news[repostIndex] as Map<String, dynamic>;
+      print('🔍 DEBUG REPOST DATA:');
+      print('   ID: ${repost['id']}');
+      print('   is_repost: ${repost['is_repost']}');
+      print('   repost_comment: "${repost['repost_comment']}"');
+      print('   comments count: ${(repost['comments'] as List).length}');
+      print('   comments: ${repost['comments']}');
     }
   }
 
@@ -987,6 +1197,22 @@ class NewsProvider with ChangeNotifier {
     // Конвертируем List<dynamic> в List<Map<String, dynamic>>
     final List<Map<String, dynamic>> newsList = _news.map((item) {
       if (item is Map<String, dynamic>) {
+        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: для репостов с комментариями гарантируем пустые комментарии
+        final isRepost = item['is_repost'] == true;
+        final repostComment = item['repost_comment']?.toString() ?? '';
+        final comments = List<dynamic>.from(item['comments'] ?? []);
+
+        if (isRepost && repostComment.isNotEmpty && comments.isNotEmpty) {
+          print('🔄 [INIT INTERACTIONS] Fixing repost comments for: ${item['id']}');
+          print('   Repost comment: "$repostComment"');
+          print('   Regular comments before: ${comments.length}');
+
+          // Возвращаем исправленный элемент с пустыми комментариями
+          return {
+            ...item,
+            'comments': [], // Гарантируем пустой массив для репостов с комментариями
+          };
+        }
         return item;
       } else {
         // Если элемент не Map, конвертируем его
@@ -995,6 +1221,7 @@ class NewsProvider with ChangeNotifier {
     }).toList();
 
     _interactionManager.bulkUpdatePostStates(newsList);
+    print('✅ Interactions initialized for ${newsList.length} posts');
   }
 
   bool _containsNewsWithId(String newsId) {

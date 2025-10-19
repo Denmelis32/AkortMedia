@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/news_provider.dart';
 import '../../providers/user_tags_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/repost_manager.dart';
 import '../cards_page/channel_detail_page.dart';
 import '../cards_page/models/channel.dart';
 import 'mock_news_data.dart';
@@ -216,10 +217,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   Map<String, String> _getUserTags() {
     try {
       final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+      final isRepost = _getBoolValue(widget.news['is_repost']);
       final postId = _getStringValue(widget.news['id']);
 
-      // ДЛЯ КАНАЛЬНЫХ ПОСТОВ ВОЗВРАЩАЕМ ПУСТОЙ MAP
-      if (isChannelPost) {
+      // ДЛЯ РЕПОСТОВ И КАНАЛЬНЫХ ПОСТОВ ВОЗВРАЩАЕМ ПУСТОЙ MAP
+      if (isChannelPost || isRepost) {
         return <String, String>{};
       }
 
@@ -302,49 +304,312 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return designColor;
   }
 
+  // В методе _showRepostWithCommentDialog замените текущий код на:
+  void _showRepostWithCommentDialog() {
+    final TextEditingController commentController = TextEditingController();
+    final FocusNode commentFocusNode = FocusNode();
+    bool isButtonEnabled = false;
+    bool _isDialogProcessing = false;
 
+    void updateButtonState() {
+      final newState = commentController.text.trim().isNotEmpty;
+      if (newState != isButtonEnabled) {
+        isButtonEnabled = newState;
+      }
+    }
 
-  // ДОБАВЬТЕ ЭТОТ МЕТОД В КЛАСС _NewsCardState (после других методов)
-  Widget _buildEnhancedRepostHeader() {
-    final repostedByName = _getStringValue(widget.news['reposted_by_name']);
-    final originalAuthorName = _getStringValue(widget.news['original_author_name']);
-    final originalChannelName = _getStringValue(widget.news['original_channel_name']);
-    final isOriginalChannelPost = _getBoolValue(widget.news['is_original_channel_post']);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(20), // Уменьшенные отступы
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: 500, // Максимальная ширина
+                  maxHeight: MediaQuery.of(context).size.height * 0.7, // Максимальная высота
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 25,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, // ВАЖНО: минимальный размер
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ШАПКА ДИАЛОГА
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.repeat_rounded, color: Colors.green, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Добавить комментарий к репосту',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8, left: _getAvatarSize(context) + 12),
-      child: Container(
-        padding: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green.withOpacity(0.2)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.repeat_rounded, size: 14, color: Colors.green),
-            SizedBox(width: 6),
-            Text('Репост от ', style: TextStyle(color: Colors.green, fontSize: 12)),
-            Text(repostedByName,
-                style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
-            SizedBox(width: 4),
-            Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.green),
-            SizedBox(width: 4),
-            if (isOriginalChannelPost && originalChannelName.isNotEmpty)
-              Text(originalChannelName,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12))
-            else if (originalAuthorName.isNotEmpty)
-              Text(originalAuthorName,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12))
-            else
-              Text('оригинальный пост',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-          ],
-        ),
-      ),
-    );
+                    // СОДЕРЖИМОЕ ДИАЛОГА
+                    Expanded( // Используем Expanded для прокрутки
+                      child: SingleChildScrollView( // Добавляем прокрутку
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Ваш комментарий будет отображаться над репостом',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ПОЛЕ ВВОДА КОММЕНТАРИЯ
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: 120, // Минимальная высота
+                                  maxHeight: 200, // Максимальная высота
+                                ),
+                                child: TextField(
+                                  controller: commentController,
+                                  focusNode: commentFocusNode,
+                                  maxLines: null, // Автоматическое количество строк
+                                  maxLength: 280,
+                                  onChanged: (text) {
+                                    setState(() {
+                                      isButtonEnabled = text.trim().isNotEmpty && !_isDialogProcessing;
+                                    });
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'Поделитесь своими мыслями...',
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.all(16),
+                                    counterStyle: TextStyle(color: Colors.grey[500]),
+                                  ),
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // СЧЕТЧИК СИМВОЛОВ
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${commentController.text.length}/280',
+                                  style: TextStyle(
+                                    color: commentController.text.length > 250
+                                        ? Colors.orange
+                                        : Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                if (commentController.text.length > 250)
+                                  Text(
+                                    'Слишком длинный комментарий',
+                                    style: TextStyle(
+                                      color: Colors.orange,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                              ],
+                            ),
+
+                            // ИНДИКАТОР ЗАГРУЗКИ
+                            if (_isDialogProcessing) ...[
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2)
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Создание репоста...',
+                                    style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 14
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // КНОПКИ ДИАЛОГА
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(16),
+                          bottomRight: Radius.circular(16),
+                        ),
+                        border: Border(
+                          top: BorderSide(color: Colors.grey[300]!, width: 1),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isDialogProcessing ? null : () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.grey[700],
+                                side: BorderSide(color: Colors.grey[400]!),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text('Отмена'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: (isButtonEnabled && !_isDialogProcessing) ? () async {
+                                setState(() {
+                                  _isDialogProcessing = true;
+                                });
+
+                                final commentText = commentController.text.trim();
+
+                                // Закрываем клавиатуру
+                                FocusScope.of(context).unfocus();
+
+                                await Future.delayed(const Duration(milliseconds: 100));
+
+                                _handleRepostWithComment(commentText);
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              } : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: _isDialogProcessing
+                                  ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white
+                                ),
+                              )
+                                  : const Text(
+                                'Репостнуть',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      commentController.dispose();
+      commentFocusNode.dispose();
+    });
+
+    // Автофокус на поле ввода
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      commentFocusNode.requestFocus();
+    });
   }
+// Улучшенное уведомление о репосте
+// ОБНОВЛЕННЫЙ Обработчик репоста с комментарием
+  void _handleRepostWithComment(String comment) {
+    final postId = _getStringValue(widget.news['id']);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+
+    // Находим индекс оригинала
+    final originalIndex = newsProvider.findNewsIndexById(postId);
+    if (originalIndex == -1) return;
+
+    // ДОБАВЛЯЕМ ЗАЩИТУ ОТ МНОГОКРАТНОГО ВЫЗОВА
+    if (_isReposting) {
+      print('⚠️ Repost already in progress, skipping...');
+      return;
+    }
+
+    _isReposting = true;
+
+    // Используем RepostManager для создания репоста с комментарием
+    final repostManager = RepostManager();
+    repostManager.createRepostWithComment(
+      newsProvider: newsProvider,
+      originalIndex: originalIndex,
+      currentUserId: userProvider.userId ?? '',
+      currentUserName: userProvider.userName,
+      comment: comment,
+    ).then((_) {
+      _isReposting = false;
+      _showEnhancedRepostSuccessSnackBar(comment);
+    }).catchError((error) {
+      _isReposting = false;
+      print('❌ Error in repost: $error');
+    });
+
+    print('🔄 Repost with comment initiated: "$comment"');
+  }
+// Добавляем флаг для защиты от многократного вызова
+  bool _isReposting = false;
 
   // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ
   double _getHorizontalPadding(BuildContext context) {
@@ -352,6 +617,79 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     if (width > 1000) return 280;
     if (width > 700) return 80;
     return 0;
+  }
+
+
+  void _showEnhancedRepostSuccessSnackBar(String comment) {
+    final hasComment = comment.isNotEmpty;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  hasComment ? Icons.edit_rounded : Icons.repeat_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  hasComment ? 'Репост с комментарием' : 'Репостнул на свою страничку',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            if (hasComment) ...[
+              SizedBox(height: 6),
+              Text(
+                comment,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ],
+        ),
+        backgroundColor: hasComment ? Colors.blue : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: Duration(seconds: hasComment ? 4 : 3),
+        action: SnackBarAction(
+          label: 'ОК',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+
+  void _verifyRepostData() {
+    final isRepost = _getBoolValue(widget.news['is_repost']);
+    final repostComment = _getStringValue(widget.news['repost_comment']);
+    final comments = List<Map<String, dynamic>>.from(widget.news['comments'] ?? []);
+
+    if (isRepost && repostComment.isNotEmpty && comments.isNotEmpty) {
+      print('❌ [VERIFICATION] DUPLICATION DETECTED in UI!');
+      print('   Repost comment: "$repostComment"');
+      print('   Regular comments: ${comments.length}');
+
+      // Можно вызвать очистку здесь или просто показать предупреждение
+    }
   }
 
   double _getContentMaxWidth(BuildContext context) {
@@ -403,6 +741,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     // ИНИЦИАЛИЗАЦИЯ INTERACTION MANAGER
     _interactionManager = InteractionManager();
+    _verifyRepostData();
 
     _expandController = AnimationController(
       duration: const Duration(milliseconds: 400),
@@ -595,7 +934,85 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   }
 
   // В КЛАССЕ _NewsCardState ДОБАВИТЬ ТАКОЙ ЖЕ МЕТОД
+  // Замените текущий _handleRepost на:
   void _handleRepost() {
+    _showRepostOptionsModal();
+  }
+
+// Модальное окно выбора типа репоста
+  void _showRepostOptionsModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.all(20),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Как хотите репостнуть?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 20),
+              _buildRepostOption(
+                Icons.repeat_rounded,
+                'Простой репост',
+                'Поделиться постом без комментария',
+                Colors.green,
+                    () {
+                  Navigator.pop(context);
+                  _handleSimpleRepost();
+                },
+              ),
+              SizedBox(height: 12),
+              _buildRepostOption(
+                Icons.edit_rounded,
+                'Репост с комментарием',
+                'Добавить свой комментарий к репосту',
+                Colors.blue,
+                    () {
+                  Navigator.pop(context);
+                  _showRepostWithCommentDialog();
+                },
+              ),
+              SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey[600],
+                  side: BorderSide(color: Colors.grey[300]!),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  minimumSize: Size(double.infinity, 48),
+                ),
+                child: Text('Отмена'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+// Простой репост (старая логика)
+  void _handleSimpleRepost() {
     final postId = _getStringValue(widget.news['id']);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
@@ -605,10 +1022,64 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       currentUserName: userProvider.userName,
     );
 
-    // ПОКАЗЫВАЕМ УВЕДОМЛЕНИЕ О РЕПОСТЕ
     _showRepostSuccessSnackBar();
+  }
 
-    widget.onRepost?.call();
+// Виджет опции репоста
+  Widget _buildRepostOption(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
 // ДОБАВИТЬ МЕТОД ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ О РЕПОСТЕ
@@ -1110,13 +1581,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final originalChannelName = _getStringValue(widget.news['original_channel_name']);
     final isOriginalChannelPost = _getBoolValue(widget.news['is_original_channel_post']);
 
-    // ОТЛАДКА ДАННЫХ РЕПОСТА
+    // ПРОВЕРЯЕМ КОММЕНТАРИЙ РЕПОСТА - ОБНОВЛЕННАЯ ПРОВЕРКА
+    final repostComment = _getStringValue(widget.news['repost_comment']);
+    final hasRepostComment = isRepost && repostComment.isNotEmpty;
+
+    // ВАЖНОЕ ИСПРАВЛЕНИЕ: Отладочная информация
     if (isRepost) {
-      print('🎯 REPOST HEADER DATA:');
-      print('   reposted_by_name: $repostedByName');
-      print('   original_author_name: $originalAuthorName');
-      print('   original_channel_name: $originalChannelName');
-      print('   is_original_channel_post: $isOriginalChannelPost');
+      print('🎯 BUILD POST HEADER DATA:');
+      print('   is_repost: $isRepost');
+      print('   repost_comment: "$repostComment"');
+      print('   has_repost_comment: $hasRepostComment');
     }
 
     String authorAvatar;
@@ -1139,13 +1613,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
 
     final avatarSize = _getAvatarSize(context);
+    final Map<String, String> personalTags = (isChannelPost || isRepost) ? <String, String>{} : _getUserTags();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ИНФОРМАЦИЯ О РЕПОСТЕ - УЛУЧШЕННЫЙ ВАРИАНТ
+        // ИНФОРМАЦИЯ О РЕПОСТЕ - ПРОСТОЙ ЗАГОЛОВОК БЕЗ ДУБЛИРОВАНИЯ
         if (isRepost && repostedByName.isNotEmpty)
-          _buildEnhancedRepostHeader(),
+          _buildSimpleRepostHeader(repostedByName, hasRepostComment),
+
+        // КОММЕНТАРИЙ К РЕПОСТУ (если есть) - ТОЛЬКО ЗДЕСЬ!
+        if (hasRepostComment)
+          _buildRepostCommentSection(repostComment, repostedByName, originalAuthorName, originalChannelName, isOriginalChannelPost),
 
         // ОСНОВНАЯ ИНФОРМАЦИЯ О ПОСТЕ
         Row(
@@ -1184,7 +1663,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   ),
                   const SizedBox(height: 2),
                   // ВРЕМЯ И СТАТУС
-                  _buildPostMetaInfo(isRepost, isChannelPost, createdAt),
+                  _buildPostMetaInfo(isRepost, isChannelPost, createdAt, hasRepostComment),
                 ],
               ),
             ),
@@ -1194,8 +1673,143 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  Widget _buildRepostCommentSection(String repostComment, String repostedByName,
+      String originalAuthorName, String originalChannelName, bool isOriginalChannelPost) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-  Widget _buildPostMetaInfo(bool isRepost, bool isChannelPost, String createdAt) {
+    print('✅ Building SINGLE repost comment section: "$repostComment"');
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12, left: _getAvatarSize(context) + 12),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.edit_rounded, size: 14, color: Colors.blue),
+                SizedBox(width: 6),
+                Text(
+                  'Комментарий репоста:',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 6),
+            Text(
+              repostComment,
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            // ИНФОРМАЦИЯ О АВТОРЕ КОММЕНТАРИЯ
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1),
+                  ),
+                  child: ClipOval(
+                    child: _buildImageWidget(
+                      _getUserAvatarUrl(repostedByName, isCurrentUser: repostedByName == userProvider.userName),
+                      width: 20,
+                      height: 20,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 6),
+                Text(
+                  repostedByName,
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  isOriginalChannelPost && originalChannelName.isNotEmpty
+                      ? originalChannelName
+                      : originalAuthorName.isNotEmpty
+                      ? originalAuthorName
+                      : 'оригинальный пост',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildSimpleRepostHeader(String repostedByName, bool hasRepostComment) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: hasRepostComment ? 8 : 12, left: _getAvatarSize(context) + 12),
+      child: Container(
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.repeat_rounded,
+              size: 14,
+              color: Colors.green,
+            ),
+            SizedBox(width: 6),
+            Text(
+              'Репост от ',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              repostedByName,
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPostMetaInfo(bool isRepost, bool isChannelPost, String createdAt, bool hasRepostComment) {
     return Container(
       height: 28,
       child: SingleChildScrollView(
@@ -1224,9 +1838,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               SizedBox(width: 8),
               Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
               SizedBox(width: 8),
-              Icon(Icons.repeat_rounded, size: 12, color: Colors.green),
+              Icon(
+                  hasRepostComment ? Icons.edit_rounded : Icons.repeat_rounded,
+                  size: 12,
+                  color: hasRepostComment ? Colors.blue : Colors.green
+              ),
               SizedBox(width: 4),
-              Text('Репост', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w700)),
+              Text(
+                hasRepostComment ? 'Репост с комментарием' : 'Репост',
+                style: TextStyle(
+                    color: hasRepostComment ? Colors.blue : Colors.green,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700
+                ),
+              ),
             ] else if (isChannelPost) ...[
               SizedBox(width: 8),
               Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
@@ -1245,6 +1870,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           ],
         ),
       ),
+    );
+  }
+
+  void _scrollToTop() {
+    widget.scrollController.animateTo(
+      0,
+      duration: Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
     );
   }
 

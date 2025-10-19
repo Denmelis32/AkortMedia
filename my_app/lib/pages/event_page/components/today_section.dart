@@ -52,147 +52,17 @@ class TodaySection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 🆕 ОБНОВЛЕННЫЙ ЗАГОЛОВОК С СТАТУСАМИ
-                Row(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Сегодня',
-                          style: TextStyle(
-                            fontSize: isMobile ? 14 : 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        if (currentEvents.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            'Сейчас проходит ${currentEvents.length} ${_getEventsCountText(currentEvents.length)}',
-                            style: TextStyle(
-                              fontSize: isMobile ? 10 : 11,
-                              color: Colors.green[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const Spacer(),
-
-                    // 🆕 УЛУЧШЕННЫЙ БЕЙДЖ С РАЗБИВКОЙ
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _getBadgeColor(upcomingEvents.length),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (upcomingEvents.isNotEmpty)
-                            Icon(Icons.access_time, size: 12, color: _getBadgeTextColor(upcomingEvents.length)),
-                          if (upcomingEvents.isNotEmpty) const SizedBox(width: 4),
-                          Text(
-                            '${upcomingEvents.length} ${_getEventsCountText(upcomingEvents.length)}',
-                            style: TextStyle(
-                              fontSize: isMobile ? 11 : 12,
-                              fontWeight: FontWeight.w600,
-                              color: _getBadgeTextColor(upcomingEvents.length),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 8),
-
-                    // Кнопка "Все сегодня"
-                    TextButton(
-                      onPressed: () {
-                        _showAllTodayEvents(context, todayEvents);
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        backgroundColor: Colors.blue[50],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Все сегодня',
-                            style: TextStyle(
-                              fontSize: isMobile ? 11 : 12,
-                              color: Colors.blue[700],
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.arrow_forward, size: 14, color: Colors.blue[700]),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                // 🆕 ИСПРАВЛЕННЫЙ ЗАГОЛОВОК ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
+                if (isMobile)
+                  _buildMobileHeader(currentEvents, upcomingEvents, context)
+                else
+                  _buildDesktopHeader(currentEvents, upcomingEvents, context),
 
                 const SizedBox(height: 12),
 
                 // 🆕 ИНДИКАТОРЫ СТАТУСОВ
                 if (pastEvents.isNotEmpty || currentEvents.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      if (pastEvents.isNotEmpty)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: Colors.grey,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Прошедшие: ${pastEvents.length}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      if (pastEvents.isNotEmpty && currentEvents.isNotEmpty)
-                        const SizedBox(width: 12),
-                      if (currentEvents.isNotEmpty)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Сейчас: ${currentEvents.length}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.green[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
+                  _buildStatusIndicators(pastEvents, currentEvents, isMobile),
                   const SizedBox(height: 8),
                 ],
 
@@ -222,6 +92,249 @@ class TodaySection extends StatelessWidget {
     );
   }
 
+  // 🆕 ОТДЕЛЬНЫЙ МЕТОД ДЛЯ МОБИЛЬНОГО ЗАГОЛОВКА
+  Widget _buildMobileHeader(List<Event> currentEvents, List<Event> upcomingEvents, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Первая строка: заголовок и бейдж
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Сегодня',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  if (currentEvents.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Сейчас проходит ${currentEvents.length} ${_getEventsCountText(currentEvents.length)}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.green[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Бейдж
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getBadgeColor(upcomingEvents.length),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (upcomingEvents.isNotEmpty)
+                    Icon(Icons.access_time, size: 12, color: _getBadgeTextColor(upcomingEvents.length)),
+                  if (upcomingEvents.isNotEmpty) const SizedBox(width: 4),
+                  Text(
+                    '${upcomingEvents.length}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _getBadgeTextColor(upcomingEvents.length),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // Вторая строка: кнопка "Все сегодня"
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: () {
+              _showAllTodayEvents(context, todayEvents);
+            },
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              backgroundColor: Colors.blue[50],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Все сегодня',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue[700],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_forward, size: 14, color: Colors.blue[700]),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 🆕 ОТДЕЛЬНЫЙ МЕТОД ДЛЯ ДЕСКТОПНОГО ЗАГОЛОВКА
+  Widget _buildDesktopHeader(List<Event> currentEvents, List<Event> upcomingEvents, BuildContext context) {
+    return Row(
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Сегодня',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            if (currentEvents.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                'Сейчас проходит ${currentEvents.length} ${_getEventsCountText(currentEvents.length)}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.green[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const Spacer(),
+
+        // 🆕 УЛУЧШЕННЫЙ БЕЙДЖ С РАЗБИВКОЙ
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _getBadgeColor(upcomingEvents.length),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (upcomingEvents.isNotEmpty)
+                Icon(Icons.access_time, size: 12, color: _getBadgeTextColor(upcomingEvents.length)),
+              if (upcomingEvents.isNotEmpty) const SizedBox(width: 4),
+              Text(
+                '${upcomingEvents.length} ${_getEventsCountText(upcomingEvents.length)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _getBadgeTextColor(upcomingEvents.length),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(width: 8),
+
+        // Кнопка "Все сегодня"
+        TextButton(
+          onPressed: () {
+            _showAllTodayEvents(context, todayEvents);
+          },
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            backgroundColor: Colors.blue[50],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Все сегодня',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.blue[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.arrow_forward, size: 14, color: Colors.blue[700]),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 🆕 ОТДЕЛЬНЫЙ МЕТОД ДЛЯ ИНДИКАТОРОВ СТАТУСА
+  Widget _buildStatusIndicators(List<Event> pastEvents, List<Event> currentEvents, bool isMobile) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      children: [
+        if (pastEvents.isNotEmpty)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Colors.grey,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Прошедшие: ${pastEvents.length}',
+                style: TextStyle(
+                  fontSize: isMobile ? 10 : 11,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        if (currentEvents.isNotEmpty)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Сейчас: ${currentEvents.length}',
+                style: TextStyle(
+                  fontSize: isMobile ? 10 : 11,
+                  color: Colors.green[600],
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
   // 🆕 ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ
   Color _getBadgeColor(int count) {
     if (count == 0) return Colors.grey[100]!;
@@ -244,12 +357,15 @@ class TodaySection extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+            // Индикатор свайпа для закрытия
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -290,7 +406,7 @@ class TodaySection extends StatelessWidget {
         onTap: () => onEventTap(event),
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(isMobile ? 10 : 12),
           decoration: BoxDecoration(
             color: isCurrent ? Colors.green[50] : Colors.grey[50],
             borderRadius: BorderRadius.circular(12),
@@ -305,7 +421,7 @@ class TodaySection extends StatelessWidget {
               // 🆕 ОБНОВЛЕННЫЙ ИНДИКАТОР С УЧЕТОМ СТАТУСА
               Container(
                 width: 4,
-                height: 60,
+                height: isMobile ? 50 : 60,
                 decoration: BoxDecoration(
                   color: isCurrent ? Colors.green : event.color,
                   borderRadius: BorderRadius.circular(2),
@@ -314,7 +430,6 @@ class TodaySection extends StatelessWidget {
 
               const SizedBox(width: 12),
 
-              // Остальной код без изменений...
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,7 +461,7 @@ class TodaySection extends StatelessWidget {
                                     child: Text(
                                       event.title,
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: isMobile ? 13 : 14,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.black87,
                                         height: 1.3,
@@ -361,7 +476,7 @@ class TodaySection extends StatelessWidget {
                               Text(
                                 '${DateFormat('HH:mm').format(event.date)} • ${event.location ?? 'Место не указано'}',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: isMobile ? 11 : 12,
                                   color: Colors.grey[600],
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -407,7 +522,7 @@ class TodaySection extends StatelessWidget {
                     Text(
                       event.organizer,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: isMobile ? 11 : 12,
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w500,
                       ),
@@ -464,7 +579,7 @@ class TodaySection extends StatelessWidget {
     );
   }
 
-  // Вспомогательные методы остаются без изменений
+  // Вспомогательные методы
   String _getEventsCountText(int count) {
     if (count % 10 == 1 && count % 100 != 11) return 'событие';
     if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20))

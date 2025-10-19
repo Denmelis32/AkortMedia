@@ -24,8 +24,8 @@ class _RegisterPageState extends State<RegisterPage> {
   void initState() {
     super.initState();
     // Устанавливаем значения по умолчанию для всех полей
-    _nameController.text = 'Иван Иванов';
-    _emailController.text = 'ivan@example.com';
+    _nameController.text = 'Игорь Бумажный';
+    _emailController.text = 'IgorBumaga@example.com';
     _passwordController.text = '123456';
     _confirmPasswordController.text = '123456';
   }

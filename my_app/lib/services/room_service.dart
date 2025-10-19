@@ -12,8 +12,8 @@ class RoomService {
     return [
       Room(
         id: '1',
-        title: 'Маринцев и его Друзья',
-        description: 'Обсуждаем Наськин День Рождения',
+        title: 'Роккер Ближник',
+        description: 'Обсуждаем ванильные деньки',
         imageUrl: 'assets/images/ava_news/ava29.png',
         currentParticipants: 12450,
         messageCount: 89456,
@@ -22,11 +22,11 @@ class RoomService {
         lastActivity: now.subtract(const Duration(minutes: 5)),
         category: RoomCategory.youtube, // ИСПРАВЛЕНО: tech → technology
         creatorId: 'user1',
-        creatorName: 'Маринцев',
+        creatorName: 'Нонаши Покемонов',
         creatorAvatarUrl: 'assets/images/ava_news/ava29.png', // НОВОЕ ПОЛЕ
         moderators: ['user2', 'user3'],
         isPrivate: false,
-        tags: ['НаськинДень', 'День Рождения'],
+        tags: ['Ваниль', 'День'],
         language: 'ru', // НОВОЕ ПОЛЕ
         isPinned: true,
         maxParticipants: 15000,

@@ -433,47 +433,38 @@ ${_currentEvent.description}
     );
   }
 
-  // НОВЫЙ МЕТОД: Загрузка изображения события (сетевого или локального)
   Widget _buildEventImage(String? imageUrl, double height) {
     if (imageUrl == null) {
       return _buildErrorEventImage(height);
     }
 
-    print('🖼️ Loading event image: $imageUrl');
-
     try {
       if (imageUrl.startsWith('http')) {
-        // Для сетевых изображений
         return Image.network(
           imageUrl,
           height: height,
           width: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            print('❌ Network image error: $error');
             return _buildErrorEventImage(height);
           },
         );
       } else {
-        // Для локальных assets
         return Image.asset(
           imageUrl,
           height: height,
           width: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            print('❌ Asset image error: $error for path: $imageUrl');
             return _buildErrorEventImage(height);
           },
         );
       }
     } catch (e) {
-      print('❌ Exception loading event image: $e');
       return _buildErrorEventImage(height);
     }
   }
 
-  // НОВЫЙ МЕТОД: Запасное изображение события при ошибке
   Widget _buildErrorEventImage(double height) {
     return Container(
       height: height,
@@ -506,108 +497,43 @@ ${_currentEvent.description}
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
 
-    return PopScope(
-      canPop: true,
-      onPopInvoked: (bool didPop) {
-        if (didPop) return;
-        Navigator.of(context).pop();
-      },
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: CustomScrollView(
-          controller: _scrollController,
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // AppBar с обложкой
-            SliverAppBar(
-              expandedHeight: 280,
-              floating: false,
-              pinned: true,
-              backgroundColor: Colors.transparent,
-              leading: _buildBackButton(horizontalPadding),
-              actions: [
-                _buildActionButton(Icons.share_rounded, 'Поделиться', _shareEvent),
-                if (_isMobile) _buildActionButton(Icons.more_vert_rounded, 'Еще', _showOptionsBottomSheet),
-              ],
-              flexibleSpace: _buildEventCover(horizontalPadding),
-            ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // Кастомный AppBar вместо SliverAppBar
+          SliverToBoxAdapter(
+            child: _buildCustomAppBar(horizontalPadding),
+          ),
 
-            // Основной контент
-            SliverToBoxAdapter(
-              child: Container(
-                width: double.infinity,
-                child: Center(
-                  child: Container(
-                    constraints: BoxConstraints(maxWidth: contentMaxWidth),
-                    child: _buildMainContent(horizontalPadding),
-                  ),
+          // Основной контент
+          SliverToBoxAdapter(
+            child: Container(
+              width: double.infinity,
+              child: Center(
+                child: Container(
+                  constraints: BoxConstraints(maxWidth: contentMaxWidth),
+                  child: _buildMainContent(horizontalPadding),
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ИСПРАВЛЕННЫЙ МЕТОД: Кнопка назад
-  Widget _buildBackButton(double horizontalPadding) {
-    return Padding(
-      padding: EdgeInsets.only(left: _isMobile ? 8 : horizontalPadding),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            Navigator.of(context).pop();
-          },
-          child: Container(
-            width: 40,
-            height: 40,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.arrow_back_rounded,
-              color: Colors.black,
-              size: 20,
-            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildActionButton(IconData icon, String tooltip, VoidCallback onPressed) {
-    return Padding(
-      padding: EdgeInsets.only(right: _isMobile ? 8 : 16),
-      child: Material(
-        type: MaterialType.transparency,
-        child: IconButton(
-          icon: Container(
-            padding: EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.black, size: 18),
-          ),
-          tooltip: tooltip,
-          onPressed: onPressed,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEventCover(double horizontalPadding) {
+  // КАСТОМНЫЙ APP BAR
+  Widget _buildCustomAppBar(double horizontalPadding) {
     final images = _currentEvent.imageUrl != null ? [_currentEvent.imageUrl!] : [];
 
     return Stack(
       children: [
-        // Основной фон с градиентом
+        // Основной контент заголовка
         Container(
+          height: 280,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -631,6 +557,7 @@ ${_currentEvent.description}
 
         // Градиентный оверлей
         Container(
+          height: 280,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
@@ -641,6 +568,41 @@ ${_currentEvent.description}
                 Colors.transparent,
               ],
             ),
+          ),
+        ),
+
+        // Кнопки управления
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          left: _isMobile ? 8 : horizontalPadding,
+          right: _isMobile ? 8 : horizontalPadding,
+          child: Row(
+            children: [
+              // Кнопка назад - ПРОСТАЯ И РАБОЧАЯ
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).pop();
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.black,
+                    size: 20,
+                  ),
+                ),
+              ),
+              Spacer(),
+              // Другие кнопки
+              _buildSimpleActionButton(Icons.share_rounded, _shareEvent),
+              if (_isMobile)
+                _buildSimpleActionButton(Icons.more_vert_rounded, _showOptionsBottomSheet),
+            ],
           ),
         ),
 
@@ -768,6 +730,24 @@ ${_currentEvent.description}
     );
   }
 
+  // ПРОСТАЯ КНОПКА ДЕЙСТВИЯ
+  Widget _buildSimpleActionButton(IconData icon, VoidCallback onPressed) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 40,
+        height: 40,
+        margin: EdgeInsets.only(left: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.black, size: 18),
+      ),
+    );
+  }
+
+  // ОСТАЛЬНЫЕ МЕТОДЫ остаются без изменений
   Widget _buildMainContent(double horizontalPadding) {
     return Column(
       children: [
@@ -850,12 +830,8 @@ ${_currentEvent.description}
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                   SizedBox(height: 20),
-
-                  // Детальная информация
                   _buildInfoGrid(),
                   SizedBox(height: 20),
-
-                  // Полное описание
                   if (_currentEvent.description.isNotEmpty)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

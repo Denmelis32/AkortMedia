@@ -8,18 +8,18 @@ class TodayEvents {
     return [
       Event(
         id: 'today-1',
-        title: 'День Рождения Наськи',
-        description: 'У Наськи сегодня праздник, у нее сегодня День Рождения',
+        title: 'Мастер класс по игре в карточного дурака',
+        description: 'Будет учиться играть в дурака',
         date: DateTime(2025, 10, 19, 0, 0), // 19 октября 2025 года 00:00
         endDate: DateTime(2025, 10, 20, 0, 0), // 20 октября 2025 года 00:00
         color: Colors.green,
-        category: 'День Рождения',
+        category: 'Игры',
         location: 'Центральный парк',
         address: 'ул. Парковая, 1',
         price: 0,
-        organizer: 'Акорт Медиа"',
+        organizer: 'Дурак Онлайн"',
         imageUrl: 'https://avatars.mds.yandex.net/i?id=0e8e8f4350c9cdca02479a40acc5ad36_l-4875004-images-thumbs&n=13',
-        tags: ['День Рождения', 'Праздник'],
+        tags: ['Игры', 'Праздник'],
         maxAttendees: 100,
         currentAttendees: 78,
         rating: 4.5,

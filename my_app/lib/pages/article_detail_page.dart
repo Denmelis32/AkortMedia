@@ -937,53 +937,58 @@ class ArticleDetailPage extends StatelessWidget {
     );
   }
 
+  // ИСПРАВЛЕННЫЙ МЕТОД: Изображения внутри статьи в полный размер
   Widget _buildImageBlock(String imageUrl, BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width <= 600;
+    final horizontalPadding = _getHorizontalPadding(context);
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 0 : 0),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        color: Colors.white,
-        child: Column(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: _buildContentImage(imageUrl, 200),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        children: [
+          // Изображение занимает всю доступную ширину
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.symmetric(
+              horizontal: isMobile ? 0 : horizontalPadding,
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.image,
-                    size: 14,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(isMobile ? 0 : 12),
+              child: _buildContentImage(imageUrl),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Подпись к изображению
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.image,
+                  size: 14,
+                  color: Colors.green,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Изображение в статье',
+                  style: TextStyle(
+                    fontSize: _getContentFontSize(context) - 2,
                     color: Colors.green,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Изображение в статье',
-                    style: TextStyle(
-                      fontSize: _getContentFontSize(context) - 2,
-                      color: Colors.green,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // НОВЫЙ МЕТОД: Загрузка изображения контента (сетевого или локального)
-  Widget _buildContentImage(String imageUrl, double height) {
+  // ОБНОВЛЕННЫЙ МЕТОД: Загрузка изображения контента в полный размер
+  Widget _buildContentImage(String imageUrl) {
     print('🖼️ Loading content image: $imageUrl');
 
     try {
@@ -992,12 +997,11 @@ class ArticleDetailPage extends StatelessWidget {
         return Image.network(
           imageUrl,
           width: double.infinity,
-          height: height,
           fit: BoxFit.cover,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return Container(
-              height: height,
+              height: 250, // Фиксированная высота при загрузке
               decoration: BoxDecoration(
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
@@ -1014,7 +1018,7 @@ class ArticleDetailPage extends StatelessWidget {
           },
           errorBuilder: (context, error, stackTrace) {
             print('❌ Network image error: $error');
-            return _buildErrorContentImage(height);
+            return _buildErrorContentImage(250);
           },
         );
       } else {
@@ -1022,17 +1026,16 @@ class ArticleDetailPage extends StatelessWidget {
         return Image.asset(
           imageUrl,
           width: double.infinity,
-          height: height,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             print('❌ Asset image error: $error for path: $imageUrl');
-            return _buildErrorContentImage(height);
+            return _buildErrorContentImage(250);
           },
         );
       }
     } catch (e) {
       print('❌ Exception loading image: $e');
-      return _buildErrorContentImage(height);
+      return _buildErrorContentImage(250);
     }
   }
 

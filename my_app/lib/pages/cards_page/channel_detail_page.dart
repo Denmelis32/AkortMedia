@@ -1284,62 +1284,329 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('Создать новость'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _postTitleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Заголовок новости',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _postDescriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Описание новости',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 4,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _postHashtagsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Хештеги (через пробел)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
+          final isMobile = MediaQuery.of(context).size.width < 600;
+          final screenHeight = MediaQuery.of(context).size.height;
+          final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
+          return Dialog(
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 100,
+              vertical: isMobile ? 16 : 50,
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Отмена'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: screenHeight * 0.8,
+                maxWidth: isMobile ? double.infinity : 500,
               ),
-              ElevatedButton(
-                onPressed: () {
-                  final title = _postTitleController.text.trim();
-                  final description = _postDescriptionController.text.trim();
-                  final hashtags = _postHashtagsController.text.trim();
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Шапка диалога
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.add_circle_outline,
+                            color: Colors.blue,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Создать новость',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 18,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                  if (title.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Введите заголовок новости')),
-                    );
-                    return;
-                  }
+                  // Прокручиваемое содержимое
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Заголовок
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.title, size: 16, color: Colors.blue),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Заголовок новости',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey[300]!),
+                                ),
+                                child: TextField(
+                                  controller: _postTitleController,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Введите заголовок...',
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.all(16),
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 2,
+                                  maxLength: 100,
+                                  buildCounter: (
+                                      BuildContext context, {
+                                        required int currentLength,
+                                        required int? maxLength,
+                                        required bool isFocused,
+                                      }) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 16, bottom: 8),
+                                      child: Text(
+                                        '$currentLength/$maxLength',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: currentLength > maxLength!
+                                              ? Colors.red
+                                              : Colors.grey,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
 
-                  Navigator.pop(context);
-                  _addPost(context, title, description, hashtags);
-                },
-                child: const Text('Создать новость'),
+                          const SizedBox(height: 20),
+
+                          // Описание
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.description, size: 16, color: Colors.green),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Описание новости',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey[300]!),
+                                ),
+                                child: TextField(
+                                  controller: _postDescriptionController,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Опишите вашу новость...',
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.all(16),
+                                  ),
+                                  style: const TextStyle(fontSize: 14),
+                                  maxLines: 4,
+                                  maxLength: 500,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // Хештеги
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.tag, size: 16, color: Colors.orange),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Хештеги',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey[300]!),
+                                ),
+                                child: TextField(
+                                  controller: _postHashtagsController,
+                                  decoration: const InputDecoration(
+                                    hintText: '#спорт #новости #события',
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.all(16),
+                                  ),
+                                  style: const TextStyle(fontSize: 14),
+                                  maxLength: 100,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Вводите хештеги через пробел, начиная с #',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Кнопки действий
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(16),
+                        bottomRight: Radius.circular(16),
+                      ),
+                      border: Border(
+                        top: BorderSide(color: Colors.grey[300]!),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              side: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            child: const Text(
+                              'Отмена',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final title = _postTitleController.text.trim();
+                              final description = _postDescriptionController.text.trim();
+                              final hashtags = _postHashtagsController.text.trim();
+
+                              if (title.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Введите заголовок новости'),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              Navigator.pop(context);
+                              _addPost(context, title, description, hashtags);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Создать',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           );
         },
       ),

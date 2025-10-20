@@ -11,11 +11,13 @@ import 'widgets/profile_stats_section.dart';
 import 'widgets/profile_content_tabs.dart';
 import 'widgets/profile_info_section.dart';
 import 'widgets/profile_empty_state.dart';
+import 'widgets/profile_achievements.dart';
 
 // Components
 import 'components/image_picker_modal.dart';
 import 'components/cover_picker_modal.dart';
 import 'components/profile_menu_modal.dart';
+import 'components/edit_profile_modal.dart';
 
 // Utils
 import 'utils/profile_utils.dart';
@@ -59,20 +61,40 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   bool _showSearchBar = false;
   String _searchQuery = '';
   int _selectedSection = 0;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   final ProfileUtils _utils = ProfileUtils();
   final ProfileConstants _constants = ProfileConstants();
+
+  // Данные пользователя
+  String _bio = 'Расскажите о себе...';
+  String _location = 'Город не указан';
+  String _website = '';
+  DateTime _joinDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _setCurrentUser();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _animationController.forward();
+
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase().trim();
@@ -88,17 +110,9 @@ class _ProfilePageState extends State<ProfilePage> {
   void _debugReposts() {
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
     final userId = _utils.generateUserId(widget.userEmail);
-
     print('=== DEBUG REPOSTS ===');
     print('User ID: $userId');
     print('Total news: ${newsProvider.news.length}');
-
-    final allReposts = newsProvider.news.where((item) {
-      final newsItem = Map<String, dynamic>.from(item);
-      return newsItem['is_repost'] == true;
-    }).toList();
-
-    print('Total reposts in system: ${allReposts.length}');
     print('=== END DEBUG ===');
   }
 
@@ -118,6 +132,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -159,6 +174,27 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _showEditProfileModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => EditProfileModal(
+        currentBio: _bio,
+        currentLocation: _location,
+        currentWebsite: _website,
+        onSave: (bio, location, website) {
+          setState(() {
+            _bio = bio;
+            _location = location;
+            _website = website;
+          });
+          _showSuccessSnackBar('Профиль обновлен');
+        },
+      ),
+    );
+  }
+
   void _showProfileMenu() {
     showModalBottomSheet(
       context: context,
@@ -176,6 +212,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Navigator.pop(context);
           _showSuccessSnackBar('Жалоба отправлена');
         },
+        onEditProfile: _showEditProfileModal,
       ),
     );
   }
@@ -214,12 +251,26 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Map<String, dynamic> _getUserAchievements() {
+    final newsProvider = Provider.of<NewsProvider>(context);
+    final stats = _getUserStats(newsProvider.news);
+
+    return {
+      'first_post': stats['posts']! > 0,
+      'popular_author': stats['likes']! >= 100,
+      'active_commenter': stats['comments']! >= 50,
+      'week_streak': true, // Заглушка для демонстрации
+      'verified': false,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final newsProvider = Provider.of<NewsProvider>(context);
     final userStats = _getUserStats(newsProvider.news);
     final horizontalPadding = _utils.getHorizontalPadding(context);
     final contentMaxWidth = _utils.getContentMaxWidth(context);
+    final userColor = _utils.getUserColor(widget.userName);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -234,60 +285,111 @@ class _ProfilePageState extends State<ProfilePage> {
                 onBackPressed: () => Navigator.pop(context),
                 onSearchToggled: () => setState(() => _showSearchBar = !_showSearchBar),
                 onProfileMenuPressed: _showProfileMenu,
+                userColor: userColor,
               ),
               Expanded(
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: ProfileCoverSection(
-                        userName: widget.userName,
-                        userEmail: widget.userEmail,
-                        horizontalPadding: horizontalPadding,
-                        onImageTap: _showImagePickerModal,
-                        onCoverTap: _showCoverPickerModal,
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: Container(
-                        margin: EdgeInsets.only(
-                          left: horizontalPadding,
-                          right: horizontalPadding,
-                          top: 0,
-                          bottom: 16,
-                        ),
-                        child: Column(
-                          children: [
-                            _buildDescriptionCard(contentMaxWidth),
-                            const SizedBox(height: 16),
-                            ProfileStatsSection(
-                              stats: userStats,
-                              contentMaxWidth: contentMaxWidth,
-                              userColor: _utils.getUserColor(widget.userName),
-                            ),
-                            const SizedBox(height: 16),
-                            ProfileContentTabs(
-                              selectedSection: _selectedSection,
-                              contentMaxWidth: contentMaxWidth,
-                              userColor: _utils.getUserColor(widget.userName),
-                              userEmail: widget.userEmail,
-                              onSectionChanged: (section) {
-                                setState(() => _selectedSection = section);
-                                if (section == 2) _debugReposts();
-                              },
-                            ),
-                          ],
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: ProfileCoverSection(
+                          userName: widget.userName,
+                          userEmail: widget.userEmail,
+                          horizontalPadding: horizontalPadding,
+                          onImageTap: _showImagePickerModal,
+                          onCoverTap: _showCoverPickerModal,
+                          onEditProfile: _showEditProfileModal,
+                          bio: _bio,
+                          location: _location,
+                          website: _website,
+                          joinDate: _joinDate,
                         ),
                       ),
-                    ),
-                    _buildSelectedSectionSliver(newsProvider),
-                  ],
+                      SliverToBoxAdapter(
+                        child: Container(
+                          margin: EdgeInsets.only(
+                            left: horizontalPadding,
+                            right: horizontalPadding,
+                            top: 0,
+                            bottom: 16,
+                          ),
+                          child: Column(
+                            children: [
+                              ProfileStatsSection(
+                                stats: userStats,
+                                contentMaxWidth: contentMaxWidth,
+                                userColor: userColor,
+                                onStatsTap: (statType) {
+                                  _showStatDetails(statType, userStats);
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              ProfileAchievements(
+                                achievements: _getUserAchievements(),
+                                contentMaxWidth: contentMaxWidth,
+                                userColor: userColor,
+                              ),
+                              const SizedBox(height: 16),
+                              ProfileContentTabs(
+                                selectedSection: _selectedSection,
+                                contentMaxWidth: contentMaxWidth,
+                                userColor: userColor,
+                                userEmail: widget.userEmail,
+                                onSectionChanged: (section) {
+                                  setState(() => _selectedSection = section);
+                                  if (section == 2) _debugReposts();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      _buildSelectedSectionSliver(newsProvider),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showStatDetails(String statType, Map<String, int> stats) {
+    String title = '';
+    String description = '';
+    int value = stats[statType] ?? 0;
+
+    switch (statType) {
+      case 'posts':
+        title = 'Ваши публикации';
+        description = 'Всего опубликовано постов: $value';
+        break;
+      case 'likes':
+        title = 'Полученные лайки';
+        description = 'Пользователи оценили ваши посты $value раз';
+        break;
+      case 'comments':
+        title = 'Комментарии';
+        description = 'Всего оставлено комментариев: $value';
+        break;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(description),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрыть'),
+          ),
+        ],
       ),
     );
   }
@@ -384,6 +486,8 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.article_outlined,
         title: 'Пока нет постов',
         subtitle: 'Создайте свой первый пост, чтобы он появился здесь',
+        actionText: 'Создать пост',
+        onAction: () => _showCreatePostDialog(),
       );
     }
 
@@ -407,6 +511,8 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.favorite_border_rounded,
         title: 'Пока нет лайков',
         subtitle: 'Поставьте лайки понравившимся постам, чтобы они появились здесь',
+        actionText: 'Найти интересное',
+        onAction: () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut),
       );
     }
 
@@ -427,6 +533,8 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.repeat_rounded,
         title: 'Пока нет репостов',
         subtitle: 'Репостните интересные посты, чтобы они появились здесь',
+        actionText: 'Посмотреть ленту',
+        onAction: () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut),
       );
     }
 
@@ -469,6 +577,8 @@ class _ProfilePageState extends State<ProfilePage> {
     required IconData icon,
     required String title,
     required String subtitle,
+    String? actionText,
+    VoidCallback? onAction,
   }) {
     final horizontalPadding = _utils.getHorizontalPadding(context);
     final contentMaxWidth = _utils.getContentMaxWidth(context);
@@ -487,12 +597,38 @@ class _ProfilePageState extends State<ProfilePage> {
           title: title,
           subtitle: subtitle,
           userColor: _utils.getUserColor(widget.userName),
+          actionText: actionText,
+          onAction: onAction,
         ),
       ),
     );
   }
 
+  void _showCreatePostDialog() {
+    // Заглушка для создания поста
+    _showSuccessSnackBar('Функция создания поста в разработке');
+  }
+
   void _handleLogout(BuildContext context) {
-    widget.onLogout();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выход из аккаунта'),
+        content: const Text('Вы уверены, что хотите выйти?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onLogout();
+            },
+            child: const Text('Выйти', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:my_app/providers/news_provider.dart';
 import '../utils/profile_utils.dart';
 
 class ProfileCoverSection extends StatelessWidget {
@@ -9,6 +7,11 @@ class ProfileCoverSection extends StatelessWidget {
   final double horizontalPadding;
   final VoidCallback onImageTap;
   final VoidCallback onCoverTap;
+  final VoidCallback onEditProfile;
+  final String bio;
+  final String location;
+  final String website;
+  final DateTime joinDate;
 
   const ProfileCoverSection({
     super.key,
@@ -17,6 +20,11 @@ class ProfileCoverSection extends StatelessWidget {
     required this.horizontalPadding,
     required this.onImageTap,
     required this.onCoverTap,
+    required this.onEditProfile,
+    required this.bio,
+    required this.location,
+    required this.website,
+    required this.joinDate,
   });
 
   @override
@@ -31,25 +39,23 @@ class ProfileCoverSection extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            _buildCoverSection(context, utils),
-            _buildAvatarAndInfoSection(context, utils),
+            _buildCoverSection(utils),
+            _buildAvatarAndInfoSection(utils),
+            _buildEditProfileButton(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCoverSection(BuildContext context, ProfileUtils utils) {
-    final coverUrl = utils.getUserCoverUrl(context, userEmail);
-
+  Widget _buildCoverSection(ProfileUtils utils) {
     return GestureDetector(
       onTap: onCoverTap,
       child: Container(
         height: 140,
         width: double.infinity,
         decoration: BoxDecoration(
-          image: _getCoverDecoration(coverUrl),
-          gradient: _getCoverGradient(coverUrl, utils),
+          gradient: _getCoverGradient(utils),
         ),
         child: Container(
           decoration: BoxDecoration(
@@ -76,29 +82,16 @@ class ProfileCoverSection extends StatelessWidget {
     );
   }
 
-  DecorationImage? _getCoverDecoration(String? coverUrl) {
-    if (coverUrl != null && coverUrl.isNotEmpty) {
-      return DecorationImage(
-        image: NetworkImage(coverUrl),
-        fit: BoxFit.cover,
-      );
-    }
-    return null;
+  Gradient _getCoverGradient(ProfileUtils utils) {
+    final userColor = utils.getUserColor(userName);
+    return LinearGradient(
+      colors: [userColor, utils.darkenColor(userColor, 0.3)],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    );
   }
 
-  Gradient? _getCoverGradient(String? coverUrl, ProfileUtils utils) {
-    if (coverUrl == null || coverUrl.isEmpty) {
-      final userColor = utils.getUserColor(userName);
-      return LinearGradient(
-        colors: [userColor, utils.darkenColor(userColor, 0.3)],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      );
-    }
-    return null;
-  }
-
-  Widget _buildAvatarAndInfoSection(BuildContext context, ProfileUtils utils) {
+  Widget _buildAvatarAndInfoSection(ProfileUtils utils) {
     return Positioned(
       bottom: 16,
       left: 16,
@@ -122,7 +115,7 @@ class ProfileCoverSection extends StatelessWidget {
                   ),
                 ],
               ),
-              child: ClipOval(child: _getProfileImageWidget(context, utils)),
+              child: ClipOval(child: _buildDefaultAvatar(utils)),
             ),
           ),
           const SizedBox(width: 16),
@@ -151,6 +144,17 @@ class ProfileCoverSection extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 8),
+                if (bio.isNotEmpty && bio != 'Расскажите о себе...')
+                  Text(
+                    bio,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
               ],
             ),
           ),
@@ -159,21 +163,16 @@ class ProfileCoverSection extends StatelessWidget {
     );
   }
 
-  Widget _getProfileImageWidget(BuildContext context, ProfileUtils utils) {
-    return Consumer<NewsProvider>(
-      builder: (context, newsProvider, child) {
-        final profileImage = utils.getProfileImage(context, userEmail);
-        if (profileImage != null) {
-          return Image.file(profileImage, fit: BoxFit.cover);
-        }
-
-        final profileImageUrl = utils.getProfileImageUrl(context, userEmail);
-        if (profileImageUrl != null && profileImageUrl.isNotEmpty) {
-          return Image.network(profileImageUrl, fit: BoxFit.cover);
-        }
-
-        return _buildDefaultAvatar(utils);
-      },
+  Widget _buildEditProfileButton() {
+    return Positioned(
+      top: 100,
+      right: 16,
+      child: FloatingActionButton.small(
+        onPressed: onEditProfile,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blue,
+        child: const Icon(Icons.edit_rounded, size: 18),
+      ),
     );
   }
 

@@ -4,12 +4,14 @@ class ProfileMenuModal extends StatelessWidget {
   final VoidCallback onShareProfile;
   final VoidCallback onShowQrCode;
   final VoidCallback onReport;
+  final VoidCallback onEditProfile;
 
   const ProfileMenuModal({
     super.key,
     required this.onShareProfile,
     required this.onShowQrCode,
     required this.onReport,
+    required this.onEditProfile,
   });
 
   @override
@@ -27,16 +29,23 @@ class ProfileMenuModal extends StatelessWidget {
             _buildDragHandle(),
             const SizedBox(height: 12),
             _buildMenuOption(
+              Icons.edit_rounded,
+              'Редактировать профиль',
+              Colors.blue,
+              onEditProfile,
+            ),
+            const SizedBox(height: 12),
+            _buildMenuOption(
               Icons.share_rounded,
               'Поделиться профилем',
-              Colors.blue,
+              Colors.green,
               onShareProfile,
             ),
             const SizedBox(height: 12),
             _buildMenuOption(
               Icons.qr_code_rounded,
               'QR-код профиля',
-              Colors.green,
+              Colors.purple,
               onShowQrCode,
             ),
             const SizedBox(height: 12),

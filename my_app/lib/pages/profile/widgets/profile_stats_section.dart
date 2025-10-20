@@ -4,12 +4,14 @@ class ProfileStatsSection extends StatelessWidget {
   final Map<String, int> stats;
   final double contentMaxWidth;
   final Color userColor;
+  final Function(String)? onStatsTap;
 
   const ProfileStatsSection({
     super.key,
     required this.stats,
     required this.contentMaxWidth,
     required this.userColor,
+    this.onStatsTap,
   });
 
   @override
@@ -56,9 +58,9 @@ class ProfileStatsSection extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildStatItem('${stats['posts'] ?? 0}', 'Постов', Icons.article_rounded),
-                  _buildStatItem('${stats['likes'] ?? 0}', 'Лайков', Icons.favorite_rounded),
-                  _buildStatItem('${stats['comments'] ?? 0}', 'Комментариев', Icons.chat_rounded),
+                  _buildStatItem('${stats['posts'] ?? 0}', 'Постов', Icons.article_rounded, 'posts'),
+                  _buildStatItem('${stats['likes'] ?? 0}', 'Лайков', Icons.favorite_rounded, 'likes'),
+                  _buildStatItem('${stats['comments'] ?? 0}', 'Комментариев', Icons.chat_rounded, 'comments'),
                 ],
               ),
             ),
@@ -68,36 +70,39 @@ class ProfileStatsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem(String value, String label, IconData icon) {
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: userColor.withOpacity(0.1),
-            shape: BoxShape.circle,
+  Widget _buildStatItem(String value, String label, IconData icon, String statType) {
+    return GestureDetector(
+      onTap: () => onStatsTap?.call(statType),
+      child: Column(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: userColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: userColor, size: 20),
           ),
-          child: Icon(icon, color: userColor, size: 20),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

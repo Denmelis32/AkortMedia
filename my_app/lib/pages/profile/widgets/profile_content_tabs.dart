@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:my_app/providers/news_provider.dart';
-import '../utils/profile_utils.dart';
 
 class ProfileContentTabs extends StatelessWidget {
   final int selectedSection;
@@ -50,11 +47,6 @@ class ProfileContentTabs extends StatelessWidget {
                     color: Colors.black87,
                   ),
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: Icon(Icons.refresh_rounded, color: userColor, size: 20),
-                  onPressed: () => _onRefreshPressed(context),
-                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -74,7 +66,6 @@ class ProfileContentTabs extends StatelessWidget {
                 ],
               ),
             ),
-            _buildRepostStats(context),
           ],
         ),
       ),
@@ -120,47 +111,5 @@ class ProfileContentTabs extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildRepostStats(BuildContext context) {
-    return Consumer<NewsProvider>(
-      builder: (context, newsProvider, child) {
-        final utils = ProfileUtils();
-        final userReposts = utils.getUserReposts(newsProvider.news, userEmail);
-        final totalReposts = newsProvider.news.where((item) {
-          final newsItem = Map<String, dynamic>.from(item);
-          return newsItem['is_repost'] == true;
-        }).length;
-
-        return Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Всего репостов в системе: $totalReposts',
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-              ),
-              Text(
-                'Ваших репостов: ${userReposts.length}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: userColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _onRefreshPressed(BuildContext context) {
-    final utils = ProfileUtils();
-    print('🔄 Manual refresh triggered');
-    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    final userReposts = utils.getUserReposts(newsProvider.news, userEmail);
-    print('📊 Current user reposts: ${userReposts.length}');
   }
 }

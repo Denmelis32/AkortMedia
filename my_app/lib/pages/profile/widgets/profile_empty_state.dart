@@ -5,6 +5,8 @@ class ProfileEmptyState extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color userColor;
+  final String? actionText;
+  final VoidCallback? onAction;
 
   const ProfileEmptyState({
     super.key,
@@ -12,6 +14,8 @@ class ProfileEmptyState extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.userColor,
+    this.actionText,
+    this.onAction,
   });
 
   @override
@@ -46,6 +50,21 @@ class ProfileEmptyState extends StatelessWidget {
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
+          if (actionText != null && onAction != null) ...[
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: onAction,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: userColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: Text(actionText!),
+            ),
+          ],
         ],
       ),
     );

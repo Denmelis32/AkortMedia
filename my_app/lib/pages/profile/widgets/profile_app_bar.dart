@@ -6,6 +6,7 @@ class ProfileAppBar extends StatelessWidget {
   final VoidCallback onBackPressed;
   final VoidCallback onSearchToggled;
   final VoidCallback onProfileMenuPressed;
+  final Color userColor;
 
   const ProfileAppBar({
     super.key,
@@ -14,6 +15,7 @@ class ProfileAppBar extends StatelessWidget {
     required this.onBackPressed,
     required this.onSearchToggled,
     required this.onProfileMenuPressed,
+    required this.userColor,
   });
 
   @override
@@ -31,16 +33,16 @@ class ProfileAppBar extends StatelessWidget {
                 color: Colors.grey[100],
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: 18),
+              child: Icon(Icons.arrow_back, color: userColor, size: 18),
             ),
             onPressed: onBackPressed,
           ),
           const SizedBox(width: 8),
           if (!showSearchBar) ...[
-            const Text(
+            Text(
               'Профиль',
               style: TextStyle(
-                color: Colors.black,
+                color: userColor,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -60,7 +62,7 @@ class ProfileAppBar extends StatelessWidget {
                         color: Colors.grey[100],
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.black, size: 18),
+                      child: Icon(Icons.close, color: userColor, size: 18),
                     ),
                     onPressed: onSearchToggled,
                   ),
@@ -77,7 +79,7 @@ class ProfileAppBar extends StatelessWidget {
                       color: Colors.grey[100],
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.search, color: Colors.black, size: 18),
+                    child: Icon(Icons.search, color: userColor, size: 18),
                   ),
                   onPressed: onSearchToggled,
                 ),
@@ -88,7 +90,7 @@ class ProfileAppBar extends StatelessWidget {
                       color: Colors.grey[100],
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.more_vert, color: Colors.black, size: 18),
+                    child: Icon(Icons.more_vert, color: userColor, size: 18),
                   ),
                   onPressed: onProfileMenuPressed,
                 ),
@@ -111,7 +113,7 @@ class ProfileAppBar extends StatelessWidget {
         autofocus: true,
         decoration: InputDecoration(
           hintText: 'Поиск в профиле...',
-          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+          prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
           suffixIcon: searchController.text.isNotEmpty
               ? IconButton(
             icon: const Icon(Icons.clear, size: 18, color: Colors.grey),

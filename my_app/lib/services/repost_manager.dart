@@ -31,12 +31,35 @@ class RepostManager {
     required String currentUserName,
   }) async {
     try {
+      // БЕЗОПАСНОЕ ПОЛУЧЕНИЕ ОРИГИНАЛЬНОЙ НОВОСТИ
+      if (originalIndex < 0 || originalIndex >= newsProvider.news.length) {
+        print('❌ [DEBUG] Invalid original index: $originalIndex');
+        return;
+      }
+
       final originalNews = Map<String, dynamic>.from(newsProvider.news[originalIndex]);
-      final originalNewsId = originalNews['id'].toString();
+      final originalNewsId = originalNews['id']?.toString();
+
+      if (originalNewsId == null || originalNewsId.isEmpty) {
+        print('❌ [DEBUG] Original news ID is null or empty');
+        return;
+      }
 
       print('🔄 [DEBUG] Starting repost creation:');
       print('   Original news ID: $originalNewsId');
       print('   Current user: $currentUserName ($currentUserId)');
+      print('   Is channel post: ${originalNews['is_channel_post']}');
+      print('   Channel name: ${originalNews['channel_name']}');
+      print('   Original index: $originalIndex');
+      print('   Total news count: ${newsProvider.news.length}');
+
+      // ПРОВЕРЯЕМ ДАННЫЕ ОРИГИНАЛЬНОЙ НОВОСТИ
+      print('🔍 [DEBUG] Original news data:');
+      print('   ID: ${originalNews['id']}');
+      print('   Title: ${originalNews['title']}');
+      print('   Author: ${originalNews['author_name']}');
+      print('   Has channel data: ${originalNews.containsKey('channel_name')}');
+      print('   Channel ID: ${originalNews['channel_id']}');
 
       // Проверяем, не существует ли уже репост
       final existingRepostId = getRepostIdForOriginal(newsProvider, originalNewsId, currentUserId);
@@ -45,13 +68,15 @@ class RepostManager {
         return;
       }
 
-      // Создаем уникальный ID для репоста
+      // СОЗДАЕМ УНИКАЛЬНЫЙ ID ДЛЯ РЕПОСТА
       final repostId = 'repost-${DateTime.now().millisecondsSinceEpoch}-$currentUserId';
+      print('✅ [DEBUG] Generated repost ID: $repostId');
 
-      // Получаем аватар текущего пользователя
+      // ПОЛУЧАЕМ АВАТАР ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
       final currentUserAvatar = _getCurrentUserAvatarUrl(newsProvider, currentUserId);
+      print('✅ [DEBUG] Current user avatar: $currentUserAvatar');
 
-      // Создаем данные репоста
+      // СОЗДАЕМ ДАННЫЕ РЕПОСТА
       final repostData = await _createRepostData(
         originalNews: originalNews,
         repostId: repostId,
@@ -60,36 +85,151 @@ class RepostManager {
         currentUserAvatar: currentUserAvatar,
       );
 
-      // Детальная проверка данных перед добавлением
-      print('🔄 [DEBUG] Repost data before adding:');
-      print('   repost_comment: "${repostData['repost_comment']}"');
-      print('   comments count: ${(repostData['comments'] as List).length}');
-      print('   comments: ${repostData['comments']}');
+      // ПОДРОБНАЯ ОТЛАДКА ДАННЫХ РЕПОСТА
+      _debugRepostData(repostData);
 
-      // Добавляем репост в провайдер
+      // ПРОВЕРЯЕМ КРИТИЧЕСКИЕ ПОЛЯ ПЕРЕД ДОБАВЛЕНИЕМ
+      final criticalFields = ['id', 'original_post_id', 'reposted_by', 'author_name', 'is_repost'];
+      bool hasAllCriticalFields = true;
+
+      for (final field in criticalFields) {
+        if (!repostData.containsKey(field) || repostData[field] == null) {
+          print('❌ [DEBUG] MISSING CRITICAL FIELD: $field');
+          hasAllCriticalFields = false;
+        }
+      }
+
+      if (!hasAllCriticalFields) {
+        print('❌ [DEBUG] Cannot create repost - missing critical fields');
+        return;
+      }
+
+      // ДОБАВЛЯЕМ РЕПОСТ В ПРОВАЙДЕР
+      print('🔄 [DEBUG] Adding repost to provider...');
       _addRepostToProvider(newsProvider, repostData);
 
       // ВЫЗЫВАЕМ ПРОВЕРКУ СРАЗУ ПОСЛЕ ДОБАВЛЕНИЯ
       _verifyRepostCreation(newsProvider, repostId);
 
-      // Сохраняем информацию о репосте
+      // СОХРАНЯЕМ ИНФОРМАЦИЮ О РЕПОСТЕ
+      print('🔄 [DEBUG] Saving repost info...');
       await _saveRepostInfo(currentUserId, repostId, originalNewsId);
 
-      // Обновляем состояние в InteractionManager
+      // ОБНОВЛЯЕМ СОСТОЯНИЕ В INTERACTION MANAGER
+      print('🔄 [DEBUG] Updating interaction manager...');
       _updateInteractionManager(originalNewsId, true);
 
-      // Уведомляем UI об изменении
+      // УВЕДОМЛЯЕМ UI ОБ ИЗМЕНЕНИИ
+      print('🔄 [DEBUG] Notifying UI...');
       _notifyRepostStateChanged();
 
-      // Очищаем возможные дубликаты после создания репоста
+      // ОЧИЩАЕМ ВОЗМОЖНЫЕ ДУБЛИКАТЫ ПОСЛЕ СОЗДАНИЯ РЕПОСТА
+      print('🔄 [DEBUG] Cleaning up duplicates...');
       await cleanupDuplicateRepostComments(newsProvider);
 
-      print('✅ [DEBUG] Repost successfully created: $repostId');
+      // ФИНАЛЬНАЯ ПРОВЕРКА
+      final finalIndex = newsProvider.findNewsIndexById(repostId);
+      if (finalIndex != -1) {
+        final finalRepost = Map<String, dynamic>.from(newsProvider.news[finalIndex]);
+        print('🎉 [DEBUG] Repost successfully created and verified:');
+        print('   Final index: $finalIndex');
+        print('   Final ID: ${finalRepost['id']}');
+        print('   Is repost: ${finalRepost['is_repost']}');
+        print('   Author: ${finalRepost['author_name']}');
+      } else {
+        print('❌ [DEBUG] Repost not found after creation!');
+      }
 
-    } catch (e) {
+      print('✅ [DEBUG] Repost creation completed successfully: $repostId');
+
+    } catch (e, stackTrace) {
       print('❌ [DEBUG] Error creating repost: $e');
+      print('❌ [DEBUG] Stack trace: $stackTrace');
+
+      // ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ ДЛЯ ОТЛАДКИ
+      print('❌ [DEBUG] Error context:');
+      print('   Original index: $originalIndex');
+      print('   Current user: $currentUserName ($currentUserId)');
+      print('   News provider length: ${newsProvider.news.length}');
+
       rethrow;
     }
+  }
+
+
+
+
+
+
+  // Метод для детальной отладки данных репоста
+  void _debugRepostData(Map<String, dynamic> repostData) {
+    print('🔍 [DEBUG] === REPOST DATA DEBUG INFO ===');
+
+    // ОСНОВНЫЕ ПОЛЯ
+    print('📋 BASIC FIELDS:');
+    print('   ID: ${repostData['id']}');
+    print('   Original Post ID: ${repostData['original_post_id']}');
+    print('   Is Repost: ${repostData['is_repost']}');
+    print('   Reposted By: ${repostData['reposted_by']}');
+    print('   Reposted By Name: ${repostData['reposted_by_name']}');
+    print('   Author Name: ${repostData['author_name']}');
+    print('   Author Avatar: ${repostData['author_avatar']}');
+
+    // ДАННЫЕ ОРИГИНАЛЬНОГО ПОСТА
+    print('📋 ORIGINAL POST DATA:');
+    print('   Original Author: ${repostData['original_author_name']}');
+    print('   Original Author Avatar: ${repostData['original_author_avatar']}');
+    print('   Original Channel: ${repostData['original_channel_name']}');
+    print('   Original Channel ID: ${repostData['original_channel_id']}');
+    print('   Original Channel Avatar: ${repostData['original_channel_avatar']}');
+    print('   Is Original Channel Post: ${repostData['is_original_channel_post']}');
+
+    // КОНТЕНТ
+    print('📋 CONTENT:');
+    print('   Title: "${repostData['title']}"');
+    print('   Description: "${repostData['description']?.toString().length} chars"');
+    print('   Image: ${repostData['image']}');
+    print('   Hashtags: ${repostData['hashtags']}');
+
+    // МЕТАДАННЫЕ
+    print('📋 METADATA:');
+    print('   Created At: ${repostData['created_at']}');
+    print('   Reposted At: ${repostData['reposted_at']}');
+    print('   Likes: ${repostData['likes']}');
+    print('   Comments Count: ${(repostData['comments'] as List).length}');
+    print('   Repost Comment: "${repostData['repost_comment']}"');
+    print('   Tag Color: ${repostData['tag_color']}');
+    print('   Is Channel Post: ${repostData['is_channel_post']}');
+    print('   Content Type: ${repostData['content_type']}');
+
+    // ПРОВЕРКА ОБЯЗАТЕЛЬНЫХ ПОЛЕЙ
+    print('🔍 REQUIRED FIELDS CHECK:');
+    final requiredFields = {
+      'id': 'string',
+      'original_post_id': 'string',
+      'is_repost': 'boolean',
+      'reposted_by': 'string',
+      'reposted_by_name': 'string',
+      'author_name': 'string',
+      'comments': 'list'
+    };
+
+    bool allFieldsValid = true;
+    requiredFields.forEach((field, type) {
+      final hasField = repostData.containsKey(field);
+      final fieldValue = repostData[field];
+      final isValid = hasField && fieldValue != null;
+
+      if (isValid) {
+        print('   ✅ $field: $fieldValue');
+      } else {
+        print('   ❌ $field: MISSING OR NULL');
+        allFieldsValid = false;
+      }
+    });
+
+    print('📊 VALIDATION RESULT: ${allFieldsValid ? "PASSED" : "FAILED"}');
+    print('🔍 [DEBUG] === END REPOST DATA DEBUG ===');
   }
 
   // Метод для отмены репоста
@@ -253,55 +393,81 @@ class RepostManager {
     required String currentUserName,
     required String currentUserAvatar,
   }) async {
-    final originalAuthorName = originalNews['author_name']?.toString() ?? 'Пользователь';
-    final originalAuthorAvatar = originalNews['author_avatar']?.toString() ?? '';
-    final originalChannelName = originalNews['channel_name']?.toString() ?? '';
-    final isOriginalChannelPost = originalNews['is_channel_post'] == true;
+    try {
+      final originalAuthorName = originalNews['author_name']?.toString() ?? 'Пользователь';
+      final originalAuthorAvatar = originalNews['author_avatar']?.toString() ?? '';
+      final originalChannelName = originalNews['channel_name']?.toString() ?? '';
+      final isOriginalChannelPost = originalNews['is_channel_post'] == true;
+      final originalChannelId = originalNews['channel_id']?.toString() ?? '';
+      final originalChannelAvatar = originalNews['channel_avatar']?.toString() ?? '';
 
-    print('🔄 [DEBUG] Creating regular repost data:');
-    print('   Original author: $originalAuthorName');
-    print('   Original channel: $originalChannelName');
-    print('   Is channel post: $isOriginalChannelPost');
+      print('🔄 [DEBUG] Creating regular repost data:');
+      print('   Original author: $originalAuthorName');
+      print('   Original channel: $originalChannelName');
+      print('   Is channel post: $isOriginalChannelPost');
+      print('   Channel ID: $originalChannelId');
 
-    return {
-      'id': repostId,
-      'original_post_id': originalNews['id'].toString(),
-      'is_repost': true,
-      'reposted_by': currentUserId,
-      'reposted_by_name': currentUserName,
-      'reposted_at': DateTime.now().toIso8601String(),
+      // БАЗОВЫЕ ДАННЫЕ РЕПОСТА
+      final repostData = {
+        'id': repostId,
+        'original_post_id': originalNews['id'].toString(),
+        'is_repost': true,
+        'reposted_by': currentUserId,
+        'reposted_by_name': currentUserName,
+        'reposted_at': DateTime.now().toIso8601String(),
 
-      // Данные оригинального поста
-      'original_author_name': originalAuthorName,
-      'original_author_avatar': originalAuthorAvatar,
-      'original_channel_name': originalChannelName,
-      'is_original_channel_post': isOriginalChannelPost,
+        // Данные оригинального поста
+        'original_author_name': originalAuthorName,
+        'original_author_avatar': originalAuthorAvatar,
+        'original_channel_name': originalChannelName,
+        'original_channel_id': originalChannelId,
+        'original_channel_avatar': originalChannelAvatar,
+        'is_original_channel_post': isOriginalChannelPost,
 
-      // Контент поста (копируем из оригинала)
-      'title': originalNews['title'] ?? '',
-      'description': originalNews['description'] ?? '',
-      'image': originalNews['image'] ?? '',
-      'hashtags': List<String>.from(originalNews['hashtags'] ?? []),
+        // Контент поста (копируем из оригинала)
+        'title': originalNews['title']?.toString() ?? '',
+        'description': originalNews['description']?.toString() ?? '',
+        'image': originalNews['image']?.toString() ?? '',
+        'hashtags': List<String>.from(originalNews['hashtags'] ?? []),
 
-      // Автор репоста (текущий пользователь)
-      'author_name': currentUserName,
-      'author_avatar': currentUserAvatar,
+        // Автор репоста (текущий пользователь)
+        'author_name': currentUserName,
+        'author_avatar': currentUserAvatar,
 
-      // Метаданные
-      'created_at': DateTime.now().toIso8601String(),
-      'likes': 0,
-      'comments': [], // ВАЖНО: пустой массив комментариев
-      'user_tags': <String, String>{},
-      'isLiked': false,
-      'isBookmarked': false,
-      'isFollowing': false,
-      'tag_color': _generateColorFromId(repostId).value,
-      'is_channel_post': false, // Репост всегда обычный пост
-      'content_type': 'repost',
+        // Метаданные
+        'created_at': DateTime.now().toIso8601String(),
+        'likes': 0,
+        'comments': [], // ВАЖНО: пустой массив комментариев
+        'user_tags': <String, String>{},
+        'isLiked': false,
+        'isBookmarked': false,
+        'isFollowing': false,
+        'tag_color': _generateColorFromId(repostId).value,
+        'is_channel_post': false, // Репост всегда обычный пост
+        'content_type': 'repost',
 
-      // Для обычных репостов комментарий репоста пустой
-      'repost_comment': '',
-    };
+        // Для обычных репостов комментарий репоста пустой
+        'repost_comment': '',
+      };
+
+      // ДОБАВЛЯЕМ ДОПОЛНИТЕЛЬНЫЕ ПОЛЯ ДЛЯ КАНАЛЬНЫХ ПОСТОВ
+      if (isOriginalChannelPost) {
+        repostData.addAll({
+          'original_created_at': originalNews['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+          'channel_subscribers': originalNews['channel_subscribers'] ?? 0,
+          'channel_videos': originalNews['channel_videos'] ?? 0,
+        });
+      }
+
+      print('✅ [DEBUG] Repost data created successfully');
+      print('   Has all required fields: ${repostData.containsKey('original_channel_id')}');
+
+      return repostData;
+
+    } catch (e) {
+      print('❌ [DEBUG] Error creating repost data: $e');
+      rethrow;
+    }
   }
 
   // МЕТОД ДЛЯ СОЗДАНИЯ ДАННЫХ РЕПОСТА С КОММЕНТАРИЕМ
@@ -313,52 +479,136 @@ class RepostManager {
     required String currentUserAvatar,
     required String comment,
   }) async {
-    final originalAuthorName = originalNews['author_name']?.toString() ?? 'Пользователь';
-    final originalAuthorAvatar = originalNews['author_avatar']?.toString() ?? '';
-    final originalChannelName = originalNews['channel_name']?.toString() ?? '';
-    final isOriginalChannelPost = originalNews['is_channel_post'] == true;
+    try {
+      final originalAuthorName = originalNews['author_name']?.toString() ?? 'Пользователь';
+      final originalAuthorAvatar = originalNews['author_avatar']?.toString() ?? '';
+      final originalChannelName = originalNews['channel_name']?.toString() ?? '';
+      final isOriginalChannelPost = originalNews['is_channel_post'] == true;
+      final originalChannelId = originalNews['channel_id']?.toString() ?? '';
+      final originalChannelAvatar = originalNews['channel_avatar']?.toString() ?? '';
 
-    print('🔄 [DEBUG] Creating repost with comment data:');
-    print('   Comment: "$comment"');
-    print('   Comment length: ${comment.length}');
+      print('🔄 [DEBUG] Creating repost with comment data:');
+      print('   Comment: "$comment"');
+      print('   Comment length: ${comment.length}');
+      print('   Is channel post: $isOriginalChannelPost');
 
-    // ВАЖНОЕ ИСПРАВЛЕНИЕ: Гарантируем пустой массив комментариев
-    return {
-      'id': repostId,
-      'original_post_id': originalNews['id'].toString(),
-      'is_repost': true,
-      'reposted_by': currentUserId,
-      'reposted_by_name': currentUserName,
-      'reposted_at': DateTime.now().toIso8601String(),
-      'repost_comment': comment, // ТОЛЬКО здесь
+      // БАЗОВЫЕ ДАННЫЕ РЕПОСТА С КОММЕНТАРИЕМ
+      final repostData = {
+        'id': repostId,
+        'original_post_id': originalNews['id'].toString(),
+        'is_repost': true,
+        'reposted_by': currentUserId,
+        'reposted_by_name': currentUserName,
+        'reposted_at': DateTime.now().toIso8601String(),
+        'repost_comment': comment, // ТОЛЬКО здесь
 
-      // Данные оригинального поста
-      'original_author_name': originalAuthorName,
-      'original_author_avatar': originalAuthorAvatar,
-      'original_channel_name': originalChannelName,
-      'is_original_channel_post': isOriginalChannelPost,
+        // Данные оригинального поста
+        'original_author_name': originalAuthorName,
+        'original_author_avatar': originalAuthorAvatar,
+        'original_channel_name': originalChannelName,
+        'original_channel_id': originalChannelId,
+        'original_channel_avatar': originalChannelAvatar,
+        'is_original_channel_post': isOriginalChannelPost,
 
-      // Контент поста
-      'title': originalNews['title'] ?? '',
-      'description': originalNews['description'] ?? '',
-      'image': originalNews['image'] ?? '',
-      'hashtags': List<String>.from(originalNews['hashtags'] ?? []),
+        // Контент поста
+        'title': originalNews['title']?.toString() ?? '',
+        'description': originalNews['description']?.toString() ?? '',
+        'image': originalNews['image']?.toString() ?? '',
+        'hashtags': List<String>.from(originalNews['hashtags'] ?? []),
 
-      // Автор репоста (текущий пользователь)
-      'author_name': currentUserName,
-      'author_avatar': currentUserAvatar,
+        // Автор репоста (текущий пользователь)
+        'author_name': currentUserName,
+        'author_avatar': currentUserAvatar,
 
-      'created_at': DateTime.now().toIso8601String(),
-      'likes': 0,
-      'comments': [], // ВАЖНО: ПУСТОЙ массив обычных комментариев
-      'user_tags': <String, String>{},
-      'isLiked': false,
-      'isBookmarked': false,
-      'isFollowing': false,
-      'tag_color': _generateColorFromId(repostId).value,
-      'is_channel_post': false,
-      'content_type': 'repost',
-    };
+        'created_at': DateTime.now().toIso8601String(),
+        'likes': 0,
+        'comments': [], // ВАЖНО: ПУСТОЙ массив обычных комментариев
+        'user_tags': <String, String>{},
+        'isLiked': false,
+        'isBookmarked': false,
+        'isFollowing': false,
+        'tag_color': _generateColorFromId(repostId).value,
+        'is_channel_post': false,
+        'content_type': 'repost',
+      };
+
+      // ДОБАВЛЯЕМ ДОПОЛНИТЕЛЬНЫЕ ПОЛЯ ДЛЯ КАНАЛЬНЫХ ПОСТОВ
+      if (isOriginalChannelPost) {
+        repostData.addAll({
+          'original_created_at': originalNews['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+          'channel_subscribers': originalNews['channel_subscribers'] ?? 0,
+          'channel_videos': originalNews['channel_videos'] ?? 0,
+        });
+      }
+
+      print('✅ [DEBUG] Repost with comment data created successfully');
+
+      return repostData;
+
+    } catch (e) {
+      print('❌ [DEBUG] Error creating repost with comment data: $e');
+      rethrow;
+    }
+  }
+
+
+  // Вспомогательный метод для безопасного копирования данных поста
+  Map<String, dynamic> _safeCopyNewsData(Map<String, dynamic> originalNews) {
+    final copiedData = <String, dynamic>{};
+
+    // Копируем все поля с проверкой на null
+    originalNews.forEach((key, value) {
+      if (value != null) {
+        if (value is List) {
+          copiedData[key] = List.from(value);
+        } else if (value is Map) {
+          copiedData[key] = Map<String, dynamic>.from(value);
+        } else {
+          copiedData[key] = value;
+        }
+      } else {
+        // Устанавливаем значения по умолчанию для null полей
+        copiedData[key] = _getDefaultValueForKey(key);
+      }
+    });
+
+    return copiedData;
+  }
+
+// Метод для получения значений по умолчанию
+  dynamic _getDefaultValueForKey(String key) {
+    switch (key) {
+      case 'title':
+      case 'description':
+      case 'author_name':
+      case 'author_avatar':
+      case 'channel_name':
+      case 'channel_avatar':
+      case 'original_author_name':
+      case 'original_author_avatar':
+      case 'original_channel_name':
+      case 'original_channel_avatar':
+        return '';
+      case 'likes':
+      case 'reposts':
+      case 'channel_subscribers':
+      case 'channel_videos':
+        return 0;
+      case 'isLiked':
+      case 'isBookmarked':
+      case 'isFollowing':
+      case 'is_repost':
+      case 'is_channel_post':
+      case 'is_original_channel_post':
+        return false;
+      case 'hashtags':
+      case 'comments':
+        return [];
+      case 'user_tags':
+        return <String, String>{};
+      default:
+        return null;
+    }
   }
 
   // Вспомогательный метод для определения типа контента
@@ -388,6 +638,16 @@ class RepostManager {
       print('   Repost comment: "$repostComment"');
       print('   Comments array: ${repostData['comments']}');
 
+      // ВАЛИДАЦИЯ ОБЯЗАТЕЛЬНЫХ ПОЛЕЙ
+      final requiredFields = ['id', 'original_post_id', 'reposted_by', 'reposted_by_name', 'author_name'];
+      for (final field in requiredFields) {
+        if (!repostData.containsKey(field) || repostData[field] == null) {
+          print('❌ [DEBUG] Missing required field: $field');
+          // Устанавливаем значение по умолчанию
+          repostData[field] = _getDefaultValueForKey(field);
+        }
+      }
+
       // ВАЖНОЕ ИСПРАВЛЕНИЕ: Принудительно очищаем комментарии для репостов
       final cleanRepostData = {
         ...repostData,
@@ -400,9 +660,12 @@ class RepostManager {
         cleanRepostData['comments'] = [];
       }
 
-      print('🔄 [DEBUG] Clean repost data:');
+      // ПРОВЕРКА ДАННЫХ ПЕРЕД ДОБАВЛЕНИЕМ
+      print('🔄 [DEBUG] Clean repost data validation:');
       print('   Comments array: ${cleanRepostData['comments']}');
       print('   Comments array length: ${(cleanRepostData['comments'] as List).length}');
+      print('   Has original_channel_id: ${cleanRepostData.containsKey('original_channel_id')}');
+      print('   Has original_channel_name: ${cleanRepostData.containsKey('original_channel_name')}');
 
       // Проверяем существование перед добавлением
       if (newsProvider.containsNews(repostId)) {

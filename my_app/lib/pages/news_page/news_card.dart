@@ -71,6 +71,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   String _channelId = '';
   UserTagsProvider? _userTagsProvider;
 
+  bool _isHovered = false;
   // КЭШ ДЛЯ ОПТИМИЗАЦИИ
   final _avatarCache = <String, String>{};
   final _tagColorCache = <String, Color>{};
@@ -79,36 +80,75 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   late InteractionManager _interactionManager;
   late PostInteractionState? _postState;
 
+  // СПИСОК ЛОКАЛЬНЫХ АВАТАРОК ИЗ ASSETS
+  final List<String> _localAvatars = [
+    'assets/images/ava_news/ava1.png',
+    'assets/images/ava_news/ava2.png',
+    'assets/images/ava_news/ava3.png',
+    'assets/images/ava_news/ava4.png',
+    'assets/images/ava_news/ava5.png',
+    'assets/images/ava_news/ava6.png',
+    'assets/images/ava_news/ava7.png',
+    'assets/images/ava_news/ava8.png',
+    'assets/images/ava_news/ava9.png',
+    'assets/images/ava_news/ava10.png',
+    'assets/images/ava_news/ava11.png',
+    'assets/images/ava_news/ava12.png',
+    'assets/images/ava_news/ava13.png',
+    'assets/images/ava_news/ava14.png',
+    'assets/images/ava_news/ava15.png',
+    'assets/images/ava_news/ava16.png',
+    'assets/images/ava_news/ava17.png',
+    'assets/images/ava_news/ava18.png',
+    'assets/images/ava_news/ava19.png',
+    'assets/images/ava_news/ava20.png',
+    'assets/images/ava_news/ava21.png',
+    'assets/images/ava_news/ava22.png',
+    'assets/images/ava_news/ava23.png',
+    'assets/images/ava_news/ava24.png',
+    'assets/images/ava_news/ava25.png',
+    'assets/images/ava_news/ava26.png',
+    'assets/images/ava_news/ava27.png',
+    'assets/images/ava_news/ava28.png',
+    'assets/images/ava_news/ava29.png',
+    'assets/images/ava_news/ava30.png',
+  ];
+
   final List<CardDesign> _cardDesigns = [
     CardDesign(
-      gradient: [const Color(0xFF667eea), const Color(0xFF764ba2)],
+      gradient: [Color(0xFF667eea), Color(0xFF764ba2)],
       pattern: PatternStyle.minimal,
       decoration: DecorationStyle.modern,
       accentColor: Color(0xFF667eea),
+      backgroundColor: Color(0xFFFAFBFF),
     ),
     CardDesign(
-      gradient: [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
+      gradient: [Color(0xFF4facfe), Color(0xFF00f2fe)],
       pattern: PatternStyle.geometric,
       decoration: DecorationStyle.modern,
       accentColor: Color(0xFF4facfe),
+      backgroundColor: Color(0xFFF7FDFF),
     ),
     CardDesign(
-      gradient: [const Color(0xFFfa709a), const Color(0xFFfee140)],
+      gradient: [Color(0xFFfa709a), Color(0xFFfee140)],
       pattern: PatternStyle.geometric,
       decoration: DecorationStyle.modern,
       accentColor: Color(0xFFfa709a),
+      backgroundColor: Color(0xFFFFFBF9),
     ),
     CardDesign(
-      gradient: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
+      gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
       pattern: PatternStyle.minimal,
       decoration: DecorationStyle.modern,
       accentColor: Color(0xFF8E2DE2),
+      backgroundColor: Color(0xFFFBF7FF),
     ),
     CardDesign(
-      gradient: [const Color(0xFF3A1C71), const Color(0xFFD76D77), const Color(0xFFFFAF7B)],
+      gradient: [Color(0xFF3A1C71), Color(0xFFD76D77), Color(0xFFFFAF7B)],
       pattern: PatternStyle.geometric,
       decoration: DecorationStyle.modern,
       accentColor: Color(0xFF3A1C71),
+      backgroundColor: Color(0xFFFDF7FB),
     ),
   ];
 
@@ -174,6 +214,418 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
+  // УЛУЧШЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
+  // ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
+  String _getUserAvatarUrl(String userName, {bool isCurrentUser = false, bool isOriginalPost = false}) {
+    try {
+      print('🔍 Получение аватарки для: $userName, текущий пользователь: $isCurrentUser, оригинальный пост: $isOriginalPost');
+
+      // ДЛЯ РЕПОСТОВ - ОРИГИНАЛЬНЫЙ АВТОР/КАНАЛ
+      if (isOriginalPost) {
+        final isOriginalChannelPost = _getBoolValue(widget.news['is_original_channel_post']);
+        print('   Оригинальный канальный пост: $isOriginalChannelPost');
+
+        if (isOriginalChannelPost) {
+          // АВАТАР ОРИГИНАЛЬНОГО КАНАЛА
+          final originalChannelAvatar = _getStringValue(widget.news['original_channel_avatar']);
+          final originalChannelId = _getStringValue(widget.news['original_channel_id']);
+          final originalChannelName = _getStringValue(widget.news['original_channel_name']);
+
+          print('   Оригинальный канал: $originalChannelName, ID: $originalChannelId');
+          print('   Аватар канала из данных: $originalChannelAvatar');
+
+          // ПРИОРИТЕТ 1: Аватар из ChannelStateProvider
+          if (originalChannelId.isNotEmpty) {
+            try {
+              final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+              final providerAvatar = channelStateProvider.getAvatarForChannel(originalChannelId);
+              if (providerAvatar != null && providerAvatar.isNotEmpty) {
+                print('   ✅ Используем аватар канала из провайдера: $providerAvatar');
+                return providerAvatar;
+              }
+            } catch (e) {
+              print('   ⚠️ Ошибка получения аватарки канала из провайдера: $e');
+            }
+          }
+
+          // ПРИОРИТЕТ 2: Аватар из данных поста
+          if (originalChannelAvatar.isNotEmpty) {
+            print('   ✅ Используем аватар канала из данных поста: $originalChannelAvatar');
+            return originalChannelAvatar;
+          }
+
+          // ПРИОРИТЕТ 3: Fallback для канала
+          print('   🎯 Используем fallback аватар для канала: $originalChannelName');
+          return _getFallbackAvatarUrl(originalChannelName);
+        } else {
+          // АВАТАР ОРИГИНАЛЬНОГО ПОЛЬЗОВАТЕЛЯ
+          final originalAuthorAvatar = _getStringValue(widget.news['original_author_avatar']);
+          final originalAuthorName = _getStringValue(widget.news['original_author_name']);
+
+          print('   Оригинальный автор: $originalAuthorName');
+          print('   Аватар автора из данных: $originalAuthorAvatar');
+
+          // ПРИОРИТЕТ 1: Аватар из данных поста
+          if (originalAuthorAvatar.isNotEmpty) {
+            print('   ✅ Используем аватар автора из данных поста: $originalAuthorAvatar');
+            return originalAuthorAvatar;
+          }
+
+          // ПРИОРИТЕТ 2: Fallback для пользователя
+          print('   🎯 Используем fallback аватар для автора: $originalAuthorName');
+          return _getFallbackAvatarUrl(originalAuthorName);
+        }
+      }
+
+      // ДЛЯ ОСНОВНЫХ ПОСТОВ - КАНАЛЫ
+      final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+      final channelId = _getStringValue(widget.news['channel_id']);
+      final channelName = _getStringValue(widget.news['channel_name']);
+
+      if (isChannelPost && channelId.isNotEmpty) {
+        print('   🔍 Это канальный пост, канал: $channelName, ID: $channelId');
+
+        // ПРИОРИТЕТ 1: Аватар из ChannelStateProvider
+        try {
+          final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+          final providerAvatar = channelStateProvider.getAvatarForChannel(channelId);
+          if (providerAvatar != null && providerAvatar.isNotEmpty) {
+            print('   ✅ Используем аватар канала из провайдера: $providerAvatar');
+            return providerAvatar;
+          }
+        } catch (e) {
+          print('   ⚠️ Ошибка получения аватарки канала: $e');
+        }
+
+        // ПРИОРИТЕТ 2: Аватар канала из данных поста
+        final channelAvatar = _getStringValue(widget.news['channel_avatar']);
+        if (channelAvatar.isNotEmpty) {
+          print('   ✅ Используем аватар канала из данных поста: $channelAvatar');
+          return channelAvatar;
+        }
+
+        // ПРИОРИТЕТ 3: Fallback для канала
+        print('   🎯 Используем fallback аватар для канала: $channelName');
+        return _getFallbackAvatarUrl(channelName);
+      }
+
+      // ДЛЯ ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ
+      final authorAvatar = _getStringValue(widget.news['author_avatar']);
+      final authorName = _getStringValue(widget.news['author_name']);
+
+      print('   Автор: $authorName');
+      print('   Аватар автора из данных: $authorAvatar');
+
+      // ПРИОРИТЕТ 1: Аватар из данных поста
+      if (authorAvatar.isNotEmpty) {
+        return authorAvatar;
+      }
+
+      // ПРИОРИТЕТ 2: Fallback для пользователя
+      print('   🎯 Используем fallback аватар для пользователя: $authorName');
+      return _getFallbackAvatarUrl(authorName);
+
+    } catch (e) {
+      print('❌ Ошибка получения аватарки пользователя: $e');
+      return _getFallbackAvatarUrl(userName);
+    }
+  }
+
+
+
+
+  // ДОБАВЬТЕ ЭТОТ МЕТОД ДЛЯ ОТЛАДКИ
+  void _debugAvatarInfo() {
+    final isRepost = _getBoolValue(widget.news['is_repost']);
+    final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+    final isOriginalChannelPost = _getBoolValue(widget.news['is_original_channel_post']);
+
+    print('=== DEBUG AVATAR INFO ===');
+    print('isRepost: $isRepost');
+    print('isChannelPost: $isChannelPost');
+    print('isOriginalChannelPost: $isOriginalChannelPost');
+
+    if (isRepost) {
+      print('ORIGINAL POST DATA:');
+      print('  original_author_name: ${_getStringValue(widget.news['original_author_name'])}');
+      print('  original_author_avatar: ${_getStringValue(widget.news['original_author_avatar'])}');
+      print('  original_channel_name: ${_getStringValue(widget.news['original_channel_name'])}');
+      print('  original_channel_avatar: ${_getStringValue(widget.news['original_channel_avatar'])}');
+      print('  original_channel_id: ${_getStringValue(widget.news['original_channel_id'])}');
+    } else {
+      print('REGULAR POST DATA:');
+      print('  author_name: ${_getStringValue(widget.news['author_name'])}');
+      print('  author_avatar: ${_getStringValue(widget.news['author_avatar'])}');
+      print('  channel_name: ${_getStringValue(widget.news['channel_name'])}');
+      print('  channel_avatar: ${_getStringValue(widget.news['channel_avatar'])}');
+      print('  channel_id: ${_getStringValue(widget.news['channel_id'])}');
+    }
+    print('========================');
+  }
+
+  // УЛУЧШЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ FALLBACK АВАТАРКИ
+  String _getFallbackAvatarUrl(String userName) {
+    // Всегда возвращаем локальные аватары из assets
+    final index = userName.hashCode.abs() % _localAvatars.length;
+    return _localAvatars[index];
+  }
+
+  // УЛУЧШЕННЫЙ ВИДЖЕТ ДЛЯ ОТОБРАЖЕНИЯ ИЗОБРАЖЕНИЙ
+  Widget _buildImageWidget(String imageUrl, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    if (imageUrl.isEmpty) {
+      return _buildErrorImage(width: width, height: height);
+    }
+
+    print('🖼️ Загрузка изображения: $imageUrl');
+
+    try {
+      if (_isAssetImage(imageUrl)) {
+        // ЛОКАЛЬНЫЕ АССЕТЫ
+        return Image.asset(
+          imageUrl,
+          width: width,
+          height: height,
+          fit: fit,
+          cacheWidth: width != null ? (width * 2).toInt() : null,
+          cacheHeight: height != null ? (height * 2).toInt() : null,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Ошибка загрузки asset изображения: $error для пути: $imageUrl');
+            return _buildErrorImage(width: width, height: height);
+          },
+        );
+      } else if (_isNetworkImage(imageUrl)) {
+        // СЕТЕВЫЕ ИЗОБРАЖЕНИЯ
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
+          width: width,
+          height: height,
+          fit: fit,
+          placeholder: (context, url) => _buildLoadingPlaceholder(width: width, height: height),
+          errorWidget: (context, url, error) {
+            print('❌ Ошибка загрузки network изображения: $error для URL: $imageUrl');
+            return _buildErrorImage(width: width, height: height);
+          },
+        );
+      } else if (_isFileImage(imageUrl)) {
+        // ФАЙЛЫ С УСТРОЙСТВА
+        return Image.file(
+          File(imageUrl),
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Ошибка загрузки file изображения: $error для пути: $imageUrl');
+            return _buildErrorImage(width: width, height: height);
+          },
+        );
+      } else {
+        // FALLBACK
+        print('⚠️ Неизвестный тип изображения: $imageUrl');
+        return _buildErrorImage(width: width, height: height);
+      }
+    } catch (e) {
+      print('❌ Исключение при загрузке изображения: $e');
+      return _buildErrorImage(width: width, height: height);
+    }
+  }
+
+  // УЛУЧШЕННЫЙ ВИДЖЕТ ДЛЯ АВАТАРКИ ПОЛЬЗОВАТЕЛЯ
+  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size, {bool isOriginalPost = false}) {
+    print('🔄 Создание аватарки для $displayName: $avatarUrl');
+    print('   Канальный пост: $isChannelPost, Оригинальный пост: $isOriginalPost');
+
+    return GestureDetector(
+      onTap: isOriginalPost ? null : _openUserProfile,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.6),
+            width: 2.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: _buildImageWidgetWithFallback(avatarUrl, displayName, size: size),
+        ),
+      ),
+    );
+  }
+
+  // ВИДЖЕТ С FALLBACK ДЛЯ АВАТАРКИ
+  Widget _buildImageWidgetWithFallback(String imageUrl, String displayName, {double? size}) {
+    if (imageUrl.isEmpty) {
+      return _buildGradientFallbackAvatar(displayName, size ?? 40);
+    }
+
+    return _buildImageWidget(
+      imageUrl,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+    );
+  }
+
+  // ГРАДИЕНТНЫЙ FALLBACK ДЛЯ АВАТАРКИ
+  Widget _buildGradientFallbackAvatar(String name, double size) {
+    final gradientColors = _getAvatarGradient(name);
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: name.isNotEmpty
+            ? Text(
+          name.substring(0, 1).toUpperCase(),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: size * 0.3,
+            fontWeight: FontWeight.bold,
+          ),
+        )
+            : Icon(
+          Icons.group_rounded,
+          color: Colors.white,
+          size: size * 0.4,
+        ),
+      ),
+    );
+  }
+
+  // ПОЛУЧЕНИЕ ГРАДИЕНТА ДЛЯ АВАТАРКИ
+  List<Color> _getAvatarGradient(String name) {
+    final colors = [
+      [const Color(0xFF667eea), const Color(0xFF764ba2)],
+      [const Color(0xFFf093fb), const Color(0xFFf5576c)],
+      [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
+      [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
+      [const Color(0xFFfa709a), const Color(0xFFfee140)],
+      [const Color(0xFF30cfd0), const Color(0xFF330867)],
+    ];
+
+    final index = name.isEmpty ? 0 : name.codeUnits.reduce((a, b) => a + b) % colors.length;
+    return colors[index];
+  }
+
+  // ПРОВЕРКА ТИПОВ ИЗОБРАЖЕНИЙ
+  bool _isAssetImage(String imageUrl) {
+    if (imageUrl.isEmpty) return false;
+    return imageUrl.startsWith('assets/') ||
+        imageUrl.startsWith('assets/images/') ||
+        (imageUrl.contains('.png') && !imageUrl.contains('://')) ||
+        (imageUrl.contains('.jpg') && !imageUrl.contains('://')) ||
+        (imageUrl.contains('.jpeg') && !imageUrl.contains('://'));
+  }
+
+  bool _isNetworkImage(String imageUrl) {
+    if (imageUrl.isEmpty) return false;
+    return imageUrl.startsWith('http://') ||
+        imageUrl.startsWith('https://') ||
+        imageUrl.contains('ui-avatars.com') ||
+        imageUrl.contains('://');
+  }
+
+  bool _isFileImage(String imageUrl) {
+    if (imageUrl.isEmpty) return false;
+    return imageUrl.startsWith('/') ||
+        (imageUrl.contains(RegExp(r'\.(jpg|jpeg|png|gif)$', caseSensitive: false)) &&
+            !_isAssetImage(imageUrl) &&
+            !_isNetworkImage(imageUrl));
+  }
+
+  // ВИДЖЕТ ЗАГРУЗКИ
+  Widget _buildLoadingPlaceholder({double? width, double? height}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.grey[200]!,
+            Colors.grey[300]!,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(_cardDesign.gradient[0]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ВИДЖЕТ ОШИБКИ
+  Widget _buildErrorImage({double? width, double? height}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.grey[300]!,
+            Colors.grey[400]!,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            color: Colors.grey[500],
+            size: 28,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Ошибка\nзагрузки',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _setupUserTagsListener() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -183,7 +635,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         final userTagsProvider = Provider.of<UserTagsProvider>(context, listen: false);
         _userTagsProvider = userTagsProvider;
 
-        // Убедимся, что UserProvider имеет данные
         if (!userProvider.isLoggedIn) {
           print('⚠️ UserProvider не инициализирован, устанавливаем временные данные');
           userProvider.setUserData(
@@ -193,7 +644,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           );
         }
 
-        // Инициализируем провайдер с UserProvider
         if (!userTagsProvider.isInitialized) {
           await userTagsProvider.initialize(userProvider);
         } else {
@@ -202,7 +652,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
         userTagsProvider.addListener(_onUserTagsChanged);
 
-        // Форсируем обновление UI после инициализации
         if (mounted) {
           setState(() {});
         }
@@ -220,16 +669,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       final isRepost = _getBoolValue(widget.news['is_repost']);
       final postId = _getStringValue(widget.news['id']);
 
-      // ДЛЯ РЕПОСТОВ И КАНАЛЬНЫХ ПОСТОВ ВОЗВРАЩАЕМ ПУСТОЙ MAP
-      if (isChannelPost || isRepost) {
-        return <String, String>{};
-      }
+      // ДЛЯ ОТЛАДКИ: всегда показываем теги
+      print('🔍 GET USER TAGS CALLED:');
+      print('   - postId: $postId');
+      print('   - isChannelPost: $isChannelPost');
+      print('   - isRepost: $isRepost');
+      print('   - userTagsProvider initialized: ${_userTagsProvider?.isInitialized ?? false}');
 
-      // Для обычных постов используем персональные теги
       if (_userTagsProvider != null && _userTagsProvider!.isInitialized) {
         final personalTags = _userTagsProvider!.getTagsForPost(postId);
 
-        // Явная проверка типа
+        print('✅ Personal tags from provider: $personalTags');
+
         if (personalTags is Map<String, String> && personalTags.isNotEmpty) {
           print('✅ Используем ПЕРСОНАЛЬНЫЕ теги для поста $postId:');
           personalTags.forEach((key, value) {
@@ -237,17 +688,60 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           });
           return Map<String, String>.from(personalTags);
         } else {
-          print('ℹ️ Для поста $postId нет сохраненных персональных тегов, используем ПУСТЫЕ теги');
-          return <String, String>{};
+          print('ℹ️ Для поста $postId нет сохраненных персональных тегов');
+          // Возвращаем мок теги для демонстрации
+          return _getMockTagsForDebug(postId);
         }
       } else {
         print('⚠️ UserTagsProvider не инициализирован для поста $postId');
-        return <String, String>{};
+        // Возвращаем мок теги для демонстрации
+        return _getMockTagsForDebug(_getStringValue(widget.news['id']));
       }
     } catch (e) {
       print('❌ Ошибка получения тегов из UserTagsProvider: $e');
-      return <String, String>{};
+      // Возвращаем мок теги для демонстрации
+      return _getMockTagsForDebug(_getStringValue(widget.news['id']));
     }
+  }
+
+  // Временный метод для отладки
+  Map<String, String> _getMockTagsForDebug(String postId) {
+    final mockTags = {
+      'tag1': 'Личный тег 1',
+      'tag2': 'Мои интересы',
+      'tag3': 'Обсуждение'
+    };
+    print('🎯 Using mock tags for debug: $mockTags');
+    return mockTags;
+  }
+
+  Widget _buildPersonalTags(Map<String, String> userTags, Color tagColor) {
+    if (userTags.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      height: 28, // Фиксированная высота для одной строки
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        shrinkWrap: true,
+        physics: const ClampingScrollPhysics(),
+        itemCount: userTags.length,
+        itemBuilder: (context, index) {
+          final tagId = userTags.keys.elementAt(index);
+          final tagName = userTags.values.elementAt(index);
+          final color = _getTagColor(tagId);
+
+          return Padding(
+            padding: EdgeInsets.only(
+              right: 8,
+              left: index == 0 ? 0 : 0, // Первый элемент без левого отступа
+            ),
+            child: _buildUserTag(tagName, tagId, color, false),
+          );
+        },
+      ),
+    );
   }
 
   void _onUserTagsChanged() {
@@ -265,13 +759,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final postId = _getStringValue(widget.news['id']);
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
 
-    // ДЛЯ КАНАЛЬНЫХ ПОСТОВ ИСПОЛЬЗУЕМ ЦВЕТ ИЗ ДИЗАЙНА
     if (isChannelPost) {
       _tagColorCache[cacheKey] = _cardDesign.accentColor;
       return _cardDesign.accentColor;
     }
 
-    // ПРИОРИТЕТ 1: Цвет из персональных тегов ДЛЯ КОНКРЕТНОГО ПОСТА
     if (_userTagsProvider != null && _userTagsProvider!.isInitialized) {
       try {
         final color = _userTagsProvider!.getTagColorForPost(postId, tagId);
@@ -285,7 +777,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       }
     }
 
-    // ПРИОРИТЕТ 2: Цвет из данных новости
     if (widget.news['tag_color'] != null) {
       try {
         final color = Color(widget.news['tag_color']);
@@ -297,267 +788,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       }
     }
 
-    // ПРИОРИТЕТ 3: Цвет из дизайна карточки
     final designColor = _cardDesign.accentColor;
     print('✅ NewsCard: цвет тега $tagId из дизайна карточки: $designColor');
     _tagColorCache[cacheKey] = designColor;
     return designColor;
   }
 
-  // В методе _showRepostWithCommentDialog замените текущий код на:
   void _showRepostWithCommentDialog() {
     final TextEditingController commentController = TextEditingController();
     final FocusNode commentFocusNode = FocusNode();
-    bool isButtonEnabled = false;
-    bool _isDialogProcessing = false;
-
-    void updateButtonState() {
-      final newState = commentController.text.trim().isNotEmpty;
-      if (newState != isButtonEnabled) {
-        isButtonEnabled = newState;
-      }
-    }
 
     showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.all(20), // Уменьшенные отступы
-              child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: 500, // Максимальная ширина
-                  maxHeight: MediaQuery.of(context).size.height * 0.7, // Максимальная высота
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 25,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min, // ВАЖНО: минимальный размер
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ШАПКА ДИАЛОГА
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.repeat_rounded, color: Colors.green, size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Добавить комментарий к репосту',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // СОДЕРЖИМОЕ ДИАЛОГА
-                    Expanded( // Используем Expanded для прокрутки
-                      child: SingleChildScrollView( // Добавляем прокрутку
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Ваш комментарий будет отображаться над репостом',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // ПОЛЕ ВВОДА КОММЕНТАРИЯ
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey[300]!),
-                              ),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: 120, // Минимальная высота
-                                  maxHeight: 200, // Максимальная высота
-                                ),
-                                child: TextField(
-                                  controller: commentController,
-                                  focusNode: commentFocusNode,
-                                  maxLines: null, // Автоматическое количество строк
-                                  maxLength: 280,
-                                  onChanged: (text) {
-                                    setState(() {
-                                      isButtonEnabled = text.trim().isNotEmpty && !_isDialogProcessing;
-                                    });
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: 'Поделитесь своими мыслями...',
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.all(16),
-                                    counterStyle: TextStyle(color: Colors.grey[500]),
-                                  ),
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-
-                            // СЧЕТЧИК СИМВОЛОВ
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '${commentController.text.length}/280',
-                                  style: TextStyle(
-                                    color: commentController.text.length > 250
-                                        ? Colors.orange
-                                        : Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                if (commentController.text.length > 250)
-                                  Text(
-                                    'Слишком длинный комментарий',
-                                    style: TextStyle(
-                                      color: Colors.orange,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                              ],
-                            ),
-
-                            // ИНДИКАТОР ЗАГРУЗКИ
-                            if (_isDialogProcessing) ...[
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2)
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Создание репоста...',
-                                    style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 14
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // КНОПКИ ДИАЛОГА
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(16),
-                          bottomRight: Radius.circular(16),
-                        ),
-                        border: Border(
-                          top: BorderSide(color: Colors.grey[300]!, width: 1),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _isDialogProcessing ? null : () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.grey[700],
-                                side: BorderSide(color: Colors.grey[400]!),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text('Отмена'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: (isButtonEnabled && !_isDialogProcessing) ? () async {
-                                setState(() {
-                                  _isDialogProcessing = true;
-                                });
-
-                                final commentText = commentController.text.trim();
-
-                                // Закрываем клавиатуру
-                                FocusScope.of(context).unfocus();
-
-                                await Future.delayed(const Duration(milliseconds: 100));
-
-                                _handleRepostWithComment(commentText);
-
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                }
-                              } : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                elevation: 2,
-                              ),
-                              child: _isDialogProcessing
-                                  ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white
-                                ),
-                              )
-                                  : const Text(
-                                'Репостнуть',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
+        return RepostWithCommentDialog(
+          cardDesign: _cardDesign,
+          onRepost: (String comment) {
+            _handleRepostWithComment(comment);
           },
         );
       },
@@ -566,23 +813,23 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       commentFocusNode.dispose();
     });
 
-    // Автофокус на поле ввода
     WidgetsBinding.instance.addPostFrameCallback((_) {
       commentFocusNode.requestFocus();
     });
   }
-// Улучшенное уведомление о репосте
-// ОБНОВЛЕННЫЙ Обработчик репоста с комментарием
+
+  bool _isReposting = false;
+
   void _handleRepostWithComment(String comment) {
+    if (!mounted) return;
+
     final postId = _getStringValue(widget.news['id']);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final newsProvider = Provider.of<NewsProvider>(context, listen: false);
 
-    // Находим индекс оригинала
     final originalIndex = newsProvider.findNewsIndexById(postId);
     if (originalIndex == -1) return;
 
-    // ДОБАВЛЯЕМ ЗАЩИТУ ОТ МНОГОКРАТНОГО ВЫЗОВА
     if (_isReposting) {
       print('⚠️ Repost already in progress, skipping...');
       return;
@@ -590,7 +837,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     _isReposting = true;
 
-    // Используем RepostManager для создания репоста с комментарием
     final repostManager = RepostManager();
     repostManager.createRepostWithComment(
       newsProvider: newsProvider,
@@ -599,72 +845,83 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       currentUserName: userProvider.userName,
       comment: comment,
     ).then((_) {
-      _isReposting = false;
-      _showEnhancedRepostSuccessSnackBar(comment);
+      if (mounted) {
+        _isReposting = false;
+        _showEnhancedRepostSuccessSnackBar(comment);
+      }
     }).catchError((error) {
-      _isReposting = false;
-      print('❌ Error in repost: $error');
+      if (mounted) {
+        _isReposting = false;
+        print('❌ Error in repost: $error');
+      }
     });
 
     print('🔄 Repost with comment initiated: "$comment"');
   }
-// Добавляем флаг для защиты от многократного вызова
-  bool _isReposting = false;
-
-  // АДАПТИВНЫЕ МЕТОДЫ ДЛЯ ОТСТУПОВ
-  double _getHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1000) return 280;
-    if (width > 700) return 80;
-    return 0;
-  }
-
 
   void _showEnhancedRepostSuccessSnackBar(String comment) {
     final hasComment = comment.isNotEmpty;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  hasComment ? Icons.edit_rounded : Icons.repeat_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  hasComment ? 'Репост с комментарием' : 'Репостнул на свою страничку',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+        content: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      hasComment ? Icons.edit_rounded : Icons.repeat_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    hasComment ? 'Репост с комментарием' : 'Репостнул на свою страничку',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              if (hasComment) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    comment,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
-            ),
-            if (hasComment) ...[
-              SizedBox(height: 6),
-              Text(
-                comment,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
             ],
-          ],
+          ),
         ),
         backgroundColor: hasComment ? Colors.blue : Colors.green,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         duration: Duration(seconds: hasComment ? 4 : 3),
         action: SnackBarAction(
           label: 'ОК',
@@ -677,7 +934,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-
   void _verifyRepostData() {
     final isRepost = _getBoolValue(widget.news['is_repost']);
     final repostComment = _getStringValue(widget.news['repost_comment']);
@@ -687,8 +943,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       print('❌ [VERIFICATION] DUPLICATION DETECTED in UI!');
       print('   Repost comment: "$repostComment"');
       print('   Regular comments: ${comments.length}');
-
-      // Можно вызвать очистку здесь или просто показать предупреждение
     }
   }
 
@@ -720,13 +974,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
   double _getCardBorderRadius(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 700) return 16.0;
+    if (width > 700) return 20.0;
     return 0.0;
   }
 
   EdgeInsets _getCardMargin(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 700) return EdgeInsets.only(bottom: 16.0);
+    if (width > 700) return EdgeInsets.only(bottom: 20.0);
     return EdgeInsets.only(bottom: 0.0);
   }
 
@@ -739,15 +993,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
 
-    // ИНИЦИАЛИЗАЦИЯ INTERACTION MANAGER
     _interactionManager = InteractionManager();
     _verifyRepostData();
 
+    // ДОБАВЬТЕ ОТЛАДКУ
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _debugAvatarInfo();
+    });
+
     _expandController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     )..addStatusListener((status) {
-      // Обработка статусов анимации
       if (status == AnimationStatus.completed) {
         print('✅ Анимация раскрытия завершена');
       }
@@ -765,17 +1022,19 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       ),
     );
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userTags = _getUserTags();
+      print('🎯 INIT USER TAGS: $userTags');
+    });
+
     _setupUserTagsListener();
 
-    // ИСПОЛЬЗУЕМ INTERACTION MANAGER ВМЕСТО ЛОКАЛЬНОГО СОСТОЯНИЯ
     _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
     _readingProgress = (widget.news['read_progress'] ?? 0.0).toDouble();
 
-    // Определяем, является ли пост канальным
     _isChannelPost = _getBoolValue(widget.news['is_channel_post']);
     _channelId = _getStringValue(widget.news['channel_id']);
 
-    // Инициализация состояния поста
     _initializePostState();
 
     if (_isChannelPost && _channelId.isNotEmpty) {
@@ -786,7 +1045,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   void _initializePostState() {
     final postId = _getStringValue(widget.news['id']);
 
-    // Инициализируем состояние поста в менеджере
     _interactionManager.initializePostState(
       postId: postId,
       isLiked: _getBoolValue(widget.news['isLiked']),
@@ -797,7 +1055,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       comments: List<Map<String, dynamic>>.from(widget.news['comments'] ?? []),
     );
 
-    // Получаем текущее состояние
     _postState = _interactionManager.getPostState(postId);
   }
 
@@ -808,7 +1065,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
       _channelStateProvider = channelStateProvider;
 
-      // Обновляем состояние подписки из провайдера
       final isSubscribed = channelStateProvider.isSubscribed(_channelId);
       if (_isFollowing != isSubscribed) {
         setState(() {
@@ -824,7 +1080,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     if (!mounted) return;
 
     if (_isChannelPost && _channelId.isNotEmpty && _channelStateProvider != null) {
-      // Обновляем состояние подписки при изменении в провайдере
       final isSubscribed = _channelStateProvider!.isSubscribed(_channelId);
       if (_isFollowing != isSubscribed) {
         setState(() {
@@ -838,7 +1093,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Подписываемся на изменения состояния поста
     final postId = _getStringValue(widget.news['id']);
     _interactionManager.addPostListener(postId, _onPostStateChanged);
   }
@@ -856,36 +1110,29 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
   void didUpdateWidget(NewsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Обновляем только если изменился ID поста или основные данные
     if (oldWidget.news['id'] != widget.news['id']) {
       _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
       _initializePostState();
-      _clearCaches(); // Очищаем кэш при обновлении виджета
+      _clearCaches();
     }
   }
 
   @override
   void dispose() {
     _expandController.dispose();
-
-    // Безопасная очистка контроллеров
     _commentController.dispose();
     _tagEditController.dispose();
 
-    // Очистка кэшей
     _clearCaches();
 
-    // Удаляем слушатель провайдера каналов
     if (_channelStateProvider != null) {
       _channelStateProvider!.removeListener(_onChannelStateChanged);
     }
 
-    // Удаляем слушатель провайдера тегов
     if (_userTagsProvider != null) {
       _userTagsProvider!.removeListener(_onUserTagsChanged);
     }
 
-    // Удаляем слушатель interaction manager
     final postId = _getStringValue(widget.news['id']);
     _interactionManager.removePostListener(_onPostStateChanged);
 
@@ -897,7 +1144,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _tagColorCache.clear();
   }
 
-  // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ТИПОВ
+  double _getHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1000) return 280;
+    if (width > 700) return 80;
+    return 0;
+  }
+
   bool _getBoolValue(dynamic value) {
     if (value is bool) return value;
     if (value is String) return value.toLowerCase() == 'true';
@@ -917,61 +1170,63 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return '';
   }
 
-  // ОБРАБОТЧИКИ ВЗАИМОДЕЙСТВИЙ ЧЕРЕЗ INTERACTION MANAGER
   void _handleLike() {
     final postId = _getStringValue(widget.news['id']);
     _interactionManager.toggleLike(postId);
-
-    // Вызываем колбэк для дополнительной логики
     widget.onLike?.call();
   }
 
   void _handleBookmark() {
     final postId = _getStringValue(widget.news['id']);
     _interactionManager.toggleBookmark(postId);
-
     widget.onBookmark?.call();
   }
 
-  // В КЛАССЕ _NewsCardState ДОБАВИТЬ ТАКОЙ ЖЕ МЕТОД
-  // Замените текущий _handleRepost на:
   void _handleRepost() {
     _showRepostOptionsModal();
   }
 
-// Модальное окно выбора типа репоста
   void _showRepostOptionsModal() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 30,
+              offset: const Offset(0, -10),
+            ),
+          ],
         ),
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40,
+                width: 48,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: Colors.grey[400],
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 24),
               Text(
                 'Как хотите репостнуть?',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                   color: Colors.black87,
+                  letterSpacing: -0.5,
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 24),
               _buildRepostOption(
                 Icons.repeat_rounded,
                 'Простой репост',
@@ -982,7 +1237,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   _handleSimpleRepost();
                 },
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 16),
               _buildRepostOption(
                 Icons.edit_rounded,
                 'Репост с комментарием',
@@ -993,16 +1248,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   _showRepostWithCommentDialog();
                 },
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 24),
               OutlinedButton(
                 onPressed: () => Navigator.pop(context),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.grey[600],
                   side: BorderSide(color: Colors.grey[300]!),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  minimumSize: Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  minimumSize: const Size(double.infinity, 56),
+                  backgroundColor: Colors.grey[50],
                 ),
-                child: Text('Отмена'),
+                child: const Text(
+                  'Отмена',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
               ),
             ],
           ),
@@ -1011,7 +1270,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-// Простой репост (старая логика)
   void _handleSimpleRepost() {
     final postId = _getStringValue(widget.news['id']);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -1025,32 +1283,45 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _showRepostSuccessSnackBar();
   }
 
-// Виджет опции репоста
   Widget _buildRepostOption(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: color.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.2)),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withOpacity(0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: 24),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1058,23 +1329,25 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                     Text(
                       title,
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: Colors.black87,
-                        fontSize: 16,
+                        fontSize: 17,
+                        letterSpacing: -0.3,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       subtitle,
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 14,
+                        height: 1.4,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+              Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Colors.grey[400]),
             ],
           ),
         ),
@@ -1082,21 +1355,28 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-// ДОБАВИТЬ МЕТОД ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ О РЕПОСТЕ
   void _showRepostSuccessSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.repeat_rounded, color: Colors.white, size: 20),
-            SizedBox(width: 8),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.repeat_rounded, color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Репостнул на свою страничку',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -1104,8 +1384,8 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         ),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        duration: const Duration(seconds: 3),
         action: SnackBarAction(
           label: 'ОК',
           textColor: Colors.white,
@@ -1116,7 +1396,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       ),
     );
   }
-
   void _handleComment(String text, String author, String avatar) {
     final postId = _getStringValue(widget.news['id']);
     _interactionManager.addComment(
@@ -1126,22 +1405,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       authorAvatar: avatar,
     );
 
-    // Вызываем колбэк для дополнительной логики
     widget.onComment?.call(text, author, avatar);
   }
 
   void _toggleFollow() {
     if (_isChannelPost && _channelId.isNotEmpty && _channelStateProvider != null) {
-      // Для канальных постов используем ChannelStateProvider
       final currentSubscribers = _channelStateProvider!.getSubscribers(_channelId) ?? 0;
       _channelStateProvider!.toggleSubscription(_channelId, currentSubscribers);
 
-      // Обновляем локальное состояние
       setState(() {
         _isFollowing = _channelStateProvider!.isSubscribed(_channelId);
       });
     } else {
-      // Для обычных постов используем callback
       setState(() {
         _isFollowing = !_isFollowing;
       });
@@ -1209,15 +1484,59 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Канал: $channelName'),
-        content: Text('Информация о канале "$channelName"'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Закрыть'),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: _cardDesign.gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(Icons.group_rounded, color: Colors.white, size: 30),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Канал: $channelName',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Информация о канале "$channelName"',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _cardDesign.gradient[0],
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Закрыть'),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1298,177 +1617,41 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  String _getUserAvatarUrl(String userName, {bool isCurrentUser = false}) {
-    final cacheKey = '$userName-$isCurrentUser';
-    if (_avatarCache.containsKey(cacheKey)) {
-      return _avatarCache[cacheKey]!;
-    }
-
-    // ПЕРВЫЙ ПРИОРИТЕТ: Для текущего пользователя используем фото профиля
-    if (isCurrentUser) {
-      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-      final currentProfileImage = newsProvider.getCurrentProfileImage();
-
-      if (currentProfileImage != null) {
-        if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
-          // Проверяем, это локальный asset или файл
-          if (currentProfileImage.startsWith('assets/')) {
-            _avatarCache[cacheKey] = currentProfileImage;
-            return currentProfileImage;
-          }
-          // Если это URL, игнорируем и используем локальные аватарки
-        } else if (currentProfileImage is File) {
-          // Используем путь к файлу
-          _avatarCache[cacheKey] = currentProfileImage.path;
-          return currentProfileImage.path;
-        }
-      }
-    }
-
-    // ВТОРОЙ ПРИОРИТЕТ: Всегда используем аватарки из MockNewsData
-    try {
-      final authorAvatar = MockNewsData.getAuthorAvatar(userName);
-      if (authorAvatar.isNotEmpty) {
-        print('✅ Используем аватар из MockNewsData для $userName: $authorAvatar');
-        _avatarCache[cacheKey] = authorAvatar;
-        return authorAvatar;
-      }
-    } catch (e) {
-      print('❌ Ошибка получения аватара из MockNewsData: $e');
-    }
-
-    // Fallback на случай ошибки
-    const fallbackAvatar = 'assets/images/ava_news/ava1.png';
-    _avatarCache[cacheKey] = fallbackAvatar;
-    return fallbackAvatar;
-  }
-
-  // УЛУЧШЕННЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
-  Widget _buildImageWidget(String imageUrl, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
-    if (imageUrl.isEmpty) {
-      return _buildErrorImage(width: width, height: height);
-    }
-
-    print('🖼️ Loading image: $imageUrl');
-
-    try {
-      // ВСЕГДА используем локальные assets
-      return Image.asset(
-        imageUrl,
-        width: width,
-        height: height,
-        fit: fit,
-        cacheWidth: width != null ? (width * 2).toInt() : null,
-        cacheHeight: height != null ? (height * 2).toInt() : null,
-        errorBuilder: (context, error, stackTrace) {
-          print('❌ Asset image error: $error for path: $imageUrl');
-          return _buildErrorImage(width: width, height: height);
-        },
-      );
-    } catch (e) {
-      print('❌ Exception loading image: $e');
-      return _buildErrorImage(width: width, height: height);
-    }
-  }
-
-  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size) {
-    print('🔄 Building avatar for $displayName: $avatarUrl');
-
-    return GestureDetector(
-      onTap: _openUserProfile,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withOpacity(0.4),
-            width: 2.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+        content: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.check_rounded, color: Colors.white, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
         ),
-        child: ClipOval(
-          child: _buildImageWidgetWithFallback(
-              avatarUrl,
-              displayName,
-              size: size
-          ),
-        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
 
-  // Новый метод с улучшенной обработкой fallback
-  Widget _buildImageWidgetWithFallback(String imageUrl, String displayName, {double? size}) {
-    return _buildImageWidget(
-      imageUrl,
-      width: size,
-      height: size,
-      fit: BoxFit.cover,
-    );
-  }
-
-  Widget _buildLoadingPlaceholder({double? width, double? height}) {
-    return Container(
-      width: width,
-      height: height,
-      color: Colors.grey[200],
-      child: Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorImage({double? width, double? height}) {
-    return Container(
-      width: width,
-      height: height,
-      color: Colors.grey[300],
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.grey,
-            size: 24,
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Ошибка\nзагрузки',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ОБНОВЛЕННЫЙ МЕТОД: Адаптивная карточка
   Widget _buildCard({required Widget child, bool isChannel = false}) {
+    final isRepost = _getBoolValue(widget.news['is_repost']);
+
+    // ВЫЧИСЛЯЕМ ВСЕ НЕОБХОДИМЫЕ ЗНАЧЕНИЯ ВНУТРИ МЕТОДА
     final horizontalPadding = _getHorizontalPadding(context);
     final contentMaxWidth = _getContentMaxWidth(context);
     final borderRadius = _getCardBorderRadius(context);
@@ -1476,88 +1659,123 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final showTopLine = _shouldShowTopLine(context);
     final isMobile = MediaQuery.of(context).size.width <= 700;
 
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(
-        left: horizontalPadding,
-        right: horizontalPadding,
-      ).add(margin),
-      child: Center(
-        child: Container(
-          constraints: BoxConstraints(maxWidth: contentMaxWidth),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(borderRadius),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(borderRadius),
-            child: Stack(
-              children: [
-                // Фоновая градиентная текстура
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          _cardDesign.gradient[0].withOpacity(0.02),
-                          _cardDesign.gradient[1].withOpacity(0.01),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Акцентный элемент в углу
-                Positioned(
-                  top: -40,
-                  right: -40,
-                  child: Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          _cardDesign.gradient[0].withOpacity(0.08),
-                          _cardDesign.gradient[0].withOpacity(0.02),
-                        ],
-                        stops: const [0.1, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (showTopLine)
-                      Container(
-                        height: 1,
-                        margin: EdgeInsets.only(
-                          left: isMobile ? (_getAvatarSize(context) + 12 + 16) : 0,
-                          right: isMobile ? 16 : 0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                      child: child,
-                    ),
-                  ],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 400),
+        width: double.infinity,
+        margin: EdgeInsets.only(
+          left: horizontalPadding,
+          right: horizontalPadding,
+        ).add(margin),
+        child: Center(
+          child: Container(
+            constraints: BoxConstraints(maxWidth: contentMaxWidth),
+            decoration: BoxDecoration(
+              color: _cardDesign.backgroundColor,
+              borderRadius: BorderRadius.circular(borderRadius),
+              border: isRepost ? Border.all(
+                color: Colors.blue.withOpacity(0.3), // Акцент для репостов
+                width: 1.5,
+              ) : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(_isHovered ? 0.15 : 0.08),
+                  blurRadius: _isHovered ? 25 : 16,
+                  offset: Offset(0, _isHovered ? 8 : 4),
+                  spreadRadius: _isHovered ? 1 : 0,
                 ),
               ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(borderRadius),
+              child: Stack(
+                children: [
+                  // Фоновая градиентная текстура с анимацией
+                  Positioned.fill(
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 600),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            _cardDesign.gradient[0].withOpacity(_isHovered ? 0.08 : 0.03),
+                            _cardDesign.gradient[1].withOpacity(_isHovered ? 0.04 : 0.01),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Акцентные элементы
+                  Positioned(
+                    top: -60,
+                    right: -60,
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 800),
+                      width: _isHovered ? 160 : 120,
+                      height: _isHovered ? 160 : 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            _cardDesign.gradient[0].withOpacity(_isHovered ? 0.12 : 0.08),
+                            _cardDesign.gradient[0].withOpacity(0.02),
+                          ],
+                          stops: const [0.1, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  Positioned(
+                    bottom: -40,
+                    left: -40,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            _cardDesign.gradient[1].withOpacity(0.06),
+                            _cardDesign.gradient[1].withOpacity(0.01),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (showTopLine)
+                        Container(
+                          height: 1,
+                          margin: EdgeInsets.only(
+                            left: isMobile ? (_getAvatarSize(context) + 12 + 16) : 0,
+                            right: isMobile ? 16 : 0,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                _cardDesign.gradient[0].withOpacity(0.3),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                        child: child,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1565,7 +1783,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД: Построение заголовка
   Widget _buildPostHeader(bool isAuthor, Map<String, String> userTags, Color tagColor) {
     final authorName = _getStringValue(widget.news['author_name']);
     final createdAt = _getStringValue(widget.news['created_at']);
@@ -1574,34 +1791,32 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final channelId = _getStringValue(widget.news['channel_id']);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // ПРОСТАЯ ПРОВЕРКА РЕПОСТА
     final isRepost = _getBoolValue(widget.news['is_repost']);
     final repostedByName = _getStringValue(widget.news['reposted_by_name']);
     final originalAuthorName = _getStringValue(widget.news['original_author_name']);
     final originalChannelName = _getStringValue(widget.news['original_channel_name']);
     final isOriginalChannelPost = _getBoolValue(widget.news['is_original_channel_post']);
 
-    // ПРОВЕРЯЕМ КОММЕНТАРИЙ РЕПОСТА - ОБНОВЛЕННАЯ ПРОВЕРКА
     final repostComment = _getStringValue(widget.news['repost_comment']);
     final hasRepostComment = isRepost && repostComment.isNotEmpty;
 
-    // ВАЖНОЕ ИСПРАВЛЕНИЕ: Отладочная информация
-    if (isRepost) {
-      print('🎯 BUILD POST HEADER DATA:');
-      print('   is_repost: $isRepost');
-      print('   repost_comment: "$repostComment"');
-      print('   has_repost_comment: $hasRepostComment');
+    // Если это репост, показываем информацию о том, кто репостнул ОТДЕЛЬНО
+    if (isRepost && repostedByName.isNotEmpty) {
+      return _buildRepostHeader(
+          repostedByName,
+          createdAt,
+          hasRepostComment ? repostComment : null,
+          originalAuthorName,
+          originalChannelName,
+          isOriginalChannelPost
+      );
     }
 
+    // Обычный пост (не репост) - ТАКИЕ ЖЕ отступы
     String authorAvatar;
     String displayName;
 
-    // ДЛЯ РЕПОСТОВ: используем данные репостнувшего пользователя
-    if (isRepost) {
-      final isCurrentUser = repostedByName == userProvider.userName;
-      authorAvatar = _getUserAvatarUrl(repostedByName, isCurrentUser: isCurrentUser);
-      displayName = repostedByName;
-    } else if (isChannelPost && channelId.isNotEmpty) {
+    if (isChannelPost && channelId.isNotEmpty) {
       final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
       final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
       authorAvatar = currentAvatarUrl ?? _getStringValue(widget.news['channel_avatar']) ?? _getFallbackAvatarUrl(channelName);
@@ -1613,203 +1828,266 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
 
     final avatarSize = _getAvatarSize(context);
-    final Map<String, String> personalTags = (isChannelPost || isRepost) ? <String, String>{} : _getUserTags();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ИНФОРМАЦИЯ О РЕПОСТЕ - ПРОСТОЙ ЗАГОЛОВОК БЕЗ ДУБЛИРОВАНИЯ
-        if (isRepost && repostedByName.isNotEmpty)
-          _buildSimpleRepostHeader(repostedByName, hasRepostComment),
-
-        // КОММЕНТАРИЙ К РЕПОСТУ (если есть) - ТОЛЬКО ЗДЕСЬ!
-        if (hasRepostComment)
-          _buildRepostCommentSection(repostComment, repostedByName, originalAuthorName, originalChannelName, isOriginalChannelPost),
-
-        // ОСНОВНАЯ ИНФОРМАЦИЯ О ПОСТЕ
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildUserAvatar(authorAvatar, isChannelPost, displayName, avatarSize),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ИМЯ АВТОРА
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: _openUserProfile,
-                          child: Text(
-                            displayName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: _getTitleFontSize(context),
-                              color: Colors.black87,
-                              letterSpacing: -0.3,
-                              height: 1.1,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0), // ФИКСИРОВАННЫЕ отступы
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildUserAvatar(authorAvatar, isChannelPost, displayName, avatarSize),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _openUserProfile,
+                        child: Text(
+                          displayName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: _getTitleFontSize(context),
+                            color: Colors.black87,
+                            letterSpacing: -0.3,
+                            height: 1.1,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      // КНОПКА МЕНЮ
-                      if (!isRepost || displayName == userProvider.userName)
-                        _buildMenuButton(),
+                    ),
+                    if (!isRepost || displayName == userProvider.userName)
+                      _buildMenuButton(),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                _buildPostMetaInfo(false, isChannelPost, createdAt, false, userTags),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRepostHeader(
+      String repostedByName,
+      String createdAt,
+      String? repostComment,
+      String originalAuthorName,
+      String originalChannelName,
+      bool isOriginalChannelPost
+      ) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final isCurrentUser = repostedByName == userProvider.userName;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ИНФОРМАЦИЯ О ТОМ, КТО РЕПОСТНУЛ
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Аватарка того, кто репостнул
+                _buildUserAvatar(
+                  _getUserAvatarUrl(repostedByName, isCurrentUser: isCurrentUser),
+                  false,
+                  repostedByName,
+                  _getAvatarSize(context),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              repostedByName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: _getTitleFontSize(context),
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          _buildMenuButton(),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            widget.getTimeAgo(createdAt),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+                          const SizedBox(width: 8),
+                          Icon(Icons.repeat_rounded, size: 12, color: Colors.green),
+                          const SizedBox(width: 4),
+                          Text(
+                            'репостнул',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  // ВРЕМЯ И СТАТУС
-                  _buildPostMetaInfo(isRepost, isChannelPost, createdAt, hasRepostComment),
-                ],
+                ),
+              ],
+            ),
+          ),
+
+          // КОММЕНТАРИЙ РЕПОСТА (если есть) - БЕЗ белой секции
+          if (repostComment != null && repostComment.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12, left: 52), // Отступ слева для выравнивания с текстом
+              child: Text(
+                repostComment,
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
               ),
             ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  Map<String, String> _getUserTagsForOriginalPost(String originalPostId) {
+    try {
+      if (_userTagsProvider != null && _userTagsProvider!.isInitialized) {
+        final originalTags = _userTagsProvider!.getTagsForPost(originalPostId);
+
+        if (originalTags is Map<String, String> && originalTags.isNotEmpty) {
+          print('✅ NewsCard: теги оригинального поста $originalPostId: $originalTags');
+          return Map<String, String>.from(originalTags);
+        }
+      }
+    } catch (e) {
+      print('❌ Ошибка получения тегов оригинального поста: $e');
+    }
+
+    // Возвращаем пустые теги если не удалось получить
+    return <String, String>{};
   }
 
   Widget _buildRepostCommentSection(String repostComment, String repostedByName,
       String originalAuthorName, String originalChannelName, bool isOriginalChannelPost) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    print('✅ Building SINGLE repost comment section: "$repostComment"');
-
     return Padding(
-      padding: EdgeInsets.only(bottom: 12, left: _getAvatarSize(context) + 12),
+      padding: EdgeInsets.only(bottom: 8, left: _getAvatarSize(context) + 16),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.05),
+          color: Colors.grey[50],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blue.withOpacity(0.2)),
+          border: Border.all(color: Colors.grey[300]!),
         ),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.edit_rounded, size: 14, color: Colors.blue),
-                SizedBox(width: 6),
-                Text(
-                  'Комментарий репоста:',
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 6),
-            Text(
-              repostComment,
-              style: TextStyle(
-                color: Colors.black87,
-                fontSize: 14,
-                height: 1.4,
+            // Аватарка пользователя, сделавшего репост (уменьшенная)
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1),
               ),
-            ),
-            // ИНФОРМАЦИЯ О АВТОРЕ КОММЕНТАРИЯ
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Container(
+              child: ClipOval(
+                child: _buildImageWidget(
+                  _getUserAvatarUrl(repostedByName, isCurrentUser: repostedByName == userProvider.userName),
                   width: 20,
                   height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1),
-                  ),
-                  child: ClipOval(
-                    child: _buildImageWidget(
-                      _getUserAvatarUrl(repostedByName, isCurrentUser: repostedByName == userProvider.userName),
-                      width: 20,
-                      height: 20,
-                      fit: BoxFit.cover,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Никнейм и комментарий
+                  Text(
+                    repostedByName,
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-                SizedBox(width: 6),
-                Text(
-                  repostedByName,
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 2),
+                  Text(
+                    repostComment,
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.blue),
-                SizedBox(width: 8),
-                Text(
-                  isOriginalChannelPost && originalChannelName.isNotEmpty
-                      ? originalChannelName
-                      : originalAuthorName.isNotEmpty
-                      ? originalAuthorName
-                      : 'оригинальный пост',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
-
 
   Widget _buildSimpleRepostHeader(String repostedByName, bool hasRepostComment) {
     return Padding(
-      padding: EdgeInsets.only(bottom: hasRepostComment ? 8 : 12, left: _getAvatarSize(context) + 12),
-      child: Container(
-        padding: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green.withOpacity(0.2)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.repeat_rounded,
-              size: 14,
-              color: Colors.green,
+      padding: EdgeInsets.only(bottom: hasRepostComment ? 4 : 8, left: _getAvatarSize(context) + 16),
+      child: Row(
+        children: [
+          Icon(
+            Icons.repeat_rounded,
+            size: 14,
+            color: Colors.grey[600],
+          ),
+          const SizedBox(width: 6),
+          Text(
+            repostedByName,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
-            SizedBox(width: 6),
-            Text(
-              'Репост от ',
-              style: TextStyle(
-                color: Colors.green,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              repostedByName,
-              style: TextStyle(
-                color: Colors.green,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildPostMetaInfo(bool isRepost, bool isChannelPost, String createdAt, bool hasRepostComment) {
+  Widget _buildPostMetaInfo(bool isRepost, bool isChannelPost, String createdAt, bool hasRepostComment, Map<String, String> userTags) {
+    final hasPersonalTags = userTags.isNotEmpty && !isRepost; // УБИРАЕМ теги для репостов
+
     return Container(
       height: 28,
       child: SingleChildScrollView(
@@ -1821,51 +2099,52 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             Row(
               children: [
                 Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 Text(
                   widget.getTimeAgo(createdAt),
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
 
-            // СТАТУС РЕПОСТА ИЛИ КАНАЛА
-            if (isRepost) ...[
-              SizedBox(width: 8),
-              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
-              SizedBox(width: 8),
-              Icon(
-                  hasRepostComment ? Icons.edit_rounded : Icons.repeat_rounded,
-                  size: 12,
-                  color: hasRepostComment ? Colors.blue : Colors.green
-              ),
-              SizedBox(width: 4),
-              Text(
-                hasRepostComment ? 'Репост с комментарием' : 'Репост',
-                style: TextStyle(
-                    color: hasRepostComment ? Colors.blue : Colors.green,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700
-                ),
-              ),
-            ] else if (isChannelPost) ...[
-              SizedBox(width: 8),
-              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
-              SizedBox(width: 8),
-              Icon(Icons.group_rounded, size: 12, color: Colors.blue),
-              SizedBox(width: 4),
-              Text('Канал', style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w700)),
-            ] else if (_contentType != ContentType.general) ...[
-              SizedBox(width: 8),
-              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
-              SizedBox(width: 8),
-              Icon(_contentIcon, size: 12, color: _contentColor),
-              SizedBox(width: 4),
-              Text(_getContentTypeText(), style: TextStyle(color: _contentColor, fontSize: 11, fontWeight: FontWeight.w700)),
+            // ПЕРСОНАЛЬНЫЕ ТЕГИ ТОЛЬКО ДЛЯ НЕ-РЕПОСТОВ
+            if (hasPersonalTags) ...[
+              const SizedBox(width: 12),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              ...userTags.entries.map((entry) {
+                final tagId = entry.key;
+                final tagName = entry.value;
+                final color = _getTagColor(tagId);
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: _buildUserTag(tagName, tagId, color, false),
+                );
+              }),
+            ],
+
+            // Только для каналов и типов контента (если не репост)
+            if (!isRepost) ...[
+              if (isChannelPost) ...[
+                const SizedBox(width: 12),
+                Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Icon(Icons.group_rounded, size: 12, color: Colors.blue),
+                const SizedBox(width: 4),
+                Text('Канал', style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w700)),
+              ] else if (_contentType != ContentType.general) ...[
+                const SizedBox(width: 12),
+                Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Icon(_contentIcon, size: 12, color: _contentColor),
+                const SizedBox(width: 4),
+                Text(_getContentTypeText(), style: TextStyle(color: _contentColor, fontSize: 11, fontWeight: FontWeight.w700)),
+              ],
             ],
           ],
         ),
@@ -1881,14 +2160,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-
-
-
-  // ВЫНЕСИТЕ КНОПКУ МЕНЮ В ОТДЕЛЬНЫЙ МЕТОД
   Widget _buildMenuButton() {
     return Container(
-      width: 28,
-      height: 28,
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
       child: PopupMenuButton<String>(
         icon: Icon(Icons.more_vert_rounded, color: Colors.grey[600], size: 18),
         onSelected: _handleMenuSelection,
@@ -1897,15 +2177,24 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             value: 'share',
             child: Row(
               children: [
-                Icon(Icons.share_rounded, color: Colors.blue, size: 18),
-                SizedBox(width: 8),
-                Text('Поделиться', style: TextStyle(fontSize: 13)),
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(Icons.share_rounded, color: Colors.blue, size: 14),
+                ),
+                const SizedBox(width: 12),
+                Text('Поделиться', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
         ],
         padding: EdgeInsets.zero,
-        constraints: BoxConstraints(minWidth: 140),
+        constraints: BoxConstraints(minWidth: 160),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -1915,7 +2204,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     final postId = _getStringValue(widget.news['id']);
     _tagEditController.text = '';
-    _editingTagId = 'tag1'; // Используем tag1 для нового тега
+    _editingTagId = 'tag1';
 
     showDialog(
       context: context,
@@ -1930,58 +2219,73 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 25,
-                      offset: const Offset(0, 8),
+                      color: Colors.black.withOpacity(0.25),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _cardDesign.gradient,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(Icons.local_offer_rounded, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(height: 16),
                       const Text(
                         'Добавить персональный тег',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
                           color: Colors.black87,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       TextField(
                         controller: _tagEditController,
-                        style: const TextStyle(color: Colors.black87, fontSize: 15),
+                        style: const TextStyle(color: Colors.black87, fontSize: 16),
                         decoration: InputDecoration(
                           hintText: 'Название тега',
-                          hintStyle: TextStyle(color: Colors.grey[600]),
+                          hintStyle: TextStyle(color: Colors.grey[500]),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey[400]!),
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide(color: _contentColor, width: 2),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       const Text(
                         'Выберите цвет:',
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: 16,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       SizedBox(
-                        height: 45,
+                        height: 50,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: _userTagsProvider?.availableColors.length ?? _availableColors.length,
@@ -1990,13 +2294,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             return GestureDetector(
                               onTap: () => setState(() => dialogSelectedColor = color),
                               child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 36,
-                                height: 36,
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                duration: const Duration(milliseconds: 300),
+                                width: 40,
+                                height: 40,
+                                margin: const EdgeInsets.symmetric(horizontal: 6),
                                 decoration: BoxDecoration(
                                   color: color,
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: dialogSelectedColor == color ? Colors.white : Colors.transparent,
                                     width: 3,
@@ -2004,20 +2308,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                                   boxShadow: [
                                     BoxShadow(
                                       color: color.withOpacity(0.4),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
                                 child: dialogSelectedColor == color
-                                    ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                    ? const Icon(Icons.check, color: Colors.white, size: 20)
                                     : null,
                               ),
                             );
                           },
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                       Row(
                         children: [
                           Expanded(
@@ -2026,21 +2330,21 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.grey[700],
                                 side: BorderSide(color: Colors.grey[400]!),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
+                                backgroundColor: Colors.white,
                               ),
-                              child: const Text('Отмена', style: TextStyle(fontWeight: FontWeight.w600)),
+                              child: const Text('Отмена', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _tagEditController.text.trim().isNotEmpty ? () {
                                 final text = _tagEditController.text.trim();
 
-                                // Сохраняем в персональные теги ДЛЯ КОНКРЕТНОГО ПОСТА
                                 if (_userTagsProvider != null) {
                                   _userTagsProvider!.updateTagForPost(
                                     postId: postId,
@@ -2054,16 +2358,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               } : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _contentColor,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
-                                elevation: 0,
+                                elevation: 4,
                                 shadowColor: _contentColor.withOpacity(0.4),
                               ),
                               child: const Text(
                                 'Сохранить',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
                               ),
                             ),
                           ),
@@ -2084,13 +2388,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     return GestureDetector(
       onTap: () => _showAddTagDialog(),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: _contentColor.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: _contentColor.withOpacity(0.2),
-            width: 1,
+            width: 1.5,
           ),
         ),
         child: Row(
@@ -2098,15 +2402,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           children: [
             Icon(
               Icons.add_rounded,
-              size: 12,
+              size: 14,
               color: _contentColor,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               'Добавить тег',
               style: TextStyle(
                 color: _contentColor,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 height: 1.0,
               ),
@@ -2131,19 +2435,14 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     }
   }
 
-  String _getFallbackAvatarUrl(String userName) {
-    final encodedName = Uri.encodeComponent(userName);
-    return 'https://ui-avatars.com/api/?name=$encodedName&background=667eea&color=ffffff&bold=true';
-  }
-
   Widget _buildUserTag(String tag, String tagId, Color color, bool isChannelPost) {
     return GestureDetector(
       onTap: () => _showTagEditDialog(tag, tagId, color),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Уменьшенные отступы
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8), // Уменьшенный радиус
           border: Border.all(
             color: color.withOpacity(0.2),
             width: 1,
@@ -2153,20 +2452,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 6,
+              width: 6, // Уменьшенный размер точки
               height: 6,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 6), // Уменьшенный отступ
             Text(
               tag,
               style: TextStyle(
                 color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+                fontSize: 11, // Уменьшенный размер шрифта
+                fontWeight: FontWeight.w600,
                 height: 1.0,
               ),
             ),
@@ -2216,24 +2515,27 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
     return Wrap(
       spacing: 8,
-      runSpacing: 6,
+      runSpacing: 8,
+      alignment: WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.start,
       children: cleanedHashtags.map((tag) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: _contentColor.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: _contentColor.withOpacity(0.15),
-              width: 1,
+              width: 1.5,
             ),
           ),
           child: Text(
             '#$tag',
             style: TextStyle(
               color: _contentColor,
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
+              height: 1.0,
             ),
           ),
         );
@@ -2241,19 +2543,20 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ИСПОЛЬЗУЕМ КОММЕНТАРИИ ИЗ INTERACTION MANAGER
   List<dynamic> get _currentComments {
     return _postState?.comments ?? [];
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД: Действия поста с использованием Interaction Manager
   Widget _buildPostActions({bool showBookmark = true, bool isAuthor = false}) {
     if (_postState == null) return const SizedBox();
+
+    final isMobile = MediaQuery.of(context).size.width <= 700;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start, // Выравнивание по левому краю
         children: [
           _buildActionButton(
             icon: _postState!.isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
@@ -2261,24 +2564,27 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             isActive: _postState!.isLiked,
             color: Colors.red,
             onPressed: _handleLike,
+            isMobile: isMobile,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12), // Увеличил отступ между кнопками
           _buildActionButton(
             icon: Icons.chat_bubble_outline_rounded,
             count: _postState!.comments.length,
             isActive: _isExpanded,
             color: Colors.blue,
             onPressed: _toggleExpanded,
+            isMobile: isMobile,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           _buildActionButton(
             icon: _postState!.isReposted ? Icons.repeat_on_rounded : Icons.repeat_rounded,
             count: _postState!.repostsCount,
             isActive: _postState!.isReposted,
             color: Colors.green,
             onPressed: _handleRepost,
+            isMobile: isMobile,
           ),
-          if (showBookmark) const SizedBox(width: 8),
+          if (showBookmark) const SizedBox(width: 12),
           if (showBookmark)
             _buildActionButton(
               icon: _postState!.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
@@ -2286,10 +2592,11 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               isActive: _postState!.isBookmarked,
               color: Colors.amber,
               onPressed: _handleBookmark,
+              isMobile: isMobile,
             ),
           const Spacer(),
           if (_shouldShowFollowButton(isAuthor))
-            _buildFollowButton(),
+            _buildFollowButton(isMobile: isMobile),
         ],
       ),
     );
@@ -2301,18 +2608,21 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     required bool isActive,
     required Color color,
     required VoidCallback onPressed,
+    bool isMobile = false,
   }) {
     return Semantics(
       button: true,
-      label: isActive ? 'Убрать действие' : 'Выполнить действие',
       child: GestureDetector(
         onTap: onPressed,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 10 : 14,
+            vertical: isMobile ? 8 : 10,
+          ),
           decoration: BoxDecoration(
             color: isActive ? color.withOpacity(0.12) : Colors.grey.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
             border: Border.all(
               color: isActive ? color.withOpacity(0.3) : Colors.transparent,
               width: 1,
@@ -2324,16 +2634,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             children: [
               Icon(
                 icon,
-                size: 16,
+                size: isMobile ? 18 : 20, // Увеличил размер иконок
                 color: isActive ? color : Colors.grey[700],
               ),
               if (count > 0) ...[
-                const SizedBox(width: 4),
+                SizedBox(width: isMobile ? 6 : 8), // Увеличил отступ
                 Text(
                   _formatCount(count),
                   style: TextStyle(
                     color: isActive ? color : Colors.grey[700],
-                    fontSize: 12,
+                    fontSize: isMobile ? 13 : 14, // Увеличил размер шрифта
                     fontWeight: FontWeight.w600,
                     height: 1.0,
                   ),
@@ -2346,14 +2656,17 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildFollowButton() {
+  Widget _buildFollowButton({bool isMobile = false}) {
     final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
 
     return GestureDetector(
       onTap: _toggleFollow,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : 16,
+          vertical: isMobile ? 8 : 10,
+        ),
         decoration: BoxDecoration(
           gradient: _isFollowing
               ? null
@@ -2363,28 +2676,41 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
             end: Alignment.bottomRight,
           ),
           color: _isFollowing ? Colors.green.withOpacity(0.1) : null,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(isMobile ? 8 : 12),
           border: Border.all(
             color: _isFollowing ? Colors.green.withOpacity(0.3) : Colors.transparent,
             width: 1,
           ),
-          boxShadow: _isFollowing
-              ? []
-              : [
-            BoxShadow(
-              color: _cardDesign.gradient[0].withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Row(
           children: [
             Icon(
               _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-              size: 14,
+              size: isMobile ? 14 : 16,
               color: _isFollowing ? Colors.green : Colors.white,
             ),
+            if (!isMobile) SizedBox(width: _isFollowing ? 0 : 6),
+            if (!isMobile)
+              AnimatedCrossFade(
+                duration: Duration(milliseconds: 300),
+                crossFadeState: _isFollowing ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                firstChild: Text(
+                  'Подписаться',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                secondChild: Text(
+                  'Подписка',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -2418,7 +2744,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     _tagEditController.text = tag;
     _editingTagId = tagId;
 
-    // НОВАЯ ПЕРЕМЕННАЯ ДЛЯ ВЫБОРА ОБНОВЛЕНИЯ
     bool updateGlobally = true;
 
     showDialog(
@@ -2434,58 +2759,73 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 25,
-                      offset: const Offset(0, 8),
+                      color: Colors.black.withOpacity(0.25),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _cardDesign.gradient,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(Icons.edit_rounded, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(height: 16),
                       const Text(
                         'Редактировать персональный тег',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
                           color: Colors.black87,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       TextField(
                         controller: _tagEditController,
-                        style: const TextStyle(color: Colors.black87, fontSize: 15),
+                        style: const TextStyle(color: Colors.black87, fontSize: 16),
                         decoration: InputDecoration(
                           hintText: 'Название тега',
-                          hintStyle: TextStyle(color: Colors.grey[600]),
+                          hintStyle: TextStyle(color: Colors.grey[500]),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey[400]!),
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide(color: _contentColor, width: 2),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       const Text(
                         'Выберите цвет:',
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: 16,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       SizedBox(
-                        height: 45,
+                        height: 50,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: _userTagsProvider?.availableColors.length ?? _availableColors.length,
@@ -2494,13 +2834,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             return GestureDetector(
                               onTap: () => setState(() => dialogSelectedColor = color),
                               child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 36,
-                                height: 36,
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                duration: const Duration(milliseconds: 300),
+                                width: 40,
+                                height: 40,
+                                margin: const EdgeInsets.symmetric(horizontal: 6),
                                 decoration: BoxDecoration(
                                   color: color,
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: dialogSelectedColor == color ? Colors.white : Colors.transparent,
                                     width: 3,
@@ -2508,13 +2848,13 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                                   boxShadow: [
                                     BoxShadow(
                                       color: color.withOpacity(0.4),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
                                 child: dialogSelectedColor == color
-                                    ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                    ? const Icon(Icons.check, color: Colors.white, size: 20)
                                     : null,
                               ),
                             );
@@ -2522,13 +2862,12 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         ),
                       ),
 
-                      // НОВЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ ГЛОБАЛЬНОГО ОБНОВЛЕНИЯ
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey[300]!),
                         ),
                         child: Row(
@@ -2536,15 +2875,15 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                             Icon(
                               Icons.sync_rounded,
                               color: updateGlobally ? _contentColor : Colors.grey,
-                              size: 18,
+                              size: 20,
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
                             const Expanded(
                               child: Text(
                                 'Обновить во всех постах',
                                 style: TextStyle(
                                   color: Colors.black87,
-                                  fontSize: 14,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -2558,18 +2897,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         ),
                       ),
                       if (updateGlobally) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         const Text(
                           'Этот тег будет обновлен во всех ваших постах',
                           style: TextStyle(
                             color: Colors.grey,
-                            fontSize: 12,
+                            fontSize: 13,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
 
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                       Row(
                         children: [
                           Expanded(
@@ -2578,21 +2917,21 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.grey[700],
                                 side: BorderSide(color: Colors.grey[400]!),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
+                                backgroundColor: Colors.white,
                               ),
-                              child: const Text('Отмена', style: TextStyle(fontWeight: FontWeight.w600)),
+                              child: const Text('Отмена', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _tagEditController.text.trim().isNotEmpty ? () {
                                 final text = _tagEditController.text.trim();
 
-                                // Сохраняем в персональные теги ДЛЯ КОНКРЕТНОГО ПОСТА
                                 if (_userTagsProvider != null) {
                                   _userTagsProvider!.updateTagForPost(
                                     postId: postId,
@@ -2600,13 +2939,12 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                                     newName: text,
                                     color: dialogSelectedColor,
                                     updateGlobally: updateGlobally,
-                                    context: context, // ПЕРЕДАЕМ CONTEXT ДЛЯ ГЛОБАЛЬНОГО ОБНОВЛЕНИЯ
+                                    context: context,
                                   );
                                 }
 
                                 Navigator.pop(context);
 
-                                // Показываем уведомление
                                 if (updateGlobally) {
                                   _showSuccessSnackBar('Тег обновлен во всех постах');
                                 } else {
@@ -2615,16 +2953,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                               } : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _contentColor,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
-                                elevation: 0,
+                                elevation: 4,
                                 shadowColor: _contentColor.withOpacity(0.4),
                               ),
                               child: const Text(
                                 'Сохранить',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
                               ),
                             ),
                           ),
@@ -2641,30 +2979,29 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД: Секция комментариев с использованием Interaction Manager
   Widget _buildCommentsSection() {
     return Column(
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         Container(
           height: 1,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
                 Colors.transparent,
-                _cardDesign.gradient[0].withOpacity(0.2),
+                _cardDesign.gradient[0].withOpacity(0.3),
                 Colors.transparent,
               ],
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(top: 20),
+          padding: const EdgeInsets.only(top: 24),
           child: Column(
             children: [
               if (_currentComments.isNotEmpty) ...[
                 ..._currentComments.map((comment) => _buildCommentItem(comment)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
               ],
               _buildCommentInput(),
             ],
@@ -2682,22 +3019,29 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final authorAvatar = _getStringValue(commentMap['author_avatar']);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCommentAvatar(authorAvatar, author),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: Colors.grey[200]!,
                   width: 1,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2708,7 +3052,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                         author,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                          fontSize: 15,
                           color: Colors.black87,
                         ),
                       ),
@@ -2716,18 +3060,18 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                       Text(
                         time,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(
                     text,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       color: Colors.black87.withOpacity(0.8),
                       height: 1.4,
                     ),
@@ -2743,27 +3087,27 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
   Widget _buildCommentAvatar(String avatarUrl, String authorName) {
     return Container(
-      width: 40,
-      height: 40,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white.withOpacity(0.4),
+          color: Colors.white.withOpacity(0.6),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ClipOval(
         child: _buildImageWidget(
           avatarUrl,
-          width: 40,
-          height: 40,
+          width: 44,
+          height: 44,
           fit: BoxFit.cover,
         ),
       ),
@@ -2784,66 +3128,73 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         return Container(
           decoration: BoxDecoration(
             color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: Colors.grey[200]!,
               width: 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
-                margin: const EdgeInsets.only(left: 12),
+                width: 44,
+                height: 44,
+                margin: const EdgeInsets.only(left: 16),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withOpacity(0.6),
                     width: 2,
                   ),
                 ),
                 child: ClipOval(
                   child: _buildImageWidget(
                     currentUserAvatar,
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     fit: BoxFit.cover,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: TextField(
                   controller: _commentController,
-                  style: const TextStyle(color: Colors.black87, fontSize: 14),
+                  style: const TextStyle(color: Colors.black87, fontSize: 15),
                   decoration: InputDecoration(
                     hintText: 'Напишите комментарий...',
-                    hintStyle: TextStyle(color: Colors.grey[600]),
+                    hintStyle: TextStyle(color: Colors.grey[500]),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
                 ),
               ),
               Container(
-                margin: const EdgeInsets.only(right: 8),
+                margin: const EdgeInsets.only(right: 12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: _cardDesign.gradient,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: _cardDesign.gradient[0].withOpacity(0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
+                      color: _cardDesign.gradient[0].withOpacity(0.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  icon: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
                   onPressed: () {
                     final text = _commentController.text.trim();
                     if (text.isNotEmpty && mounted) {
@@ -2852,16 +3203,30 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: const Text('Комментарий отправлен'),
+                          content: Row(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text('Комментарий отправлен'),
+                            ],
+                          ),
                           backgroundColor: Colors.green,
                           duration: const Duration(seconds: 2),
                           behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                       );
                     }
                   },
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                 ),
               ),
             ],
@@ -2897,7 +3262,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
       }
     }
 
-    // Возвращаем пустой Map вместо стандартных тегов
     return {};
   }
 
@@ -2923,52 +3287,34 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final authorName = _getStringValue(widget.news['author_name']);
     final isAuthor = authorName == userProvider.userName;
 
+    final isRepost = _getBoolValue(widget.news['is_repost']);
+    final originalAuthorName = _getStringValue(widget.news['original_author_name']);
+
     return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // ЗАГОЛОВОК
           _buildPostHeader(isAuthor, userTags, tagColor),
+
+          // СОДЕРЖИМОЕ ПОСТА
           Padding(
-            padding: EdgeInsets.only(left: _getAvatarSize(context) + 12),
+            padding: const EdgeInsets.only(left: 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_getStringValue(widget.news['title']).isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8, top: 8),
-                    child: Text(
-                      _getStringValue(widget.news['title']),
-                      style: TextStyle(
-                        fontSize: _getTitleFontSize(context),
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black87,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    _getStringValue(widget.news['description']),
-                    style: TextStyle(
-                      fontSize: _getDescriptionFontSize(context),
-                      color: Colors.black87.withOpacity(0.8),
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                if (hashtags.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _buildHashtags(hashtags),
-                  ),
-                ],
-                _buildPostActions(isAuthor: isAuthor),
+                // Для репостов показываем оригинального автора с вертикальной линией и темным фоном
+                if (isRepost && originalAuthorName.isNotEmpty)
+                  _buildRepostedPostSection(originalAuthorName)
+                else
+                  _buildRegularPostContent(hashtags, isAuthor),
               ],
             ),
           ),
+
+          // КОММЕНТАРИИ
           SizeTransition(
             sizeFactor: _expandAnimation,
             child: FadeTransition(
@@ -2981,6 +3327,317 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     );
   }
 
+  Widget _buildRegularPostContent(List<String> hashtags, bool isAuthor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ЗАГОЛОВОК ПОСТА
+        if (_getStringValue(widget.news['title']).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            child: Text(
+              _getStringValue(widget.news['title']),
+              style: TextStyle(
+                fontSize: _getTitleFontSize(context),
+                fontWeight: FontWeight.w800,
+                color: Colors.black87,
+                height: 1.2,
+              ),
+            ),
+          ),
+
+        // ОСНОВНОЙ ТЕКСТ
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Text(
+            _getStringValue(widget.news['description']),
+            style: TextStyle(
+              fontSize: _getDescriptionFontSize(context),
+              color: Colors.black87.withOpacity(0.8),
+              height: 1.4,
+            ),
+          ),
+        ),
+
+        // ХЕШТЕГИ
+        if (hashtags.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: _buildHashtags(hashtags),
+          ),
+        ],
+
+        // КНОПКИ ДЕЙСТВИЙ
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: _buildPostActions(isAuthor: isAuthor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRepostedPostSection(String originalAuthorName) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final hashtags = _parseHashtags(widget.news['hashtags']);
+
+    // ПОЛУЧАЕМ ИНФОРМАЦИЮ ОБ ОРИГИНАЛЬНОМ КАНАЛЕ
+    final originalChannelName = _getStringValue(widget.news['original_channel_name']);
+    final isOriginalChannelPost = _getBoolValue(widget.news['is_original_channel_post']);
+    final originalCreatedAt = _getStringValue(widget.news['original_created_at']);
+
+    // ОТЛАДКА
+    print('🔄 Building repost section:');
+    print('   originalChannelName: $originalChannelName');
+    print('   isOriginalChannelPost: $isOriginalChannelPost');
+    print('   originalAuthorName: $originalAuthorName');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.5),
+          width: 1,
+        ),
+      ),
+      child: Stack(
+        children: [
+          // ВЕРТИКАЛЬНАЯ ЛИНИЯ СЛЕВА
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: 3,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _cardDesign.gradient[0].withOpacity(0.6),
+                    _cardDesign.gradient[1].withOpacity(0.4),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(3),
+                  bottomLeft: Radius.circular(3),
+                ),
+              ),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.only(left: 12, right: 16, top: 16, bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Аватар и имя оригинального автора/канала
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Аватар оригинального канала или пользователя
+                    if (isOriginalChannelPost && originalChannelName.isNotEmpty)
+                      _buildChannelAvatarForRepost(originalChannelName)
+                    else
+                      _buildUserAvatar(
+                        _getUserAvatarUrl(originalAuthorName, isOriginalPost: true),
+                        false,
+                        originalAuthorName,
+                        _getAvatarSize(context),
+                        isOriginalPost: true,
+                      ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Название канала или имя пользователя
+                          Text(
+                            isOriginalChannelPost && originalChannelName.isNotEmpty
+                                ? originalChannelName
+                                : originalAuthorName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: _getTitleFontSize(context),
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // Мета-информация с указанием типа и администратора
+                          _buildOriginalPostMetaInfo(isOriginalChannelPost, originalChannelName, originalAuthorName, originalCreatedAt),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // ЗАГОЛОВОК ОРИГИНАЛЬНОГО ПОСТА (если есть)
+                if (_getStringValue(widget.news['title']).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      _getStringValue(widget.news['title']),
+                      style: TextStyle(
+                        fontSize: _getTitleFontSize(context),
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black87,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+
+                // ТЕКСТ ОРИГИНАЛЬНОГО ПОСТА
+                if (_getStringValue(widget.news['description']).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _getStringValue(widget.news['description']),
+                      style: TextStyle(
+                        fontSize: _getDescriptionFontSize(context),
+                        color: Colors.black87.withOpacity(0.8),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+
+                // ХЕШТЕГИ ОРИГИНАЛЬНОГО ПОСТА
+                if (hashtags.isNotEmpty) ...[
+                  _buildHashtags(hashtags),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOriginalPostMetaInfo(bool isOriginalChannelPost, String originalChannelName, String originalAuthorName, String originalCreatedAt) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // ВРЕМЯ ОРИГИНАЛЬНОГО ПОСТА
+            if (originalCreatedAt.isNotEmpty) ...[
+              Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
+              const SizedBox(width: 6),
+              Text(
+                widget.getTimeAgo(originalCreatedAt),
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+
+            // УКАЗАНИЕ ТИПА (КАНАЛ ИЛИ ПОЛЬЗОВАТЕЛЬ)
+            if (isOriginalChannelPost && originalChannelName.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Icon(Icons.group_rounded, size: 12, color: Colors.blue),
+              const SizedBox(width: 4),
+              Text(
+                'Канал',
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Icon(Icons.person_rounded, size: 12, color: Colors.green),
+              const SizedBox(width: 4),
+              Text(
+                'Пользователь',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ОБНОВИТЕ МЕТОД ДЛЯ КАНАЛЬНЫХ АВАТАРОК В РЕПОСТАХ
+  Widget _buildChannelAvatarForRepost(String channelName) {
+    final size = _getAvatarSize(context);
+
+    // Получаем правильный URL для канала в репосте
+    final avatarUrl = _getUserAvatarUrl(channelName, isOriginalPost: true);
+
+    print('🔄 Building channel avatar for repost: $channelName');
+    print('   Avatar URL: $avatarUrl');
+
+    return GestureDetector(
+      onTap: () {
+        // Можно добавить переход к каналу
+        print('Opening original channel: $channelName');
+      },
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.6),
+            width: 2.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: _buildImageWidgetWithFallback(
+              avatarUrl,
+              channelName,
+              size: size
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSimpleOriginalPostMetaInfo() {
+    final originalCreatedAt = _getStringValue(widget.news['original_created_at']);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // ТОЛЬКО время оригинального поста
+        if (originalCreatedAt.isNotEmpty) ...[
+          Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
+          const SizedBox(width: 6),
+          Text(
+            widget.getTimeAgo(originalCreatedAt),
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildChannelPost() {
     final title = _getStringValue(widget.news['title']);
     final description = _getStringValue(widget.news['description']);
@@ -2989,7 +3646,6 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
     final hashtags = _parseHashtags(widget.news['hashtags']);
     final channelId = _getStringValue(widget.news['channel_id']);
 
-    // ДЛЯ КАНАЛЬНЫХ ПОСТОВ НЕ ИСПОЛЬЗУЕМ ТЕГИ - ЯВНО УКАЗЫВАЕМ ТИП
     final Map<String, String> userTags = <String, String>{};
     final tagColor = _cardDesign.accentColor;
 
@@ -3003,17 +3659,16 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ДЛЯ КАНАЛЬНЫХ ПОСТОВ ПЕРЕДАЕМ ПУСТЫЕ ТЕГИ
           _buildPostHeader(false, userTags, tagColor),
           Padding(
-            padding: EdgeInsets.only(left: _getAvatarSize(context) + 12),
+            padding: EdgeInsets.only(left: _getAvatarSize(context) + 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (title.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8, top: 8),
+                    padding: const EdgeInsets.only(bottom: 12, top: 12),
                     child: Text(
                       title,
                       style: TextStyle(
@@ -3026,7 +3681,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   ),
                 if (description.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
                       description,
                       style: TextStyle(
@@ -3038,7 +3693,7 @@ class _NewsCardState extends State<NewsCard> with SingleTickerProviderStateMixin
                   ),
                 if (hashtags.isNotEmpty) ...[
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.only(bottom: 16), // Уменьшенный отступ
                     child: _buildHashtags(hashtags),
                   ),
                 ],
@@ -3074,12 +3729,14 @@ class CardDesign {
   final PatternStyle pattern;
   final DecorationStyle decoration;
   final Color accentColor;
+  final Color backgroundColor;
 
   const CardDesign({
     required this.gradient,
     required this.pattern,
     required this.decoration,
     required this.accentColor,
+    required this.backgroundColor,
   });
 }
 
@@ -3102,4 +3759,321 @@ enum ContentType {
   entertainment,
   education,
   general,
+}
+
+class RepostWithCommentDialog extends StatefulWidget {
+  final CardDesign cardDesign;
+  final Function(String) onRepost;
+
+  const RepostWithCommentDialog({
+    super.key,
+    required this.cardDesign,
+    required this.onRepost,
+  });
+
+  @override
+  State<RepostWithCommentDialog> createState() => _RepostWithCommentDialogState();
+}
+
+class _RepostWithCommentDialogState extends State<RepostWithCommentDialog> {
+  final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
+  bool _isDialogProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _commentFocusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _commentFocusNode.dispose();
+    super.dispose();
+  }
+
+  bool get _isButtonEnabled {
+    return _commentController.text.trim().isNotEmpty && !_isDialogProcessing;
+  }
+
+  void _handleRepost() {
+    if (!_isButtonEnabled) return;
+
+    setState(() {
+      _isDialogProcessing = true;
+    });
+
+    final commentText = _commentController.text.trim();
+    _commentFocusNode.unfocus();
+
+    Future.delayed(const Duration(milliseconds: 100)).then((_) {
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onRepost(commentText);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: 500,
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ШАПКА ДИАЛОГА
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: widget.cardDesign.gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.edit_rounded, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'Добавить комментарий к репосту',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // СОДЕРЖИМОЕ ДИАЛОГА
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ваш комментарий будет отображаться над репостом',
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 15,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ПОЛЕ ВВОДА КОММЕНТАРИЯ
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey[300]!),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minHeight: 140,
+                          maxHeight: 200,
+                        ),
+                        child: TextField(
+                          controller: _commentController,
+                          focusNode: _commentFocusNode,
+                          maxLines: null,
+                          maxLength: 280,
+                          onChanged: (text) {
+                            setState(() {}); // Обновляем состояние при изменении текста
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Поделитесь своими мыслями...',
+                            hintStyle: TextStyle(color: Colors.grey[500], fontSize: 15),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.all(20),
+                            counterStyle: TextStyle(color: Colors.grey[500]),
+                          ),
+                          style: const TextStyle(fontSize: 16, color: Colors.black87),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // СЧЕТЧИК СИМВОЛОВ
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_commentController.text.length}/280',
+                          style: TextStyle(
+                            color: _commentController.text.length > 250
+                                ? Colors.orange
+                                : Colors.grey[600],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (_commentController.text.length > 250)
+                          Text(
+                            'Слишком длинный комментарий',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    // ИНДИКАТОР ЗАГРУЗКИ
+                    if (_isDialogProcessing) ...[
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.withOpacity(0.1)),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(widget.cardDesign.gradient[0]),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Text(
+                              'Создание репоста...',
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            // КНОПКИ ДИАЛОГА
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                border: Border(
+                  top: BorderSide(color: Colors.grey[300]!, width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _isDialogProcessing ? null : () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey[700],
+                        side: BorderSide(color: Colors.grey[400]!),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        backgroundColor: Colors.white,
+                      ),
+                      child: const Text(
+                        'Отмена',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isButtonEnabled ? _handleRepost : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.cardDesign.gradient[0],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 4,
+                        shadowColor: widget.cardDesign.gradient[0].withOpacity(0.4),
+                      ),
+                      child: _isDialogProcessing
+                          ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                          : const Text(
+                        'Репостнуть',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

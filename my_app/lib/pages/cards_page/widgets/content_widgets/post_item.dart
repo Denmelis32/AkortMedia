@@ -10,6 +10,42 @@ import '../../models/channel.dart';
 import '../../../../providers/channel_state_provider.dart';
 import '../../../../services/interaction_manager.dart';
 
+// МОДЕЛИ ДЛЯ ДИЗАЙНА - ВЫНЕСЕНО НА ВЕРХНИЙ УРОВЕНЬ
+class CardDesign {
+  final List<Color> gradient;
+  final PatternStyle pattern;
+  final DecorationStyle decoration;
+  final Color accentColor;
+
+  const CardDesign({
+    required this.gradient,
+    required this.pattern,
+    required this.decoration,
+    required this.accentColor,
+  });
+}
+
+enum PatternStyle {
+  minimal,
+  geometric,
+  none,
+}
+
+enum DecorationStyle {
+  modern,
+  classic,
+}
+
+enum ContentType {
+  important,
+  news,
+  sports,
+  tech,
+  entertainment,
+  education,
+  general,
+}
+
 class PostItem extends StatefulWidget {
   final Map<String, dynamic> post;
   final Channel channel;
@@ -511,17 +547,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         final repostComment = _getStringValue(widget.post['repost_comment']);
         final hasRepostComment = isRepost && repostComment.isNotEmpty;
 
-        // ОТЛАДКА ДАННЫХ РЕПОСТА
-        if (isRepost) {
-          print('🎯 CHANNEL REPOST HEADER DATA:');
-          print('   reposted_by_name: $repostedByName');
-          print('   original_author_name: $originalAuthorName');
-          print('   original_channel_name: $originalChannelName');
-          print('   is_original_channel_post: $isOriginalChannelPost');
-          print('   repost_comment: "$repostComment"');
-          print('   has_repost_comment: $hasRepostComment');
-        }
-
         // Получаем актуальную аватарку из провайдера
         final currentAvatarUrl = channelStateProvider.getAvatarForChannel(widget.channel.id.toString());
         final channelAvatar = widget.customAvatarUrl ?? currentAvatarUrl ?? widget.channel.imageUrl;
@@ -531,15 +556,11 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ИНФОРМАЦИЯ О РЕПОСТЕ - ПРОСТОЙ ЗАГОЛОВОК БЕЗ ДУБЛИРОВАНИЯ
+            // ИНФОРМАЦИЯ О РЕПОСТЕ - НОВЫЙ ДИЗАЙН
             if (isRepost && repostedByName.isNotEmpty)
-              _buildSimpleRepostHeader(repostedByName, hasRepostComment),
+              _buildRepostHeader(repostedByName, createdAt, hasRepostComment ? repostComment : null),
 
-            // КОММЕНТАРИЙ К РЕПОСТУ (если есть) - ТОЛЬКО ЗДЕСЬ!
-            if (hasRepostComment)
-              _buildRepostCommentSection(repostComment, repostedByName, originalAuthorName, originalChannelName, isOriginalChannelPost),
-
-            // ОСНОВНАЯ ИНФОРМАЦИЯ О КАНАЛЕ
+            // ОСНОВНАЯ ИНФОРМАЦИЯ О КАНАЛЕ - ПОКАЗЫВАЕМ ВСЕГДА, ДАЖЕ ДЛЯ РЕПОСТОВ
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -574,7 +595,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                         ],
                       ),
                       const SizedBox(height: 2),
-                      // ВРЕМЯ И СТАТУС
+                      // ВРЕМЯ И СТАТУС - ДЛЯ РЕПОСТОВ ПОКАЗЫВАЕМ, ЧТО ЭТО РЕПОСТ В КАНАЛЕ
                       _buildChannelMetaInfo(isRepost, hasRepostComment, createdAt),
                     ],
                   ),
@@ -584,142 +605,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
           ],
         );
       },
-    );
-  }
-
-  // ПРОСТОЙ ЗАГОЛОВОК РЕПОСТА БЕЗ ДУБЛИРОВАНИЯ
-  Widget _buildSimpleRepostHeader(String repostedByName, bool hasRepostComment) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: hasRepostComment ? 8 : 12, left: _getAvatarSize(context) + 12),
-      child: Container(
-        padding: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green.withOpacity(0.2)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.repeat_rounded,
-              size: 14,
-              color: Colors.green,
-            ),
-            SizedBox(width: 6),
-            Text(
-              'Репост от ',
-              style: TextStyle(
-                color: Colors.green,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              repostedByName,
-              style: TextStyle(
-                color: Colors.green,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // СЕКЦИЯ КОММЕНТАРИЯ РЕПОСТА (ТОЛЬКО ОДИН РАЗ!)
-  Widget _buildRepostCommentSection(String repostComment, String repostedByName,
-      String originalAuthorName, String originalChannelName, bool isOriginalChannelPost) {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-    print('✅ Building SINGLE repost comment section: "$repostComment"');
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12, left: _getAvatarSize(context) + 12),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blue.withOpacity(0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.edit_rounded, size: 14, color: Colors.blue),
-                SizedBox(width: 6),
-                Text(
-                  'Комментарий репоста:',
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 6),
-            Text(
-              repostComment,
-              style: TextStyle(
-                color: Colors.black87,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            // ИНФОРМАЦИЯ О АВТОРЕ КОММЕНТАРИЯ
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1),
-                  ),
-                  child: ClipOval(
-                    child: _buildAvatarImage(
-                        _getCurrentUserAvatarUrl(null),
-                        repostedByName,
-                        20
-                    ),
-                  ),
-                ),
-                SizedBox(width: 6),
-                Text(
-                  repostedByName,
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.blue),
-                SizedBox(width: 8),
-                Text(
-                  isOriginalChannelPost && originalChannelName.isNotEmpty
-                      ? originalChannelName
-                      : originalAuthorName.isNotEmpty
-                      ? originalAuthorName
-                      : 'оригинальный пост',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -753,6 +638,12 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
               SizedBox(width: 8),
               Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
               SizedBox(width: 8),
+              Icon(Icons.group_rounded, size: 12, color: Colors.blue), // Иконка канала
+              SizedBox(width: 4),
+              Text('Канал', style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w700)),
+              SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
+              SizedBox(width: 8),
               Icon(
                   hasRepostComment ? Icons.edit_rounded : Icons.repeat_rounded,
                   size: 12,
@@ -768,7 +659,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                 ),
               ),
             ] else ...[
-              // СТАТУС КАНАЛА
+              // СТАТУС КАНАЛА ДЛЯ ОБЫЧНЫХ ПОСТОВ
               SizedBox(width: 8),
               Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
               SizedBox(width: 8),
@@ -862,9 +753,9 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildAvatarImage(String? avatarUrl, String channelName, double size) {
+  Widget _buildAvatarImage(String? avatarUrl, String name, double size) {
     if (avatarUrl == null || avatarUrl.isEmpty) {
-      return _buildChannelGradientAvatar(channelName, size);
+      return _buildGradientAvatar(name, size);
     }
 
     if (avatarUrl.startsWith('http')) {
@@ -881,9 +772,58 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         height: size,
         fit: BoxFit.cover,
       );
+    } else if (avatarUrl.startsWith('/')) {
+      // Локальный файл
+      return _buildFileImage(avatarUrl, size);
     } else {
-      return _buildChannelGradientAvatar(channelName, size);
+      return _buildGradientAvatar(name, size);
     }
+  }
+
+  Widget _buildFileImage(String filePath, double size) {
+    return Image.file(
+      File(filePath),
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        print('❌ File image error: $error for path: $filePath');
+        return _buildGradientAvatar('', size);
+      },
+    );
+  }
+
+  Widget _buildGradientAvatar(String name, double size) {
+    final gradientColors = _getAvatarGradient(name);
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: name.isNotEmpty
+            ? Text(
+          name.substring(0, 1).toUpperCase(),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: size * 0.3,
+            fontWeight: FontWeight.bold,
+          ),
+        )
+            : Icon(
+          Icons.person_rounded,
+          color: Colors.white,
+          size: size * 0.4,
+        ),
+      ),
+    );
   }
 
   Widget _buildChannelGradientAvatar(String channelName, double size) {
@@ -1403,6 +1343,10 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     final description = _getStringValue(widget.post['description']);
     final hashtags = _parseHashtags(widget.post['hashtags']);
 
+    // ПРОВЕРЯЕМ РЕПОСТ
+    final isRepost = _getBoolValue(widget.post['is_repost']);
+    final originalAuthorName = _getStringValue(widget.post['original_author_name']);
+
     return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1415,37 +1359,12 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (title.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8, top: 8),
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: _getTitleFontSize(context),
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black87,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                if (description.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: _getDescriptionFontSize(context),
-                        color: Colors.black87.withOpacity(0.8),
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                if (hashtags.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _buildHashtags(hashtags),
-                  ),
-                ],
+                // ДЛЯ РЕПОСТОВ ПОКАЗЫВАЕМ ОРИГИНАЛЬНОГО АВТОРА С ВЕРТИКАЛЬНОЙ ЛИНИЕЙ
+                if (isRepost && originalAuthorName.isNotEmpty)
+                  _buildRepostedPostSection(originalAuthorName, title, description, hashtags)
+                else
+                  _buildRegularPostContent(title, description, hashtags),
+
                 _buildPostActions(commentCount: _currentComments.length),
               ],
             ),
@@ -1461,40 +1380,471 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       ),
     );
   }
-}
 
-// МОДЕЛИ ДЛЯ ДИЗАЙНА
-class CardDesign {
-  final List<Color> gradient;
-  final PatternStyle pattern;
-  final DecorationStyle decoration;
-  final Color accentColor;
+  Widget _buildRegularPostContent(String title, String description, List<String> hashtags) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ЗАГОЛОВОК ПОСТА
+        if (title.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, top: 8),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: _getTitleFontSize(context),
+                fontWeight: FontWeight.w800,
+                color: Colors.black87,
+                height: 1.2,
+              ),
+            ),
+          ),
 
-  const CardDesign({
-    required this.gradient,
-    required this.pattern,
-    required this.decoration,
-    required this.accentColor,
-  });
-}
+        // ОСНОВНОЙ ТЕКСТ
+        if (description.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: _getDescriptionFontSize(context),
+                color: Colors.black87.withOpacity(0.8),
+                height: 1.4,
+              ),
+            ),
+          ),
 
-enum PatternStyle {
-  minimal,
-  geometric,
-  none,
-}
+        // ХЕШТЕГИ
+        if (hashtags.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildHashtags(hashtags),
+          ),
+        ],
+      ],
+    );
+  }
 
-enum DecorationStyle {
-  modern,
-  classic,
-}
 
-enum ContentType {
-  important,
-  news,
-  sports,
-  tech,
-  entertainment,
-  education,
-  general,
+  Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withOpacity(0.6),
+          width: 2.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: _buildAvatarImage(avatarUrl, displayName, size),
+      ),
+    );
+  }
+
+  Widget _buildRepostHeader(String repostedByName, String createdAt, String? repostComment) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final isCurrentUser = repostedByName == userProvider.userName;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ИНФОРМАЦИЯ О ТОМ, КТО РЕПОСТНУЛ
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Аватарка того, кто репостнул
+              _buildUserAvatar(
+                _getUserAvatarUrl(repostedByName, isCurrentUser: isCurrentUser),
+                false,
+                repostedByName,
+                _getAvatarSize(context),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            repostedByName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: _getTitleFontSize(context),
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text(
+                          widget.getTimeAgo(createdAt),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+                        const SizedBox(width: 8),
+                        Icon(Icons.repeat_rounded, size: 12, color: Colors.green),
+                        const SizedBox(width: 4),
+                        Text(
+                          'репостнул',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // КОММЕНТАРИЙ РЕПОСТА (если есть) - БЕЗ белой секции
+        if (repostComment != null && repostComment.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              repostComment,
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+
+
+
+
+  String _getChannelAvatarUrl(String channelId, String channelName) {
+    try {
+      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+      final currentAvatarUrl = channelStateProvider.getAvatarForChannel(channelId);
+
+      if (currentAvatarUrl != null && currentAvatarUrl.isNotEmpty) {
+        return currentAvatarUrl;
+      }
+
+      // Используем аватар из данных поста если есть
+      final postChannelAvatar = _getStringValue(widget.post['original_channel_avatar']);
+      if (postChannelAvatar.isNotEmpty) {
+        return postChannelAvatar;
+      }
+
+      return _getFallbackAvatarUrl(channelName);
+    } catch (e) {
+      print('❌ Error getting channel avatar: $e');
+      return _getFallbackAvatarUrl(channelName);
+    }
+  }
+
+  String _getUserAvatarUrl(String userName, {bool isCurrentUser = false}) {
+    try {
+      // Если это текущий пользователь, пытаемся получить его аватар из провайдера
+      if (isCurrentUser) {
+        final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+        final currentProfileImage = newsProvider.getCurrentProfileImage();
+
+        if (currentProfileImage is String && currentProfileImage.isNotEmpty) {
+          return currentProfileImage;
+        }
+        if (currentProfileImage is File) {
+          return currentProfileImage.path;
+        }
+      }
+
+      // Для канальных постов пытаемся получить аватар канала
+      final isChannelPost = _getBoolValue(widget.post['is_original_channel_post']);
+      if (isChannelPost) {
+        final channelAvatar = _getStringValue(widget.post['original_channel_avatar']);
+        if (channelAvatar.isNotEmpty) {
+          return channelAvatar;
+        }
+      }
+
+      // Используем fallback аватар
+      return _getFallbackAvatarUrl(userName);
+    } catch (e) {
+      print('❌ Error getting user avatar: $e');
+      return _getFallbackAvatarUrl(userName);
+    }
+  }
+
+  Widget _buildRepostedPostSection(String originalAuthorName, String title, String description, List<String> hashtags) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // ПОЛУЧАЕМ ИНФОРМАЦИЮ ОБ ОРИГИНАЛЬНОМ КАНАЛЕ
+    final originalChannelName = _getStringValue(widget.post['original_channel_name']);
+    final isOriginalChannelPost = _getBoolValue(widget.post['is_original_channel_post']);
+    final originalChannelAvatar = _getStringValue(widget.post['original_channel_avatar']);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8, top: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Stack(
+        children: [
+          // ВЕРТИКАЛЬНАЯ ЛИНИЯ СЛЕВА
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: 3,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _cardDesign.gradient[0].withOpacity(0.6),
+                    _cardDesign.gradient[1].withOpacity(0.4),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(3),
+                  bottomLeft: Radius.circular(3),
+                ),
+              ),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Аватар и имя оригинального автора/канала
+                Padding(
+                  padding: const EdgeInsets.only(top: 16, bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Аватар оригинального канала или пользователя
+                      if (isOriginalChannelPost && originalChannelName.isNotEmpty)
+                        _buildChannelAvatarForRepost(originalChannelAvatar, originalChannelName)
+                      else
+                        _buildUserAvatar(
+                          _getUserAvatarUrl(originalAuthorName, isCurrentUser: originalAuthorName == userProvider.userName),
+                          false,
+                          originalAuthorName,
+                          _getAvatarSize(context),
+                        ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Название канала или имя пользователя
+                            Text(
+                              isOriginalChannelPost && originalChannelName.isNotEmpty
+                                  ? originalChannelName
+                                  : originalAuthorName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: _getTitleFontSize(context),
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            // Мета-информация с указанием типа и администратора
+                            _buildOriginalPostMetaInfo(isOriginalChannelPost, originalChannelName, originalAuthorName),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ЗАГОЛОВОК ОРИГИНАЛЬНОГО ПОСТА
+                if (title.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: _getTitleFontSize(context),
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black87,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+
+                // ТЕКСТ ОРИГИНАЛЬНОГО ПОСТА
+                if (description.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
+                    child: Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: _getDescriptionFontSize(context),
+                        color: Colors.black87.withOpacity(0.8),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+
+                // ХЕШТЕГИ ОРИГИНАЛЬНОГО ПОСТА
+                if (hashtags.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 16, 16),
+                    child: _buildHashtags(hashtags),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+
+  Widget _buildChannelAvatarForRepost(String? avatarUrl, String channelName) {
+    final size = _getAvatarSize(context);
+
+    return GestureDetector(
+      onTap: () {
+        // Можно добавить переход к каналу
+        print('Opening original channel: $channelName');
+      },
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.6),
+            width: 2.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: _buildAvatarImage(avatarUrl, channelName, size),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildOriginalPostMetaInfo(bool isOriginalChannelPost, String originalChannelName, String originalAuthorName) {
+    final originalCreatedAt = _getStringValue(widget.post['original_created_at']);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // ВРЕМЯ ОРИГИНАЛЬНОГО ПОСТА
+            if (originalCreatedAt.isNotEmpty) ...[
+              Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
+              const SizedBox(width: 6),
+              Text(
+                widget.getTimeAgo(originalCreatedAt),
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+
+            // УКАЗАНИЕ ТИПА (КАНАЛ ИЛИ ПОЛЬЗОВАТЕЛЬ)
+            if (isOriginalChannelPost && originalChannelName.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Icon(Icons.group_rounded, size: 12, color: Colors.blue),
+              const SizedBox(width: 4),
+              Text(
+                'Канал',
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Icon(Icons.person_rounded, size: 12, color: Colors.green),
+              const SizedBox(width: 4),
+              Text(
+                'Пользователь',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+
+        // ИНФОРМАЦИЯ ОБ АДМИНИСТРАТОРЕ КАНАЛА (если это канальный пост)
+        if (isOriginalChannelPost && originalAuthorName.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.admin_panel_settings_rounded, size: 12, color: Colors.orange),
+              const SizedBox(width: 6),
+              Text(
+                'Администратор: $originalAuthorName',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
 }

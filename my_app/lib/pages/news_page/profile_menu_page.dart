@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 // Импортируем необходимые утилиты из news_page
-import 'news_card.dart';
+import '../news_cards/news_card.dart';
 import 'utils.dart';
 import '../../services/interaction_manager.dart';
 import '../../providers/channel_state_provider.dart';

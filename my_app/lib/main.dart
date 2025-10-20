@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:my_app/providers/channel_state_provider.dart';
 import 'package:my_app/providers/communities_provider.dart';
 import 'package:my_app/providers/community_state_provider.dart';
+import 'package:my_app/providers/state_sync_provider.dart';
 import 'package:my_app/providers/user_tags_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/news_provider.dart';
@@ -167,7 +168,6 @@ class _MyAppState extends State<MyApp> {
           }
         }).toList();
 
-        interactionManager.bulkUpdatePostStates(newsList);
         print('✅ InteractionManager инициализирован с ${newsList.length} постами');
       }
 
@@ -208,6 +208,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => CommuninitiesProvider()),
         ChangeNotifierProvider(create: (_) => CommunityStateProvider()),
         ChangeNotifierProvider(create: (_) => UserTagsProvider()),
+        ChangeNotifierProvider(create: (context) => StateSyncProvider()),
 
         // Новый провайдер для чата
         ChangeNotifierProvider(create: (_) => _createChatController()),

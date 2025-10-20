@@ -471,6 +471,7 @@ class RepostManager {
   }
 
   // МЕТОД ДЛЯ СОЗДАНИЯ ДАННЫХ РЕПОСТА С КОММЕНТАРИЕМ
+  // МЕТОД ДЛЯ СОЗДАНИЯ ДАННЫХ РЕПОСТА С КОММЕНТАРИЕМ
   Future<Map<String, dynamic>> _createRepostDataWithComment({
     required Map<String, dynamic> originalNews,
     required String repostId,
@@ -500,7 +501,7 @@ class RepostManager {
         'reposted_by': currentUserId,
         'reposted_by_name': currentUserName,
         'reposted_at': DateTime.now().toIso8601String(),
-        'repost_comment': comment, // ТОЛЬКО здесь
+        'repost_comment': comment, // ВАЖНО: комментарий репоста
 
         // Данные оригинального поста
         'original_author_name': originalAuthorName,
@@ -542,6 +543,7 @@ class RepostManager {
       }
 
       print('✅ [DEBUG] Repost with comment data created successfully');
+      print('   repost_comment field: "${repostData['repost_comment']}"');
 
       return repostData;
 
@@ -550,7 +552,6 @@ class RepostManager {
       rethrow;
     }
   }
-
 
   // Вспомогательный метод для безопасного копирования данных поста
   Map<String, dynamic> _safeCopyNewsData(Map<String, dynamic> originalNews) {
@@ -632,53 +633,49 @@ class RepostManager {
       final isRepost = repostData['is_repost'] == true;
       final repostComment = repostData['repost_comment']?.toString() ?? '';
 
-      print('🔄 [DEBUG] Adding repost to provider:');
+      print('🔄 [REPOST MANAGER] _addRepostToProvider called');
       print('   Repost ID: $repostId');
       print('   Is repost: $isRepost');
       print('   Repost comment: "$repostComment"');
       print('   Comments array: ${repostData['comments']}');
 
       // ВАЛИДАЦИЯ ОБЯЗАТЕЛЬНЫХ ПОЛЕЙ
-      final requiredFields = ['id', 'original_post_id', 'reposted_by', 'reposted_by_name', 'author_name'];
+      final requiredFields = ['id', 'original_post_id', 'reposted_by', 'reposted_by_name', 'author_name', 'repost_comment'];
       for (final field in requiredFields) {
-        if (!repostData.containsKey(field) || repostData[field] == null) {
-          print('❌ [DEBUG] Missing required field: $field');
-          // Устанавливаем значение по умолчанию
-          repostData[field] = _getDefaultValueForKey(field);
+        if (!repostData.containsKey(field)) {
+          print('❌ [REPOST MANAGER] Missing field: $field');
+        } else if (repostData[field] == null) {
+          print('⚠️ [REPOST MANAGER] Field $field is null');
+        } else {
+          print('✅ [REPOST MANAGER] Field $field: ${repostData[field]}');
         }
       }
 
-      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Принудительно очищаем комментарии для репостов
+      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем оригинальные данные, включая комментарий
       final cleanRepostData = {
-        ...repostData,
-        'comments': [], // ГАРАНТИРУЕМ пустой массив для всех репостов
+        ...repostData, // Сохраняем ВСЕ оригинальные данные
+        'comments': [], // ТОЛЬКО комментарии принудительно очищаем
       };
 
-      // Дополнительная проверка для репостов с комментариями
-      if (isRepost && repostComment.isNotEmpty) {
-        print('✅ [DEBUG] Ensuring empty comments for repost with comment');
-        cleanRepostData['comments'] = [];
-      }
-
       // ПРОВЕРКА ДАННЫХ ПЕРЕД ДОБАВЛЕНИЕМ
-      print('🔄 [DEBUG] Clean repost data validation:');
-      print('   Comments array: ${cleanRepostData['comments']}');
-      print('   Comments array length: ${(cleanRepostData['comments'] as List).length}');
-      print('   Has original_channel_id: ${cleanRepostData.containsKey('original_channel_id')}');
-      print('   Has original_channel_name: ${cleanRepostData.containsKey('original_channel_name')}');
+      print('🔄 [REPOST MANAGER] Final repost data before adding:');
+      print('   repost_comment: "${cleanRepostData['repost_comment']}"');
+      print('   comments array: ${cleanRepostData['comments']}');
+      print('   comments array length: ${(cleanRepostData['comments'] as List).length}');
 
       // Проверяем существование перед добавлением
       if (newsProvider.containsNews(repostId)) {
-        print('❌ [DEBUG] Repost with ID $repostId already exists!');
+        print('❌ [REPOST MANAGER] Repost with ID $repostId already exists!');
         return;
       }
 
       // Добавляем через провайдер
+      print('🔄 [REPOST MANAGER] Calling newsProvider.addNews...');
       newsProvider.addNews(cleanRepostData);
-      print('✅ [DEBUG] Repost successfully added to provider');
+      print('✅ [REPOST MANAGER] Repost successfully added to provider');
 
     } catch (e) {
-      print('❌ [DEBUG] Error adding repost to provider: $e');
+      print('❌ [REPOST MANAGER] Error adding repost to provider: $e');
       rethrow;
     }
   }
@@ -731,26 +728,44 @@ class RepostManager {
     required String comment,
   }) async {
     try {
+      // БЕЗОПАСНОЕ ПОЛУЧЕНИЕ ОРИГИНАЛЬНОЙ НОВОСТИ
+      if (originalIndex < 0 || originalIndex >= newsProvider.news.length) {
+        print('❌ [DEBUG] Invalid original index: $originalIndex');
+        return;
+      }
+
       final originalNews = Map<String, dynamic>.from(newsProvider.news[originalIndex]);
-      final originalNewsId = originalNews['id'].toString();
+      final originalNewsId = originalNews['id']?.toString();
 
-      print('🔄 [DEBUG] Starting repost with comment creation');
-      print('   Original ID: $originalNewsId');
+      if (originalNewsId == null || originalNewsId.isEmpty) {
+        print('❌ [DEBUG] Original news ID is null or empty');
+        return;
+      }
+
+      print('🔄 [DEBUG] Starting repost with comment creation:');
+      print('   Original news ID: $originalNewsId');
       print('   Comment: "$comment"');
+      print('   Current user: $currentUserName ($currentUserId)');
 
-      // Проверяем существующий репост
+      // Проверяем, не существует ли уже репост
       final existingRepostId = getRepostIdForOriginal(newsProvider, originalNewsId, currentUserId);
       if (existingRepostId != null) {
         print('⚠️ [DEBUG] Repost already exists: $existingRepostId');
+        // Обновляем комментарий существующего репоста
         await _updateExistingRepostComment(newsProvider, existingRepostId, comment);
         await cleanupDuplicateRepostComments(newsProvider);
         return;
       }
 
-      // Создаем новый репост
+      // СОЗДАЕМ УНИКАЛЬНЫЙ ID ДЛЯ РЕПОСТА
       final repostId = 'repost-${DateTime.now().millisecondsSinceEpoch}-$currentUserId';
-      final currentUserAvatar = _getCurrentUserAvatarUrl(newsProvider, currentUserId);
+      print('✅ [DEBUG] Generated repost ID: $repostId');
 
+      // ПОЛУЧАЕМ АВАТАР ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+      final currentUserAvatar = _getCurrentUserAvatarUrl(newsProvider, currentUserId);
+      print('✅ [DEBUG] Current user avatar: $currentUserAvatar');
+
+      // СОЗДАЕМ ДАННЫЕ РЕПОСТА С КОММЕНТАРИЕМ
       final repostData = await _createRepostDataWithComment(
         originalNews: originalNews,
         repostId: repostId,
@@ -760,21 +775,48 @@ class RepostManager {
         comment: comment,
       );
 
-      // ДОБАВЛЯЕМ репост в провайдер
+      // ДОБАВЛЯЕМ РЕПОСТ В ПРОВАЙДЕР
+      print('🔄 [DEBUG] Adding repost with comment to provider...');
       _addRepostToProvider(newsProvider, repostData);
 
       // ВЫЗЫВАЕМ ПРОВЕРКУ СРАЗУ ПОСЛЕ ДОБАВЛЕНИЯ
       _verifyRepostCreation(newsProvider, repostId);
 
+      // СОХРАНЯЕМ ИНФОРМАЦИЮ О РЕПОСТЕ
+      print('🔄 [DEBUG] Saving repost info...');
       await _saveRepostInfo(currentUserId, repostId, originalNewsId);
+
+      // ОБНОВЛЯЕМ СОСТОЯНИЕ В INTERACTION MANAGER
+      print('🔄 [DEBUG] Updating interaction manager...');
       _updateInteractionManager(originalNewsId, true);
+
+      // УВЕДОМЛЯЕМ UI ОБ ИЗМЕНЕНИИ
+      print('🔄 [DEBUG] Notifying UI...');
       _notifyRepostStateChanged();
+
+      // ОЧИЩАЕМ ВОЗМОЖНЫЕ ДУБЛИКАТЫ ПОСЛЕ СОЗДАНИЯ РЕПОСТА
+      print('🔄 [DEBUG] Cleaning up duplicates...');
       await cleanupDuplicateRepostComments(newsProvider);
 
-      print('✅ [DEBUG] Repost with comment created: $repostId');
+      // ФИНАЛЬНАЯ ПРОВЕРКА
+      final finalIndex = newsProvider.findNewsIndexById(repostId);
+      if (finalIndex != -1) {
+        final finalRepost = Map<String, dynamic>.from(newsProvider.news[finalIndex]);
+        print('🎉 [DEBUG] Repost with comment successfully created and verified:');
+        print('   Final index: $finalIndex');
+        print('   Final ID: ${finalRepost['id']}');
+        print('   Is repost: ${finalRepost['is_repost']}');
+        print('   Author: ${finalRepost['author_name']}');
+        print('   Repost comment: "${finalRepost['repost_comment']}"');
+      } else {
+        print('❌ [DEBUG] Repost not found after creation!');
+      }
 
-    } catch (e) {
+      print('✅ [DEBUG] Repost with comment creation completed successfully: $repostId');
+
+    } catch (e, stackTrace) {
       print('❌ [DEBUG] Error creating repost with comment: $e');
+      print('❌ [DEBUG] Stack trace: $stackTrace');
       rethrow;
     }
   }
@@ -786,11 +828,10 @@ class RepostManager {
       if (repostIndex != -1) {
         final repost = Map<String, dynamic>.from(newsProvider.news[repostIndex]);
 
-        // ВАЖНОЕ ИСПРАВЛЕНИЕ: Обновляем ТОЛЬКО комментарий репоста, не трогая обычные комментарии
+        // Обновляем только комментарий репоста
         final updatedRepost = {
           ...repost,
-          'repost_comment': comment, // Обновляем только комментарий репоста
-          // Обычные комментарии остаются без изменений
+          'repost_comment': comment,
         };
 
         // Обновляем новость в провайдере
@@ -801,7 +842,6 @@ class RepostManager {
 
         print('✅ Updated comment for existing repost: $repostId');
         print('   New comment: "$comment"');
-        print('   Regular comments count: ${(updatedRepost['comments'] as List).length}');
       }
     } catch (e) {
       print('❌ Error updating existing repost comment: $e');

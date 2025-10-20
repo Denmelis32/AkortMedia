@@ -9,7 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dialogs.dart';
 import '../../../providers/news_provider.dart';
 import '../../../services/api_service.dart';
-import 'news_card.dart';
+import '../news_cards/news_card.dart';
 import 'utils.dart';
 import 'shimmer_loading.dart';
 import 'animated_fab.dart';

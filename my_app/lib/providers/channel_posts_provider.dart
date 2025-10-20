@@ -4,6 +4,8 @@ import '../services/interaction_manager.dart';
 
 class ChannelPostsProvider with ChangeNotifier {
   final Map<int, List<Map<String, dynamic>>> _channelPostsMap = {};
+  final InteractionManager _interactionManager = InteractionManager();
+
 
   // === ОСНОВНЫЕ МЕТОДЫ ДОСТУПА К ДАННЫМ ===
 
@@ -462,10 +464,10 @@ class ChannelPostsProvider with ChangeNotifier {
   }
 
   void initializeChannelInteractions(int channelId) {
-    final interactionManager = InteractionManager();
     final posts = getChannelPosts(channelId);
-    interactionManager.bulkUpdatePostStates(posts);
+    _interactionManager.bulkUpdatePostStates(posts);
   }
+
 
 
   void clearAllPosts() {

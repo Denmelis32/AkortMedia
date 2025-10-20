@@ -1,10 +1,13 @@
-import 'dart:io';
+import 'dart:io';import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/news_provider.dart';
+import '../../../../providers/state_sync_provider.dart';
 import '../../../../providers/user_provider.dart';
+import '../../../../services/interaction_manager.dart' as im;
+import '../../../../state_sync_mixin.dart';
 import '../../../news_page/theme/news_theme.dart';
 import '../../models/channel.dart';
 import '../../../../providers/channel_state_provider.dart';
@@ -70,16 +73,46 @@ class PostItem extends StatefulWidget {
   State<PostItem> createState() => _PostItemState();
 }
 
-class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin {
+class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin, StateSyncMixin {
+  @override
+  im.InteractionManager get interactionManager =>
+      Provider.of<NewsProvider>(context, listen: false).interactionManager;
+
+  @override
+  String get postId => _getStringValue(widget.post['id']);
+
+  @override
+  void initState() {
+    super.initState(); // StateSyncMixin инициализируется здесь
+
+    _expandController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _expandAnimation = CurvedAnimation(
+      parent: _expandController,
+      curve: Curves.fastOutSlowIn,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _expandController,
+        curve: const Interval(0.3, 1, curve: Curves.easeOut),
+      ),
+    );
+
+    // Инициализация состояния поста через миксин
+    _initializePostState();
+
+    print('✅ PostItem initialized with state synchronization');
+  }
+
   final TextEditingController _commentController = TextEditingController();
   late AnimationController _expandController;
   late Animation<double> _expandAnimation;
   late Animation<double> _fadeAnimation;
   bool _isExpanded = false;
-
-  // ИСПОЛЬЗУЕМ INTERACTION MANAGER ВМЕСТО ЛОКАЛЬНОГО СОСТОЯНИЯ
-  late InteractionManager _interactionManager;
-  late PostInteractionState? _postState;
 
   final List<CardDesign> _cardDesigns = [
     CardDesign(
@@ -217,38 +250,9 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   @override
-  void initState() {
-    super.initState();
-
-    // ИНИЦИАЛИЗАЦИЯ INTERACTION MANAGER
-    _interactionManager = InteractionManager();
-
-    _expandController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-
-    _expandAnimation = CurvedAnimation(
-      parent: _expandController,
-      curve: Curves.fastOutSlowIn,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _expandController,
-        curve: const Interval(0.3, 1, curve: Curves.easeOut),
-      ),
-    );
-
-    // Инициализация состояния поста
-    _initializePostState();
-  }
-
   void _initializePostState() {
-    final postId = _getStringValue(widget.post['id']);
-
-    // Инициализируем состояние поста в менеджере
-    _interactionManager.initializePostState(
+    // ✅ Инициализация состояния поста если его нет
+    interactionManager.initializePostState(
       postId: postId,
       isLiked: _getBoolValue(widget.post['isLiked']),
       isBookmarked: _getBoolValue(widget.post['isBookmarked']),
@@ -258,26 +262,13 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       comments: List<Map<String, dynamic>>.from(widget.post['comments'] ?? []),
     );
 
-    // Получаем текущее состояние
-    _postState = _interactionManager.getPostState(postId);
+    print('✅ PostItem post state initialized: $postId');
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Подписываемся на изменения состояния поста
-    final postId = _getStringValue(widget.post['id']);
-    _interactionManager.addPostListener(postId, _onPostStateChanged);
-  }
-
-  void _onPostStateChanged() {
-    if (mounted) {
-      setState(() {
-        final postId = _getStringValue(widget.post['id']);
-        _postState = _interactionManager.getPostState(postId);
-      });
-    }
+    print('✅ PostItem subscribed to post state changes: $postId');
   }
 
   @override
@@ -285,8 +276,14 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     super.didUpdateWidget(oldWidget);
 
     // Обновляем только если изменился ID поста или основные данные
-    if (oldWidget.post['id'] != widget.post['id']) {
+    if (oldWidget.post['id'] != widget.post['id'] ||
+        oldWidget.post['isLiked'] != widget.post['isLiked'] ||
+        oldWidget.post['likes'] != widget.post['likes'] ||
+        oldWidget.post['comments'] != widget.post['comments']) {
+
+      // Переинициализируем через mixin
       _initializePostState();
+      print('🔄 PostItem updated with new data');
     }
   }
 
@@ -295,9 +292,8 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     _commentController.dispose();
     _expandController.dispose();
 
-    // Удаляем слушатель interaction manager
-    final postId = _getStringValue(widget.post['id']);
-    _interactionManager.removeListener(_onPostStateChanged);
+    // StateSyncMixin сам удалит слушатели
+    print('🔴 PostItem disposed: $postId');
 
     super.dispose();
   }
@@ -321,27 +317,45 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return '';
   }
 
-  // ОБРАБОТЧИКИ ВЗАИМОДЕЙСТВИЙ ЧЕРЕЗ INTERACTION MANAGER
+  // ОБРАБОТЧИКИ ВЗАИМОДЕЙСТВИЙ ЧЕРЕЗ ОБЩИЙ INTERACTION MANAGER
   void _handleLike() {
     final postId = _getStringValue(widget.post['id']);
-    _interactionManager.toggleLike(postId);
+
+    // ✅ Используем ОБЩИЙ InteractionManager с принудительной синхронизацией
+    interactionManager.toggleLike(postId);
+
+    // ✅ ДОПОЛНИТЕЛЬНО УВЕДОМЛЯЕМ StateSyncProvider
+    final stateSync = Provider.of<StateSyncProvider>(context, listen: false);
+    stateSync.notifyPostUpdated(postId);
+
+    print('✅ PostItem like handled with FORCE SYNC: $postId');
   }
 
   void _handleBookmark() {
     final postId = _getStringValue(widget.post['id']);
-    _interactionManager.toggleBookmark(postId);
+
+    interactionManager.toggleBookmark(postId);
+
+    // ✅ ДОПОЛНИТЕЛЬНО УВЕДОМЛЯЕМ StateSyncProvider
+    final stateSync = Provider.of<StateSyncProvider>(context, listen: false);
+    stateSync.notifyPostUpdated(postId);
+
+    print('✅ PostItem bookmark handled with FORCE SYNC: $postId');
   }
 
   void _handleRepost() {
     final postId = _getStringValue(widget.post['id']);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // ИСПРАВЛЕННЫЙ ВЫЗОВ
-    _interactionManager.toggleRepost(
+    interactionManager.toggleRepost(
       postId: postId,
       currentUserId: userProvider.userId ?? '',
       currentUserName: userProvider.userName,
     );
+
+    // ✅ ДОПОЛНИТЕЛЬНО УВЕДОМЛЯЕМ StateSyncProvider
+    final stateSync = Provider.of<StateSyncProvider>(context, listen: false);
+    stateSync.notifyPostUpdated(postId);
 
     // ПОКАЗЫВАЕМ УВЕДОМЛЕНИЕ О РЕПОСТЕ
     _showRepostSuccessSnackBar();
@@ -351,6 +365,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       widget.onRepost!();
     }
   }
+
 
   // ДОБАВИТЬ МЕТОД ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ О РЕПОСТЕ
   void _showRepostSuccessSnackBar() {
@@ -389,13 +404,21 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
 
   void _handleComment(String text, String author, String avatar) {
     final postId = _getStringValue(widget.post['id']);
-    _interactionManager.addComment(
+
+    interactionManager.addComment(
       postId: postId,
       text: text,
       author: author,
       authorAvatar: avatar,
     );
+
+    // ✅ ДОПОЛНИТЕЛЬНО УВЕДОМЛЯЕМ StateSyncProvider
+    final stateSync = Provider.of<StateSyncProvider>(context, listen: false);
+    stateSync.notifyPostUpdated(postId);
+
+    print('✅ PostItem comment handled with FORCE SYNC: $postId');
   }
+
 
   // УЛУЧШЕННАЯ ЗАГРУЗКА ИЗОБРАЖЕНИЙ
   Widget _buildNetworkImage(String imageUrl, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
@@ -937,47 +960,63 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД: Действия поста с использованием Interaction Manager
+  // ОБНОВЛЕННЫЙ МЕТОД: Действия поста с использованием ОБЩЕГО Interaction Manager
+  // ОБНОВЛЕННЫЙ МЕТОД: Действия поста с ПЕРЕСТАВЛЕННЫМИ кнопками
   Widget _buildPostActions({int commentCount = 0}) {
-    if (_postState == null) return const SizedBox();
+    if (postState == null) return _buildLoadingActions();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // ❤️ ЛАЙКИ
           _buildActionButton(
-            icon: _postState!.isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-            count: _postState!.likesCount,
-            isActive: _postState!.isLiked,
+            icon: postState!.isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+            count: postState!.likesCount,
+            isActive: postState!.isLiked,
             color: Colors.red,
             onPressed: _handleLike,
           ),
           const SizedBox(width: 8),
+
+          // 💬 КОММЕНТАРИИ (ПЕРЕМЕЩЕНЫ ВПЕРЕД)
           _buildActionButton(
             icon: Icons.chat_bubble_outline_rounded,
-            count: _postState!.comments.length,
-            isActive: _isExpanded,
+            count: postState!.comments.length,
+            isActive: false,
             color: Colors.blue,
-            onPressed: _toggleExpanded,
+            onPressed: () {
+              print('💬 Comment button pressed in PostItem');
+              print('   Post ID: $postId');
+              print('   Current expanded state: $_isExpanded');
+              print('   Comments count: ${postState!.comments.length}');
+              _toggleExpanded();
+            },
           ),
           const SizedBox(width: 8),
+
+          // 🔄 РЕПОСТЫ (ПЕРЕМЕЩЕНЫ НАЗАД)
           _buildActionButton(
             icon: Icons.repeat_rounded,
-            count: _postState!.repostsCount,
+            count: postState!.repostsCount,
             isActive: false,
             color: Colors.green,
             onPressed: _handleRepost,
           ),
           const SizedBox(width: 8),
+
+          // 🔖 ЗАКЛАДКИ
           _buildActionButton(
-            icon: _postState!.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+            icon: postState!.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
             count: 0,
-            isActive: _postState!.isBookmarked,
+            isActive: postState!.isBookmarked,
             color: Colors.amber,
             onPressed: _handleBookmark,
           ),
           const Spacer(),
+
+          // ✅ АКОР-ТАБ МЕТКА
           if (widget.isAkorTab)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1009,6 +1048,118 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     );
   }
 
+
+
+
+
+  Widget _buildLoadingActions() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 60,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 60,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildLoadingPost() {
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Загрузочная шапка канала
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 120,
+                        height: 16,
+                        color: Colors.grey[300],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: 80,
+                        height: 12,
+                        color: Colors.grey[300],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Загрузочный контент
+          Padding(
+            padding: EdgeInsets.only(left: _getAvatarSize(context) + 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 16,
+                  color: Colors.grey[300],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: 200,
+                  height: 16,
+                  color: Colors.grey[300],
+                ),
+                const SizedBox(height: 16),
+                _buildLoadingActions(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildActionButton({
     required IconData icon,
     required int count,
@@ -1017,7 +1168,10 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     required VoidCallback onPressed,
   }) {
     return GestureDetector(
-      onTap: onPressed,
+      onTap: () {
+        print('🎯 Action button tapped: $icon');
+        onPressed();
+      },
       child: AnimatedContainer(
         duration: Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1062,31 +1216,39 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     return count.toString();
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД: Секция комментариев с использованием Interaction Manager
+  // ОБНОВЛЕННЫЙ МЕТОД: Секция комментариев с использованием ОБЩЕГО Interaction Manager
+  // ОБНОВЛЕННЫЙ МЕТОД: Секция комментариев с таким же дизайном как в NewsCard
   Widget _buildCommentsSection() {
     return Column(
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
+
+        // 📏 РАЗДЕЛИТЕЛЬНАЯ ЛИНИЯ (как в NewsCard)
         Container(
           height: 1,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
                 Colors.transparent,
-                _cardDesign.gradient[0].withOpacity(0.2),
+                _cardDesign.gradient[0].withOpacity(0.3),
                 Colors.transparent,
               ],
             ),
           ),
         ),
+
+        // 📝 СОДЕРЖИМОЕ СЕКЦИИ КОММЕНТАРИЕВ
         Padding(
-          padding: const EdgeInsets.only(top: 20),
+          padding: const EdgeInsets.only(top: 24),
           child: Column(
             children: [
-              if (_currentComments.isNotEmpty) ...[
-                ..._currentComments.map((comment) => _buildCommentItem(comment)),
-                const SizedBox(height: 16),
+              // 💬 СПИСОК КОММЕНТАРИЕВ
+              if (postState!.comments.isNotEmpty) ...[
+                ...postState!.comments.map((comment) => _buildCommentItem(comment)),
+                const SizedBox(height: 20),
               ],
+
+              // ✍️ ПОЛЕ ВВОДА КОММЕНТАРИЯ
               _buildCommentInput(),
             ],
           ),
@@ -1103,33 +1265,45 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
     final authorAvatar = _getStringValue(commentMap['author_avatar']);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 20), // Увеличил отступ
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 🖼️ АВАТАРКА АВТОРА КОММЕНТАРИЯ (как в NewsCard)
           _buildCommentAvatar(authorAvatar, author),
-          const SizedBox(width: 12),
+
+          const SizedBox(width: 16), // Увеличил отступ
+
+          // 📝 СОДЕРЖИМОЕ КОММЕНТАРИЯ (как в NewsCard)
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20), // Увеличил padding
               decoration: BoxDecoration(
                 color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20), // Увеличил радиус
                 border: Border.all(
                   color: Colors.grey[200]!,
                   width: 1,
                 ),
+                boxShadow: [ // Добавил тень как в NewsCard
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 👤 ИНФОРМАЦИЯ ОБ АВТОРЕ И ВРЕМЕНИ (как в NewsCard)
                   Row(
                     children: [
                       Text(
                         author,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                          fontSize: 15, // Увеличил размер шрифта
                           color: Colors.black87,
                         ),
                       ),
@@ -1137,18 +1311,20 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                       Text(
                         time,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13, // Увеличил размер шрифта
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12), // Увеличил отступ
+
+                  // 📝 ТЕКСТ КОММЕНТАРИЯ (как в NewsCard)
                   Text(
                     text,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15, // Увеличил размер шрифта
                       color: Colors.black87.withOpacity(0.8),
                       height: 1.4,
                     ),
@@ -1164,24 +1340,24 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
 
   Widget _buildCommentAvatar(String avatarUrl, String authorName) {
     return Container(
-      width: 40,
-      height: 40,
+      width: 44, // Увеличил размер
+      height: 44, // Увеличил размер
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white.withOpacity(0.4),
+          color: Colors.white.withOpacity(0.6),
           width: 2,
         ),
-        boxShadow: [
+        boxShadow: [ // Добавил тень как в NewsCard
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ClipOval(
-        child: _buildAvatarImage(avatarUrl, authorName, 40),
+        child: _buildAvatarImage(avatarUrl, authorName, 44), // Обновил размер
       ),
     );
   }
@@ -1200,61 +1376,80 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         return Container(
           decoration: BoxDecoration(
             color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20), // Увеличил радиус
             border: Border.all(
               color: Colors.grey[200]!,
               width: 1,
             ),
+            boxShadow: [ // Добавил тень как в NewsCard
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
+              // 🖼️ АВАТАРКА ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ (как в NewsCard)
               Container(
-                width: 40,
-                height: 40,
-                margin: const EdgeInsets.only(left: 12),
+                width: 44, // Увеличил размер
+                height: 44, // Увеличил размер
+                margin: const EdgeInsets.only(left: 16), // Увеличил отступ
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withOpacity(0.6),
                     width: 2,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: ClipOval(
-                  child: _buildAvatarImage(currentUserAvatar, userProvider.userName, 40),
+                  child: _buildAvatarImage(currentUserAvatar, userProvider.userName, 44),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16), // Увеличил отступ
+
+              // ✍️ ПОЛЕ ВВОДА ТЕКСТА (как в NewsCard)
               Expanded(
                 child: TextField(
                   controller: _commentController,
-                  style: TextStyle(color: Colors.black87, fontSize: 14),
+                  style: TextStyle(color: Colors.black87, fontSize: 15), // Увеличил размер шрифта
                   decoration: InputDecoration(
                     hintText: 'Напишите комментарий...',
-                    hintStyle: TextStyle(color: Colors.grey[600]),
+                    hintStyle: TextStyle(color: Colors.grey[600], fontSize: 15), // Увеличил размер шрифта
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Увеличил padding
                   ),
                 ),
               ),
+
+              // 📤 КНОПКА ОТПРАВКИ (как в NewsCard)
               Container(
-                margin: const EdgeInsets.only(right: 8),
+                margin: const EdgeInsets.only(right: 16), // Увеличил отступ
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: _cardDesign.gradient,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16), // Увеличил радиус
                   boxShadow: [
                     BoxShadow(
                       color: _cardDesign.gradient[0].withOpacity(0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
+                      blurRadius: 8, // Увеличил размытие
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: IconButton(
-                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 22), // Увеличил размер иконки
                   onPressed: () {
                     final text = _commentController.text.trim();
                     if (text.isNotEmpty) {
@@ -1272,7 +1467,7 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                       );
                     }
                   },
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12), // Увеличил padding
                 ),
               ),
             ],
@@ -1312,6 +1507,8 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
   }
 
   void _toggleExpanded() {
+    if (!mounted) return;
+
     setState(() {
       _isExpanded = !_isExpanded;
       if (_isExpanded) {
@@ -1320,12 +1517,15 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         _expandController.reverse();
       }
     });
+
+    print('🔄 Comments section toggled: $_isExpanded');
   }
 
-  // ИСПОЛЬЗУЕМ КОММЕНТАРИИ ИЗ INTERACTION MANAGER
+  // ✅ Используем комментарии из ОБЩЕГО Interaction Manager
   List<dynamic> get _currentComments {
-    return _postState?.comments ?? [];
+    return postState?.comments ?? []; // ✅ Используем postState из mixin
   }
+
 
   List<String> _parseHashtags(dynamic hashtags) {
     if (hashtags is List) {
@@ -1339,47 +1539,77 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final title = _getStringValue(widget.post['title']);
-    final description = _getStringValue(widget.post['description']);
-    final hashtags = _parseHashtags(widget.post['hashtags']);
+    // ✅ Используем StateSyncProvider для принудительной синхронизации
+    return Consumer<StateSyncProvider>(
+      builder: (context, stateSync, child) {
+        // Принудительное обновление при изменении в StateSyncProvider
+        final lastUpdate = stateSync.getLastUpdate(postId);
 
-    // ПРОВЕРЯЕМ РЕПОСТ
-    final isRepost = _getBoolValue(widget.post['is_repost']);
-    final originalAuthorName = _getStringValue(widget.post['original_author_name']);
+        // ✅ ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ ПРИ КАЖДОМ ПОСТРОЕНИИ
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final currentState = interactionManager.getPostState(postId);
+            if (currentState != null && postState != currentState) {
+              setState(() {
+                // postState обновляется через mixin
+              });
+              print('🔄 PostItem forced state update for: $postId');
+            }
+          }
+        });
 
-    return _buildCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildChannelHeader(),
-          Padding(
-            padding: EdgeInsets.only(left: _getAvatarSize(context) + 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ДЛЯ РЕПОСТОВ ПОКАЗЫВАЕМ ОРИГИНАЛЬНОГО АВТОРА С ВЕРТИКАЛЬНОЙ ЛИНИЕЙ
-                if (isRepost && originalAuthorName.isNotEmpty)
-                  _buildRepostedPostSection(originalAuthorName, title, description, hashtags)
-                else
-                  _buildRegularPostContent(title, description, hashtags),
+        final title = _getStringValue(widget.post['title']);
+        final description = _getStringValue(widget.post['description']);
+        final hashtags = _parseHashtags(widget.post['hashtags']);
 
-                _buildPostActions(commentCount: _currentComments.length),
-              ],
-            ),
+        // ✅ ПРОВЕРКА НАЛИЧИЯ СОСТОЯНИЯ
+        if (postState == null) {
+          print('⚠️ PostItem: No post state for $postId, initializing...');
+          _initializePostState();
+          return _buildLoadingPost();
+        }
+
+        // ПРОВЕРЯЕМ РЕПОСТ
+        final isRepost = _getBoolValue(widget.post['is_repost']);
+        final originalAuthorName = _getStringValue(widget.post['original_author_name']);
+
+        return _buildCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildChannelHeader(),
+              Padding(
+                padding: EdgeInsets.only(left: _getAvatarSize(context) + 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ДЛЯ РЕПОСТОВ ПОКАЗЫВАЕМ ОРИГИНАЛЬНОГО АВТОРА С ВЕРТИКАЛЬНОЙ ЛИНИЕЙ
+                    if (isRepost && originalAuthorName.isNotEmpty)
+                      _buildRepostedPostSection(originalAuthorName, title, description, hashtags)
+                    else
+                      _buildRegularPostContent(title, description, hashtags),
+
+                    // ДЕЙСТВИЯ - ✅ Используем postState из mixin
+                    _buildPostActions(commentCount: postState!.comments.length),
+                  ],
+                ),
+              ),
+              SizeTransition(
+                sizeFactor: _expandAnimation,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: _buildCommentsSection(),
+                ),
+              ),
+            ],
           ),
-          SizeTransition(
-            sizeFactor: _expandAnimation,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: _buildCommentsSection(),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
+
 
   Widget _buildRegularPostContent(String title, String description, List<String> hashtags) {
     return Column(
@@ -1424,7 +1654,8 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       ],
     );
   }
-
+  // ... остальные методы (_buildUserAvatar, _buildRepostHeader, _buildChannelAvatarForRepost, etc.)
+  // остаются без изменений, так как они не связаны с InteractionManager
 
   Widget _buildUserAvatar(String avatarUrl, bool isChannelPost, String displayName, double size) {
     return Container(
@@ -1540,10 +1771,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       ],
     );
   }
-
-
-
-
 
   String _getChannelAvatarUrl(String channelId, String channelName) {
     try {
@@ -1737,6 +1964,14 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
 
 
 
+
+
+
+
+
+
+
+
   Widget _buildChannelAvatarForRepost(String? avatarUrl, String channelName) {
     final size = _getAvatarSize(context);
 
@@ -1768,7 +2003,6 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       ),
     );
   }
-
 
   Widget _buildOriginalPostMetaInfo(bool isOriginalChannelPost, String originalChannelName, String originalAuthorName) {
     final originalCreatedAt = _getStringValue(widget.post['original_created_at']);

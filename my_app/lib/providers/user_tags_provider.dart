@@ -311,6 +311,8 @@ class UserTagsProvider with ChangeNotifier {
     return {'tag1': _getDefaultColor('tag1')};
   }
 
+  // В UserTagsProvider обновляем метод:
+
   Future<void> initializeTagsForNewPost(String postId) async {
     if (_currentUserId.isEmpty) {
       print('❌ UserTagsProvider: currentUserId не установлен для инициализации тегов нового поста');
@@ -328,30 +330,35 @@ class UserTagsProvider with ChangeNotifier {
       print('✅ UserTagsProvider: создана структура для пользователя $_currentUserId');
     }
 
-    // ИСПОЛЬЗУЕМ ПОСЛЕДНИЕ ТЕГИ ПОЛЬЗОВАТЕЛЯ вместо пустых
+    // ✅ ГАРАНТИРУЕМ, ЧТО ТЕГИ БУДУТ СОЗДАНЫ ДЛЯ НОВОГО ПОСТА
     final lastTags = getLastUsedTags();
+
+    // Если нет последних тегов, создаем дефолтные
+    if (lastTags.isEmpty) {
+      lastTags.addAll({'tag1': 'Интересное', 'tag2': 'Контент', 'tag3': 'Обсуждение'});
+    }
+
     final lastColors = getLastUsedTagColors();
 
-    if (!_userTags[_currentUserId]!.containsKey(postId)) {
-      _userTags[_currentUserId]![postId] = {};
+    // ✅ ПЕРЕЗАПИСЫВАЕМ ТЕГИ ДЛЯ ПОСТА (даже если они уже существуют)
+    _userTags[_currentUserId]![postId] = {};
 
-      // Сохраняем последние теги пользователя для нового поста
-      lastTags.forEach((tagId, tagName) {
-        final color = lastColors[tagId] ?? _getDefaultColor(tagId);
-        _userTags[_currentUserId]![postId]![tagId] = {
-          'name': tagName,
-          'color': color,
-        };
-      });
+    // Сохраняем теги для нового поста
+    lastTags.forEach((tagId, tagName) {
+      final color = lastColors[tagId] ?? _getDefaultColor(tagId);
+      _userTags[_currentUserId]![postId]![tagId] = {
+        'name': tagName,
+        'color': color,
+      };
+    });
 
-      await _saveUserTagsToStorage();
-      print('✅ UserTagsProvider: инициализированы теги для нового поста $postId: $lastTags');
+    await _saveUserTagsToStorage();
+    notifyListeners();
 
-      // Отладочная информация
-      debugPrintTags();
-    } else {
-      print('ℹ️ UserTagsProvider: теги для поста $postId уже существуют');
-    }
+    print('✅ UserTagsProvider: инициализированы теги для нового поста $postId: $lastTags');
+
+    // Отладочная информация
+    debugPrintTags();
   }
 
   Future<void> updateTagForPost({
@@ -515,99 +522,103 @@ class UserTagsProvider with ChangeNotifier {
   }
 
 // НОВЫЙ МЕТОД: Получение тегов из мок данных
-  // НОВЫЙ МЕТОД: Получение тегов из мок данных
   Map<String, String> _getMockTagsForPost(String postId) {
-    // Обновленный маппинг ID постов на теги из новых мок данных (без поздравлений)
+    // ✅ ИЗМЕНЕНИЕ: Для локальных постов возвращаем пустые теги
+    if (postId.startsWith('local-')) {
+      return {'tag1': ''}; // Пустой тег для нового поста
+    }
+
+    // Обновленный маппинг ID постов на теги
     final mockTags = {
       // ТЕХНОЛОГИЧЕСКИЕ ПОСТЫ
-      'tech-1': {'tag1': 'Программист', 'tag2': 'Геймер', 'tag3': 'Технологии'},
-      'tech-2': {'tag1': 'Физика', 'tag2': 'Наука', 'tag3': 'IT'},
-      'tech-3': {'tag1': 'Разработчик', 'tag2': 'Flutter', 'tag3': 'IT'},
-      'tech-4': {'tag1': 'Программист', 'tag2': 'Геймер', 'tag3': 'Технологии'},
+      'tech-1': {'tag1': 'Программист'},
+      'tech-2': {'tag1': 'Физика'},
+      'tech-3': {'tag1': 'Разработчик'},
+      'tech-4': {'tag1': 'Программист'},
 
       // СПОРТИВНЫЕ ПОСТЫ
-      'sport-1': {'tag1': 'Спорт', 'tag2': 'Фитнес', 'tag3': 'ЗОЖ'},
-      'sport-2': {'tag1': 'Спорт', 'tag2': 'Бег', 'tag3': 'ЗОЖ'},
-      'sport-3': {'tag1': 'Йога', 'tag2': 'Медитация', 'tag3': 'Веган'},
+      'sport-1': {'tag1': 'Спорт'},
+      'sport-2': {'tag1': 'Спорт'},
+      'sport-3': {'tag1': 'Йога'},
 
       // ПУТЕШЕСТВИЯ
-      'travel-1': {'tag1': 'Путешествия', 'tag2': 'Фотограф', 'tag3': 'Природа'},
-      'travel-2': {'tag1': 'Книги', 'tag2': 'Чтение', 'tag3': 'Образование'},
-      'travel-3': {'tag1': 'Книги', 'tag2': 'Чтение', 'tag3': 'Образование'},
+      'travel-1': {'tag1': 'Путешествия'},
+      'travel-2': {'tag1': 'Книги'},
+      'travel-3': {'tag1': 'Книги'},
 
       // ЕДА И КУЛИНАРИЯ
-      'food-1': {'tag1': 'Кулинария', 'tag2': 'Рецепты', 'tag3': 'Италия'},
-      'food-2': {'tag1': 'Кулинария', 'tag2': 'Рецепты', 'tag3': 'Италия'},
-      'food-3': {'tag1': 'Кулинария', 'tag2': 'Рецепты', 'tag3': 'Италия'},
+      'food-1': {'tag1': 'Кулинария'},
+      'food-2': {'tag1': 'Кулинария'},
+      'food-3': {'tag1': 'Кулинария'},
 
       // ЛИЧНЫЕ МЫСЛИ
-      'thought-1': {'tag1': 'Философия', 'tag2': 'Книги', 'tag3': 'Мысли'},
-      'thought-2': {'tag1': 'Кофе', 'tag2': 'Утро', 'tag3': 'Настроение'},
-      'thought-3': {'tag1': 'Котики', 'tag2': 'Юмор', 'tag3': 'Домашние'},
+      'thought-1': {'tag1': 'Философия'},
+      'thought-2': {'tag1': 'Кофе'},
+      'thought-3': {'tag1': 'Котики'},
 
       // РАБОЧИЕ МОМЕНТЫ
-      'work-1': {'tag1': 'Разработчик', 'tag2': 'Flutter', 'tag3': 'IT'},
-      'work-2': {'tag1': 'Бизнес', 'tag2': 'Карьера', 'tag3': 'Финансы'},
+      'work-1': {'tag1': 'Разработчик'},
+      'work-2': {'tag1': 'Бизнес'},
 
       // УЧЕБА И САМОРАЗВИТИЕ
-      'study-1': {'tag1': 'Студент', 'tag2': 'Наука', 'tag3': 'Технологии'},
-      'study-2': {'tag1': 'Книги', 'tag2': 'Чтение', 'tag3': 'Образование'},
+      'study-1': {'tag1': 'Студент'},
+      'study-2': {'tag1': 'Книги'},
 
       // ИГРЫ И РАЗВЛЕЧЕНИЯ
-      'games-1': {'tag1': 'Программист', 'tag2': 'Геймер', 'tag3': 'Технологии'},
+      'games-1': {'tag1': 'Программист'},
 
       // МУЗЫКА И ТВОРЧЕСТВО
-      'music-1': {'tag1': 'Искусство', 'tag2': 'Выставка', 'tag3': 'Культура'},
+      'music-1': {'tag1': 'Искусство'},
 
       // СПОРТ И ЗДОРОВЬЕ
-      'health-1': {'tag1': 'Спорт', 'tag2': 'Бег', 'tag3': 'ЗОЖ'},
-      'health-2': {'tag1': 'Вопрос', 'tag2': 'Отдых', 'tag3': 'Сообщество'},
+      'health-1': {'tag1': 'Спорт'},
+      'health-2': {'tag1': 'Вопрос'},
 
       // ХОББИ И УВЛЕЧЕНИЯ
-      'hobby-1': {'tag1': 'Юмор', 'tag2': 'Семья', 'tag3': 'IT'},
-      'hobby-2': {'tag1': 'Воспоминания', 'tag2': 'Друзья', 'tag3': 'Фото'},
-      'hobby-3': {'tag1': 'Путешествия', 'tag2': 'Фотограф', 'tag3': 'Природа'},
+      'hobby-1': {'tag1': 'Юмор'},
+      'hobby-2': {'tag1': 'Воспоминания'},
+      'hobby-3': {'tag1': 'Путешествия'},
 
-      // ЮМОРИСТИЧЕСКИЕ ПОСТЫ (старые ID для обратной совместимости)
-      'funny-1': {'tag1': 'Котики', 'tag2': 'Юмор', 'tag3': 'Домашние'},
-      'funny-2': {'tag1': 'Юмор', 'tag2': 'Семья', 'tag3': 'IT'},
+      // ЮМОРИСТИЧЕСКИЕ ПОСТЫ
+      'funny-1': {'tag1': 'Котики'},
+      'funny-2': {'tag1': 'Юмор'},
 
       // НОВОСТИ ГОРОДА
-      'news-1': {'tag1': 'Новости', 'tag2': 'Город', 'tag3': 'События'},
+      'news-1': {'tag1': 'Новости'},
 
       // ВОПРОСЫ
-      'question-1': {'tag1': 'Вопрос', 'tag2': 'Отдых', 'tag3': 'Сообщество'},
-      'question-2': {'tag1': 'Книги', 'tag2': 'Чтение', 'tag3': 'Образование'},
+      'question-1': {'tag1': 'Вопрос'},
+      'question-2': {'tag1': 'Книги'},
 
       // ДОСТИЖЕНИЯ
-      'achieve-1': {'tag1': 'Разработка', 'tag2': 'Flutter', 'tag3': 'Успех'},
+      'achieve-1': {'tag1': 'Разработка'},
 
       // ПОВСЕДНЕВНЫЕ ПОСТЫ
-      'daily-1': {'tag1': 'Будни', 'tag2': 'Настроение', 'tag3': 'Юмор'},
-      'daily-2': {'tag1': 'Воспоминания', 'tag2': 'Друзья', 'tag3': 'Фото'},
+      'daily-1': {'tag1': 'Будни'},
+      'daily-2': {'tag1': 'Воспоминания'},
 
       // ОТНОШЕНИЯ И ОБЩЕНИЕ
-      'relations-1': {'tag1': 'Юмор', 'tag2': 'Семья', 'tag3': 'IT'},
+      'relations-1': {'tag1': 'Юмор'},
 
       // ФИНАНСЫ И БИЗНЕС
-      'finance-1': {'tag1': 'Бизнес', 'tag2': 'Карьера', 'tag3': 'Финансы'},
+      'finance-1': {'tag1': 'Бизнес'},
 
       // ПРИРОДА И ОТДЫХ
-      'nature-1': {'tag1': 'Психология', 'tag2': 'ЗОЖ', 'tag3': 'Природа'},
+      'nature-1': {'tag1': 'Психология'},
 
       // Старые ID для обратной совместимости
-      '1': {'tag1': 'Фанат Манчестера', 'tag2': 'Спорт', 'tag3': 'Футбол'},
-      '2': {'tag1': 'Гонки', 'tag2': 'Автоспорт', 'tag3': 'Formula 1'},
-      '3': {'tag1': 'Программист', 'tag2': 'Котики', 'tag3': 'Геймер'},
+      '1': {'tag1': 'Фанат Манчестера'},
+      '2': {'tag1': 'Гонки'},
+      '3': {'tag1': 'Программист'},
     };
 
-    // Возвращаем теги для конкретного поста или пустой map если не найдено
+    // Возвращаем теги для конкретного поста
     final tags = mockTags[postId] ?? <String, String>{};
 
     if (tags.isNotEmpty) {
-      print('✅ UserTagsProvider: использованы мок теги для поста $postId: $tags');
+      print('✅ UserTagsProvider: использованы теги для поста $postId: $tags');
     } else {
-      print('⚠️ UserTagsProvider: не найдены мок теги для поста $postId');
+      print('⚠️ UserTagsProvider: не найдены теги для поста $postId');
     }
 
     return tags;

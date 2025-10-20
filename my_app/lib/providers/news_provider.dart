@@ -96,58 +96,192 @@ class NewsProvider with ChangeNotifier {
     _initializeRepostManager();
   }
 
+  // В классе NewsProvider - ПРАВИЛЬНЫЙ метод:
   void _initializeInteractionManager() {
-    _interactionManager.setCallbacks(
-      onLike: (postId, isLiked, likesCount) {
-        final index = findNewsIndexById(postId);
-        if (index != -1) {
-          updateNewsLikeStatus(index, isLiked, likesCount);
-        }
-      },
-      onBookmark: (postId, isBookmarked) {
-        final index = findNewsIndexById(postId);
-        if (index != -1) {
-          updateNewsBookmarkStatus(index, isBookmarked);
-        }
-      },
-      onRepost: (postId, isReposted, repostsCount, userId, userName) {
-        print('🔄 NewsProvider: Repost callback received');
-        print('   postId: $postId, isReposted: $isReposted');
-        print('   userId: $userId, userName: $userName');
+    _safeOperation(() {
+      _interactionManager.setCallbacks(
+        onLike: (postId, isLiked, likesCount) {
+          if (_isDisposed) return;
 
-        if (isReposted) {
-          // Создаем репост через RepostManager
+          print('🔄 NewsProvider: Like callback received - postId: $postId, isLiked: $isLiked, likesCount: $likesCount');
+
+          // Синхронизируем состояние
+          syncPostStateFromInteractionManager(postId);
+        },
+        onBookmark: (postId, isBookmarked) {
+          if (_isDisposed) return;
+
+          print('🔄 NewsProvider: Bookmark callback received - postId: $postId, isBookmarked: $isBookmarked');
+
+          // Синхронизируем состояние
+          syncPostStateFromInteractionManager(postId);
+        },
+        onRepost: (postId, isReposted, repostsCount, userId, userName) {
+          if (_isDisposed) return;
+
+          print('🔄 NewsProvider: Repost callback received - postId: $postId, isReposted: $isReposted, repostsCount: $repostsCount');
+
+          // Синхронизируем состояние
+          syncPostStateFromInteractionManager(postId);
+
+          // Дополнительная логика для репостов
+          if (isReposted) {
+            final index = findNewsIndexById(postId);
+            if (index != -1) {
+              _repostManager.createRepost(
+                newsProvider: this,
+                originalIndex: index,
+                currentUserId: userId,
+                currentUserName: userName,
+              );
+            }
+          } else {
+            final repostId = _repostManager.getRepostIdForOriginal(this, postId, userId);
+            if (repostId != null) {
+              _repostManager.cancelRepost(
+                newsProvider: this,
+                repostId: repostId,
+                currentUserId: userId,
+              );
+            }
+          }
+        },
+        onComment: (postId, comment) {
+          if (_isDisposed) return;
+
+          print('🔄 NewsProvider: Comment callback received - postId: $postId');
+
+          // Синхронизируем состояние
+          syncPostStateFromInteractionManager(postId);
+
+          // Дополнительная логика для комментариев
+          addCommentToNews(postId, comment);
+        },
+        onCommentRemoval: (postId, commentId) {
+          if (_isDisposed) return;
+
+          print('🔄 NewsProvider: Comment removal callback received - postId: $postId, commentId: $commentId');
+
+          // Синхронизируем состояние
+          syncPostStateFromInteractionManager(postId);
+
+          // Дополнительная логика для удаления комментариев
           final index = findNewsIndexById(postId);
           if (index != -1) {
-            _repostManager.createRepost(
-              newsProvider: this,
-              originalIndex: index,
-              currentUserId: userId,
-              currentUserName: userName,
-            );
+            removeCommentFromNews(index, commentId);
           }
-        } else {
-          // Отменяем репост через RepostManager - ИСПРАВЛЕННЫЙ ВЫЗОВ
-          final repostId = _repostManager.getRepostIdForOriginal(this, postId, userId);
-          if (repostId != null) {
-            _repostManager.cancelRepost(
-              newsProvider: this,
-              repostId: repostId,
-              currentUserId: userId,
-            );
-          }
-        }
-      },
-      onComment: (postId, comment) {
-        addCommentToNews(postId, comment);
-      },
-      onCommentRemoval: (postId, commentId) {
+        },
+      );
+
+      // Выполняем первоначальную синхронизацию
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        syncAllPostsFromInteractionManager();
+      });
+
+      print('✅ InteractionManager callbacks initialized with full synchronization');
+    });
+  }
+
+
+
+
+
+
+  // В класс NewsProvider добавьте:
+
+  /// Принудительная синхронизация конкретного поста
+  void forceSyncPost(String postId) {
+    syncPostStateFromInteractionManager(postId);
+  }
+
+  /// Принудительная синхронизация всех постов
+  void forceSyncAllPosts() {
+    syncAllPostsFromInteractionManager();
+  }
+
+  /// Синхронизация при обновлении UI
+  void syncOnUIUpdate() {
+    if (_isDisposed) return;
+
+    // Синхронизируем только видимые посты для производительности
+    final visiblePostIds = _news.take(50).map((post) => post['id'].toString()).toList();
+
+    for (final postId in visiblePostIds) {
+      final interactionState = _interactionManager.getPostState(postId);
+      if (interactionState != null) {
         final index = findNewsIndexById(postId);
         if (index != -1) {
-          removeCommentFromNews(index, commentId);
+          final currentNews = _news[index];
+          if (currentNews['isLiked'] != interactionState.isLiked ||
+              currentNews['likes'] != interactionState.likesCount ||
+              currentNews['isBookmarked'] != interactionState.isBookmarked ||
+              currentNews['comments'].length != interactionState.comments.length) {
+            syncPostStateFromInteractionManager(postId);
+          }
         }
-      },
-    );
+      }
+    }
+  }
+
+
+  void syncPostStateFromInteractionManager(String postId) {
+    if (_isDisposed) return;
+
+    final interactionState = _interactionManager.getPostState(postId);
+    if (interactionState == null) {
+      print('⚠️ No interaction state found for post: $postId');
+      return;
+    }
+
+    final index = findNewsIndexById(postId);
+    if (index != -1) {
+      print('🔄 Syncing post state from InteractionManager: $postId');
+      print('   Likes: ${interactionState.likesCount}, Liked: ${interactionState.isLiked}');
+      print('   Bookmarks: ${interactionState.isBookmarked}');
+      print('   Reposts: ${interactionState.repostsCount}, Reposted: ${interactionState.isReposted}');
+      print('   Comments: ${interactionState.comments.length}');
+
+      _news[index] = {
+        ..._news[index],
+        'isLiked': interactionState.isLiked,
+        'likes': interactionState.likesCount,
+        'isBookmarked': interactionState.isBookmarked,
+        'isReposted': interactionState.isReposted,
+        'reposts': interactionState.repostsCount,
+        'comments': interactionState.comments,
+      };
+
+      _safeNotifyListeners();
+      _saveNewsToStorage();
+
+      print('✅ Successfully synced post state for: $postId');
+    } else {
+      print('❌ Post not found for sync: $postId');
+    }
+  }
+
+
+
+
+
+
+
+
+  void syncAllPostsFromInteractionManager() {
+    if (_isDisposed) return;
+
+    print('🔄 Starting full sync of all posts from InteractionManager');
+    int syncedCount = 0;
+
+    for (final postId in _interactionManager.getAllPostIds()) {
+      final index = findNewsIndexById(postId);
+      if (index != -1) {
+        syncPostStateFromInteractionManager(postId);
+        syncedCount++;
+      }
+    }
+
+    print('✅ Full sync completed: $syncedCount posts synchronized');
   }
 
   void _initializeRepostManager() {
@@ -511,6 +645,8 @@ class NewsProvider with ChangeNotifier {
     });
   }
 
+// Аналогично для других методов обновления статусов...
+
   void updateNewsBookmarkStatus(int index, bool isBookmarked) {
     _safeOperation(() {
       if (index >= 0 && index < _news.length) {
@@ -575,150 +711,165 @@ class NewsProvider with ChangeNotifier {
     });
 
     try {
-      // СНАЧАЛА загружаем из кэша для мгновенного отображения
+      print('🔄 Starting local news loading process...');
+
+      // 1. Загружаем из локального хранилища
       final cachedNews = await StorageService.loadNews();
+
       if (cachedNews.isNotEmpty) {
-        _safeOperation(() {
-          _news = cachedNews;
-          _safeNotifyListeners();
-        });
-        print('📂 Loaded ${_news.length} news from cache');
-      }
-
-      // ПОТОМ пытаемся обновить из API (в фоне)
-      try {
-        final apiNews = await ApiService.getNews();
-        if (apiNews.isNotEmpty) {
-          final localLikes = await StorageService.loadLikes();
-          final localBookmarks = await StorageService.loadBookmarks();
-          final userTags = await StorageService.loadUserTags();
-
-          final updatedNews = await Future.wait(apiNews.map((newsItem) async {
-            final newsId = newsItem['id'].toString();
-
-            // ПРОВЕРЯЕМ на дублирование
-            if (_containsNewsWithId(newsId)) {
-              print('⚠️ Skipping duplicate news from API: $newsId');
-              return _news.firstWhere((item) => item['id'].toString() == newsId);
-            }
-
-            // ИСПРАВЛЕНИЕ: Правильное получение user_tags
-            final Map<String, String> itemUserTags;
-            if (userTags.containsKey(newsId)) {
-              final newsTags = userTags[newsId]!;
-              if (newsTags['tags'] is Map) {
-                final tagsMap = newsTags['tags'] as Map;
-                itemUserTags = tagsMap.map((key, value) =>
-                    MapEntry(key.toString(), value.toString())
-                );
-              } else {
-                itemUserTags = {'tag1': 'Фанат Манчестера'};
-              }
-            } else {
-              itemUserTags = newsItem['user_tags'] is Map
-                  ? (newsItem['user_tags'] as Map).map((key, value) =>
-                  MapEntry(key.toString(), value.toString())
-              )
-                  : {'tag1': 'Фанат Манчестера'};
-            }
-
-            final tagColor = await _getTagColor(newsId, itemUserTags);
-
-            // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем аватар автора из API данных
-            final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
-            final authorAvatarFromApi = newsItem['author_avatar']?.toString() ?? '';
-
-            // Определяем финальный аватар: приоритет у API, затем fallback
-            String finalAuthorAvatar;
-            if (authorAvatarFromApi.isNotEmpty) {
-              finalAuthorAvatar = authorAvatarFromApi;
-              print('✅ Using author avatar from API: $authorAvatarFromApi for $authorName');
-            } else {
-              finalAuthorAvatar = _getFallbackAvatarUrl(authorName);
-              print('ℹ️ Using fallback avatar for $authorName: $finalAuthorAvatar');
-            }
-
-            // ВАЖНОЕ ИСПРАВЛЕНИЕ: Для репостов гарантируем правильную структуру данных
-            final isRepost = newsItem['is_repost'] == true;
-            final repostComment = newsItem['repost_comment']?.toString() ?? '';
-            List<dynamic> finalComments;
-
-            if (isRepost && repostComment.isNotEmpty) {
-              // ДЛЯ РЕПОСТОВ С КОММЕНТАРИЕМ: гарантируем пустой массив комментариев
-              finalComments = [];
-              print('✅ [LOAD NEWS] Ensuring empty comments for repost with comment: $newsId');
-            } else {
-              finalComments = newsItem['comments'] ?? [];
-            }
-
-            return {
-              ...newsItem,
-              'isLiked': localLikes.contains(newsId),
-              'isBookmarked': localBookmarks.contains(newsId),
-              'hashtags': _parseHashtags(newsItem['hashtags']),
-              'user_tags': itemUserTags,
-              'comments': finalComments, // ИСПОЛЬЗУЕМ ПРАВИЛЬНЫЕ КОММЕНТАРИИ
-              'likes': newsItem['likes'] ?? 0,
-              'tag_color': tagColor,
-              // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем аватар автора
-              'author_avatar': finalAuthorAvatar,
-            };
-          }));
-
-          // ОБНОВЛЯЕМ данные только если API вернул новые данные
-          final newItems = updatedNews.where((item) =>
-          !_containsNewsWithId(item['id'].toString())).toList();
-
-          if (newItems.isNotEmpty) {
-            _safeOperation(() {
-              _news.insertAll(0, newItems);
-            });
-            await _saveNewsToStorage();
-            print('🔄 Updated news from API: ${newItems.length} new items');
-
-            // Логируем аватары для отладки
-            for (final item in newItems.take(3)) {
-              final author = item['author_name'] ?? 'Unknown';
-              final avatar = item['author_avatar'] ?? 'No avatar';
-              print('👤 New item - Author: $author, Avatar: $avatar');
-            }
-          } else {
-            print('⚠️ No new items from API, keeping cached data');
-          }
-        } else {
-          print('⚠️ API returned empty list, keeping cached data');
-        }
-      } catch (apiError) {
-        print('⚠️ API update failed, using cached data: $apiError');
-        // Продолжаем использовать кэшированные данные
+        await _processCachedNews(cachedNews);
+      } else {
+        // 2. Если в хранилище пусто, создаем начальные данные
+        await _createInitialNews();
       }
 
     } catch (e) {
-      print('❌ Both cache and API failed: $e');
+      print('❌ Error loading local news: $e');
       _safeOperation(() {
-        _errorMessage = 'Ошибка загрузки данных';
+        _errorMessage = 'Ошибка загрузки локальных данных';
       });
 
-      // Используем mock данные только если совсем ничего нет
-      if (_news.isEmpty) {
-        final mockNews = _getMockNews();
-        _safeOperation(() {
-          _news = mockNews;
-        });
-        await _saveNewsToStorage();
-        print('🔄 Using mock data: ${_news.length} items');
-      }
+      // Создаем mock данные при ошибке
+      await _createInitialNews();
     } finally {
       _safeOperation(() {
         _isLoading = false;
         _safeNotifyListeners();
       });
 
-      // ВАЖНОЕ ИСПРАВЛЕНИЕ: Очищаем дубликаты комментариев репостов
-      await _cleanupRepostCommentDuplicates();
-      initializeInteractions();
-      fixRepostCommentsDuplication();
+      // Финальная синхронизация
+      await _performFinalSyncAndCleanup();
     }
+  }
+
+  /// Обработка кэшированных новостей
+  Future<void> _processCachedNews(List<dynamic> cachedNews) async {
+    final localLikes = await StorageService.loadLikes();
+    final localBookmarks = await StorageService.loadBookmarks();
+    final userTags = await StorageService.loadUserTags();
+
+    final processedNews = await Future.wait(cachedNews.map((newsItem) async {
+      final newsId = newsItem['id'].toString();
+
+      // Получаем user_tags
+      final Map<String, String> itemUserTags;
+      if (userTags.containsKey(newsId)) {
+        final newsTags = userTags[newsId]!;
+        if (newsTags['tags'] is Map) {
+          final tagsMap = newsTags['tags'] as Map;
+          itemUserTags = tagsMap.map((key, value) =>
+              MapEntry(key.toString(), value.toString())
+          );
+        } else {
+          itemUserTags = {'tag1': 'Фанат Манчестера'};
+        }
+      } else {
+        itemUserTags = newsItem['user_tags'] is Map
+            ? (newsItem['user_tags'] as Map).map((key, value) =>
+            MapEntry(key.toString(), value.toString())
+        )
+            : {'tag1': 'Фанат Манчестера'};
+      }
+
+      final tagColor = await _getTagColor(newsId, itemUserTags);
+
+      // Определяем аватар автора
+      final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
+      final authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
+
+      // Для репостов гарантируем правильную структуру данных
+      final isRepost = newsItem['is_repost'] == true;
+      final repostComment = newsItem['repost_comment']?.toString() ?? '';
+      List<dynamic> finalComments;
+
+      if (isRepost && repostComment.isNotEmpty) {
+        finalComments = [];
+        print('✅ Ensuring empty comments for repost with comment: $newsId');
+      } else {
+        finalComments = newsItem['comments'] ?? [];
+      }
+
+      return {
+        ...newsItem,
+        'isLiked': localLikes.contains(newsId),
+        'isBookmarked': localBookmarks.contains(newsId),
+        'hashtags': _parseHashtags(newsItem['hashtags']),
+        'user_tags': itemUserTags,
+        'comments': finalComments,
+        'likes': newsItem['likes'] ?? 0,
+        'tag_color': tagColor,
+        'author_avatar': authorAvatar,
+      };
+    }));
+
+    _safeOperation(() {
+      _news = processedNews;
+      _safeNotifyListeners();
+    });
+
+    // Инициализируем взаимодействия
+    _initializeInteractionsForNews(processedNews);
+
+    print('📂 Loaded ${_news.length} news from local storage');
+    await _saveNewsToStorage();
+  }
+
+  /// Создание начальных новостей
+  Future<void> _createInitialNews() async {
+    final mockNews = _getMockNews();
+
+    _safeOperation(() {
+      _news = mockNews;
+      _safeNotifyListeners();
+    });
+
+    // Инициализируем взаимодействия
+    _initializeInteractionsForNews(mockNews);
+
+    await _saveNewsToStorage();
+    print('🔄 Created initial news: ${mockNews.length} items');
+  }
+
+  /// Инициализация взаимодействий для списка новостей
+  void _initializeInteractionsForNews(List<dynamic> newsList) {
+    final List<Map<String, dynamic>> newsMapList = newsList.map((item) {
+      if (item is Map<String, dynamic>) {
+        // Для репостов с комментариями гарантируем пустые комментарии
+        final isRepost = item['is_repost'] == true;
+        final repostComment = item['repost_comment']?.toString() ?? '';
+        final comments = List<dynamic>.from(item['comments'] ?? []);
+
+        if (isRepost && repostComment.isNotEmpty && comments.isNotEmpty) {
+          print('🔄 [INIT INTERACTIONS] Fixing repost comments for: ${item['id']}');
+          return {
+            ...item,
+            'comments': [],
+          };
+        }
+        return item;
+      } else {
+        return {'id': item.toString(), 'isLiked': false, 'isBookmarked': false};
+      }
+    }).toList();
+
+    // ✅ Исправленный вызов
+    _interactionManager.bulkUpdatePostStates(newsMapList);
+    print('✅ Interactions initialized for ${newsMapList.length} posts');
+  }
+
+
+  /// Финальная синхронизация и очистка
+  Future<void> _performFinalSyncAndCleanup() async {
+    // Синхронизируем все посты
+    syncAllPostsFromInteractionManager();
+
+    // Очищаем дубликаты комментариев репостов
+    await _cleanupRepostCommentDuplicates();
+
+    // Исправляем дублирование комментариев
+    fixRepostCommentsDuplication();
+
+    print('✅ Final sync and cleanup completed');
   }
 
 // НОВЫЙ МЕТОД: Очистка дубликатов комментариев репостов
@@ -1220,6 +1371,7 @@ class NewsProvider with ChangeNotifier {
       }
     }).toList();
 
+    // ✅ Исправленный вызов
     _interactionManager.bulkUpdatePostStates(newsList);
     print('✅ Interactions initialized for ${newsList.length} posts');
   }
@@ -1909,11 +2061,54 @@ class NewsProvider with ChangeNotifier {
   // НОВЫЕ МЕТОДЫ ДЛЯ ДОСТУПА К МЕНЕДЖЕРАМ
   InteractionManager get interactionManager => _interactionManager;
   RepostManager get repostManager => _repostManager;
-
   @override
   void dispose() {
+    print('🔴 NewsProvider dispose() called');
+
+    // Устанавливаем флаг disposed ПЕРВЫМ ДЕЛОМ
     _isDisposed = true;
-    _repostManager.dispose();
+
+    // 1. УДАЛЯЕМ ВСЕ СЛУШАТЕЛИ INTERACTION MANAGER
+    try {
+      _interactionManager.setCallbacks(
+        onLike: null,
+        onBookmark: null,
+        onRepost: null,
+        onComment: null,
+        onCommentRemoval: null,
+      );
+      print('✅ InteractionManager callbacks cleared');
+    } catch (e) {
+      print('⚠️ Error clearing InteractionManager callbacks: $e');
+    }
+
+    // 2. ДИСПОЗИМ МЕНЕДЖЕРЫ
+    try {
+      _repostManager.dispose();
+      print('✅ RepostManager disposed');
+    } catch (e) {
+      print('⚠️ Error disposing RepostManager: $e');
+    }
+
+    try {
+      // Если InteractionManager тоже нужно диспозить
+      if (_interactionManager.isDisposed) {
+        _interactionManager.dispose();
+        print('✅ InteractionManager disposed');
+      }
+    } catch (e) {
+      print('⚠️ Error disposing InteractionManager: $e');
+    }
+
+    // 3. ОЧИЩАЕМ КОЛЛЕКЦИИ ДАННЫХ
+    _news.clear();
+    _userProfiles.clear();
+
+    // 4. СБРАСЫВАЕМ СОСТОЯНИЕ
+    _currentUserId = null;
+    _errorMessage = null;
+
+    print('✅ NewsProvider resources cleaned up');
     super.dispose();
   }
 }

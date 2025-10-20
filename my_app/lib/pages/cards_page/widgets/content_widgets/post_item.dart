@@ -9,6 +9,7 @@ import '../../../../providers/user_provider.dart';
 import '../../../../services/interaction_manager.dart' as im;
 import '../../../../state_sync_mixin.dart';
 import '../../../news_page/theme/news_theme.dart';
+import '../../channel_detail_page.dart';
 import '../../models/channel.dart';
 import '../../../../providers/channel_state_provider.dart';
 import '../../../../services/interaction_manager.dart';
@@ -559,18 +560,15 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         final channelName = widget.channel.title;
         final createdAt = _getStringValue(widget.post['created_at']);
 
-        // ПРОВЕРЯЕМ, ЯВЛЯЕТСЯ ЛИ ПОСТ РЕПОСТОМ
         final isRepost = _getBoolValue(widget.post['is_repost']);
         final repostedByName = _getStringValue(widget.post['reposted_by_name']);
         final originalAuthorName = _getStringValue(widget.post['original_author_name']);
         final originalChannelName = _getStringValue(widget.post['original_channel_name']);
         final isOriginalChannelPost = _getBoolValue(widget.post['is_original_channel_post']);
 
-        // ПРОВЕРЯЕМ КОММЕНТАРИЙ РЕПОСТА
         final repostComment = _getStringValue(widget.post['repost_comment']);
         final hasRepostComment = isRepost && repostComment.isNotEmpty;
 
-        // Получаем актуальную аватарку из провайдера
         final currentAvatarUrl = channelStateProvider.getAvatarForChannel(widget.channel.id.toString());
         final channelAvatar = widget.customAvatarUrl ?? currentAvatarUrl ?? widget.channel.imageUrl;
 
@@ -579,27 +577,25 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ИНФОРМАЦИЯ О РЕПОСТЕ - НОВЫЙ ДИЗАЙН
             if (isRepost && repostedByName.isNotEmpty)
               _buildRepostHeader(repostedByName, createdAt, hasRepostComment ? repostComment : null),
 
-            // ОСНОВНАЯ ИНФОРМАЦИЯ О КАНАЛЕ - ПОКАЗЫВАЕМ ВСЕГДА, ДАЖЕ ДЛЯ РЕПОСТОВ
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildChannelAvatar(channelAvatar, channelName, avatarSize),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // ИМЯ КАНАЛА
-                      Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: _openChannelProfile,
+            // ОБНОВЛЕННАЯ ШАПКА КАНАЛА С ПЕРЕХОДОМ
+            GestureDetector(
+              onTap: _openChannel, // 👈 ДОБАВЬТЕ ЭТОТ ОБРАБОТЧИК
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildChannelAvatar(channelAvatar, channelName, avatarSize),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
                               child: Text(
                                 channelName,
                                 style: TextStyle(
@@ -612,18 +608,16 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          ),
-                          // КНОПКА МЕНЮ
-                          _buildMenuButton(),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      // ВРЕМЯ И СТАТУС - ДЛЯ РЕПОСТОВ ПОКАЗЫВАЕМ, ЧТО ЭТО РЕПОСТ В КАНАЛЕ
-                      _buildChannelMetaInfo(isRepost, hasRepostComment, createdAt),
-                    ],
+                            _buildMenuButton(),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        _buildChannelMetaInfo(isRepost, hasRepostComment, createdAt),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         );
@@ -1047,6 +1041,29 @@ class _PostItemState extends State<PostItem> with SingleTickerProviderStateMixin
       ),
     );
   }
+
+  void _openChannel() {
+    final channelId = _getStringValue(widget.post['channel_id']);
+    final channelName = _getStringValue(widget.post['channel_name']);
+
+    if (channelId.isEmpty) {
+      print('❌ Channel ID is empty in PostItem');
+      return;
+    }
+
+    print('🎯 PostItem opening channel: $channelName ($channelId)');
+
+    // Создаем канал из данных поста
+    final channel = Channel.fromPostData(widget.post);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChannelDetailPage(channel: channel),
+      ),
+    );
+  }
+
 
 
 

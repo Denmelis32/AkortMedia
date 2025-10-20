@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/user_tags_provider.dart';
 import '../../../../providers/user_provider.dart';
+import '../../../../providers/channel_state_provider.dart';
 import '../../dialogs/tag_edit_dialog.dart';
 import '../../models/news_card_enums.dart';
 import '../../utils/image_utils.dart';
@@ -14,47 +15,42 @@ import '../tags/personal_tags.dart';
 class NewsCardHeader extends StatelessWidget {
   final Map<String, dynamic> news;
   final VoidCallback onUserProfile;
+  final VoidCallback onChannelTap;
   final Function(String) onMenuPressed;
   final String Function(String) formatDate;
   final String Function(String) getTimeAgo;
   final UserTagsProvider? userTagsProvider;
   final bool isChannelPost;
   final bool isRepost;
+  final String? customAvatarUrl;
 
   const NewsCardHeader({
     super.key,
     required this.news,
     required this.onUserProfile,
+    required this.onChannelTap,
     required this.onMenuPressed,
     required this.formatDate,
     required this.getTimeAgo,
     this.userTagsProvider,
     this.isChannelPost = false,
     this.isRepost = false,
+    this.customAvatarUrl,
   });
 
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // 📊 ПОЛУЧАЕМ ДАННЫЕ АВТОРА
     final authorName = _getStringValue(news['author_name']);
     final channelName = _getStringValue(news['channel_name']);
     final channelId = _getStringValue(news['channel_id']);
     final createdAt = _getStringValue(news['created_at']);
 
-    // 🎯 ОПРЕДЕЛЯЕМ ОТОБРАЖАЕМОЕ ИМЯ И ТИП
     final displayName = isChannelPost && channelName.isNotEmpty ? channelName : authorName;
     final isCurrentUser = authorName == userProvider.userName;
 
-    // 🖼️ ПОЛУЧАЕМ АВАТАРКУ
-    final avatarUrl = ImageUtils.getUserAvatarUrl(
-      news: news,
-      userName: displayName,
-      isCurrentUser: isCurrentUser,
-    );
-
-    // 🏷️ ПОЛУЧАЕМ ПЕРВЫЙ ТЕГ ИЛИ ПУСТОЙ МАССИВ
+    final avatarUrl = _getAvatarUrl(context, displayName, isCurrentUser);
     final userTags = _getUserTags();
 
     return Padding(
@@ -62,43 +58,51 @@ class NewsCardHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 🖼️ АВАТАРКА
-          ImageUtils.buildUserAvatarWidget(
-            avatarUrl: avatarUrl,
-            displayName: displayName,
-            size: LayoutUtils.getAvatarSize(context),
-            onTap: onUserProfile,
+          // 🖼️ АВАТАРКА С ВОЗМОЖНОСТЬЮ ПЕРЕХОДА В КАНАЛ
+          GestureDetector(
+            onTap: isChannelPost ? onChannelTap : onUserProfile,
+            child: MouseRegion(
+              cursor: isChannelPost ? SystemMouseCursors.click : SystemMouseCursors.basic,
+              child: ImageUtils.buildUserAvatarWidget(
+                avatarUrl: avatarUrl,
+                displayName: displayName,
+                size: LayoutUtils.getAvatarSize(context),
+                onTap: isChannelPost ? onChannelTap : onUserProfile,
+              ),
+            ),
           ),
 
           const SizedBox(width: 16),
 
-          // 📝 ИНФОРМАЦИЯ ОБ АВТОРЕ И МЕТА-ДАННЫЕ
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 👤 ИМЯ АВТОРА И КНОПКА МЕНЮ
+                // 👤 ИМЯ КАНАЛА С ВОЗМОЖНОСТЬЮ ПЕРЕХОДА
                 Row(
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: onUserProfile,
-                        child: Text(
-                          displayName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: LayoutUtils.getTitleFontSize(context),
-                            color: Colors.black87,
-                            letterSpacing: -0.3,
-                            height: 1.1,
+                        onTap: isChannelPost ? onChannelTap : onUserProfile,
+                        child: MouseRegion(
+                          cursor: isChannelPost ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                          child: Text(
+                            displayName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: LayoutUtils.getTitleFontSize(context),
+                              color: isChannelPost ? Colors.blue.shade700 : Colors.black87, // 🎯 СИНИЙ ЦВЕТ БЕЗ ПОДЧЕРКИВАНИЯ
+                              letterSpacing: -0.3,
+                              height: 1.1,
+                              // ❌ УБРАНО ПОДЧЕРКИВАНИЕ
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
 
-                    // 🎯 КНОПКА МЕНЮ (только для своих постов или не-каналов)
                     if (!isRepost || displayName == userProvider.userName)
                       _buildMenuButton(context),
                   ],
@@ -106,7 +110,6 @@ class NewsCardHeader extends StatelessWidget {
 
                 const SizedBox(height: 4),
 
-                // 📊 МЕТА-ИНФОРМАЦИЯ
                 _buildMetaInfo(
                   context: context,
                   isRepost: isRepost,
@@ -122,9 +125,45 @@ class NewsCardHeader extends StatelessWidget {
     );
   }
 
-  /// 📊 СОЗДАЕТ СЕКЦИЮ МЕТА-ИНФОРМАЦИИ
-  /// 📊 СОЗДАЕТ СЕКЦИЮ МЕТА-ИНФОРМАЦИИ
-  /// 📊 СОЗДАЕТ СЕКЦИЮ МЕТА-ИНФОРМАЦИИ
+  /// 🖼️ ПОЛУЧАЕТ АВАТАРКУ С ПРИОРИТЕТОМ КАСТОМНОЙ АВАТАРКИ
+  String _getAvatarUrl(BuildContext context, String displayName, bool isCurrentUser) {
+    // 1. ПРИОРИТЕТ: кастомная аватарка, переданная из NewsCard
+    if (customAvatarUrl != null && customAvatarUrl!.isNotEmpty) {
+      return customAvatarUrl!;
+    }
+
+    // 2. ДЛЯ КАНАЛЬНЫХ ПОСТОВ: используем ChannelStateProvider
+    if (isChannelPost) {
+      try {
+        final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+        final channelId = _getStringValue(news['channel_id']);
+
+        if (channelId.isNotEmpty) {
+          final customAvatar = channelStateProvider.getAvatarForChannel(channelId);
+          if (customAvatar != null && customAvatar.isNotEmpty) {
+            return customAvatar;
+          }
+        }
+
+        // Fallback: используем аватар из данных новости
+        final channelAvatar = _getStringValue(news['channel_avatar']);
+        if (channelAvatar.isNotEmpty) {
+          return channelAvatar;
+        }
+      } catch (e) {
+        print('❌ NewsCardHeader: Error getting channel avatar: $e');
+      }
+    }
+
+    // 3. СТАНДАРТНАЯ ЛОГИКА ДЛЯ ВСЕХ ПОСТОВ
+    return ImageUtils.getUserAvatarUrl(
+      news: news,
+      userName: displayName,
+      isCurrentUser: isCurrentUser,
+    );
+  }
+
+  // 📊 СОЗДАЕТ СЕКЦИЮ МЕТА-ИНФОРМАЦИИ (остается без изменений)
   Widget _buildMetaInfo({
     required BuildContext context,
     required bool isRepost,
@@ -132,12 +171,10 @@ class NewsCardHeader extends StatelessWidget {
     required String createdAt,
     required Map<String, String> userTags,
   }) {
-    // ✅ ИЗМЕНЕНИЕ: Показываем теги только если есть хотя бы один непустой тег
     final hasPersonalTags = userTags.isNotEmpty &&
         userTags.values.any((tag) => tag.isNotEmpty && tag != 'Новый тег') &&
         !isRepost;
 
-    // ✅ ИЗМЕНЕНИЕ: Определяем, нужно ли показывать тип контента
     final shouldShowContentType = !isRepost && _shouldShowContentType();
 
     return Container(
@@ -163,7 +200,7 @@ class NewsCardHeader extends StatelessWidget {
               ],
             ),
 
-            // 🏷️ ПЕРСОНАЛЬНЫЕ ТЕГИ (только для не-репостов и когда есть теги)
+            // 🏷️ ПЕРСОНАЛЬНЫЕ ТЕГИ
             if (hasPersonalTags) ...[
               const SizedBox(width: 12),
               Container(
@@ -175,8 +212,6 @@ class NewsCardHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-
-              // 🎯 КОМПОНЕНТ ПЕРСОНАЛЬНЫХ ТЕГОВ (ТОЛЬКО ОДИН ТЕГ)
               PersonalTagsSection(
                 userTags: userTags,
                 news: news,
@@ -185,7 +220,7 @@ class NewsCardHeader extends StatelessWidget {
               ),
             ],
 
-            // ➕ КНОПКА ДОБАВИТЬ ТЕГ (если нет тегов И это не репост/канал)
+            // ➕ КНОПКА ДОБАВИТЬ ТЕГ
             if (!hasPersonalTags && !isRepost && !isChannelPost) ...[
               const SizedBox(width: 12),
               Container(
@@ -200,7 +235,7 @@ class NewsCardHeader extends StatelessWidget {
               _buildAddTagButton(context),
             ],
 
-            // 📢 ИНФОРМАЦИЯ О ТИПЕ КОНТЕНТА (только для не-репостов)
+            // 📢 ИНФОРМАЦИЯ О ТИПЕ КОНТЕНТА
             if (!isRepost) ...[
               if (isChannelPost) ...[
                 const SizedBox(width: 12),
@@ -224,7 +259,6 @@ class NewsCardHeader extends StatelessWidget {
                   ),
                 ),
               ] else if (shouldShowContentType) ...[
-                // 🎪 ТИП КОНТЕНТА ДЛЯ ОБЫЧНЫХ ПОСТОВ
                 _buildContentTypeInfo(context),
               ],
             ],
@@ -234,13 +268,13 @@ class NewsCardHeader extends StatelessWidget {
     );
   }
 
-  /// 🎪 ОПРЕДЕЛЯЕТ НУЖНО ЛИ ПОКАЗЫВАТЬ ТИП КОНТЕНТА
+  // 🎪 ОПРЕДЕЛЯЕТ НУЖНО ЛИ ПОКАЗЫВАТЬ ТИП КОНТЕНТА (остается без изменений)
   bool _shouldShowContentType() {
     final contentType = LayoutUtils.getContentType(news);
     return contentType != ContentType.general;
   }
 
-  /// 🎪 СОЗДАЕТ ИНФОРМАЦИЮ О ТИПЕ КОНТЕНТА
+  // 🎪 СОЗДАЕТ ИНФОРМАЦИЮ О ТИПЕ КОНТЕНТА (остается без изменений)
   Widget _buildContentTypeInfo(BuildContext context) {
     final contentType = LayoutUtils.getContentType(news);
     final contentColor = LayoutUtils.getContentColor(contentType, LayoutUtils.getCardDesign(news));
@@ -273,7 +307,7 @@ class NewsCardHeader extends StatelessWidget {
     );
   }
 
-  /// ➕ СОЗДАЕТ КНОПКУ "ДОБАВИТЬ ТЕГ"
+  // ➕ СОЗДАЕТ КНОПКУ "ДОБАВИТЬ ТЕГ" (остается без изменений)
   Widget _buildAddTagButton(BuildContext context) {
     return GestureDetector(
       onTap: () {
@@ -306,8 +340,7 @@ class NewsCardHeader extends StatelessWidget {
     );
   }
 
-  /// 🎪 ПОКАЗЫВАЕТ ДИАЛОГ ДОБАВЛЕНИЯ ТЕГА
-  /// 🎪 ПОКАЗЫВАЕТ ДИАЛОГ ДОБАВЛЕНИЯ ТЕГА
+  // 🎪 ПОКАЗЫВАЕТ ДИАЛОГ ДОБАВЛЕНИЯ ТЕГА (остается без изменений)
   void _showAddTagDialog(BuildContext context) {
     final postId = _getStringValue(news['id']);
     final cardDesign = LayoutUtils.getCardDesign(news);
@@ -317,9 +350,9 @@ class NewsCardHeader extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => TagEditDialog(
-        initialTagName: 'Новый тег', // Начальное название
-        tagId: 'tag1', // ID первого тега
-        initialColor: cardDesign.accentColor, // Цвет по умолчанию
+        initialTagName: 'Новый тег',
+        tagId: 'tag1',
+        initialColor: cardDesign.accentColor,
         news: news,
         userTagsProvider: userTagsProvider,
         cardDesign: cardDesign,
@@ -327,9 +360,7 @@ class NewsCardHeader extends StatelessWidget {
     );
   }
 
-
-
-  /// 🎯 СОЗДАЕТ КНОПКУ МЕНЮ
+  // 🎯 СОЗДАЕТ КНОПКУ МЕНЮ (остается без изменений)
   Widget _buildMenuButton(BuildContext context) {
     return Container(
       width: 32,
@@ -369,8 +400,7 @@ class NewsCardHeader extends StatelessWidget {
     );
   }
 
-  /// 🏷️ ПОЛУЧАЕТ ПЕРВЫЙ ТЕГ ИЗ ПЕРСОНАЛЬНЫХ ТЕГОВ
-  /// 🏷️ ПОЛУЧАЕТ ПЕРВЫЙ ТЕГ ИЗ ПЕРСОНАЛЬНЫХ ТЕГОВ
+  // 🏷️ ПОЛУЧАЕТ ПЕРВЫЙ ТЕГ ИЗ ПЕРСОНАЛЬНЫХ ТЕГОВ (остается без изменений)
   Map<String, String> _getUserTags() {
     try {
       final isChannelPost = _getBoolValue(news['is_channel_post']);
@@ -381,7 +411,6 @@ class NewsCardHeader extends StatelessWidget {
       print('   - isChannelPost: $isChannelPost');
       print('   - isRepost: $isRepost');
 
-      // 🚫 Не показываем теги для репостов и канальных постов
       if (isRepost || isChannelPost) {
         return <String, String>{};
       }
@@ -391,8 +420,6 @@ class NewsCardHeader extends StatelessWidget {
 
         print('✅ Все теги из provider: $allTags');
 
-        // ✅ ИЗМЕНЕНИЕ: Берем только первый непустой тег, но не фильтруем полностью
-        // Если есть хотя бы один непустой тег - показываем его
         final firstNonEmptyTag = allTags.entries
             .firstWhere(
               (entry) => entry.value.isNotEmpty && entry.value != 'Новый тег',
@@ -405,8 +432,6 @@ class NewsCardHeader extends StatelessWidget {
           return singleTag;
         }
 
-        // ✅ ИЗМЕНЕНИЕ: Если все теги пустые, возвращаем пустой массив
-        // чтобы показать кнопку "+добавить тег"
         print('ℹ️ Все теги пустые, показываем кнопку добавления');
         return <String, String>{};
       }
@@ -418,7 +443,7 @@ class NewsCardHeader extends StatelessWidget {
     }
   }
 
-  // 🎯 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+  // 🎯 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ (остаются без изменений)
   bool _getBoolValue(dynamic value) {
     if (value is bool) return value;
     if (value is String) return value.toLowerCase() == 'true';

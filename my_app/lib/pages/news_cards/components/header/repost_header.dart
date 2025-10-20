@@ -4,21 +4,26 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/user_provider.dart';
+import '../../../../providers/channel_state_provider.dart';
 import '../../utils/image_utils.dart';
 import '../../utils/layout_utils.dart';
 
 class RepostHeader extends StatelessWidget {
   final Map<String, dynamic> news;
   final VoidCallback onUserProfile;
+  final VoidCallback onChannelTap;
   final Function(String) onMenuPressed;
   final String Function(String) getTimeAgo;
+  final String? customAvatarUrl;
 
   const RepostHeader({
     super.key,
     required this.news,
     required this.onUserProfile,
+    required this.onChannelTap,
     required this.onMenuPressed,
     required this.getTimeAgo,
+    this.customAvatarUrl,
   });
 
   @override
@@ -31,13 +36,14 @@ class RepostHeader extends StatelessWidget {
     final repostComment = _getStringValue(news['repost_comment']);
     final hasRepostComment = repostComment.isNotEmpty;
 
-    // 🖼️ АВАТАРКА ТОГО, КТО РЕПОСТНУЛ
+    // 🎯 ПРОВЕРЯЕМ, ЯВЛЯЕТСЯ ЛИ ОРИГИНАЛЬНЫЙ ПОСТ КАНАЛЬНЫМ
+    final isOriginalChannelPost = _getBoolValue(news['is_original_channel_post']);
+    final originalChannelName = _getStringValue(news['original_channel_name']);
+    final originalChannelId = _getStringValue(news['original_channel_id']);
+
+    // 🖼️ АВАТАРКА ТОГО, КТО РЕПОСТНУЛ - ВСЕГДА АВАТАРКА ПОЛЬЗОВАТЕЛЯ
     final isCurrentUser = repostedByName == userProvider.userName;
-    final reposterAvatarUrl = ImageUtils.getUserAvatarUrl(
-      news: news,
-      userName: repostedByName,
-      isCurrentUser: isCurrentUser,
-    );
+    final reposterAvatarUrl = _getReposterAvatarUrl(repostedByName, isCurrentUser);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -50,7 +56,7 @@ class RepostHeader extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 🖼️ АВАТАРКА РЕПОСТЕРА
+                // 🖼️ АВАТАРКА РЕПОСТЕРА (ВСЕГДА ПОЛЬЗОВАТЕЛЬ)
                 ImageUtils.buildUserAvatarWidget(
                   avatarUrl: reposterAvatarUrl,
                   displayName: repostedByName,
@@ -88,7 +94,11 @@ class RepostHeader extends StatelessWidget {
                       const SizedBox(height: 2),
 
                       // 📊 МЕТА-ИНФОРМАЦИЯ РЕПОСТА
-                      _buildRepostMetaInfo(createdAt),
+                      _buildRepostMetaInfo(
+                          createdAt,
+                          isOriginalChannelPost,
+                          originalChannelName
+                      ),
                     ],
                   ),
                 ),
@@ -99,7 +109,7 @@ class RepostHeader extends StatelessWidget {
           // 💬 КОММЕНТАРИЙ РЕПОСТА (если есть)
           if (hasRepostComment)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12, left: 52), // 40 + 12
+              padding: const EdgeInsets.only(bottom: 12, left: 52),
               child: Text(
                 repostComment,
                 style: TextStyle(
@@ -109,43 +119,128 @@ class RepostHeader extends StatelessWidget {
                 ),
               ),
             ),
+
+          // 🎯 ИНФОРМАЦИЯ ОБ ОРИГИНАЛЬНОМ КАНАЛЕ (если репост из канала)
+          if (isOriginalChannelPost && originalChannelName.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8, left: 52),
+              child: GestureDetector(
+                onTap: onChannelTap,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.group_rounded, size: 14, color: Colors.blue),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Оригинальный канал: $originalChannelName',
+                        style: TextStyle(
+                          color: Colors.blue.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          // ❌ УБРАНО ПОДЧЕРКИВАНИЕ
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
+  /// 🖼️ ПОЛУЧАЕТ АВАТАРКУ РЕПОСТЕРА - ВСЕГДА АВАТАРКА ПОЛЬЗОВАТЕЛЯ
+  String _getReposterAvatarUrl(String reposterName, bool isCurrentUser) {
+    print('🔍 RepostHeader - получение аватарки РЕПОСТЕРА:');
+    print('   - reposterName: $reposterName');
+    print('   - isCurrentUser: $isCurrentUser');
+
+    final reposterAvatar = _getStringValue(news['author_avatar']);
+    if (reposterAvatar.isNotEmpty) {
+      print('✅ RepostHeader: Используется аватарка репостера из author_avatar: $reposterAvatar');
+      return reposterAvatar;
+    }
+
+    print('🔄 RepostHeader: Используется стандартная логика для аватарки пользователя');
+    final standardAvatar = ImageUtils.getUserAvatarUrl(
+      news: news,
+      userName: reposterName,
+      isCurrentUser: isCurrentUser,
+    );
+    print('✅ RepostHeader: Стандартная аватарка пользователя: $standardAvatar');
+    return standardAvatar;
+  }
+
   /// 📊 СОЗДАЕТ МЕТА-ИНФОРМАЦИЮ РЕПОСТА
-  Widget _buildRepostMetaInfo(String createdAt) {
-    return Row(
-      children: [
-        // ⏰ ВРЕМЯ РЕПОСТА
-        Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
-        const SizedBox(width: 4),
-        Text(
-          getTimeAgo(createdAt),
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+  Widget _buildRepostMetaInfo(String createdAt, bool isOriginalChannelPost, String originalChannelName) {
+    final repostComment = _getStringValue(news['repost_comment']);
+    final hasRepostComment = repostComment.isNotEmpty;
 
-        const SizedBox(width: 8),
-        Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), shape: BoxShape.circle)),
-        const SizedBox(width: 8),
+    return Container(
+      height: 16,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // ⏰ ВРЕМЯ РЕПОСТА
+            Row(
+              children: [
+                Icon(Icons.access_time_rounded, size: 12, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  getTimeAgo(createdAt),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
 
-        // 🔄 ИКОНКА РЕПОСТА
-        Icon(Icons.repeat_rounded, size: 12, color: Colors.green),
-        const SizedBox(width: 4),
-        Text(
-          'репостнул',
-          style: TextStyle(
-            color: Colors.green,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
+            const SizedBox(width: 8),
+            Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+
+            // 🔄 ИКОНКА РЕПОСТА
+            Icon(
+                hasRepostComment ? Icons.edit_rounded : Icons.repeat_rounded,
+                size: 12,
+                color: hasRepostComment ? Colors.blue : Colors.green
+            ),
+            const SizedBox(width: 4),
+            Text(
+              hasRepostComment ? 'Репост с комментарием' : 'Репост',
+              style: TextStyle(
+                color: hasRepostComment ? Colors.blue : Colors.green,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+
+            // 🎯 ИНФОРМАЦИЯ О КАНАЛЕ (если репост из канала)
+            if (isOriginalChannelPost && originalChannelName.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.6), shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Icon(Icons.group_rounded, size: 12, color: Colors.blue),
+              const SizedBox(width: 4),
+              Text(
+                'Канал',
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
         ),
-      ],
+      ),
     );
   }
 

@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../providers/state_sync_provider.dart';
 import '../../services/interaction_manager.dart' as im;
 import '../../state_sync_mixin.dart';
+import '../cards_page/channel_detail_page.dart';
+import '../cards_page/models/channel.dart';
 import 'components/header/repost_header.dart';
 import 'models/news_card_models.dart' hide PostInteractionState;
 import 'models/news_card_enums.dart';
@@ -116,6 +118,103 @@ class _NewsCardState extends State<NewsCard>
     print('✅ NewsCard initialized with state synchronization for: $postId');
   }
 
+  // МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ КАНАЛА
+  String _getChannelAvatarUrl() {
+    // Проверяем mounted перед доступом к контексту
+    if (!mounted) {
+      print('⚠️ NewsCard: Widget not mounted, returning fallback avatar');
+      return _getStringValue(widget.news['author_avatar']);
+    }
+
+    try {
+      final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+
+      final isRepost = _getBoolValue(widget.news['is_repost']);
+
+      String channelId;
+      String channelAvatar;
+      String authorAvatar;
+      bool isChannelPost;
+
+      if (isRepost) {
+        // ДЛЯ РЕПОСТОВ: используем данные оригинального канального поста
+        channelId = _getStringValue(widget.news['original_channel_id']);
+        channelAvatar = _getStringValue(widget.news['original_channel_avatar']);
+        authorAvatar = _getStringValue(widget.news['original_author_avatar']);
+        isChannelPost = _getBoolValue(widget.news['is_original_channel_post']);
+
+        print('🔍 NewsCard (репост) - получение аватарки для ОРИГИНАЛЬНОГО контента:');
+        print('   - original_channel_id: $channelId');
+        print('   - original_channel_avatar: $channelAvatar');
+        print('   - original_author_avatar: $authorAvatar');
+        print('   - is_original_channel_post: $isChannelPost');
+
+        // ❗ ВАЖНОЕ ИСПРАВЛЕНИЕ: Если это канальный репост, но channel_avatar пустой,
+        // используем логику для получения аватарки канала
+        if (isChannelPost && channelAvatar.isEmpty) {
+          print('🔄 NewsCard: Канальный репост без channel_avatar, используем логику канала');
+
+          // Пытаемся получить кастомную аватарку из ChannelStateProvider
+          if (channelId.isNotEmpty) {
+            final customAvatar = channelStateProvider.getAvatarForChannel(channelId);
+            if (customAvatar != null && customAvatar.isNotEmpty) {
+              print('✅ NewsCard: Используется кастомная аватарка канала: $customAvatar');
+              return customAvatar;
+            }
+          }
+
+          // Если не нашли кастомную, используем стандартную логику для канала
+          final originalChannelName = _getStringValue(widget.news['original_channel_name']);
+          if (originalChannelName.isNotEmpty) {
+            final channelFallbackAvatar = ImageUtils.getUserAvatarUrl(
+              news: widget.news,
+              userName: originalChannelName,
+              isCurrentUser: false,
+              isChannel: true,
+            );
+            print('✅ NewsCard: Используется fallback аватарка канала: $channelFallbackAvatar');
+            return channelFallbackAvatar;
+          }
+        }
+      } else {
+        // ДЛЯ ОБЫЧНЫХ ПОСТОВ: используем стандартные данные
+        channelId = _getStringValue(widget.news['channel_id']);
+        channelAvatar = _getStringValue(widget.news['channel_avatar']);
+        authorAvatar = _getStringValue(widget.news['author_avatar']);
+        isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+
+        print('🔍 NewsCard (обычный) - получение аватарки:');
+        print('   - channel_id: $channelId');
+        print('   - channel_avatar: $channelAvatar');
+        print('   - is_channel_post: $isChannelPost');
+      }
+
+      // 1. Пытаемся получить кастомную аватарку из ChannelStateProvider
+      if (channelId.isNotEmpty) {
+        final customAvatar = channelStateProvider.getAvatarForChannel(channelId);
+        if (customAvatar != null && customAvatar.isNotEmpty) {
+          print('✅ NewsCard: Используется кастомная аватарка: $customAvatar');
+          return customAvatar;
+        }
+      }
+
+      // 2. Fallback: используем аватар канала из данных
+      if (channelAvatar.isNotEmpty) {
+        print('✅ NewsCard: Используется аватарка канала из данных: $channelAvatar');
+        return channelAvatar;
+      }
+
+      // 3. Final fallback
+      final fallbackAvatar = authorAvatar.isNotEmpty ? authorAvatar : _getStringValue(widget.news['author_avatar']);
+      print('⚠️ NewsCard: Используется fallback аватарка: $fallbackAvatar');
+      return fallbackAvatar;
+
+    } catch (e) {
+      print('❌ Error getting channel avatar in NewsCard: $e');
+      return _getStringValue(widget.news['author_avatar']);
+    }
+  }
+
   // ✅ ОБЯЗАТЕЛЬНЫЙ МЕТОД ДЛЯ MIXIN
   @override
   void _initializePostState() {
@@ -183,9 +282,20 @@ class _NewsCardState extends State<NewsCard>
   }
 
   void _setupAuthorData() {
-    _isChannelPost = _getBoolValue(widget.news['is_channel_post']);
-    _channelId = _getStringValue(widget.news['channel_id']);
-    _authorId = _getStringValue(widget.news['author_id']);
+    final isRepost = _getBoolValue(widget.news['is_repost']);
+
+    if (isRepost) {
+      // ДЛЯ РЕПОСТОВ: используем данные оригинального поста
+      _isChannelPost = _getBoolValue(widget.news['is_original_channel_post']);
+      _channelId = _getStringValue(widget.news['original_channel_id']);
+      _authorId = _getStringValue(widget.news['original_author_id'] ?? widget.news['reposted_by']);
+    } else {
+      // ДЛЯ ОБЫЧНЫХ ПОСТОВ: используем стандартные данные
+      _isChannelPost = _getBoolValue(widget.news['is_channel_post']);
+      _channelId = _getStringValue(widget.news['channel_id']);
+      _authorId = _getStringValue(widget.news['author_id']);
+    }
+
     _isFollowing = _getBoolValue(widget.news['isFollowing'] ?? false);
     _readingProgress = (widget.news['read_progress'] ?? 0.0).toDouble();
 
@@ -193,6 +303,12 @@ class _NewsCardState extends State<NewsCard>
     if (_isChannelPost && _channelId.isNotEmpty) {
       _setupChannelListener();
     }
+
+    print('🔍 NewsCard setupAuthorData:');
+    print('   - isRepost: $isRepost');
+    print('   - isChannelPost: $_isChannelPost');
+    print('   - channelId: $_channelId');
+    print('   - authorId: $_authorId');
   }
 
   void _setupChannelListener() {
@@ -202,14 +318,21 @@ class _NewsCardState extends State<NewsCard>
       final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
       _channelStateProvider = channelStateProvider;
 
-      final isSubscribed = channelStateProvider.isSubscribed(_channelId);
-      if (_isFollowing != isSubscribed) {
-        setState(() {
-          _isFollowing = isSubscribed;
-        });
-      }
+      // Для репостов используем original_channel_id для подписки
+      final channelIdToUse = _getBoolValue(widget.news['is_repost'])
+          ? _getStringValue(widget.news['original_channel_id'])
+          : _channelId;
 
-      channelStateProvider.addListener(_onChannelStateChanged);
+      if (channelIdToUse.isNotEmpty) {
+        final isSubscribed = channelStateProvider.isSubscribed(channelIdToUse);
+        if (_isFollowing != isSubscribed) {
+          setState(() {
+            _isFollowing = isSubscribed;
+          });
+        }
+
+        channelStateProvider.addListener(_onChannelStateChanged);
+      }
     });
   }
 
@@ -220,8 +343,13 @@ class _NewsCardState extends State<NewsCard>
   void _onChannelStateChanged() {
     if (!mounted) return;
 
-    if (_isChannelPost && _channelId.isNotEmpty && _channelStateProvider != null) {
-      final isSubscribed = _channelStateProvider!.isSubscribed(_channelId);
+    // Для репостов используем original_channel_id
+    final channelIdToUse = _getBoolValue(widget.news['is_repost'])
+        ? _getStringValue(widget.news['original_channel_id'])
+        : _channelId;
+
+    if (_isChannelPost && channelIdToUse.isNotEmpty && _channelStateProvider != null) {
+      final isSubscribed = _channelStateProvider!.isSubscribed(channelIdToUse);
       if (_isFollowing != isSubscribed) {
         setState(() {
           _isFollowing = isSubscribed;
@@ -294,18 +422,28 @@ class _NewsCardState extends State<NewsCard>
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUserId = userProvider.userId;
 
+    // Для репостов используем original_author_id
+    final authorIdToUse = _getBoolValue(widget.news['is_repost'])
+        ? _getStringValue(widget.news['original_author_id'])
+        : _authorId;
+
     // Не даем подписываться на самого себя
-    if (_authorId == currentUserId) {
+    if (authorIdToUse == currentUserId) {
       return;
     }
 
-    if (_isChannelPost && _channelId.isNotEmpty && _channelStateProvider != null) {
+    // Для репостов используем original_channel_id
+    final channelIdToUse = _getBoolValue(widget.news['is_repost'])
+        ? _getStringValue(widget.news['original_channel_id'])
+        : _channelId;
+
+    if (_isChannelPost && channelIdToUse.isNotEmpty && _channelStateProvider != null) {
       // Подписка на канал
-      final currentSubscribers = _channelStateProvider!.getSubscribers(_channelId) ?? 0;
-      _channelStateProvider!.toggleSubscription(_channelId, currentSubscribers);
+      final currentSubscribers = _channelStateProvider!.getSubscribers(channelIdToUse) ?? 0;
+      _channelStateProvider!.toggleSubscription(channelIdToUse, currentSubscribers);
 
       setState(() {
-        _isFollowing = _channelStateProvider!.isSubscribed(_channelId);
+        _isFollowing = _channelStateProvider!.isSubscribed(channelIdToUse);
       });
     } else {
       // Подписка на пользователя
@@ -530,12 +668,15 @@ class _NewsCardState extends State<NewsCard>
         _isReposting = false;
         _showEnhancedRepostSuccessSnackBar(comment);
 
-        // Обновляем состояние InteractionManager
-        interactionManager.updateRepostState(
-          postId: postId,
-          isReposted: true,
-          repostsCount: (postState?.repostsCount ?? 0) + 1,
-        );
+        // ❗ УБРАТЬ ЭТОТ БЛОК - InteractionManager сам обновит счетчик
+        /*
+      // Обновляем состояние InteractionManager
+      interactionManager.updateRepostState(
+        postId: postId,
+        isReposted: true,
+        repostsCount: (postState?.repostsCount ?? 0) + 1,
+      );
+      */
       }
     }).catchError((error) {
       if (mounted) {
@@ -734,28 +875,16 @@ class _NewsCardState extends State<NewsCard>
     // ✅ Используем StateSyncProvider для принудительной синхронизации
     return Consumer<StateSyncProvider>(
       builder: (context, stateSync, child) {
-        // Принудительное обновление при изменении в StateSyncProvider
-        final lastUpdate = stateSync.getLastUpdate(postId);
-
-        // ✅ ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ ПРИ КАЖДОМ ПОСТРОЕНИИ
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            final currentState = interactionManager.getPostState(postId);
-            if (currentState != null && postState != currentState) {
-              setState(() {
-                // postState обновляется через mixin автоматически
-              });
-              print('🔄 NewsCard forced state update for: $postId');
-            }
-          }
-        });
+        // Проверяем mounted перед любыми операциями
+        if (!mounted) {
+          return _buildLoadingCard();
+        }
 
         final isChannelPost = _getBoolValue(widget.news['is_channel_post']);
         final isRepost = _getBoolValue(widget.news['is_repost']);
 
         // ✅ ПРОВЕРКА НАЛИЧИЯ СОСТОЯНИЯ
         if (postState == null) {
-          print('⚠️ NewsCard: No post state for $postId, showing loading...');
           return _buildLoadingCard();
         }
 
@@ -875,10 +1004,13 @@ class _NewsCardState extends State<NewsCard>
           NewsCardHeader(
             news: widget.news,
             onUserProfile: _openUserProfile,
+            onChannelTap: _openChannel, // 🆕 ПЕРЕДАЕМ ОБРАБОТЧИК ПЕРЕХОДА В КАНАЛ
             onMenuPressed: _handleMenuSelection,
             formatDate: widget.formatDate,
             getTimeAgo: widget.getTimeAgo,
             userTagsProvider: _userTagsProvider,
+            isChannelPost: _isChannelPost,
+            customAvatarUrl: _getChannelAvatarUrl(),
           ),
 
           // СОДЕРЖИМОЕ ПОСТА
@@ -937,8 +1069,10 @@ class _NewsCardState extends State<NewsCard>
           RepostHeader(
             news: widget.news,
             onUserProfile: _openUserProfile,
+            onChannelTap: _openChannel, // 🆕 ПЕРЕДАЕМ ОБРАБОТЧИК ПЕРЕХОДА В КАНАЛ
             onMenuPressed: _handleMenuSelection,
             getTimeAgo: widget.getTimeAgo,
+            customAvatarUrl: _getChannelAvatarUrl(),
           ),
 
           // КОНТЕНТ РЕПОСТА
@@ -994,14 +1128,20 @@ class _NewsCardState extends State<NewsCard>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          NewsCardHeader(
-            news: widget.news,
-            onUserProfile: _openUserProfile,
-            onMenuPressed: _handleMenuSelection,
-            formatDate: widget.formatDate,
-            getTimeAgo: widget.getTimeAgo,
-            userTagsProvider: _userTagsProvider,
-            isChannelPost: true,
+          // ОБНОВЛЕННАЯ ШАПКА С ВОЗМОЖНОСТЬЮ ПЕРЕХОДА В КАНАЛ
+          GestureDetector(
+            onTap: _openChannel, // 👈 ДОБАВЬТЕ ЭТОТ ОБРАБОТЧИК
+            child: NewsCardHeader(
+              news: widget.news,
+              onUserProfile: _openUserProfile,
+              onChannelTap: _openChannel, // 🆕 ПЕРЕДАЕМ ОБРАБОТЧИК ПЕРЕХОДА В КАНАЛ
+              onMenuPressed: _handleMenuSelection,
+              formatDate: widget.formatDate,
+              getTimeAgo: widget.getTimeAgo,
+              userTagsProvider: _userTagsProvider,
+              isChannelPost: true,
+              customAvatarUrl: _getChannelAvatarUrl(),
+            ),
           ),
 
           Padding(
@@ -1016,7 +1156,6 @@ class _NewsCardState extends State<NewsCard>
                   contentType: _contentType,
                 ),
 
-                // ДЕЙСТВИЯ - ✅ Используем postState из mixin
                 NewsCardActions(
                   postState: postState!,
                   isAuthor: isAuthor,
@@ -1033,7 +1172,6 @@ class _NewsCardState extends State<NewsCard>
             ),
           ),
 
-          // КОММЕНТАРИИ - ✅ Используем postState из mixin
           SizeTransition(
             sizeFactor: _expandAnimation,
             child: FadeTransition(
@@ -1050,6 +1188,31 @@ class _NewsCardState extends State<NewsCard>
       ),
     );
   }
+
+  void _openChannel() {
+    if (!mounted) return;
+
+    final channelId = _getStringValue(widget.news['channel_id']);
+    final channelName = _getStringValue(widget.news['channel_name']);
+
+    if (channelId.isEmpty) {
+      print('❌ Channel ID is empty');
+      return;
+    }
+
+    print('🎯 Opening channel: $channelName ($channelId)');
+
+    // Создаем канал из данных поста
+    final channel = Channel.fromPostData(widget.news);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChannelDetailPage(channel: channel),
+      ),
+    );
+  }
+
 
   Widget _buildCard({required Widget child, bool isChannel = false}) {
     final isRepost = _getBoolValue(widget.news['is_repost']);

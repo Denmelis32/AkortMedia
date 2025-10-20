@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 
+import 'package:provider/provider.dart';
+
+import '../../../providers/channel_state_provider.dart';
+
 /// 🖼️ КЛАСС ДЛЯ РАБОТЫ С РАЗЛИЧНЫМИ ТИПАМИ ИЗОБРАЖЕНИЙ
 /// Обеспечивает единый интерфейс для загрузки изображений из разных источников
 /// с обработкой ошибок и кэшированием
@@ -116,41 +120,162 @@ class ImageUtils {
     }
   }
 
+
+  // В ImageUtils.dart добавьте:
+  // В ImageUtils.dart исправьте метод:
+  static String getAvatarUrlForNews({
+    required Map<String, dynamic> news,
+    required BuildContext context,
+    bool isRepost = false,
+  }) {
+    try {
+      bool isChannelPost = _getBoolValue(news['is_channel_post']); // ✅ УБРАТЬ final
+      final isOriginalChannelPost = _getBoolValue(news['is_original_channel_post']);
+
+      String channelId;
+      String channelAvatar;
+      String authorAvatar;
+
+      if (isRepost) {
+        // Для репостов используем оригинальные данные
+        channelId = _getStringValue(news['original_channel_id']);
+        channelAvatar = _getStringValue(news['original_channel_avatar']);
+        authorAvatar = _getStringValue(news['original_author_avatar']);
+        isChannelPost = isOriginalChannelPost; // ✅ Теперь можно присваивать
+      } else {
+        // Для обычных постов
+        channelId = _getStringValue(news['channel_id']);
+        channelAvatar = _getStringValue(news['channel_avatar']);
+        authorAvatar = _getStringValue(news['author_avatar']);
+      }
+
+      // Пытаемся получить кастомную аватарку из ChannelStateProvider
+      if (isChannelPost && channelId.isNotEmpty) {
+        final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+        final customAvatar = channelStateProvider.getAvatarForChannel(channelId);
+        if (customAvatar != null && customAvatar.isNotEmpty) {
+          return customAvatar;
+        }
+      }
+
+      // Fallback на аватарку из данных
+      if (isChannelPost && channelAvatar.isNotEmpty) {
+        return channelAvatar;
+      }
+
+      // Final fallback
+      return authorAvatar.isNotEmpty ? authorAvatar : _getFallbackAvatarUrl(); // ✅ ИСПРАВИТЬ НА _getFallbackAvatarUrl
+    } catch (e) {
+      print('❌ Error getting avatar URL: $e');
+      return _getFallbackAvatarUrl(); // ✅ ИСПРАВИТЬ НА _getFallbackAvatarUrl
+    }
+  }
+
+
+  static String _getFallbackAvatarUrl([String userName = '']) {
+    // Всегда возвращаем локальные аватары из assets
+    final index = userName.isEmpty ? 0 : userName.hashCode.abs() % _localAvatars.length;
+    return _localAvatars[index];
+  }
+
   /// 👤 ПОЛУЧАЕТ URL АВАТАРКИ ПОЛЬЗОВАТЕЛЯ/КАНАЛА
   /// Интеллектуально определяет источник аватарки с приоритетами:
   /// 1. ChannelStateProvider для каналов
   /// 2. Данные из поста
   /// 3. Fallback локальные аватары
+  // В utils/image_utils.dart обновите метод getUserAvatarUrl:
+
   static String getUserAvatarUrl({
     required Map<String, dynamic> news,
     required String userName,
     bool isCurrentUser = false,
     bool isOriginalPost = false,
+    bool isChannel = false, // ✅ ДОБАВЬТЕ ЭТОТ ПАРАМЕТР
   }) {
-    try {
-      print('🔍 Получение аватарки для: $userName, текущий пользователь: $isCurrentUser, оригинальный пост: $isOriginalPost');
+    print('🔍 Получение аватарки для: $userName, текущий пользователь: $isCurrentUser, оригинальный пост: $isOriginalPost, канал: $isChannel');
 
-      // 🔄 ДЛЯ РЕПОСТОВ - ОРИГИНАЛЬНЫЙ АВТОР/КАНАЛ
-      if (isOriginalPost) {
-        return _getOriginalPostAvatar(news, userName);
-      }
-
-      // 📢 ДЛЯ ОСНОВНЫХ ПОСТОВ - КАНАЛЫ
-      final isChannelPost = _getBoolValue(news['is_channel_post']);
-      final channelId = _getStringValue(news['channel_id']);
-      final channelName = _getStringValue(news['channel_name']);
-
-      if (isChannelPost && channelId.isNotEmpty) {
-        return _getChannelAvatar(news, channelId, channelName);
-      }
-
-      // 👤 ДЛЯ ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ
-      return _getUserAvatar(news, userName, isCurrentUser);
-
-    } catch (e) {
-      print('❌ Ошибка получения аватарки пользователя: $e');
-      return _getFallbackAvatarUrl(userName);
+    // Для каналов используем специальную логику
+    if (isChannel) {
+      print('   🎯 Используем fallback аватар для канала: $userName');
+      return _getFallbackChannelAvatar(userName);
     }
+
+    // Для оригинальных постов (репостов)
+    if (isOriginalPost) {
+      final originalAuthorAvatar = _getStringValue(news['original_author_avatar']);
+      if (originalAuthorAvatar.isNotEmpty) {
+        print('   ✅ Используем аватар оригинального автора: $originalAuthorAvatar');
+        return originalAuthorAvatar;
+      }
+
+      final originalChannelAvatar = _getStringValue(news['original_channel_avatar']);
+      if (originalChannelAvatar.isNotEmpty) {
+        print('   ✅ Используем аватар оригинального канала: $originalChannelAvatar');
+        return originalChannelAvatar;
+      }
+
+      // Для каналов в оригинальных постах
+      final isOriginalChannelPost = _getBoolValue(news['is_original_channel_post']);
+      if (isOriginalChannelPost) {
+        final originalChannelName = _getStringValue(news['original_channel_name']);
+        if (originalChannelName.isNotEmpty) {
+          print('   🎯 Используем fallback аватар для оригинального канала: $originalChannelName');
+          return _getFallbackChannelAvatar(originalChannelName);
+        }
+      }
+    }
+
+    // Стандартная логика для обычных постов
+    final authorAvatar = _getStringValue(news['author_avatar']);
+    if (authorAvatar.isNotEmpty) {
+      print('   ✅ Используем аватар автора из данных: $authorAvatar');
+      return authorAvatar;
+    }
+
+    final channelAvatar = _getStringValue(news['channel_avatar']);
+    if (channelAvatar.isNotEmpty) {
+      print('   ✅ Используем аватар канала из данных: $channelAvatar');
+      return channelAvatar;
+    }
+
+    // Fallback для пользователей
+    print('   🎯 Используем fallback аватар для пользователя: $userName');
+    return _getFallbackUserAvatar(userName, isCurrentUser);
+  }
+
+  /// 🖼️ ПОЛУЧАЕТ FALLBACK АВАТАРКУ ДЛЯ КАНАЛА
+  static String _getFallbackChannelAvatar(String channelName) {
+    final avatars = [
+      'assets/images/ava_news/ava16.png',
+      'assets/images/ava_news/ava17.png',
+      'assets/images/ava_news/ava18.png',
+      'assets/images/ava_news/ava19.png',
+      'assets/images/ava_news/ava20.png',
+    ];
+
+    final index = channelName.hashCode.abs() % avatars.length;
+    return avatars[index];
+  }
+
+  /// 🖼️ ПОЛУЧАЕТ FALLBACK АВАТАРКУ ДЛЯ ПОЛЬЗОВАТЕЛЯ
+  static String _getFallbackUserAvatar(String userName, bool isCurrentUser) {
+    final avatars = [
+      'assets/images/ava_news/ava1.png',
+      'assets/images/ava_news/ava2.png',
+      'assets/images/ava_news/ava3.png',
+      'assets/images/ava_news/ava4.png',
+      'assets/images/ava_news/ava5.png',
+      'assets/images/ava_news/ava6.png',
+      'assets/images/ava_news/ava7.png',
+      'assets/images/ava_news/ava8.png',
+      'assets/images/ava_news/ava9.png',
+      'assets/images/ava_news/ava10.png',
+      'assets/images/ava_news/ava11.png',
+      'assets/images/ava_news/ava12.png',
+    ];
+
+    final index = userName.hashCode.abs() % avatars.length;
+    return avatars[index];
   }
 
   /// 👤 ПОЛУЧАЕТ АВАТАРКУ ДЛЯ ОРИГИНАЛЬНОГО ПОСТА В РЕПОСТЕ
@@ -221,12 +346,7 @@ class ImageUtils {
     return _getFallbackAvatarUrl(authorName);
   }
 
-  /// 🎯 ПОЛУЧАЕТ FALLBACK АВАТАРКУ ИЗ ЛОКАЛЬНЫХ РЕСУРСОВ
-  static String _getFallbackAvatarUrl(String userName) {
-    // Всегда возвращаем локальные аватары из assets
-    final index = userName.hashCode.abs() % _localAvatars.length;
-    return _localAvatars[index];
-  }
+
 
   /// 👤 СОЗДАЕТ ВИДЖЕТ АВАТАРКИ С FALLBACK
   static Widget buildUserAvatarWidget({

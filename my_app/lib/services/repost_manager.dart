@@ -145,21 +145,13 @@ class RepostManager {
     } catch (e, stackTrace) {
       print('❌ [DEBUG] Error creating repost: $e');
       print('❌ [DEBUG] Stack trace: $stackTrace');
-
-      // ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ ДЛЯ ОТЛАДКИ
       print('❌ [DEBUG] Error context:');
       print('   Original index: $originalIndex');
       print('   Current user: $currentUserName ($currentUserId)');
       print('   News provider length: ${newsProvider.news.length}');
-
       rethrow;
     }
   }
-
-
-
-
-
 
   // Метод для детальной отладки данных репоста
   void _debugRepostData(Map<String, dynamic> repostData) {
@@ -181,7 +173,7 @@ class RepostManager {
     print('   Original Author Avatar: ${repostData['original_author_avatar']}');
     print('   Original Channel: ${repostData['original_channel_name']}');
     print('   Original Channel ID: ${repostData['original_channel_id']}');
-    print('   Original Channel Avatar: ${repostData['original_channel_avatar']}');
+    print('   Original Channel Avatar: ${repostData['original_channel_avatar']}'); // ✅ УБРАТЬ ДУБЛИКАТ
     print('   Is Original Channel Post: ${repostData['is_original_channel_post']}');
 
     // КОНТЕНТ
@@ -421,7 +413,7 @@ class RepostManager {
         'original_author_avatar': originalAuthorAvatar,
         'original_channel_name': originalChannelName,
         'original_channel_id': originalChannelId,
-        'original_channel_avatar': originalChannelAvatar,
+        'original_channel_avatar': originalChannelAvatar, // ✅ УБРАТЬ ДУБЛИКАТ
         'is_original_channel_post': isOriginalChannelPost,
 
         // Контент поста (копируем из оригинала)
@@ -470,7 +462,6 @@ class RepostManager {
     }
   }
 
-  // МЕТОД ДЛЯ СОЗДАНИЯ ДАННЫХ РЕПОСТА С КОММЕНТАРИЕМ
   // МЕТОД ДЛЯ СОЗДАНИЯ ДАННЫХ РЕПОСТА С КОММЕНТАРИЕМ
   Future<Map<String, dynamic>> _createRepostDataWithComment({
     required Map<String, dynamic> originalNews,
@@ -553,6 +544,8 @@ class RepostManager {
     }
   }
 
+  // УДАЛИТЬ ДУБЛИРУЮЩИЙСЯ МЕТОД - ОСТАВИТЬ ТОЛЬКО ОДИН ИЗ НИХ
+  /*
   // Вспомогательный метод для безопасного копирования данных поста
   Map<String, dynamic> _safeCopyNewsData(Map<String, dynamic> originalNews) {
     final copiedData = <String, dynamic>{};
@@ -576,7 +569,7 @@ class RepostManager {
     return copiedData;
   }
 
-// Метод для получения значений по умолчанию
+  // Метод для получения значений по умолчанию
   dynamic _getDefaultValueForKey(String key) {
     switch (key) {
       case 'title':
@@ -626,6 +619,7 @@ class RepostManager {
 
     return 'general';
   }
+  */
 
   void _addRepostToProvider(NewsProvider newsProvider, Map<String, dynamic> repostData) {
     try {
@@ -680,7 +674,8 @@ class RepostManager {
     }
   }
 
-
+  // УДАЛИТЬ ДУБЛИРУЮЩИЙСЯ МЕТОД - ОСТАВИТЬ ТОЛЬКО ОДИН cleanupDuplicateRepostComments
+  /*
   // В RepostManager добавьте метод для очистки существующих дубликатов
   Future<void> cleanupExistingRepostDuplicates(NewsProvider newsProvider) async {
     try {
@@ -718,6 +713,7 @@ class RepostManager {
       print('❌ [CLEANUP] Error cleaning duplicates: $e');
     }
   }
+  */
 
   // Метод для создания репоста с комментарием
   Future<void> createRepostWithComment({
@@ -968,16 +964,29 @@ class RepostManager {
     await StorageService.addRepost(userId, repostId, originalNewsId);
   }
 
+  // В RepostManager замените метод _updateInteractionManager:
   void _updateInteractionManager(String originalPostId, bool isReposted) {
-    final interactionManager = InteractionManager();
-    final currentState = interactionManager.getPostState(originalPostId);
+    try {
+      final interactionManager = InteractionManager();
+      final currentState = interactionManager.getPostState(originalPostId);
 
-    if (currentState != null) {
-      interactionManager.updateRepostState(
-        postId: originalPostId,
-        isReposted: isReposted,
-        repostsCount: isReposted ? currentState.repostsCount + 1 : currentState.repostsCount - 1,
-      );
+      if (currentState != null) {
+        // ✅ ИСПРАВЛЕНИЕ: Не увеличиваем счетчик здесь, так как это сделает InteractionManager
+        // Просто обновляем состояние репоста
+        interactionManager.updateRepostState(
+          postId: originalPostId,
+          isReposted: isReposted,
+          repostsCount: currentState.repostsCount, // ✅ Оставляем текущее значение
+        );
+
+        print('🔄 [DEBUG] InteractionManager updated for post: $originalPostId');
+        print('   Is reposted: $isReposted');
+        print('   Current reposts count: ${currentState.repostsCount}');
+      } else {
+        print('⚠️ [DEBUG] No post state found for: $originalPostId');
+      }
+    } catch (e) {
+      print('❌ [DEBUG] Error updating InteractionManager: $e');
     }
   }
 

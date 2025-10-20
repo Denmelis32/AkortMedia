@@ -2,6 +2,8 @@
 // Элегантный дизайн с внутренней вертикальной линией
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../providers/channel_state_provider.dart';
 import '../../models/news_card_enums.dart';
 import '../../models/news_card_models.dart';
 import '../../utils/image_utils.dart';
@@ -92,6 +94,7 @@ class RepostContent extends StatelessWidget {
                         isOriginalChannelPost: isOriginalChannelPost,
                         originalCreatedAt: originalCreatedAt,
                         contentColor: contentColor,
+                        context: context, // ✅ ДОБАВИТЬ context
                       ),
 
                       const SizedBox(height: 16),
@@ -164,11 +167,13 @@ class RepostContent extends StatelessWidget {
   }
 
   /// 👤 СОЗДАЕТ ШАПКУ ОРИГИНАЛЬНОГО АВТОРА
+  /// 👤 СОЗДАЕТ ШАПКУ ОРИГИНАЛЬНОГО АВТОРА
   Widget _buildOriginalAuthorHeader({
     required String displayName,
     required bool isOriginalChannelPost,
     required String originalCreatedAt,
     required Color contentColor,
+    required BuildContext context, // ✅ ДОБАВИТЬ context как параметр
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,6 +190,7 @@ class RepostContent extends StatelessWidget {
           child: _buildOriginalAuthorAvatar(
             displayName: displayName,
             isChannel: isOriginalChannelPost,
+            context: context, // ✅ ПЕРЕДАЕМ context
           ),
         ),
 
@@ -221,15 +227,17 @@ class RepostContent extends StatelessWidget {
     );
   }
 
-  /// 🖼️ СОЗДАЕТ АВАТАР ОРИГИНАЛЬНОГО АВТОРА
+  /// 🖼️ СОЗДАЕТ АВАТАР ОРИГИНАЛЬНОГО АВТОРА/КАНАЛА
+  /// 🖼️ СОЗДАЕТ АВАТАР ОРИГИНАЛЬНОГО АВТОРА/КАНАЛА
   Widget _buildOriginalAuthorAvatar({
     required String displayName,
     required bool isChannel,
+    required BuildContext context, // ✅ ДОБАВИТЬ context как параметр
   }) {
-    final avatarUrl = ImageUtils.getUserAvatarUrl(
-      news: news,
-      userName: displayName,
-      isOriginalPost: true,
+    final avatarUrl = _getOriginalAuthorAvatarUrl(
+      displayName: displayName,
+      isChannel: isChannel,
+      context: context, // ✅ ПЕРЕДАЕМ context
     );
 
     return ClipRRect(
@@ -239,11 +247,71 @@ class RepostContent extends StatelessWidget {
         displayName: displayName,
         size: 40,
         onTap: () {
-          // TODO: Добавить переход к профилю оригинального автора
           print('👤 Переход к профилю: $displayName');
         },
       ),
     );
+  }
+  /// 🖼️ ПОЛУЧАЕТ АВАТАРКУ ОРИГИНАЛЬНОГО АВТОРА/КАНАЛА
+  /// 🖼️ ПОЛУЧАЕТ АВАТАРКУ ОРИГИНАЛЬНОГО АВТОРА/КАНАЛА
+  /// 🖼️ ПОЛУЧАЕТ АВАТАРКУ ОРИГИНАЛЬНОГО АВТОРА/КАНАЛА
+  String _getOriginalAuthorAvatarUrl({
+    required String displayName,
+    required bool isChannel,
+    required BuildContext context, // ✅ ДОБАВИТЬ context
+  }) {
+    print('🔍 RepostContent - получение аватарки ОРИГИНАЛЬНОГО автора/канала:');
+    print('   - displayName: $displayName');
+    print('   - isChannel: $isChannel');
+
+    if (isChannel) {
+      // ДЛЯ КАНАЛА: используем канальную аватарку
+      final originalChannelAvatar = _getStringValue(news['original_channel_avatar']);
+      if (originalChannelAvatar.isNotEmpty) {
+        print('✅ RepostContent: Используется аватарка оригинального канала: $originalChannelAvatar');
+        return originalChannelAvatar;
+      }
+
+      // Пытаемся получить кастомную аватарку из ChannelStateProvider
+      final originalChannelId = _getStringValue(news['original_channel_id']);
+      if (originalChannelId.isNotEmpty) {
+        try {
+          final channelStateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+          final customAvatar = channelStateProvider.getAvatarForChannel(originalChannelId);
+          if (customAvatar != null && customAvatar.isNotEmpty) {
+            print('✅ RepostContent: Используется кастомная аватарка канала: $customAvatar');
+            return customAvatar;
+          }
+        } catch (e) {
+          print('❌ RepostContent: Ошибка получения кастомной аватарки: $e');
+        }
+      }
+
+      // Final fallback для канала
+      final channelFallbackAvatar = ImageUtils.getUserAvatarUrl(
+        news: news,
+        userName: displayName,
+        isCurrentUser: false,
+      );
+      print('✅ RepostContent: Используется fallback аватарка канала: $channelFallbackAvatar');
+      return channelFallbackAvatar;
+    }
+
+    // ДЛЯ ПОЛЬЗОВАТЕЛЯ: используем аватарку автора
+    final originalAuthorAvatar = _getStringValue(news['original_author_avatar']);
+    if (originalAuthorAvatar.isNotEmpty) {
+      print('✅ RepostContent: Используется аватарка оригинального автора: $originalAuthorAvatar');
+      return originalAuthorAvatar;
+    }
+
+    // Final fallback для пользователя
+    final standardAvatar = ImageUtils.getUserAvatarUrl(
+      news: news,
+      userName: displayName,
+      isCurrentUser: false,
+    );
+    print('✅ RepostContent: Используется стандартная аватарка: $standardAvatar');
+    return standardAvatar;
   }
 
   /// 📊 СОЗДАЕТ МЕТА-ИНФОРМАЦИЮ ОРИГИНАЛЬНОГО ПОСТА

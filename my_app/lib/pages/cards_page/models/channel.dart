@@ -1,7 +1,7 @@
 // models/channel.dart
 import 'dart:ui' show Color;
 
-
+import 'package:flutter/material.dart';
 
 class Channel {
   final int id;
@@ -30,7 +30,7 @@ class Channel {
   final String authorImageUrl;
   final int commentsCount;
   final bool isPinned;
-  final String? coverImageUrl; // Добавленное поле
+  final String? coverImageUrl;
 
   Channel({
     required this.id,
@@ -59,7 +59,7 @@ class Channel {
     this.websiteUrl = '',
     this.socialMedia = '',
     this.isPinned = false,
-    this.coverImageUrl, // Значение по умолчанию - пустой список
+    this.coverImageUrl,
   });
 
   Channel copyWith({
@@ -118,10 +118,149 @@ class Channel {
       authorImageUrl: authorImageUrl ?? this.authorImageUrl,
       commentsCount: commentsCount ?? this.commentsCount,
       isPinned: isPinned ?? this.isPinned,
-      coverImageUrl: coverImageUrl ?? this.coverImageUrl,// Добавлено
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
     );
   }
 
+  // 🆕 МЕТОД ДЛЯ ПОИСКА КАНАЛА ПО ID В СПИСКЕ
+  static Channel? findById(List<Channel> channels, String channelId) {
+    try {
+      final id = int.tryParse(channelId);
+      if (id == null) return null;
+
+      return channels.firstWhere(
+            (channel) => channel.id == id,
+        orElse: () => Channel.simple(
+          id: 0,
+          title: 'Неизвестный канал',
+          description: 'Канал не найден',
+          imageUrl: 'assets/images/ava_news/ava1.png',
+          cardColor: Colors.grey,
+        ),
+      );
+    } catch (e) {
+      print('❌ Error finding channel by ID: $e');
+      return null;
+    }
+  }
+
+  // 🆕 ФАБРИЧНЫЙ МЕТОД ДЛЯ СОЗДАНИЯ КАНАЛА ИЗ ДАННЫХ ПОСТА
+  factory Channel.fromPostData(Map<String, dynamic> post) {
+    final channelId = int.tryParse(post['channel_id']?.toString() ?? '0') ?? 0;
+    final channelName = post['channel_name']?.toString() ?? 'Неизвестный канал';
+    final channelAvatar = post['channel_avatar']?.toString() ?? '';
+    final channelDescription = post['channel_description']?.toString() ?? 'Канальный пост';
+
+    // Для репостов используем оригинальные данные канала
+    final isRepost = post['is_repost'] == true || post['is_repost'] == 'true';
+    final isOriginalChannelPost = post['is_original_channel_post'] == true || post['is_original_channel_post'] == 'true';
+
+    String finalChannelId;
+    String finalChannelName;
+    String finalChannelAvatar;
+    String finalDescription;
+
+    if (isRepost && isOriginalChannelPost) {
+      // Для репостов из каналов используем оригинальные данные
+      finalChannelId = post['original_channel_id']?.toString() ?? channelId.toString();
+      finalChannelName = post['original_channel_name']?.toString() ?? channelName;
+      finalChannelAvatar = post['original_channel_avatar']?.toString() ?? channelAvatar;
+      finalDescription = 'Оригинальный канал репоста';
+    } else {
+      // Для обычных канальных постов
+      finalChannelId = channelId.toString();
+      finalChannelName = channelName;
+      finalChannelAvatar = channelAvatar;
+      finalDescription = channelDescription;
+    }
+
+    final finalId = int.tryParse(finalChannelId) ?? 0;
+
+    return Channel.simple(
+      id: finalId,
+      title: finalChannelName,
+      description: finalDescription,
+      imageUrl: finalChannelAvatar.isNotEmpty ? finalChannelAvatar : _getFallbackAvatarForChannel(finalChannelName),
+      cardColor: _getColorFromName(finalChannelName),
+      author: finalChannelName,
+      authorImageUrl: finalChannelAvatar,
+      subscribers: (post['channel_subscribers'] as int?) ?? 1000,
+      videos: (post['channel_videos'] as int?) ?? 50,
+      rating: (post['channel_rating'] as double?) ?? 4.5,
+      isSubscribed: post['is_channel_subscribed'] == true || post['is_channel_subscribed'] == 'true',
+    );
+  }
+
+  // 🆕 ПОЛУЧЕНИЕ FALLBACK АВАТАРКИ ДЛЯ КАНАЛА
+  static String _getFallbackAvatarForChannel(String channelName) {
+    final channelAvatars = [
+      'assets/images/ava_news/ava16.png',
+      'assets/images/ava_news/ava17.png',
+      'assets/images/ava_news/ava18.png',
+      'assets/images/ava_news/ava19.png',
+      'assets/images/ava_news/ava20.png',
+      'assets/images/ava_news/ava21.png',
+      'assets/images/ava_news/ava22.png',
+      'assets/images/ava_news/ava23.png',
+    ];
+
+    final index = channelName.hashCode.abs() % channelAvatars.length;
+    return channelAvatars[index];
+  }
+
+  // 🆕 ПОЛУЧЕНИЕ ЦВЕТА ДЛЯ КАНАЛА ПО ИМЕНИ
+  static Color _getColorFromName(String name) {
+    final colors = [
+      Colors.blue.shade700,
+      Colors.green.shade700,
+      Colors.orange.shade700,
+      Colors.purple.shade700,
+      Colors.teal.shade700,
+      Colors.pink.shade700,
+      Colors.red.shade700,
+      Colors.indigo.shade700,
+    ];
+
+    final index = name.hashCode.abs() % colors.length;
+    return colors[index];
+  }
+
+  // 🆕 ПРОВЕРКА, ЯВЛЯЕТСЯ ЛИ ПОСТ КАНАЛЬНЫМ
+  static bool isChannelPost(Map<String, dynamic> post) {
+    final isChannelPost = post['is_channel_post'] == true || post['is_channel_post'] == 'true';
+    final hasChannelId = post['channel_id'] != null && post['channel_id'].toString().isNotEmpty;
+    final hasChannelName = post['channel_name'] != null && post['channel_name'].toString().isNotEmpty;
+
+    return isChannelPost || hasChannelId || hasChannelName;
+  }
+
+  // 🆕 ПОЛУЧЕНИЕ ID КАНАЛА ИЗ ПОСТА (С УЧЕТОМ РЕПОСТОВ)
+  static String getChannelIdFromPost(Map<String, dynamic> post) {
+    final isRepost = post['is_repost'] == true || post['is_repost'] == 'true';
+    final isOriginalChannelPost = post['is_original_channel_post'] == true || post['is_original_channel_post'] == 'true';
+
+    if (isRepost && isOriginalChannelPost) {
+      // Для репостов из каналов возвращаем ID оригинального канала
+      return post['original_channel_id']?.toString() ?? '';
+    } else {
+      // Для обычных постов возвращаем ID канала
+      return post['channel_id']?.toString() ?? '';
+    }
+  }
+
+  // 🆕 ПОЛУЧЕНИЕ НАЗВАНИЯ КАНАЛА ИЗ ПОСТА (С УЧЕТОМ РЕПОСТОВ)
+  static String getChannelNameFromPost(Map<String, dynamic> post) {
+    final isRepost = post['is_repost'] == true || post['is_repost'] == 'true';
+    final isOriginalChannelPost = post['is_original_channel_post'] == true || post['is_original_channel_post'] == 'true';
+
+    if (isRepost && isOriginalChannelPost) {
+      // Для репостов из каналов возвращаем название оригинального канала
+      return post['original_channel_name']?.toString() ?? 'Неизвестный канал';
+    } else {
+      // Для обычных постов возвращаем название канала
+      return post['channel_name']?.toString() ?? 'Неизвестный канал';
+    }
+  }
 
   // Метод для вычисления engagement rate
   double get engagementRate {
@@ -199,6 +338,11 @@ class Channel {
       'programming': 'Программирование',
       'sport': 'Спорт',
       'communication': 'Общение',
+      'all': 'Все',
+      'psychology': 'Психология',
+      'tech': 'Технологии',
+      'art': 'Искусство',
+      'general': 'Общее',
     };
     return categoryMap[categoryId] ?? categoryId;
   }
@@ -240,6 +384,7 @@ class Channel {
       'authorImageUrl': authorImageUrl,
       'commentsCount': commentsCount,
       'isPinned': isPinned,
+      'coverImageUrl': coverImageUrl,
     };
   }
 
@@ -272,6 +417,7 @@ class Channel {
       authorImageUrl: map['authorImageUrl'] ?? '',
       commentsCount: map['commentsCount'] ?? 0,
       isPinned: map['isPinned'] ?? false,
+      coverImageUrl: map['coverImageUrl'],
     );
   }
 
@@ -291,6 +437,8 @@ class Channel {
     String authorImageUrl = '',
     int commentsCount = 0,
     int likes = 0,
+    String categoryId = 'general',
+    bool isVerified = false,
   }) {
     return Channel(
       id: id,
@@ -302,9 +450,9 @@ class Channel {
       isSubscribed: isSubscribed,
       isFavorite: isFavorite,
       cardColor: cardColor,
-      categoryId: 'general',
+      categoryId: categoryId,
       createdAt: DateTime.now(),
-      isVerified: false,
+      isVerified: isVerified,
       rating: rating,
       author: author,
       authorImageUrl: authorImageUrl,
@@ -340,4 +488,5 @@ class Channel {
   int compareByRating(Channel other) => rating.compareTo(other.rating);
 
   // Метод для сравнения по количеству плейлистов (для сортировки)
+  int compareByVideos(Channel other) => videos.compareTo(other.videos);
 }

@@ -49,9 +49,11 @@ class NewsCardHeader extends StatelessWidget {
     final createdAt = _getStringValue(news['created_at']);
     final authorId = _getStringValue(news['author_id']);
 
+
     final displayName = isChannelPost && channelName.isNotEmpty ? channelName : authorName;
     final isCurrentUser = authorName == userProvider.userName;
 
+    final effectiveUserId = authorId.isNotEmpty ? authorId : _generateUserId(displayName);
     final avatarUrl = _getAvatarUrl(context, displayName, isCurrentUser, authorId);
     final userTags = _getUserTags();
 
@@ -121,6 +123,11 @@ class NewsCardHeader extends StatelessWidget {
     );
   }
 
+  String _generateUserId(String userName) {
+    return 'user_${userName.trim().toLowerCase().hashCode.abs()}';
+  }
+
+
   /// 🖼️ СОЗДАЕТ ВИДЖЕТ АВАТАРКИ С УНИВЕРСАЛЬНОЙ СИСТЕМОЙ
   Widget _buildAvatarWidget(BuildContext context, String displayName, bool isCurrentUser, String userId) {
     return ImageUtils.buildUserAvatarWidget(
@@ -133,14 +140,13 @@ class NewsCardHeader extends StatelessWidget {
   }
 
   /// 🖼️ ПОЛУЧАЕТ АВАТАРКУ С ПРИОРИТЕТОМ КАСТОМНОЙ АВАТАРКИ
-  // В NewsCardHeader - ОБНОВЛЕННЫЙ МЕТОД
   String _getAvatarUrl(BuildContext context, String displayName, bool isCurrentUser, String userId) {
-    print('🔍 NewsCardHeader: Getting avatar for $displayName (current: $isCurrentUser)');
+    print('🔍 NewsCardHeader: Getting avatar for $displayName (current: $isCurrentUser, userId: $userId)');
 
-    // 1. Используем универсальную систему через ImageUtils
+    // Используем универсальную систему с переданным userId
     final universalAvatar = ImageUtils.getUniversalAvatarUrl(
       context: context,
-      userId: userId,
+      userId: userId, // ← ПЕРЕДАЕМ ПРАВИЛЬНЫЙ userId
       userName: displayName,
     );
 

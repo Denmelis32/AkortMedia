@@ -65,8 +65,6 @@ class UserProfileManager {
     _onProfileUpdated = callback;
   }
 
-
-
   Future<void> loadProfileData() async {
     if (_currentUserId == null) return;
     await _loadUserProfileData(_currentUserId!);
@@ -88,7 +86,7 @@ class UserProfileManager {
     return null;
   }
 
-// Делегируем вызов StorageService
+  // Делегируем вызов StorageService
   Future<void> removeCoverImage() async {
     if (_currentUserId == null) return;
 
@@ -104,8 +102,6 @@ class UserProfileManager {
     await StorageService.saveCoverImageUrl(_currentUserId!, null);
     await StorageService.saveCoverImageFilePath(_currentUserId!, null);
   }
-
-
 
   void setCurrentUser(String userId, String userName, String userEmail) {
     _currentUserId = userId;
@@ -131,6 +127,16 @@ class UserProfileManager {
 
   UserProfile? getUserProfile(String userId) {
     return _userProfiles[userId];
+  }
+
+  // 🆕 МЕТОД ДЛЯ ПОИСКА ПРОФИЛЯ ПО ИМЕНИ ПОЛЬЗОВАТЕЛЯ
+  UserProfile? _getUserProfileByName(String userName) {
+    for (final profile in _userProfiles.values) {
+      if (profile.userName == userName) {
+        return profile;
+      }
+    }
+    return null;
   }
 
   Future<void> updateProfileImageUrl(String? url) async {
@@ -280,27 +286,71 @@ class UserProfileManager {
     }
   }
 
+  // 🎯 ОБНОВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
+  // 🎯 ОБНОВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
   String getUserAvatarUrl(String userId, String userName) {
-    // 1. Проверяем текущего пользователя
-    if (_currentUserId == userId) {
+    print('🔍 UserProfileManager: Getting avatar for $userName ($userId)');
+
+    // 🎯 ИСПРАВЛЕНИЕ: Не используем текущего пользователя для чужих постов
+    String effectiveUserId = userId;
+
+    // ТОЛЬКО если userId пустой И это текущий пользователь по имени
+    if (userId.isEmpty && _currentUserId != null) {
       final currentUser = _getCurrentUser();
-      if (currentUser?.profileImageFile != null) return currentUser!.profileImageFile!.path;
-      if (currentUser?.profileImageUrl != null && currentUser!.profileImageUrl!.isNotEmpty) {
-        return currentUser.profileImageUrl!;
+      if (currentUser != null && currentUser.userName == userName) {
+        effectiveUserId = _currentUserId!;
+        print('🔍 UserProfileManager: Empty userId, but same name as current user: $effectiveUserId');
+      } else {
+        // Для других пользователей генерируем userId на основе имени
+        effectiveUserId = 'user_${userName.trim().toLowerCase().hashCode.abs()}';
+        print('🔍 UserProfileManager: Empty userId, generating from name: $effectiveUserId');
       }
     }
 
-    // 2. Проверяем других пользователей
-    final userProfile = getUserProfile(userId);
+    // 🎯 ИСПРАВЛЕНИЕ 2: Проверяем сначала по effectiveUserId, потом по userName
+    UserProfile? userProfile;
+
+    // 1. Ищем по effectiveUserId
+    if (effectiveUserId.isNotEmpty) {
+      userProfile = getUserProfile(effectiveUserId);
+      if (userProfile != null) {
+        print('🔍 UserProfileManager: Found user profile by ID - file: ${userProfile.profileImageFile}, url: ${userProfile.profileImageUrl}');
+      }
+    }
+
+    // 2. Если не нашли по ID, ищем текущего пользователя по имени
+    if (userProfile == null && _currentUserId != null) {
+      final currentUser = _getCurrentUser();
+      if (currentUser != null && currentUser.userName == userName) {
+        userProfile = currentUser;
+        print('🔍 UserProfileManager: Found current user by name - file: ${userProfile.profileImageFile}, url: ${userProfile.profileImageUrl}');
+      }
+    }
+
+    // 3. Если не нашли, ищем любого пользователя по имени
+    if (userProfile == null) {
+      userProfile = _getUserProfileByName(userName);
+      if (userProfile != null) {
+        print('🔍 UserProfileManager: Found user profile by name - file: ${userProfile.profileImageFile}, url: ${userProfile.profileImageUrl}');
+      }
+    }
+
+    // 4. Если нашли профиль, используем его аватарку
     if (userProfile != null) {
-      if (userProfile.profileImageFile != null) return userProfile.profileImageFile!.path;
+      if (userProfile.profileImageFile != null) {
+        print('✅ UserProfileManager: Using profile file: ${userProfile.profileImageFile!.path}');
+        return userProfile.profileImageFile!.path;
+      }
       if (userProfile.profileImageUrl != null && userProfile.profileImageUrl!.isNotEmpty) {
+        print('✅ UserProfileManager: Using profile URL: ${userProfile.profileImageUrl}');
         return userProfile.profileImageUrl!;
       }
     }
 
-    // 3. Fallback аватар
-    return _getFallbackAvatarUrl(userName);
+    // 5. Fallback аватар
+    final fallback = _getFallbackAvatarUrl(userName);
+    print('⚠️ UserProfileManager: Using fallback avatar: $fallback');
+    return fallback;
   }
 
   String _getFallbackAvatarUrl(String userName) {
@@ -342,8 +392,6 @@ class UserProfileManager {
     StorageService.saveProfileImageUrl(_currentUserId!, null);
     StorageService.saveProfileImageFilePath(_currentUserId!, null);
   }
-
-
 
   bool hasProfileImage() {
     if (_currentUserId == null) return false;

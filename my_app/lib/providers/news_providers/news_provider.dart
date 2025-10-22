@@ -254,9 +254,9 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  // Делегированные методы к менеджерам
   void setCurrentUser(String userId, String userName, String userEmail) {
     _profileManager.setCurrentUser(userId, userName, userEmail);
+    print('✅ NewsProvider: Current user set - $userName ($userId)');
   }
 
   Future<void> updateProfileImageUrl(String? url) async {

@@ -15,9 +15,19 @@ class ImageUtils {
     try {
       print('🔍 ImageUtils: Getting universal avatar for $userName ($userId)');
 
-      // Используем NewsProvider для получения аватарки
+      // 🎯 УЛУЧШЕННАЯ ОБРАБОТКА ПУСТОГО USER_ID
+      String effectiveUserId = userId;
+
+      if (userId.isEmpty) {
+        print('⚠️ ImageUtils: Empty userId provided for user: $userName');
+
+        // Генерируем userId на основе имени
+        effectiveUserId = 'user_${userName.trim().toLowerCase().hashCode.abs()}';
+        print('🔍 ImageUtils: Generated userId from name: $effectiveUserId');
+      }
+
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-      final avatarUrl = newsProvider.getUserAvatarUrl(userId, userName);
+      final avatarUrl = newsProvider.getUserAvatarUrl(effectiveUserId, userName);
 
       print('✅ ImageUtils: Got avatar from provider: $avatarUrl');
       return avatarUrl;

@@ -145,6 +145,7 @@ class Channel {
   }
 
   // 🆕 ФАБРИЧНЫЙ МЕТОД ДЛЯ СОЗДАНИЯ КАНАЛА ИЗ ДАННЫХ ПОСТА
+  // В models/channel.dart в методе fromPostData
   factory Channel.fromPostData(Map<String, dynamic> post) {
     final channelId = int.tryParse(post['channel_id']?.toString() ?? '0') ?? 0;
     final channelName = post['channel_name']?.toString() ?? 'Неизвестный канал';
@@ -462,6 +463,10 @@ class Channel {
       comments: 0,
     );
   }
+
+
+
+
 
   @override
   String toString() {

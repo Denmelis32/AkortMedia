@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../pages/cards_page/models/channel.dart';
-import '../pages/cards_page/models/channel_detail_state.dart';
-import '../pages/cards_page/models/chat_message.dart';
+import '../pages/cards_detail_page/models/channel.dart';
+import '../pages/cards_detail_page/models/channel_detail_state.dart';
+import '../pages/cards_detail_page/models/chat_message.dart';
 import '../../providers/channel_state_provider.dart';
 
 class ChannelDetailProvider with ChangeNotifier {

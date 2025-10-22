@@ -1,4 +1,4 @@
-// lib/pages/cards_page/widgets/posts_list.dart
+// lib/pages/cards_detail_page/widgets/posts_list.dart
 import 'package:flutter/material.dart';
 import 'package:my_app/pages/rooms_pages/rooms_page.dart';
 import '../../../news_page/utils.dart'; // Импорт функций formatDate и getTimeAgo

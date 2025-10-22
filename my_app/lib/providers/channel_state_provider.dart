@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../pages/cards_page/models/channel.dart';
+import '../pages/cards_detail_page/models/channel.dart';
 
 class ChannelStateProvider with ChangeNotifier {
   final Map<String, String?> _channelAvatars = {};

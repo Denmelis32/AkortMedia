@@ -1,4 +1,4 @@
-// lib/pages/cards_page/widgets/articles_grid.dart
+// lib/pages/cards_detail_page/widgets/articles_grid.dart
 import 'package:flutter/material.dart';
 import '../../models/channel.dart';
 

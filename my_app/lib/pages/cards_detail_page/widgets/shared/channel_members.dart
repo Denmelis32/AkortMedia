@@ -1,4 +1,4 @@
-// lib/pages/cards_page/widgets/channel_members.dart
+// lib/pages/cards_detail_page/widgets/channel_members.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/channel.dart';

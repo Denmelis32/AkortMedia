@@ -1,4 +1,4 @@
-// lib/pages/cards_page/models/discussion.dart
+// lib/pages/cards_detail_page/models/discussion.dart
 class Discussion {
   final String id;
   final String title;

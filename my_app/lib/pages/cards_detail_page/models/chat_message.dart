@@ -1,4 +1,4 @@
-// lib/pages/cards_page/models/chat_message.dart
+// lib/pages/cards_detail_page/models/chat_message.dart
 class ChatMessage {
   final String text;
   final bool isMe;

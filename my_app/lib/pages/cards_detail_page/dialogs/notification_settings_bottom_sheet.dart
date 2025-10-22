@@ -1,4 +1,4 @@
-// lib/pages/cards_page/channel_detail_page/widgets/notification_settings_bottom_sheet.dart
+// lib/pages/cards_detail_page/channel_detail_page/widgets/notification_settings_bottom_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/channel.dart';

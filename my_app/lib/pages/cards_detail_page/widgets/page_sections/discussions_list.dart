@@ -1,4 +1,4 @@
-// lib/pages/cards_page/widgets/discussions_list.dart
+// lib/pages/cards_detail_page/widgets/discussions_list.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 

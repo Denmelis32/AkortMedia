@@ -52,12 +52,42 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   // Константы
   static const defaultImageUrl = 'assets/images/predictions_league_image/data.png';
 
+  // НОВЫЙ ОСНОВНОЙ ЦВЕТ #9E2C21 (красный)
+  final Color _primaryColor = const Color(0xFF9E2C21);
+  final Color _secondaryColor = const Color(0xFFC4453A); // Более светлый красный
+  final Color _backgroundColor = const Color(0xFFF5F7FA);
+  final Color _surfaceColor = Colors.white;
+  final Color _textColor = const Color(0xFF37474F);
+
+  // Красные градиенты для карточек
+  final List<Color> _cardGradients = [
+    const Color(0xFFFCE4EC), // Светло-розовый
+    const Color(0xFFFFEBEE), // Светло-красный
+    const Color(0xFFFFF3E0), // Светло-оранжевый
+    const Color(0xFFE8F5E8), // Светло-зеленый
+    const Color(0xFFE3F2FD), // Светло-голубой
+    const Color(0xFFF3E5F5), // Светло-фиолетовый
+    const Color(0xFFEDE7F6), // Светло-лавандовый
+    const Color(0xFFFFF8E1), // Светло-желтый
+  ];
+
+  final List<Color> _cardBorderColors = [
+    const Color(0xFFF48FB1), // Розовый
+    const Color(0xFFEF5350), // Красный
+    const Color(0xFFFF7043), // Оранжевый
+    const Color(0xFFA5D6A7), // Зеленый
+    const Color(0xFF90CAF9), // Голубой
+    const Color(0xFFCE93D8), // Фиолетовый
+    const Color(0xFFB39DDB), // Лавандовый
+    const Color(0xFFFFE082), // Желтый
+  ];
+
   final List<LeagueCategory> _categories = [
     LeagueCategory(
       id: 'all',
       title: 'Все',
       icon: Icons.all_inclusive,
-      color: Colors.blue,
+      color: const Color(0xFF9E2C21), // Новый цвет
     ),
     LeagueCategory(
       id: 'sports',
@@ -78,7 +108,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
       title: 'Города',
       description: 'Прогнозы для городов',
       icon: Icons.location_city,
-      color: Colors.red,
+      color: Colors.blue,
     ),
     LeagueCategory(
       id: 'entertainment',
@@ -131,33 +161,49 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   bool _showSearchBar = false;
   bool _showFilters = false;
 
+  // ФИКСИРОВАННАЯ МАКСИМАЛЬНАЯ ШИРИНА ДЛЯ ДЕСКТОПА
+  double get _maxContentWidth => 1200;
+  double get _minContentWidth => 320;
+
   // АДАПТИВНЫЕ МЕТОДЫ КАК В ПЕРВОМ ФАЙЛЕ
-  bool get _isMobile => MediaQuery.of(context).size.width <= 600;
+  bool _isMobile(BuildContext context) {
+    return MediaQuery.of(context).size.width <= 600;
+  }
+
+  // ШИРИНА КОНТЕНТА С УЧЕТОМ ОГРАНИЧЕНИЙ
+  double _getContentWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth > _maxContentWidth) return _maxContentWidth;
+    return screenWidth;
+  }
 
   int _getCrossAxisCount(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 3;
-    if (width > 800) return 3;
-    if (width > 600) return 2;
+    final contentWidth = _getContentWidth(context);
+    if (contentWidth > 1000) return 3;
+    if (contentWidth > 700) return 2;
     return 1;
   }
 
-  double _getCardAspectRatio(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-    switch (crossAxisCount) {
-      case 1: return 0.75;
-      case 2: return 0.8;
-      case 3: return 0.85;
-      default: return 0.8;
-    }
+  // АДАПТИВНЫЕ ОТСТУПЫ
+  double _getHorizontalPadding(BuildContext context) {
+    final contentWidth = _getContentWidth(context);
+    if (contentWidth > 1000) return 24;
+    if (contentWidth > 800) return 20;
+    if (contentWidth > 600) return 16;
+    return 12;
   }
 
-  double _getHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 200;
-    if (width > 800) return 100;
-    if (width > 600) return 60;
-    return 0; // Для мобильных - 0 отступов по бокам
+  // ОСНОВНОЙ LAYOUT С ФИКСИРОВАННОЙ ШИРИНОЙ
+  Widget _buildDesktopLayout(Widget content) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: _maxContentWidth,
+          minWidth: _minContentWidth,
+        ),
+        child: content,
+      ),
+    );
   }
 
   // ДЕМО ДАННЫЕ С ПРОГРЕССОМ И ЛОКАЛЬНЫМИ ИЗОБРАЖЕНИЯМИ
@@ -407,38 +453,41 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
-  // ВИДЖЕТЫ ФИЛЬТРОВ И КАТЕГОРИЙ КАК В ПЕРВОМ ФАЙЛЕ
+  // ВИДЖЕТЫ ФИЛЬТРОВ И КАТЕГОРИЙ В СТИЛЕ ПЕРВОГО ФАЙЛА
   Widget _buildFiltersCard(double horizontalPadding) {
     if (!_showFilters) return const SizedBox.shrink();
 
+    final isMobile = _isMobile(context);
+
     return Container(
       margin: EdgeInsets.symmetric(
-          horizontal: _isMobile ? 0 : horizontalPadding,
-          vertical: 8
+        horizontal: isMobile ? 12 : horizontalPadding,
+        vertical: 4,
       ),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_isMobile ? 0 : 12),
-        ),
-        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: _surfaceColor,
         child: Container(
-          padding: EdgeInsets.all(_isMobile ? 12 : 16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Фильтры',
-                style: TextStyle(
-                  fontSize: _isMobile ? 14 : 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  'Фильтры',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               SizedBox(
-                height: _isMobile ? 36 : 40,
+                height: isMobile ? 36 : 40,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
@@ -459,29 +508,30 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
 
   Widget _buildFilterChip(String id, String title, IconData icon) {
     final isActive = id == 'favorites' && _searchQuery == "избранное";
+    final isMobile = _isMobile(context);
 
     return Container(
-      margin: EdgeInsets.only(right: _isMobile ? 6 : 8),
+      margin: EdgeInsets.only(right: isMobile ? 8 : 12),
       child: Material(
-        color: isActive ? Colors.blue : Colors.transparent,
-        borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+        color: isActive ? _primaryColor : Colors.transparent,
+        borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
         child: InkWell(
           onTap: () {
             if (id == 'favorites') {
               _showFavorites();
             }
           },
-          borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+          borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
           child: Container(
             padding: EdgeInsets.symmetric(
-              horizontal: _isMobile ? 12 : 16,
-              vertical: _isMobile ? 6 : 8,
+              horizontal: isMobile ? 16 : 20,
+              vertical: isMobile ? 8 : 10,
             ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+              borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
               border: Border.all(
-                color: isActive ? Colors.blue : Colors.grey[300]!,
-                width: 1,
+                color: isActive ? _primaryColor : Colors.grey[300]!,
+                width: 2,
               ),
             ),
             child: Row(
@@ -489,16 +539,16 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
               children: [
                 Icon(
                   icon,
-                  size: _isMobile ? 14 : 16,
-                  color: isActive ? Colors.white : Colors.blue,
+                  size: isMobile ? 16 : 18,
+                  color: isActive ? Colors.white : _primaryColor,
                 ),
-                SizedBox(width: _isMobile ? 4 : 6),
+                SizedBox(width: isMobile ? 6 : 8),
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: _isMobile ? 12 : 13,
-                    fontWeight: FontWeight.w500,
-                    color: isActive ? Colors.white : Colors.black87,
+                    fontSize: isMobile ? 13 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: isActive ? Colors.white : _textColor,
                   ),
                 ),
               ],
@@ -510,43 +560,40 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   }
 
   Widget _buildCategoriesCard(double horizontalPadding) {
+    final isMobile = _isMobile(context);
+
     return Container(
       margin: EdgeInsets.symmetric(
-          horizontal: _isMobile ? 0 : horizontalPadding,
-          vertical: 8
+        horizontal: isMobile ? 12 : horizontalPadding,
+        vertical: 4,
       ),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_isMobile ? 0 : 12),
-        ),
-        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: _surfaceColor,
         child: Container(
-          padding: EdgeInsets.all(_isMobile ? 12 : 16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Категории',
-                style: TextStyle(
-                  fontSize: _isMobile ? 14 : 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  'Категории',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                height: _isMobile ? 36 : 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  shrinkWrap: true,
-                  children: _categories
-                      .map((category) => _buildCategoryChip(category))
-                      .toList(),
-                ),
-              ),
+              // АДАПТИВНЫЙ СПИСОК КАТЕГОРИЙ
+              if (isMobile)
+                _buildMobileCategories()
+              else
+                _buildDesktopCategories(),
             ],
           ),
         ),
@@ -554,31 +601,54 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
-  Widget _buildCategoryChip(LeagueCategory category) {
+  // ГОРИЗОНТАЛЬНЫЙ СКРОЛЛ КАТЕГОРИЙ ДЛЯ ТЕЛЕФОНА
+  Widget _buildMobileCategories() {
+    return SizedBox(
+      height: 42,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        shrinkWrap: true,
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final category = _categories[index];
+          return _buildMobileCategoryChip(category);
+        },
+      ),
+    );
+  }
+
+  // КАТЕГОРИИ ДЛЯ ДЕСКТОПА
+  Widget _buildDesktopCategories() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _categories.map((category) => _buildDesktopCategoryChip(category)).toList(),
+    );
+  }
+
+  Widget _buildMobileCategoryChip(LeagueCategory category) {
     final isSelected = _currentTabIndex == _categories.indexOf(category);
 
     return Container(
-      margin: EdgeInsets.only(right: _isMobile ? 6 : 8),
+      margin: const EdgeInsets.only(right: 6),
       child: Material(
         color: isSelected ? category.color : Colors.transparent,
-        borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: () {
             setState(() {
               _currentTabIndex = _categories.indexOf(category);
             });
           },
-          borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isMobile ? 12 : 16,
-              vertical: _isMobile ? 6 : 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSelected ? category.color : Colors.grey[300]!,
-                width: 1,
+                color: isSelected ? category.color : Colors.grey.shade300,
+                width: 1.5,
               ),
             ),
             child: Row(
@@ -586,16 +656,16 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
               children: [
                 Icon(
                   category.icon,
-                  size: _isMobile ? 14 : 16,
+                  size: 14,
                   color: isSelected ? Colors.white : category.color,
                 ),
-                SizedBox(width: _isMobile ? 4 : 6),
+                const SizedBox(width: 4),
                 Text(
                   category.title,
                   style: TextStyle(
-                    fontSize: _isMobile ? 12 : 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: isSelected ? Colors.white : Colors.black87,
+                    color: isSelected ? Colors.white : _textColor,
                   ),
                 ),
               ],
@@ -606,29 +676,253 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
     );
   }
 
+  Widget _buildDesktopCategoryChip(LeagueCategory category) {
+    final isSelected = _currentTabIndex == _categories.indexOf(category);
+
+    return Material(
+      color: isSelected ? category.color : Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _currentTabIndex = _categories.indexOf(category);
+          });
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? category.color : Colors.grey.shade300,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                category.icon,
+                size: 16,
+                color: isSelected ? Colors.white : category.color,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                category.title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isSelected ? Colors.white : _textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Виджет поля поиска
   Widget _buildSearchField() {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: TextField(
         controller: _searchController,
         autofocus: true,
         decoration: InputDecoration(
           hintText: 'Поиск лиг прогнозов...',
-          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 15),
+          prefixIcon: Icon(Icons.search_rounded, size: 20, color: _primaryColor),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+            icon: Icon(Icons.clear_rounded, size: 18, color: Colors.grey),
             onPressed: () => _searchController.clear(),
           )
               : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         ),
-        style: const TextStyle(fontSize: 16),
+        style: const TextStyle(fontSize: 15),
+      ),
+    );
+  }
+
+  // КОМПАКТНЫЙ APP BAR В СТИЛЕ ПЕРВОГО ФАЙЛА
+  Widget _buildCompactAppBar(double horizontalPadding, bool isMobile) {
+    // Вычисляем отступ для выравнивания с категориями
+    final categoriesCardMargin = isMobile ? 12.0 : horizontalPadding;
+    final categoriesContentPadding = isMobile ? 12.0 : 16.0;
+    final categoriesTitlePadding = 4.0;
+
+    // Общий отступ от левого края до текста "Категории"
+    final totalCategoriesLeftPadding = categoriesCardMargin +
+        categoriesContentPadding + categoriesTitlePadding;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : horizontalPadding,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _primaryColor,
+            _secondaryColor,
+          ],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (!_showSearchBar) ...[
+            // Заголовок "Лиги Прогнозов" с фоном и выравниванием по категориям
+            Padding(
+              padding: EdgeInsets.only(left: totalCategoriesLeftPadding -
+                  (isMobile ? 12 : horizontalPadding)),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.emoji_events_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Лиги Прогнозов',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            // Правый контент выровненный по правому краю категорий
+            Container(
+              margin: EdgeInsets.only(right: totalCategoriesLeftPadding -
+                  (isMobile ? 12 : horizontalPadding)),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.search_rounded, color: Colors.white, size: 18),
+                    ),
+                    onPressed: () => setState(() => _showSearchBar = true),
+                  ),
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: _showFilters
+                            ? Colors.white.withOpacity(0.3)
+                            : Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.filter_alt_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    onPressed: () => setState(() => _showFilters = !_showFilters),
+                  ),
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.sort_rounded, color: Colors.white, size: 18),
+                    ),
+                    onPressed: _showSortBottomSheet,
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (_showSearchBar)
+            Expanded(
+              child: Row(
+                children: [
+                  // Поле поиска с выравниванием
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: totalCategoriesLeftPadding - (isMobile ? 12 : horizontalPadding),
+                        right: 8,
+                      ),
+                      child: _buildSearchField(),
+                    ),
+                  ),
+                  // Кнопка закрытия с выравниванием
+                  Padding(
+                    padding: EdgeInsets.only(right: totalCategoriesLeftPadding - (isMobile ? 12 : horizontalPadding)),
+                    child: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.close_rounded, color: Colors.white, size: 18),
+                      ),
+                      onPressed: () => setState(() {
+                        _showSearchBar = false;
+                        _searchController.clear();
+                        _searchQuery = '';
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -636,8 +930,12 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   void _showSortBottomSheet() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: _surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -649,25 +947,35 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 12),
-            const Text(
+            const SizedBox(height: 16),
+            Text(
               'Сортировка',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textColor),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             ..._sortOptions.map((option) => ListTile(
-              leading: Icon(option.icon, size: 18),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(option.icon, size: 20, color: _primaryColor),
+              ),
               title: Text(
                 option.title,
-                style: const TextStyle(fontSize: 13),
+                style: TextStyle(fontSize: 15, color: _textColor, fontWeight: FontWeight.w500),
               ),
               trailing: _sortOptions.indexOf(option) == _currentSortIndex
-                  ? const Icon(Icons.check, color: Colors.blue, size: 18)
+                  ? Icon(Icons.check, color: _primaryColor, size: 20)
                   : null,
               onTap: () {
                 setState(() => _currentSortIndex = _sortOptions.indexOf(option));
                 Navigator.pop(context);
               },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             )).toList(),
           ],
         ),
@@ -678,312 +986,306 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
+    final isMobile = _isMobile(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
-        decoration: const BoxDecoration(
+        constraints: BoxConstraints(
+          minWidth: _minContentWidth,
+        ),
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFF5F5F5),
-              Color(0xFFE8E8E8),
+              _backgroundColor,
+              _backgroundColor.withOpacity(0.9),
             ],
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              // AppBar как в первом файле
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(
-                    horizontal: _isMobile ? 16 : horizontalPadding,
-                    vertical: 8
-                ),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                ),
-                child: Row(
-                  children: [
-                    if (!_showSearchBar) ...[
-                      const Text(
-                        'Лиги Прогнозов',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                    ],
-                    if (_showSearchBar)
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildSearchField(),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[100],
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Colors.black,
-                                  size: 18,
-                                ),
-                              ),
-                              onPressed: () => setState(() {
-                                _showSearchBar = false;
-                                _searchController.clear();
-                                _searchQuery = '';
-                              }),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.search,
-                                color: Colors.black,
-                                size: 18,
-                              ),
-                            ),
-                            onPressed: () => setState(() => _showSearchBar = true),
-                          ),
-                          IconButton(
-                            icon: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _showFilters ? Icons.filter_alt_off : Icons.filter_alt,
-                                color: Colors.black,
-                                size: 18,
-                              ),
-                            ),
-                            onPressed: () => setState(() => _showFilters = !_showFilters),
-                          ),
-                          IconButton(
-                            icon: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.sort,
-                                color: Colors.black,
-                                size: 18,
-                              ),
-                            ),
-                            onPressed: _showSortBottomSheet,
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: _buildContent(horizontalPadding),
-              ),
-            ],
-          ),
+          bottom: false,
+          child: isMobile
+              ? _buildMobileLayout(horizontalPadding)
+              : _buildDesktopLayout(_buildDesktopContent(horizontalPadding)),
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToCreateLeague,
-        backgroundColor: Colors.blue,
+        backgroundColor: _primaryColor,
         foregroundColor: Colors.white,
-        child: const Icon(Icons.add, size: 24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(Icons.add, size: 28),
       ),
     );
   }
 
-  Widget _buildContent(double horizontalPadding) {
+  Widget _buildMobileLayout(double horizontalPadding) {
+    return Column(
+      children: [
+        // КОМПАКТНЫЙ APP BAR
+        _buildCompactAppBar(horizontalPadding, true),
+        // Контент
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            child: _buildMobileContent(horizontalPadding),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileContent(double horizontalPadding) {
     final filteredLeagues = _getFilteredLeagues(_demoLeagues);
 
     return CustomScrollView(
       controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       slivers: [
+        // Фильтры
+        SliverToBoxAdapter(child: _buildFiltersCard(horizontalPadding)),
+
+        // Категории
+        SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
+
+        // Разделитель
         SliverToBoxAdapter(
-          child: _buildFiltersCard(horizontalPadding),
+          child: Container(
+            height: 1,
+            margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            color: Colors.grey.shade100,
+          ),
         ),
-        SliverToBoxAdapter(
-          child: _buildCategoriesCard(horizontalPadding),
+
+        // Карточки лиг
+        _buildLeaguesGrid(horizontalPadding, filteredLeagues, true),
+      ],
+    );
+  }
+
+  Widget _buildDesktopContent(double horizontalPadding) {
+    return Column(
+      children: [
+        // КОМПАКТНЫЙ APP BAR
+        _buildCompactAppBar(horizontalPadding, false),
+        // Контент
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            child: _buildDesktopContentBody(horizontalPadding),
+          ),
         ),
-        if (filteredLeagues.isEmpty)
-          SliverFillRemaining(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 40, color: Colors.grey[400]),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Лиги не найдены',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Попробуйте изменить параметры поиска',
-                    style: TextStyle(color: Colors.grey, fontSize: 10),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else
-          SliverPadding(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isMobile ? 0 : horizontalPadding,
-              vertical: _isMobile ? 0 : 8,
-            ),
-            sliver: _isMobile
-                ? SliverList(
-              delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                  if (index == filteredLeagues.length && _isLoadingMore) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (index >= filteredLeagues.length) return const SizedBox.shrink();
+      ],
+    );
+  }
 
-                  final leagueData = filteredLeagues[index];
-                  final league = PredictionLeague(
-                    id: leagueData['id'] ?? '',
-                    title: leagueData['title'] ?? '',
-                    description: leagueData['description'] ?? '',
-                    emoji: leagueData['emoji'] ?? '🏆',
-                    participants: (leagueData['participants'] as int?) ?? 0,
-                    predictions: (leagueData['predictions'] as int?) ?? 0,
-                    endDate: _parseDate(leagueData['end_date']),
-                    category: _categories.firstWhere(
-                          (cat) => cat.id == leagueData['category'],
-                      orElse: () => _categories.first,
-                    ).title,
-                    author: leagueData['author'] ?? '',
-                    imageUrl: leagueData['image_url'] ?? defaultImageUrl,
-                    authorLevel: AuthorLevel.expert,
-                    isActive: leagueData['is_active'] == true,
-                    prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
-                    progress: (leagueData['progress'] as double?) ?? 0.5,
-                    views: (leagueData['participants'] as int? ?? 0) * 3,
-                    detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий.',
-                  );
+  Widget _buildDesktopContentBody(double horizontalPadding) {
+    final filteredLeagues = _getFilteredLeagues(_demoLeagues);
 
-                  return Stack(
-                    children: [
-                      PredictionLeagueCard(
-                        key: ValueKey(league.id),
-                        league: league,
-                        onTap: () => _openLeagueDetail(leagueData),
-                      ),
-                      if (_isSelectionMode)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Checkbox(
-                            value: _selectedLeagues.contains(league.id),
-                            onChanged: (_) => _toggleLeagueSelection(league.id),
-                          ),
-                        ),
-                      if (_isLeagueFavorite(league.id))
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Icon(Icons.favorite, size: 16, color: Colors.red),
-                        ),
-                    ],
-                  );
-                },
-                childCount: filteredLeagues.length + (_isLoadingMore ? 1 : 0),
-              ),
-            )
-                : SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _getCrossAxisCount(context),
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: _getCardAspectRatio(context),
-              ),
-              delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                  if (index == filteredLeagues.length && _isLoadingMore) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (index >= filteredLeagues.length) return const SizedBox.shrink();
+    return _buildDesktopLayout(
+      CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // Фильтры
+          SliverToBoxAdapter(child: _buildFiltersCard(horizontalPadding)),
 
-                  final leagueData = filteredLeagues[index];
-                  final league = PredictionLeague(
-                    id: leagueData['id'] ?? '',
-                    title: leagueData['title'] ?? '',
-                    description: leagueData['description'] ?? '',
-                    emoji: leagueData['emoji'] ?? '🏆',
-                    participants: (leagueData['participants'] as int?) ?? 0,
-                    predictions: (leagueData['predictions'] as int?) ?? 0,
-                    endDate: _parseDate(leagueData['end_date']),
-                    category: _categories.firstWhere(
-                          (cat) => cat.id == leagueData['category'],
-                      orElse: () => _categories.first,
-                    ).title,
-                    author: leagueData['author'] ?? '',
-                    imageUrl: leagueData['image_url'] ?? defaultImageUrl,
-                    authorLevel: AuthorLevel.expert,
-                    isActive: leagueData['is_active'] == true,
-                    prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
-                    progress: (leagueData['progress'] as double?) ?? 0.5,
-                    views: (leagueData['participants'] as int? ?? 0) * 3,
-                    detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий.',
-                  );
+          // Категории
+          SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
 
-                  return Stack(
-                    children: [
-                      PredictionLeagueCard(
-                        key: ValueKey(league.id),
-                        league: league,
-                        onTap: () => _openLeagueDetail(leagueData),
-                      ),
-                      if (_isSelectionMode)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Checkbox(
-                            value: _selectedLeagues.contains(league.id),
-                            onChanged: (_) => _toggleLeagueSelection(league.id),
-                          ),
-                        ),
-                      if (_isLeagueFavorite(league.id))
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Icon(Icons.favorite, size: 16, color: Colors.red),
-                        ),
-                    ],
-                  );
-                },
-                childCount: filteredLeagues.length + (_isLoadingMore ? 1 : 0),
-              ),
+          // Разделитель
+          SliverToBoxAdapter(
+            child: Container(
+              height: 1,
+              margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              color: Colors.grey.shade100,
             ),
           ),
-      ],
+
+          // Карточки лиг
+          _buildLeaguesGrid(horizontalPadding, filteredLeagues, false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeaguesGrid(double horizontalPadding, List<Map<String, dynamic>> leagues, bool isMobile) {
+    if (leagues.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.emoji_events_rounded, size: 48, color: Colors.grey.shade400),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Лиги не найдены',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _textColor),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Попробуйте изменить параметры поиска\nили выбрать другую категорию',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ДЛЯ МОБИЛЬНЫХ - ИСПОЛЬЗУЕМ SliverList
+    if (isMobile) {
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+              (context, index) {
+            if (index == leagues.length && _isLoadingMore) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (index >= leagues.length) return const SizedBox.shrink();
+
+            final leagueData = leagues[index];
+            final league = PredictionLeague(
+              id: leagueData['id'] ?? '',
+              title: leagueData['title'] ?? '',
+              description: leagueData['description'] ?? '',
+              emoji: leagueData['emoji'] ?? '🏆',
+              participants: (leagueData['participants'] as int?) ?? 0,
+              predictions: (leagueData['predictions'] as int?) ?? 0,
+              endDate: _parseDate(leagueData['end_date']),
+              category: _categories.firstWhere(
+                    (cat) => cat.id == leagueData['category'],
+                orElse: () => _categories.first,
+              ).title,
+              author: leagueData['author'] ?? '',
+              imageUrl: leagueData['image_url'] ?? defaultImageUrl,
+              authorLevel: AuthorLevel.expert,
+              isActive: leagueData['is_active'] == true,
+              prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
+              progress: (leagueData['progress'] as double?) ?? 0.5,
+              views: (leagueData['participants'] as int? ?? 0) * 3,
+              detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий.',
+            );
+
+            return Stack(
+              children: [
+                PredictionLeagueCard(
+                  key: ValueKey(league.id),
+                  league: league,
+                  onTap: () => _openLeagueDetail(leagueData),
+                ),
+                if (_isSelectionMode)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Checkbox(
+                      value: _selectedLeagues.contains(league.id),
+                      onChanged: (_) => _toggleLeagueSelection(league.id),
+                    ),
+                  ),
+                if (_isLeagueFavorite(league.id))
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Icon(Icons.favorite, size: 16, color: Colors.red),
+                  ),
+              ],
+            );
+          },
+          childCount: leagues.length + (_isLoadingMore ? 1 : 0),
+        ),
+      );
+    }
+
+    // ДЛЯ ПЛАНШЕТОВ И КОМПЬЮТЕРОВ - ИСПОЛЬЗУЕМ SliverGrid
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 16,
+      ),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _getCrossAxisCount(context),
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 360 / 460, // ФИКСИРОВАННОЕ СООТНОШЕНИЕ
+        ),
+        delegate: SliverChildBuilderDelegate(
+              (context, index) {
+            if (index == leagues.length && _isLoadingMore) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (index >= leagues.length) return const SizedBox.shrink();
+
+            final leagueData = leagues[index];
+            final league = PredictionLeague(
+              id: leagueData['id'] ?? '',
+              title: leagueData['title'] ?? '',
+              description: leagueData['description'] ?? '',
+              emoji: leagueData['emoji'] ?? '🏆',
+              participants: (leagueData['participants'] as int?) ?? 0,
+              predictions: (leagueData['predictions'] as int?) ?? 0,
+              endDate: _parseDate(leagueData['end_date']),
+              category: _categories.firstWhere(
+                    (cat) => cat.id == leagueData['category'],
+                orElse: () => _categories.first,
+              ).title,
+              author: leagueData['author'] ?? '',
+              imageUrl: leagueData['image_url'] ?? defaultImageUrl,
+              authorLevel: AuthorLevel.expert,
+              isActive: leagueData['is_active'] == true,
+              prizePool: (leagueData['prize_pool'] as num?)?.toDouble() ?? 0.0,
+              progress: (leagueData['progress'] as double?) ?? 0.5,
+              views: (leagueData['participants'] as int? ?? 0) * 3,
+              detailedDescription: 'Лига прогнозов предлагает участникам сделать предсказания на исход различных событий.',
+            );
+
+            return Padding(
+              padding: const EdgeInsets.all(2),
+              child: Stack(
+                children: [
+                  PredictionLeagueCard(
+                    key: ValueKey(league.id),
+                    league: league,
+                    onTap: () => _openLeagueDetail(leagueData),
+                  ),
+                  if (_isSelectionMode)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Checkbox(
+                        value: _selectedLeagues.contains(league.id),
+                        onChanged: (_) => _toggleLeagueSelection(league.id),
+                      ),
+                    ),
+                  if (_isLeagueFavorite(league.id))
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Icon(Icons.favorite, size: 16, color: Colors.red),
+                    ),
+                ],
+              ),
+            );
+          },
+          childCount: leagues.length + (_isLoadingMore ? 1 : 0),
+        ),
+      ),
     );
   }
 

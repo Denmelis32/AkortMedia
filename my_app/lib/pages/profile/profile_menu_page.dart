@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:my_app/providers/news_provider.dart';
@@ -69,6 +70,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   int _selectedSection = 0;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  Color get userColor => _utils.getUserColor(widget.userName);
 
   final ProfileUtils _utils = ProfileUtils();
   final ProfileConstants _constants = ProfileConstants();
@@ -83,7 +85,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   void initState() {
     super.initState();
     _setCurrentUser();
-
+    _loadProfileData();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -118,9 +120,16 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
 
   void _setCurrentUser() {
     final userId = _utils.generateUserId(widget.userEmail);
+    print('🔄 ProfilePage: Setting current user: ${widget.userName} ($userId)');
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
       newsProvider.setCurrentUser(userId, widget.userName, widget.userEmail);
+
+      // Принудительно обновляем аватарки
+      newsProvider.loadProfileData().then((_) {
+        print('✅ ProfilePage: User data loaded and avatars updated');
+      });
     });
   }
 
@@ -153,23 +162,93 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         userEmail: widget.userEmail,
         profileImageUrl: widget.profileImageUrl,
         profileImageFile: widget.profileImageFile,
-        onSuccess: (message) => _showSuccessSnackBar(message),
-        onError: (error) => _showErrorSnackBar(error),
+        userColor: userColor,
+        onSuccess: (message) {
+          _showSuccessSnackBar(message);
+
+          print('🔄 [PROFILE] Image picker success, updating state...');
+
+          // ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ ЧЕРЕЗ ПРОВАЙДЕР
+          final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+
+          // Перезагружаем данные профиля
+          newsProvider.loadProfileData().then((_) {
+            print('✅ [PROFILE] Profile data reloaded from provider');
+
+            // Принудительное обновление состояния
+            if (mounted) {
+              setState(() {
+                print('✅ [PROFILE] setState() called successfully');
+              });
+            }
+          });
+
+          // Закрываем модальное окно
+          Navigator.pop(context);
+        },
+        onError: (error) {
+          _showErrorSnackBar(error);
+          Navigator.pop(context);
+        },
       ),
-    ).then((_) {
-      if (mounted) setState(() {});
+    );
+  }
+
+// ДОБАВЬТЕ ЭТОТ МЕТОД ДЛЯ ПРИНУДИТЕЛЬНОГО ОБНОВЛЕНИЯ
+  Future<void> _forceRefreshProfile() async {
+    print('🔄 [PROFILE] Force refreshing profile data...');
+
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+
+    // 1. Перезагружаем данные из хранилища
+    await newsProvider.loadProfileData();
+
+    // 2. Принудительное обновление состояния
+    if (mounted) {
+      setState(() {
+        print('✅ [PROFILE] Profile state force updated');
+      });
+    }
+
+    // 3. Дополнительная проверка через секунду
+    Future.delayed(Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() {
+          print('✅ [PROFILE] Delayed profile state update');
+        });
+      }
     });
   }
 
+  Future<void> _loadProfileData() async {
+    // Ждем немного чтобы провайдер успел инициализироваться
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    await newsProvider.loadProfileData();
+
+    // Принудительное обновление состояния
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _showCoverPickerModal() {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final utils = ProfileUtils();
+    final userColor = utils.getUserColor(widget.userName);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => CoverPickerModal(
         userEmail: widget.userEmail,
+        coverImageUrl: newsProvider.coverImageUrl, // Добавляем текущие данные
+        coverImageFile: newsProvider.coverImageFile,
         onSuccess: (message) => _showSuccessSnackBar(message),
         onError: (error) => _showErrorSnackBar(error),
+        userColor: userColor, // Добавляем цвет пользователя
       ),
     );
   }
@@ -183,6 +262,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         currentBio: _bio,
         currentLocation: _location,
         currentWebsite: _website,
+        userName: widget.userName, // ДОБАВЛЕНО
+        userEmail: widget.userEmail, // ДОБАВЛЕНО
         onSave: (bio, location, website) {
           setState(() {
             _bio = bio;
@@ -254,13 +335,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   Map<String, dynamic> _getUserAchievements() {
     final newsProvider = Provider.of<NewsProvider>(context);
     final stats = _getUserStats(newsProvider.news);
+    final progress = _getAchievementProgress();
 
     return {
       'first_post': stats['posts']! > 0,
       'popular_author': stats['likes']! >= 100,
       'active_commenter': stats['comments']! >= 50,
-      'week_streak': true, // Заглушка для демонстрации
-      'verified': false,
+      'week_streak': progress['week_streak']! >= 7,
+      'social_butterfly': progress['social_butterfly']! >= 10,
+      'early_adopter': true, // Заглушка для демонстрации
     };
   }
 
@@ -286,6 +369,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 onSearchToggled: () => setState(() => _showSearchBar = !_showSearchBar),
                 onProfileMenuPressed: _showProfileMenu,
                 userColor: userColor,
+                userName: widget.userName, // НОВОЕ
+                notificationCount: 3, // НОВОЕ: пример количества уведомлений
               ),
               Expanded(
                 child: FadeTransition(
@@ -301,7 +386,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                           horizontalPadding: horizontalPadding,
                           onImageTap: _showImagePickerModal,
                           onCoverTap: _showCoverPickerModal,
-                          onEditProfile: _showEditProfileModal,
                           bio: _bio,
                           location: _location,
                           website: _website,
@@ -322,6 +406,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                 stats: userStats,
                                 contentMaxWidth: contentMaxWidth,
                                 userColor: userColor,
+                                weeklyData: _getWeeklyActivityData(), // НОВОЕ: добавить метод
                                 onStatsTap: (statType) {
                                   _showStatDetails(statType, userStats);
                                 },
@@ -331,6 +416,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                 achievements: _getUserAchievements(),
                                 contentMaxWidth: contentMaxWidth,
                                 userColor: userColor,
+                                progressData: _getAchievementProgress(), // НОВОЕ: добавить метод
                               ),
                               const SizedBox(height: 16),
                               ProfileContentTabs(
@@ -338,6 +424,9 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                 contentMaxWidth: contentMaxWidth,
                                 userColor: userColor,
                                 userEmail: widget.userEmail,
+                                postsCount: _getUserStats(newsProvider.news)['posts'] ?? 0,
+                                likedCount: newsProvider.news.where((item) => item['isLiked'] == true).length,
+                                repostsCount: _getUserReposts(newsProvider.news).length,
                                 onSectionChanged: (section) {
                                   setState(() => _selectedSection = section);
                                   if (section == 2) _debugReposts();
@@ -393,6 +482,32 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
       ),
     );
   }
+
+  Map<String, List<int>> _getWeeklyActivityData() {
+    final random = Random();
+    return {
+      'posts': List.generate(7, (_) => random.nextInt(20)),
+      'likes': List.generate(7, (_) => random.nextInt(50)),
+      'comments': List.generate(7, (_) => random.nextInt(15)),
+    };
+  }
+
+
+  Map<String, int> _getAchievementProgress() {
+    final newsProvider = Provider.of<NewsProvider>(context);
+    final userStats = _getUserStats(newsProvider.news);
+
+    return {
+      'first_post': userStats['posts'] ?? 0,
+      'popular_author': userStats['likes'] ?? 0,
+      'active_commenter': userStats['comments'] ?? 0,
+      'week_streak': 3, // Пример: 3 из 7 дней
+      'social_butterfly': 5, // Пример: 5 из 10 подписчиков
+      'early_adopter': 1, // Всегда 1 для демо
+    };
+  }
+
+
 
   Widget _buildDescriptionCard(double contentMaxWidth) {
     return Container(
@@ -563,6 +678,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           userName: widget.userName,
           userEmail: widget.userEmail,
           newMessagesCount: widget.newMessagesCount ?? 0,
+          userColor: userColor, // НОВОЕ: добавить цвет пользователя
           onMessagesTap: widget.onMessagesTap,
           onSettingsTap: widget.onSettingsTap,
           onHelpTap: widget.onHelpTap,

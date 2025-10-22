@@ -5,12 +5,14 @@ class ArticleCard extends StatefulWidget {
   final Article article;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final double cardPadding;
 
   const ArticleCard({
     super.key,
     required this.article,
     required this.onTap,
     this.onLongPress,
+    this.cardPadding = 20,
   });
 
   @override
@@ -28,28 +30,48 @@ class _ArticleCardState extends State<ArticleCard> {
   bool _imageError = false;
   int _likeCount = 24;
 
-  // Цвета для категорий
+  // Современная палитра цветов
   final Map<String, Color> _categoryColors = {
     'YouTube': const Color(0xFFFF6B6B),
-    'Бизнес': const Color(0xFFFFA726),
-    'Игры': const Color(0xFFAB47BC),
-    'Программирование': const Color(0xFF42A5F5),
-    'Спорт': const Color(0xFF66BB6A),
-    'Общение': const Color(0xFFEC407A),
-    'Общее': const Color(0xFF78909C),
+    'Бизнес': const Color(0xFF4ECDC4),
+    'Игры': const Color(0xFF9B59B6),
+    'Программирование': const Color(0xFF3498DB),
+    'Спорт': const Color(0xFF1ABC9C),
+    'Общение': const Color(0xFFFF9FF3),
+    'Общее': const Color(0xFF95A5A6),
   };
+
+  // Градиенты для карточек
+  final List<LinearGradient> _cardGradients = [
+    LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Colors.white,
+        const Color(0xFFFAFBFF),
+      ],
+    ),
+    LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Colors.white,
+        const Color(0xFFF8F9FF),
+      ],
+    ),
+  ];
 
   // Цвета для уровней авторов
   Color get _levelColor {
     return widget.article.authorLevel == AuthorLevel.expert
         ? const Color(0xFFFFD700)
-        : const Color(0xFFC0C0C0);
+        : const Color(0xFF3498DB);
   }
 
   // Иконка уровня автора
   IconData get _levelIcon {
     return widget.article.authorLevel == AuthorLevel.expert
-        ? Icons.workspace_premium
+        ? Icons.verified
         : Icons.person;
   }
 
@@ -62,7 +84,9 @@ class _ArticleCardState extends State<ArticleCard> {
 
   // Время чтения
   String _getReadingTime() {
-    final wordCount = widget.article.content.split(' ').length;
+    final wordCount = widget.article.content
+        .split(' ')
+        .length;
     final minutes = (wordCount / 200).ceil();
     return '$minutes мин';
   }
@@ -87,10 +111,10 @@ class _ArticleCardState extends State<ArticleCard> {
   IconData _getCategoryIcon(String category) {
     final icons = {
       'YouTube': Icons.play_circle_filled,
-      'Бизнес': Icons.business,
+      'Бизнес': Icons.business_center,
       'Игры': Icons.sports_esports,
       'Программирование': Icons.code,
-      'Спорт': Icons.sports_soccer,
+      'Спорт': Icons.fitness_center,
       'Общение': Icons.chat,
       'Общее': Icons.article,
     };
@@ -99,7 +123,10 @@ class _ArticleCardState extends State<ArticleCard> {
 
   // Определяем размер экрана
   _ScreenSize _getScreenSize(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
+    final width = MediaQuery
+        .of(context)
+        .size
+        .width;
     if (width <= 360) return _ScreenSize.small;
     if (width <= 420) return _ScreenSize.medium;
     if (width <= 600) return _ScreenSize.large;
@@ -120,61 +147,94 @@ class _ArticleCardState extends State<ArticleCard> {
   Widget _buildArticleImage(double height) {
     final imageUrl = widget.article.imageUrl;
 
-    // Для отладки
-    print('🖼️ Loading image: $imageUrl');
-
     try {
       if (imageUrl.startsWith('http')) {
-        // Для сетевых изображений
         return Image.network(
           imageUrl,
           height: height,
           width: double.infinity,
           fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return _buildLoadingImage(height);
+          },
           errorBuilder: (context, error, stackTrace) {
-            print('❌ Network image error: $error');
             return _buildErrorImage(height);
           },
         );
       } else {
-        // Для локальных assets
         return Image.asset(
           imageUrl,
           height: height,
           width: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            print('❌ Asset image error: $error for path: $imageUrl');
             return _buildErrorImage(height);
           },
         );
       }
     } catch (e) {
-      print('❌ Exception loading image: $e');
       return _buildErrorImage(height);
     }
+  }
+
+  Widget _buildLoadingImage(double height) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFFF5F5F5),
+            const Color(0xFFEEEEEE),
+          ],
+        ),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation(Colors.grey.shade400),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildErrorImage(double height) {
     return Container(
       height: height,
       width: double.infinity,
-      color: Colors.grey[300],
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFFF8F9FA),
+            const Color(0xFFE9ECEF),
+          ],
+        ),
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.photo_outlined,
-            color: Colors.grey[500],
-            size: 40,
+            Icons.photo_library,
+            color: Colors.grey.shade400,
+            size: 32,
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Изображение\nне загружено',
+            'Нет изображения',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.grey[600],
+              color: Colors.grey.shade600,
               fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -184,29 +244,52 @@ class _ArticleCardState extends State<ArticleCard> {
 
   @override
   Widget build(BuildContext context) {
-    final categoryColor = _categoryColors[widget.article.category] ?? const Color(0xFF78909C);
+    final categoryColor = _categoryColors[widget.article.category] ??
+        const Color(0xFF3498DB);
     final readingTime = _getReadingTime();
     final formattedDate = _getFormattedDate();
     final screenSize = _getScreenSize(context);
 
-    // Для десктопной версии
-    if (screenSize == _ScreenSize.desktop) {
-      return _buildDesktopCard(categoryColor, readingTime, formattedDate);
-    }
+    final gradientIndex = widget.article.category.hashCode %
+        _cardGradients.length;
+    final cardGradient = _cardGradients[gradientIndex];
 
-    // Для мобильных устройств
-    return _buildMobileCard(context, screenSize, categoryColor, readingTime, formattedDate);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+
+        if (availableWidth > 600) {
+          return _buildDesktopCard(
+            categoryColor,
+            readingTime,
+            formattedDate,
+            cardGradient,
+            availableWidth,
+          );
+        }
+
+        return _buildMobileCard(
+          context,
+          screenSize,
+          categoryColor,
+          readingTime,
+          formattedDate,
+          cardGradient,
+          availableWidth,
+        );
+      },
+    );
   }
 
   // ВЕРСИЯ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
-  Widget _buildMobileCard(
-      BuildContext context,
+  Widget _buildMobileCard(BuildContext context,
       _ScreenSize screenSize,
       Color categoryColor,
       String readingTime,
       String formattedDate,
-      ) {
-    // Определяем размеры в зависимости от размера экрана
+      LinearGradient cardGradient,
+      double availableWidth,) {
+    // Адаптивные размеры на основе доступной ширины
     final double imageHeight;
     final double titleFontSize;
     final double descriptionFontSize;
@@ -214,422 +297,57 @@ class _ArticleCardState extends State<ArticleCard> {
     final double paddingValue;
     final double avatarSize;
     final double iconSize;
-    final double buttonFontSize;
 
-    switch (screenSize) {
-      case _ScreenSize.small: // Маленькие телефоны (до 360px)
-        imageHeight = 140;
-        titleFontSize = 15;
-        descriptionFontSize = 13;
-        authorFontSize = 12;
-        paddingValue = 10;
-        avatarSize = 28;
-        iconSize = 14;
-        buttonFontSize = 12;
-        break;
-      case _ScreenSize.medium: // Средние телефоны (360-420px)
-        imageHeight = 150;
-        titleFontSize = 16;
-        descriptionFontSize = 14;
-        authorFontSize = 13;
-        paddingValue = 12;
-        avatarSize = 32;
-        iconSize = 16;
-        buttonFontSize = 13;
-        break;
-      case _ScreenSize.large: // Большие телефоны (420-600px)
-        imageHeight = 160;
-        titleFontSize = 17;
-        descriptionFontSize = 14;
-        authorFontSize = 14;
-        paddingValue = 14;
-        avatarSize = 36;
-        iconSize = 18;
-        buttonFontSize = 14;
-        break;
-      default:
-        imageHeight = 160;
-        titleFontSize = 16;
-        descriptionFontSize = 14;
-        authorFontSize = 13;
-        paddingValue = 12;
-        avatarSize = 32;
-        iconSize = 16;
-        buttonFontSize = 13;
+    if (availableWidth <= 360) {
+      imageHeight = 140;
+      titleFontSize = 16;
+      descriptionFontSize = 13;
+      authorFontSize = 12;
+      paddingValue = 12;
+      avatarSize = 32;
+      iconSize = 16;
+    } else if (availableWidth <= 420) {
+      imageHeight = 160;
+      titleFontSize = 17;
+      descriptionFontSize = 14;
+      authorFontSize = 13;
+      paddingValue = 16;
+      avatarSize = 36;
+      iconSize = 18;
+    } else {
+      imageHeight = 180;
+      titleFontSize = 18;
+      descriptionFontSize = 15;
+      authorFontSize = 14;
+      paddingValue = 20;
+      avatarSize = 40;
+      iconSize = 20;
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 1),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey[200]!,
-            width: 1,
-          ),
-        ),
+      margin: EdgeInsets.symmetric(
+        horizontal: availableWidth <= 360 ? 8 : 12,
+        vertical: 6,
       ),
       child: Material(
         color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: widget.onTap,
           onLongPress: widget.onLongPress,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ТОНКАЯ СЕРАЯ ЛИНИЯ СВЕРХУ
-              Container(
-                height: 1,
-                margin: EdgeInsets.symmetric(horizontal: paddingValue),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-
-              // ОБЛОЖКА СТАТЬИ
-              Stack(
-                children: [
-                  // Используем наш метод для загрузки изображения
-                  _buildArticleImage(imageHeight),
-
-                  // Категория в левом верхнем углу
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getCategoryIcon(widget.article.category),
-                            size: iconSize * 0.7,
-                            color: categoryColor,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            widget.article.category.toUpperCase(),
-                            style: TextStyle(
-                              color: categoryColor,
-                              fontSize: buttonFontSize * 0.8,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Дата в правом верхнем углу
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        formattedDate,
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: buttonFontSize * 0.8,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // ОСНОВНОЙ КОНТЕНТ
-              Container(
-                padding: EdgeInsets.all(paddingValue),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Заголовок
-                    Text(
-                      widget.article.title,
-                      style: TextStyle(
-                        fontSize: titleFontSize,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    SizedBox(height: paddingValue * 0.5),
-
-                    // Описание
-                    Text(
-                      widget.article.description,
-                      style: TextStyle(
-                        fontSize: descriptionFontSize,
-                        color: Colors.grey[700],
-                        height: 1.4,
-                      ),
-                      maxLines: screenSize == _ScreenSize.small ? 2 : 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    SizedBox(height: paddingValue),
-
-                    // Автор и статистика в одной строке
-                    Row(
-                      children: [
-                        // Аватар автора
-                        Container(
-                          width: avatarSize,
-                          height: avatarSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: categoryColor,
-                          ),
-                          child: Center(
-                            child: Text(
-                              widget.article.author[0].toUpperCase(),
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: authorFontSize * 0.8,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        SizedBox(width: paddingValue * 0.7),
-
-                        // Информация об авторе
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.article.author,
-                                style: TextStyle(
-                                  fontSize: authorFontSize,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                _levelText,
-                                style: TextStyle(
-                                  fontSize: authorFontSize * 0.85,
-                                  color: _levelColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Статистика
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.remove_red_eye_outlined,
-                              size: iconSize * 0.8,
-                              color: Colors.grey[600],
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              _formatNumber(widget.article.views),
-                              style: TextStyle(
-                                fontSize: buttonFontSize * 0.9,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              readingTime,
-                              style: TextStyle(
-                                fontSize: buttonFontSize * 0.9,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    SizedBox(height: paddingValue),
-
-                    // Кнопки действий - адаптивный вариант
-                    if (screenSize == _ScreenSize.small) ...[
-                      // Для маленьких экранов - компактные кнопки
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          // Лайк
-                          Expanded(
-                            child: IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  _isLiked = !_isLiked;
-                                  _isLiked ? _likeCount++ : _likeCount--;
-                                });
-                              },
-                              icon: Icon(
-                                _isLiked ? Icons.favorite : Icons.favorite_border,
-                                size: iconSize,
-                                color: _isLiked ? Colors.red : Colors.grey,
-                              ),
-                              padding: const EdgeInsets.all(4),
-                            ),
-                          ),
-
-                          // Счетчик лайков
-                          Text(
-                            _formatNumber(_likeCount),
-                            style: TextStyle(
-                              fontSize: buttonFontSize,
-                              color: _isLiked ? Colors.red : Colors.grey,
-                            ),
-                          ),
-
-                          const Spacer(),
-
-                          // Закладка
-                          Expanded(
-                            child: IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  _isBookmarked = !_isBookmarked;
-                                });
-                              },
-                              icon: Icon(
-                                _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                size: iconSize,
-                                color: _isBookmarked ? Colors.blue : Colors.grey,
-                              ),
-                              padding: const EdgeInsets.all(4),
-                            ),
-                          ),
-
-                          // Текст "Сохранить"
-                          Text(
-                            'Сохранить',
-                            style: TextStyle(
-                              fontSize: buttonFontSize,
-                              color: _isBookmarked ? Colors.blue : Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      // Для средних и больших экранов - полноценные кнопки
-                      Row(
-                        children: [
-                          // Лайк
-                          Expanded(
-                            child: TextButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _isLiked = !_isLiked;
-                                  _isLiked ? _likeCount++ : _likeCount--;
-                                });
-                              },
-                              icon: Icon(
-                                _isLiked ? Icons.favorite : Icons.favorite_border,
-                                size: iconSize,
-                                color: _isLiked ? Colors.red : Colors.grey,
-                              ),
-                              label: Text(
-                                _formatNumber(_likeCount),
-                                style: TextStyle(
-                                  color: _isLiked ? Colors.red : Colors.grey,
-                                  fontSize: buttonFontSize,
-                                ),
-                              ),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.symmetric(vertical: 6),
-                              ),
-                            ),
-                          ),
-
-                          // Закладка
-                          Expanded(
-                            child: TextButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _isBookmarked = !_isBookmarked;
-                                });
-                              },
-                              icon: Icon(
-                                _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                size: iconSize,
-                                color: _isBookmarked ? Colors.blue : Colors.grey,
-                              ),
-                              label: Text(
-                                'Сохранить',
-                                style: TextStyle(
-                                  color: _isBookmarked ? Colors.blue : Colors.grey,
-                                  fontSize: buttonFontSize,
-                                ),
-                              ),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.symmetric(vertical: 6),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ВЕРСИЯ ДЛЯ КОМПЬЮТЕРА
-  Widget _buildDesktopCard(
-      Color categoryColor,
-      String readingTime,
-      String formattedDate,
-      ) {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          borderRadius: BorderRadius.circular(16),
-          child: Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
+          splashColor: categoryColor.withOpacity(0.1),
+          highlightColor: categoryColor.withOpacity(0.05),
+          child: Container(
+            width: double.infinity, // Занимает всю доступную ширину
+            constraints: BoxConstraints(
+              minHeight: 100,
+              maxWidth: availableWidth,
             ),
-            color: Colors.white,
-            shadowColor: Colors.black.withOpacity(0.1),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: cardGradient,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -637,73 +355,111 @@ class _ArticleCardState extends State<ArticleCard> {
                 // ОБЛОЖКА СТАТЬИ
                 Stack(
                   children: [
-                    // Используем наш метод для загрузки изображения
-                    _buildArticleImage(120),
+                    // Изображение
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                      child: _buildArticleImage(imageHeight),
+                    ),
 
-                    // Категория в левом верхнем углу
-                    Positioned(
-                      top: 12,
-                      left: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                    // Градиент поверх изображения
+                    Container(
+                      height: imageHeight,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _getCategoryIcon(widget.article.category),
-                              size: 12,
-                              color: categoryColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.article.category.toUpperCase(),
-                              style: TextStyle(
-                                color: categoryColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.3),
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.1),
                           ],
                         ),
                       ),
                     ),
 
-                    // Дата в правом верхнем углу
+                    // Категория
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: availableWidth * 0.5,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getCategoryIcon(widget.article.category),
+                                size: iconSize * 0.7,
+                                color: categoryColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  widget.article.category.toUpperCase(),
+                                  style: TextStyle(
+                                    color: categoryColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Дата
                     Positioned(
                       top: 12,
                       right: 12,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           formattedDate,
-                          style: const TextStyle(
-                            color: Colors.black87,
+                          style: TextStyle(
+                            color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
@@ -711,254 +467,774 @@ class _ArticleCardState extends State<ArticleCard> {
                 ),
 
                 // ОСНОВНОЙ КОНТЕНТ
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Заголовок
-                        Text(
-                          widget.article.title,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                Padding(
+                  padding: EdgeInsets.all(paddingValue),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Заголовок
+                      Text(
+                        widget.article.title,
+                        style: TextStyle(
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                          color: const Color(0xFF1A1A1A),
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
 
-                        const SizedBox(height: 8),
+                      const SizedBox(height: 8),
 
-                        // Описание
-                        Text(
-                          widget.article.description,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[700],
-                            height: 1.4,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                      // Описание
+                      Text(
+                        widget.article.description,
+                        style: TextStyle(
+                          fontSize: descriptionFontSize,
+                          color: const Color(0xFF666666),
+                          height: 1.4,
+                          fontWeight: FontWeight.w400,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
 
-                        const Spacer(),
+                      const SizedBox(height: 16),
 
-                        // Информация об авторе и статистика
-                        Row(
+                      // Автор и статистика
+                      SizedBox(
+                        height: avatarSize + 8,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Аватар автора
                             Container(
-                              width: 32,
-                              height: 32,
+                              width: avatarSize,
+                              height: avatarSize,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: categoryColor,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: categoryColor.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    categoryColor,
+                                    Color.alphaBlend(
+                                      categoryColor.withOpacity(0.7),
+                                      const Color(0xFF1A1A1A),
+                                    ),
+                                  ],
+                                ),
                               ),
                               child: Center(
                                 child: Text(
                                   widget.article.author[0].toUpperCase(),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
+                                    fontSize: avatarSize * 0.4,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
                             ),
 
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
 
                             // Информация об авторе
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
                                     widget.article.author,
-                                    style: const TextStyle(
-                                      fontSize: 12,
+                                    style: TextStyle(
+                                      fontSize: authorFontSize,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
+                                      color: const Color(0xFF1A1A1A),
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        _levelIcon,
-                                        size: 10,
-                                        color: _levelColor,
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        _levelText,
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w600,
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _levelColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _levelIcon,
+                                          size: authorFontSize * 0.7,
                                           color: _levelColor,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _levelText,
+                                          style: TextStyle(
+                                            fontSize: authorFontSize * 0.7,
+                                            color: _levelColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
 
                             // Статистика
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.remove_red_eye_outlined,
-                                      size: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      _formatNumber(widget.article.views),
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[700],
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8F9FA),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFFE9ECEF),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.remove_red_eye_outlined,
+                                        size: iconSize * 0.6,
+                                        color: const Color(0xFF6C757D),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  readingTime,
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _formatNumber(widget.article.views),
+                                        style: TextStyle(
+                                          fontSize: authorFontSize * 0.8,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    readingTime,
+                                    style: TextStyle(
+                                      fontSize: authorFontSize * 0.7,
+                                      color: const Color(0xFF6C757D),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
+                      ),
 
-                        const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
-                        // КНОПКИ ДЕЙСТВИЙ
-                        Container(
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: Colors.grey[200]!,
-                              width: 1,
-                            ),
+                      // Кнопки действий
+                      Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFE9ECEF),
+                            width: 1,
                           ),
-                          child: Row(
-                            children: [
-                              // Лайк
-                              Expanded(
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        _isLiked = !_isLiked;
-                                        _isLiked ? _likeCount++ : _likeCount--;
-                                      });
-                                    },
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(10),
-                                      bottomLeft: Radius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            // Лайк
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _isLiked = !_isLiked;
+                                      _isLiked ? _likeCount++ : _likeCount--;
+                                    });
+                                  },
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(12),
+                                    bottomLeft: Radius.circular(12),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
                                     ),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            _isLiked ? Icons.favorite : Icons.favorite_border,
-                                            size: 16,
-                                            color: _isLiked ? Colors.red : Colors.grey[600],
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment
+                                          .center,
+                                      children: [
+                                        Icon(
+                                          _isLiked
+                                              ? Icons.favorite
+                                              : Icons.favorite_outline,
+                                          size: iconSize * 0.8,
+                                          color: _isLiked
+                                              ? const Color(0xFFFF6B6B)
+                                              : const Color(0xFF6C757D),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _formatNumber(_likeCount),
+                                          style: TextStyle(
+                                            fontSize: authorFontSize,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isLiked
+                                                ? const Color(0xFFFF6B6B)
+                                                : const Color(0xFF1A1A1A),
                                           ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            _formatNumber(_likeCount),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: _isLiked ? Colors.red : Colors.grey[700],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
                               ),
+                            ),
 
-                              // Разделитель
-                              Container(
-                                width: 1,
-                                height: 20,
-                                color: Colors.grey[300],
-                              ),
+                            // Разделитель
+                            Container(
+                              width: 1,
+                              height: 24,
+                              color: const Color(0xFFE9ECEF),
+                            ),
 
-                              // Закладка
-                              Expanded(
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        _isBookmarked = !_isBookmarked;
-                                      });
-                                    },
-                                    borderRadius: const BorderRadius.only(
-                                      topRight: Radius.circular(10),
-                                      bottomRight: Radius.circular(10),
+                            // Закладка
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _isBookmarked = !_isBookmarked;
+                                    });
+                                  },
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(12),
+                                    bottomRight: Radius.circular(12),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
                                     ),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                            size: 16,
-                                            color: _isBookmarked ? Colors.blue : Colors.grey[600],
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment
+                                          .center,
+                                      children: [
+                                        Icon(
+                                          _isBookmarked
+                                              ? Icons.bookmark
+                                              : Icons.bookmark_outline,
+                                          size: iconSize * 0.8,
+                                          color: _isBookmarked
+                                              ? const Color(0xFF3498DB)
+                                              : const Color(0xFF6C757D),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Сохранить',
+                                          style: TextStyle(
+                                            fontSize: authorFontSize,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isBookmarked
+                                                ? const Color(0xFF3498DB)
+                                                : const Color(0xFF1A1A1A),
                                           ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Сохранить',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: _isBookmarked ? Colors.blue : Colors.grey[700],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+// ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ ДЛЯ КОМПЬЮТЕРА
+  Widget _buildDesktopCard(
+      Color categoryColor,
+      String readingTime,
+      String formattedDate,
+      LinearGradient cardGradient,
+      double availableWidth,
+      ) {
+    // АДАПТИВНАЯ ШИРИНА КАРТОЧКИ
+    final double cardWidth;
+    if (availableWidth > 1200) {
+      cardWidth = 360.0;
+    } else if (availableWidth > 800) {
+      cardWidth = availableWidth * 0.28;
+    } else if (availableWidth > 600) {
+      cardWidth = availableWidth * 0.42;
+    } else {
+      cardWidth = availableWidth * 0.9;
+    }
+
+    // ФИКСИРОВАННАЯ ВЫСОТА для одинакового размера всех карточек
+    final double fixedCardHeight = 460;
+
+    return SizedBox(
+      width: cardWidth,
+      height: fixedCardHeight, // ФИКСИРОВАННАЯ ВЫСОТА
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
+          borderRadius: BorderRadius.circular(20),
+          splashColor: categoryColor.withOpacity(0.1),
+          hoverColor: categoryColor.withOpacity(0.05),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: cardGradient,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ОБЛОЖКА СТАТЬИ - ФИКСИРОВАННАЯ ВЫСОТА
+                Stack(
+                  children: [
+                    // Изображение
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                      child: SizedBox(
+                        height: 160, // ФИКСИРОВАННАЯ ВЫСОТА
+                        width: double.infinity,
+                        child: _buildArticleImage(160),
+                      ),
+                    ),
+
+                    // Градиент поверх изображения
+                    Container(
+                      height: 160,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.3),
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.1),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Категория
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: cardWidth * 0.5,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getCategoryIcon(widget.article.category),
+                                size: 14,
+                                color: categoryColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  widget.article.category.toUpperCase(),
+                                  style: TextStyle(
+                                    color: categoryColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
+
+                    // Дата
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          formattedDate,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ОСНОВНОЙ КОНТЕНТ - ФИКСИРОВАННАЯ ВЫСОТА БЕЗ Expanded
+                Container(
+                  height: 300, // 460 - 160 = 300 для контента
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Заголовок - ФИКСИРОВАННАЯ ВЫСОТА
+                      SizedBox(
+                        height: 44, // ФИКСИРОВАННАЯ ВЫСОТА для 2 строк
+                        child: Text(
+                          widget.article.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.3,
+                            color: const Color(0xFF1A1A1A),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Описание - ФИКСИРОВАННАЯ ВЫСОТА
+                      SizedBox(
+                        height: 60, // ФИКСИРОВАННАЯ ВЫСОТА для 3 строк
+                        child: Text(
+                          widget.article.description,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: const Color(0xFF666666),
+                            height: 1.4,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+
+                      // Spacer для выравнивания контента сверху
+                      const Spacer(),
+
+                      // Автор и статистика - ФИКСИРОВАННАЯ ВЫСОТА
+                      SizedBox(
+                        height: 40,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Аватар автора
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    categoryColor,
+                                    Color.alphaBlend(
+                                      categoryColor.withOpacity(0.7),
+                                      const Color(0xFF1A1A1A),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  widget.article.author[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            // Информация об авторе
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    widget.article.author,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1A1A1A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _levelColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _levelIcon,
+                                          size: 10,
+                                          color: _levelColor,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _levelText,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: _levelColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Статистика
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8F9FA),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFE9ECEF),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.remove_red_eye_outlined,
+                                        size: 12,
+                                        color: const Color(0xFF6C757D),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _formatNumber(widget.article.views),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    readingTime,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF6C757D),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Кнопки действий - ФИКСИРОВАННАЯ ВЫСОТА
+                      Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFE9ECEF),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            // Лайк
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _isLiked = !_isLiked;
+                                      _isLiked ? _likeCount++ : _likeCount--;
+                                    });
+                                  },
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(10),
+                                    bottomLeft: Radius.circular(10),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          _isLiked ? Icons.favorite : Icons.favorite_outline,
+                                          size: 16,
+                                          color: _isLiked ? const Color(0xFFFF6B6B) : const Color(0xFF6C757D),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _formatNumber(_likeCount),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isLiked ? const Color(0xFFFF6B6B) : const Color(0xFF1A1A1A),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Разделитель
+                            Container(
+                              width: 1,
+                              height: 20,
+                              color: const Color(0xFFE9ECEF),
+                            ),
+
+                            // Закладка
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _isBookmarked = !_isBookmarked;
+                                    });
+                                  },
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          _isBookmarked ? Icons.bookmark : Icons.bookmark_outline,
+                                          size: 16,
+                                          color: _isBookmarked ? const Color(0xFF3498DB) : const Color(0xFF6C757D),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Сохранить',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isBookmarked ? const Color(0xFF3498DB) : const Color(0xFF1A1A1A),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -972,8 +1248,8 @@ class _ArticleCardState extends State<ArticleCard> {
 
 // Перечисление для размеров экрана
 enum _ScreenSize {
-  small,    // до 360px
-  medium,   // 360-420px
-  large,    // 420-600px
-  desktop,  // больше 600px
+  small,
+  medium,
+  large,
+  desktop,
 }

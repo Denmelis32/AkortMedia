@@ -51,6 +51,43 @@ class _CardsPageState extends State<CardsPage> {
   late final List<SortOption> _sortOptions;
   late final List<FilterOption> _filterOptions;
 
+  // Новые цвета - пастельная палитра
+  final Color _primaryColor = const Color(0xFFFb5679); // Розовый цвет
+  final Color _secondaryColor = const Color(0xFFF8BBD0); // Светло-розовый
+  final Color _backgroundColor = const Color(
+      0xFFF5F7FA); // Очень светлый серо-голубой
+  final Color _surfaceColor = Colors.white; // Цвет поверхностей
+  final Color _textColor = const Color(0xFF37474F); // Темно-серый для текста
+
+  // Мягкие цвета для карточек
+  final List<Color> _cardGradients = [
+    const Color(0xFFE3F2FD), // Светло-голубой
+    const Color(0xFFF3E5F5), // Светло-фиолетовый
+    const Color(0xFFE8F5E8), // Светло-зеленый
+    const Color(0xFFFFF3E0), // Светло-оранжевый
+    const Color(0xFFFCE4EC), // Светло-розовый
+    const Color(0xFFE0F2F1), // Светло-бирюзовый
+    const Color(0xFFEDE7F6), // Светло-лавандовый
+    const Color(0xFFFFF8E1), // Светло-желтый
+  ];
+
+  final List<Color> _cardBorderColors = [
+    const Color(0xFF90CAF9), // Голубой
+    const Color(0xFFCE93D8), // Фиолетовый
+    const Color(0xFFA5D6A7), // Зеленый
+    const Color(0xFFFFCC80), // Оранжевый
+    const Color(0xFFF48FB1), // Розовый
+    const Color(0xFF80CBC4), // Бирюзовый
+    const Color(0xFFB39DDB), // Лавандовый
+    const Color(0xFFFFE082), // Желтый
+  ];
+
+  // ФИКСИРОВАННАЯ МАКСИМАЛЬНАЯ ШИРИНА ДЛЯ ДЕСКТОПА
+  double get _maxContentWidth => 1200;
+
+  // МИНИМАЛЬНАЯ ШИРИНА ДЛЯ ЗАЩИТЫ ОТ OVERFLOW
+  double get _minContentWidth => 320;
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +97,8 @@ class _CardsPageState extends State<CardsPage> {
 
     // Добавляем слушатель изменений провайдера
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<ChannelStateProvider>(context, listen: false);
+      final provider = Provider.of<ChannelStateProvider>(
+          context, listen: false);
       provider.addListener(_onChannelStateChanged);
     });
   }
@@ -101,7 +139,7 @@ class _CardsPageState extends State<CardsPage> {
         videos: 95,
         isSubscribed: true,
         isFavorite: false,
-        cardColor: Colors.blue.shade700,
+        cardColor: _cardGradients[0],
         categoryId: 'sport',
         createdAt: DateTime.now().subtract(const Duration(days: 15)),
         isVerified: true,
@@ -129,7 +167,7 @@ class _CardsPageState extends State<CardsPage> {
         videos: 120,
         isSubscribed: false,
         isFavorite: true,
-        cardColor: Colors.green.shade700,
+        cardColor: _cardGradients[1],
         categoryId: 'games',
         createdAt: DateTime.now().subtract(const Duration(days: 20)),
         isVerified: true,
@@ -157,7 +195,7 @@ class _CardsPageState extends State<CardsPage> {
         videos: 89,
         isSubscribed: false,
         isFavorite: false,
-        cardColor: Colors.orange.shade700,
+        cardColor: _cardGradients[2],
         categoryId: 'tech',
         createdAt: DateTime.now().subtract(const Duration(days: 30)),
         isVerified: true,
@@ -185,7 +223,7 @@ class _CardsPageState extends State<CardsPage> {
         videos: 150,
         isSubscribed: true,
         isFavorite: true,
-        cardColor: Colors.purple.shade700,
+        cardColor: _cardGradients[3],
         categoryId: 'psychology',
         createdAt: DateTime.now().subtract(const Duration(days: 25)),
         isVerified: true,
@@ -213,7 +251,7 @@ class _CardsPageState extends State<CardsPage> {
         videos: 110,
         isSubscribed: false,
         isFavorite: false,
-        cardColor: Colors.teal.shade700,
+        cardColor: _cardGradients[4],
         categoryId: 'business',
         createdAt: DateTime.now().subtract(const Duration(days: 40)),
         isVerified: true,
@@ -241,7 +279,7 @@ class _CardsPageState extends State<CardsPage> {
         videos: 75,
         isSubscribed: true,
         isFavorite: false,
-        cardColor: Colors.pink.shade700,
+        cardColor: _cardGradients[5],
         categoryId: 'art',
         createdAt: DateTime.now().subtract(const Duration(days: 35)),
         isVerified: false,
@@ -265,28 +303,52 @@ class _CardsPageState extends State<CardsPage> {
 
   List<RoomCategory> _createCategories() {
     return [
-      RoomCategory(id: 'all', title: 'Все', icon: Icons.explore, color: Colors.blue),
-      RoomCategory(id: 'sport', title: 'Спорт', icon: Icons.sports_soccer, color: Colors.red),
-      RoomCategory(id: 'games', title: 'Игры', icon: Icons.sports_esports, color: Colors.green),
-      RoomCategory(id: 'psychology', title: 'Психология', icon: Icons.psychology, color: Colors.purple),
-      RoomCategory(id: 'tech', title: 'Технологии', icon: Icons.memory, color: Colors.orange),
-      RoomCategory(id: 'business', title: 'Бизнес', icon: Icons.business_center, color: Colors.teal),
-      RoomCategory(id: 'art', title: 'Искусство', icon: Icons.palette, color: Colors.pink),
+      RoomCategory(
+          id: 'all', title: 'Все', icon: Icons.explore, color: _primaryColor),
+      RoomCategory(id: 'sport',
+          title: 'Спорт',
+          icon: Icons.sports_soccer,
+          color: const Color(0xFF42A5F5)),
+      RoomCategory(id: 'games',
+          title: 'Игры',
+          icon: Icons.sports_esports,
+          color: const Color(0xFF66BB6A)),
+      RoomCategory(id: 'psychology',
+          title: 'Психология',
+          icon: Icons.psychology,
+          color: const Color(0xFFAB47BC)),
+      RoomCategory(id: 'tech',
+          title: 'Технологии',
+          icon: Icons.memory,
+          color: const Color(0xFFFFA726)),
+      RoomCategory(id: 'business',
+          title: 'Бизнес',
+          icon: Icons.business_center,
+          color: const Color(0xFF26C6DA)),
+      RoomCategory(id: 'art',
+          title: 'Искусство',
+          icon: Icons.palette,
+          color: const Color(0xFFFF7043)),
     ];
   }
 
   List<SortOption> _createSortOptions() {
     return [
-      SortOption(id: 'newest', title: 'Сначала новые', icon: Icons.new_releases),
-      SortOption(id: 'popular', title: 'По популярности', icon: Icons.trending_up),
-      SortOption(id: 'subscribers', title: 'По подписчикам', icon: Icons.people),
+      SortOption(
+          id: 'newest', title: 'Сначала новые', icon: Icons.new_releases),
+      SortOption(
+          id: 'popular', title: 'По популярности', icon: Icons.trending_up),
+      SortOption(
+          id: 'subscribers', title: 'По подписчикам', icon: Icons.people),
     ];
   }
 
   List<FilterOption> _createFilterOptions() {
     return [
-      FilterOption(id: 'verified', title: 'Только проверенные', icon: Icons.verified),
-      FilterOption(id: 'subscribed', title: 'Мои подписки', icon: Icons.subscriptions),
+      FilterOption(
+          id: 'verified', title: 'Только проверенные', icon: Icons.verified),
+      FilterOption(
+          id: 'subscribed', title: 'Мои подписки', icon: Icons.subscriptions),
       FilterOption(id: 'favorites', title: 'Избранное', icon: Icons.favorite),
     ];
   }
@@ -302,36 +364,61 @@ class _CardsPageState extends State<CardsPage> {
   }
 
   // АДАПТИВНЫЕ МЕТОДЫ
-  bool get _isMobile => MediaQuery.of(context).size.width <= 600;
+  bool _isMobile(BuildContext context) {
+    return MediaQuery
+        .of(context)
+        .size
+        .width <= 600;
+  }
+
+  // ШИРИНА КОНТЕНТА С УЧЕТОМ ОГРАНИЧЕНИЙ
+  double _getContentWidth(BuildContext context) {
+    final screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
+    if (screenWidth > _maxContentWidth) return _maxContentWidth;
+    return screenWidth;
+  }
 
   int _getCrossAxisCount(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 3;
-    if (width > 800) return 3;
-    if (width > 600) return 2;
+    final contentWidth = _getContentWidth(context);
+    if (contentWidth > 1000) return 3;
+    if (contentWidth > 700) return 2;
     return 1;
   }
 
-  double _getCardAspectRatio(BuildContext context) {
-    final crossAxisCount = _getCrossAxisCount(context);
-    switch (crossAxisCount) {
-      case 1: return 0.75;
-      case 2: return 0.8;
-      case 3: return 0.85;
-      default: return 0.8;
-    }
+  // АДАПТИВНЫЕ ОТСТУПЫ
+  double _getHorizontalPadding(BuildContext context) {
+    final contentWidth = _getContentWidth(context);
+    if (contentWidth > 1000) return 24;
+    if (contentWidth > 800) return 20;
+    if (contentWidth > 600) return 16;
+    return 12;
   }
 
-  double _getHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 200;
-    if (width > 800) return 100;
-    if (width > 600) return 60;
-    return 0;
+  // ОТСТУПЫ МЕЖДУ КАРТОЧКАМИ
+  double _getGridSpacing(BuildContext context) {
+    if (_isMobile(context)) return 8;
+    return 6;
+  }
+
+  // ОСНОВНОЙ LAYOUT С ФИКСИРОВАННОЙ ШИРИНОЙ
+  Widget _buildDesktopLayout(Widget content) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: _maxContentWidth,
+          minWidth: _minContentWidth,
+        ),
+        child: content,
+      ),
+    );
   }
 
   // УЛУЧШЕННЫЕ МЕТОДЫ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
-  Widget _buildChannelAvatar(Channel channel, ChannelStateProvider stateProvider, {double size = 50}) {
+  Widget _buildChannelAvatar(Channel channel,
+      ChannelStateProvider stateProvider, {double size = 50}) {
     final channelId = channel.id.toString();
     final customAvatar = stateProvider.getAvatarForChannel(channelId);
     final avatarUrl = customAvatar ?? channel.imageUrl;
@@ -341,7 +428,8 @@ class _CardsPageState extends State<CardsPage> {
     );
   }
 
-  Widget _buildChannelCover(Channel channel, ChannelStateProvider stateProvider, {double height = 120}) {
+  Widget _buildChannelCover(Channel channel, ChannelStateProvider stateProvider,
+      {double height = 120}) {
     final channelId = channel.id.toString();
     final customCover = stateProvider.getCoverForChannel(channelId);
     final coverUrl = customCover ?? channel.coverImageUrl ?? channel.imageUrl;
@@ -349,7 +437,8 @@ class _CardsPageState extends State<CardsPage> {
     return _buildChannelImage(coverUrl, height, isCover: true);
   }
 
-  Widget _buildChannelImage(String imageUrl, double size, {bool isCover = false}) {
+  Widget _buildChannelImage(String imageUrl, double size,
+      {bool isCover = false}) {
     print('🖼️ Loading channel image: $imageUrl');
 
     try {
@@ -360,7 +449,8 @@ class _CardsPageState extends State<CardsPage> {
           width: isCover ? double.infinity : size,
           height: isCover ? size : size,
           fit: isCover ? BoxFit.cover : BoxFit.cover,
-          placeholder: (context, url) => _buildLoadingPlaceholder(size, isCover: isCover),
+          placeholder: (context, url) =>
+              _buildLoadingPlaceholder(size, isCover: isCover),
           errorWidget: (context, url, error) {
             print('❌ Network image error: $error');
             return _buildErrorImage(size, isCover: isCover);
@@ -378,7 +468,8 @@ class _CardsPageState extends State<CardsPage> {
             return _buildErrorImage(size, isCover: isCover);
           },
         );
-      } else if (imageUrl.startsWith('/') || imageUrl.contains(RegExp(r'[a-zA-Z]:\\'))) {
+      } else if (imageUrl.startsWith('/') ||
+          imageUrl.contains(RegExp(r'[a-zA-Z]:\\'))) {
         // Локальные файлы
         return Image.file(
           File(imageUrl),
@@ -480,8 +571,10 @@ class _CardsPageState extends State<CardsPage> {
 
       return channel.copyWith(
         isSubscribed: stateProvider.isSubscribed(channelId),
-        subscribers: stateProvider.getSubscribers(channelId) ?? channel.subscribers,
-        imageUrl: stateProvider.getAvatarForChannel(channelId) ?? channel.imageUrl,
+        subscribers: stateProvider.getSubscribers(channelId) ??
+            channel.subscribers,
+        imageUrl: stateProvider.getAvatarForChannel(channelId) ??
+            channel.imageUrl,
       );
     }).where(_matchesFilters).toList();
 
@@ -490,18 +583,23 @@ class _CardsPageState extends State<CardsPage> {
   }
 
   bool _matchesFilters(Channel channel) {
-    if (_selectedCategoryId != 'all' && channel.categoryId != _selectedCategoryId) {
+    if (_selectedCategoryId != 'all' &&
+        channel.categoryId != _selectedCategoryId) {
       return false;
     }
 
-    if (_activeFilters.contains('verified') && !channel.isVerified) return false;
-    if (_activeFilters.contains('subscribed') && !channel.isSubscribed) return false;
-    if (_activeFilters.contains('favorites') && !channel.isFavorite) return false;
+    if (_activeFilters.contains('verified') && !channel.isVerified)
+      return false;
+    if (_activeFilters.contains('subscribed') && !channel.isSubscribed)
+      return false;
+    if (_activeFilters.contains('favorites') && !channel.isFavorite)
+      return false;
 
     if (_searchQuery.isNotEmpty) {
       return channel.title.toLowerCase().contains(_searchQuery) ||
           channel.description.toLowerCase().contains(_searchQuery) ||
-          (channel.tags ?? []).any((tag) => tag.toLowerCase().contains(_searchQuery));
+          (channel.tags ?? []).any((tag) =>
+              tag.toLowerCase().contains(_searchQuery));
     }
 
     return true;
@@ -535,7 +633,10 @@ class _CardsPageState extends State<CardsPage> {
     try {
       return _categories.firstWhere((c) => c.id == categoryId);
     } catch (e) {
-      return RoomCategory(id: 'unknown', title: 'Неизвестно', icon: Icons.help, color: Colors.grey);
+      return RoomCategory(id: 'unknown',
+          title: 'Неизвестно',
+          icon: Icons.help,
+          color: Colors.grey);
     }
   }
 
@@ -551,23 +652,34 @@ class _CardsPageState extends State<CardsPage> {
     return _getCategoryById(categoryId).color;
   }
 
+  // Получение цвета для карточки
+  Color _getCardColor(int index) {
+    return _cardGradients[index % _cardGradients.length];
+  }
+
+  Color _getCardBorderColor(int index) {
+    return _cardBorderColors[index % _cardBorderColors.length];
+  }
+
   // Создание нового канала через диалог
   void _createNewChannel() {
     if (!_isMounted) return;
 
     showDialog(
       context: context,
-      builder: (context) => CreateChannelDialog(
-        userName: widget.userName,
-        userAvatarUrl: widget.userAvatarUrl,
-        categories: _categories,
-        onCreateChannel: _addNewChannel,
-      ),
+      builder: (context) =>
+          CreateChannelDialog(
+            userName: widget.userName,
+            userAvatarUrl: widget.userAvatarUrl,
+            categories: _categories,
+            onCreateChannel: _addNewChannel,
+          ),
     );
   }
 
   // Добавление нового канала в список
-  void _addNewChannel(String title, String description, String categoryId, String? avatarUrl, String? coverUrl) {
+  void _addNewChannel(String title, String description, String categoryId,
+      String? avatarUrl, String? coverUrl) {
     if (!_isMounted) return;
 
     final newChannel = ChannelUtils.createNewChannel(
@@ -586,7 +698,8 @@ class _CardsPageState extends State<CardsPage> {
     });
 
     // Сохраняем в провайдер
-    final stateProvider = Provider.of<ChannelStateProvider>(context, listen: false);
+    final stateProvider = Provider.of<ChannelStateProvider>(
+        context, listen: false);
     final channelId = newChannel.id.toString();
     if (avatarUrl != null) {
       stateProvider.setAvatarForChannel(channelId, avatarUrl);
@@ -618,29 +731,61 @@ class _CardsPageState extends State<CardsPage> {
     }
   }
 
-  // Построение карточки канала
-  Widget _buildChannelCard(Channel channel, int index, ChannelStateProvider stateProvider) {
-    return _isMobile
-        ? _buildMobileChannelCard(channel, index, stateProvider)
-        : _buildDesktopChannelCard(channel, index, stateProvider);
-  }
-
-  Widget _buildMobileChannelCard(Channel channel, int index, ChannelStateProvider stateProvider) {
+  // ОРИГИНАЛЬНЫЙ ДИЗАЙН КАРТОЧКИ КАНАЛА
+  Widget _buildChannelCard(Channel channel, int index,
+      ChannelStateProvider stateProvider) {
     final categoryColor = _getCategoryColor(channel.categoryId);
     final categoryIcon = _getCategoryIcon(channel.categoryId);
     final categoryTitle = _getCategoryTitle(channel.categoryId);
+    final cardColor = _getCardColor(index);
+    final borderColor = _getCardBorderColor(index);
 
+    if (_isMobile(context)) {
+      return _buildMobileChannelCard(
+          channel,
+          categoryColor,
+          categoryIcon,
+          categoryTitle,
+          cardColor,
+          borderColor,
+          index,
+          stateProvider);
+    } else {
+      return _buildDesktopChannelCard(
+          channel,
+          categoryColor,
+          categoryIcon,
+          categoryTitle,
+          cardColor,
+          borderColor,
+          index,
+          stateProvider);
+    }
+  }
+
+  Widget _buildMobileChannelCard(Channel channel,
+      Color categoryColor,
+      IconData categoryIcon,
+      String categoryTitle,
+      Color cardColor,
+      Color borderColor,
+      int index,
+      ChannelStateProvider stateProvider,) {
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey[200]!,
-            width: 1,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: borderColor.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-        ),
+        ],
       ),
       child: Material(
-        color: Colors.white,
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: () {
             if (!_isMounted) return;
@@ -651,594 +796,640 @@ class _CardsPageState extends State<CardsPage> {
               ),
             );
           },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ОБЛОЖКА КАНАЛА С ИНФОРМАЦИЕЙ В ЛЕВОМ НИЖНЕМ УГЛУ
-              Stack(
-                children: [
-                  Container(
-                    height: 140,
-                    width: double.infinity,
-                    child: _buildChannelCover(channel, stateProvider, height: 140),
-                  ),
-                  // Категория в левом верхнем углу
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            categoryIcon,
-                            size: 10,
-                            color: categoryColor,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            categoryTitle.toUpperCase(),
-                            style: TextStyle(
-                              color: categoryColor,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ],
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: borderColor.withOpacity(0.5),
+                width: 2,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ОБЛОЖКА КАНАЛА
+                Stack(
+                  children: [
+                    Container(
+                      height: 140,
+                      width: double.infinity,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(18),
+                          topRight: Radius.circular(18),
+                        ),
+                        child: _buildChannelCover(
+                            channel, stateProvider, height: 140),
                       ),
                     ),
-                  ),
-                  // Аватарка, название и количество участников в левом нижнем углу
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    right: 8,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // Аватарка
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2,
+                    // Категория в левом верхнем углу
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              categoryIcon,
+                              size: 14,
+                              color: categoryColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              categoryTitle.toUpperCase(),
+                              style: TextStyle(
+                                color: categoryColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.3,
                               ),
-                            ],
-                          ),
-                          child: Stack(
-                            children: [
-                              _buildChannelAvatar(channel, stateProvider, size: 50),
-                              if (channel.isVerified)
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.blue,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.verified,
-                                      color: Colors.white,
-                                      size: 10,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // ОСНОВНОЙ КОНТЕНТ
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Заголовок и аватар
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Аватарка
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              children: [
+                                _buildChannelAvatar(
+                                    channel, stateProvider, size: 50),
+                                if (channel.isVerified)
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.verified,
+                                        color: Colors.white,
+                                        size: 12,
+                                      ),
                                     ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Название и количество участников
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                          const SizedBox(width: 12),
+                          // Название и описание
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                // Название канала
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(4),
+                                Text(
+                                  channel.title,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: _textColor,
+                                    height: 1.2,
                                   ),
-                                  child: Text(
-                                    channel.title,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                      height: 1.2,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 4),
-                                // Количество участников
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(4),
+                                Text(
+                                  channel.author,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: _textColor.withOpacity(0.7),
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  child: Text(
-                                    '${_formatNumber(channel.subscribers)} участников',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[300],
-                                      height: 1.2,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              // ОСНОВНОЙ КОНТЕНТ ПОД ОБЛОЖКОЙ - ВЫРАВНЕН ПО АВАТАРКЕ
-              Container(
-                padding: const EdgeInsets.only(
-                  left: 68,
-                  right: 12,
-                  top: 12,
-                  bottom: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Описание канала
-                    Text(
-                      channel.description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                        height: 1.4,
+                        ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    // ХЕШТЕГИ
-                    if (channel.tags.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: channel.tags.take(3).map((tag) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[50]!,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.blue[100]!,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Text(
-                              '#$tag',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.blue[700]!,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    // Строка с информацией и кнопками
-                    Row(
-                      children: [
-                        // Информация о канале
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Владелец: ${channel.owner}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Кнопки действий
-                        Row(
-                          children: [
-                            // Кнопка репоста
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: Colors.grey[300]!,
-                                  width: 1,
-                                ),
-                              ),
-                              child: IconButton(
-                                onPressed: () {
-                                  if (!_isMounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Репост канала ${channel.title}'),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
-                                icon: Icon(
-                                  Icons.share_outlined,
-                                  size: 16,
-                                  color: Colors.grey[600],
-                                ),
-                                padding: EdgeInsets.zero,
-                                style: IconButton.styleFrom(
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Кнопка подписки
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: channel.isSubscribed
-                                    ? Colors.grey[100]
-                                    : Colors.blue,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: channel.isSubscribed
-                                      ? Colors.grey[300]!
-                                      : Colors.blue,
-                                  width: 1,
-                                ),
-                              ),
-                              child: IconButton(
-                                onPressed: () => _toggleSubscription(index, stateProvider),
-                                icon: Icon(
-                                  channel.isSubscribed ? Icons.check : Icons.add,
-                                  size: 16,
-                                  color: channel.isSubscribed
-                                      ? Colors.grey[700]
-                                      : Colors.white,
-                                ),
-                                padding: EdgeInsets.zero,
-                                style: IconButton.styleFrom(
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDesktopChannelCard(Channel channel, int index, ChannelStateProvider stateProvider) {
-    final crossAxisCount = _getCrossAxisCount(context);
-    final coverHeight = 120.0;
-    final avatarSize = 45.0;
-
-    return Container(
-      margin: const EdgeInsets.all(8),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        color: Colors.white,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            if (!_isMounted) return;
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChannelDetailPage(channel: channel),
-              ),
-            );
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    height: coverHeight,
-                    width: double.infinity,
-                    child: _buildChannelCover(channel, stateProvider, height: coverHeight),
-                  ),
-                  Positioned(
-                    bottom: -avatarSize * 0.3,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Container(
-                        width: avatarSize,
-                        height: avatarSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 3,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          children: [
-                            _buildChannelAvatar(channel, stateProvider, size: avatarSize),
-                            if (channel.isVerified)
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.blue,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.verified,
-                                    color: Colors.white,
-                                    size: avatarSize * 0.25,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: avatarSize * 0.3),
-              Expanded(
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: crossAxisCount >= 2 ? 12 : 16,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // НАЗВАНИЕ КАНАЛА
+                      const SizedBox(height: 12),
+                      // Описание канала
                       Text(
-                        channel.title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                          height: 1.2,
+                        channel.description,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: _textColor.withOpacity(0.8),
+                          height: 1.4,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      // АВТОР
-                      Text(
-                        channel.author,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      // ОПИСАНИЕ
-                      Expanded(
-                        child: Text(
-                          channel.description,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[700],
-                            height: 1.4,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // СТАТИСТИКА
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: _buildStatItem(
-                                _formatNumber(channel.subscribers),
-                                'подписчиков',
-                                fontSize: 10,
-                              ),
-                            ),
-                            Container(
-                              width: 1,
-                              height: 20,
-                              color: Colors.grey[300],
-                            ),
-                            Expanded(
-                              child: _buildStatItem(
-                                channel.videos.toString(),
-                                'видео',
-                                fontSize: 10,
-                              ),
-                            ),
-                            Container(
-                              width: 1,
-                              height: 20,
-                              color: Colors.grey[300],
-                            ),
-                            Expanded(
-                              child: _buildStatItem(
-                                channel.rating.toStringAsFixed(1),
-                                'рейтинг',
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 12),
-                      // КНОПКА ПОДПИСКИ
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => _toggleSubscription(index, stateProvider),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: channel.isSubscribed
-                                ? Colors.grey[100]
-                                : Colors.blue,
-                            foregroundColor: channel.isSubscribed
-                                ? Colors.grey[700]
-                                : Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(
-                                color: channel.isSubscribed
-                                    ? Colors.grey[300]!
-                                    : Colors.blue,
-                                width: 1,
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                channel.isSubscribed ? Icons.check : Icons.add,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                channel.isSubscribed ? 'Вы подписаны' : 'Подписаться',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       // ХЕШТЕГИ
                       if (channel.tags.isNotEmpty) ...[
                         Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
+                          spacing: 8,
+                          runSpacing: 6,
                           children: channel.tags.take(3).map((tag) {
                             return Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
+                                horizontal: 10,
+                                vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.blue[50]!,
-                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: Colors.blue[100]!,
+                                  color: borderColor.withOpacity(0.4),
                                   width: 1.5,
                                 ),
                               ),
                               child: Text(
                                 '#$tag',
                                 style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.blue[700]!,
+                                  fontSize: 11,
+                                  color: borderColor,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             );
                           }).toList(),
                         ),
+                        const SizedBox(height: 12),
                       ],
+                      // СТАТИСТИКА И КНОПКИ
+                      Row(
+                        children: [
+                          // Статистика
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildStatItem(
+                                  _formatNumber(channel.subscribers),
+                                  'подписчиков',
+                                  icon: Icons.people_outline,
+                                  color: borderColor,
+                                ),
+                                _buildStatItem(
+                                  channel.videos.toString(),
+                                  'видео',
+                                  icon: Icons.video_library,
+                                  color: borderColor,
+                                ),
+                                _buildStatItem(
+                                  channel.rating.toStringAsFixed(1),
+                                  'рейтинг',
+                                  icon: Icons.star,
+                                  color: borderColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Кнопка подписки
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: channel.isSubscribed
+                                  ? Colors.white.withOpacity(0.8)
+                                  : _primaryColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: channel.isSubscribed
+                                    ? borderColor.withOpacity(0.5)
+                                    : _primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            child: IconButton(
+                              onPressed: () =>
+                                  _toggleSubscription(index, stateProvider),
+                              icon: Icon(
+                                channel.isSubscribed ? Icons.check : Icons.add,
+                                size: 18,
+                                color: channel.isSubscribed
+                                    ? borderColor
+                                    : Colors.white,
+                              ),
+                              padding: EdgeInsets.zero,
+                              style: IconButton.styleFrom(
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatItem(String value, String label, {required double fontSize}) {
+  Widget _buildDesktopChannelCard(
+      Channel channel,
+      Color categoryColor,
+      IconData categoryIcon,
+      String categoryTitle,
+      Color cardColor,
+      Color borderColor,
+      int index,
+      ChannelStateProvider stateProvider,
+      ) {
+    // ФИКСИРОВАННЫЕ РАЗМЕРЫ КАК В ARTICLESPAGE
+    final double cardWidth = 360.0;
+    final double fixedCardHeight = 460;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+      width: cardWidth,
+      height: fixedCardHeight,
+      margin: const EdgeInsets.all(2), // ТАКОЙ ЖЕ ОТСТУП КАК В ARTICLESPAGE
+      child: Material(
+        elevation: 6,
+        borderRadius: BorderRadius.circular(24),
+        color: cardColor,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: borderColor.withOpacity(0.4),
+              width: 2,
+            ),
+          ),
+          child: InkWell(
+            onTap: () {
+              if (!_isMounted) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChannelDetailPage(channel: channel),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Обложка - ФИКСИРОВАННАЯ ВЫСОТА
+                    Container(
+                      height: 160,
+                      width: double.infinity,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(22),
+                          topRight: Radius.circular(22),
+                        ),
+                        child: _buildChannelCover(channel, stateProvider, height: 160),
+                      ),
+                    ),
+                    // Категория
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              categoryIcon,
+                              size: 14,
+                              color: categoryColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              categoryTitle.toUpperCase(),
+                              style: TextStyle(
+                                color: categoryColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Аватар
+                    Positioned(
+                      bottom: -30,
+                      left: 16,
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 4,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          children: [
+                            _buildChannelAvatar(channel, stateProvider, size: 60),
+                            if (channel.isVerified)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.verified,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 40),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // НАЗВАНИЕ И АВТОР
+                        Text(
+                          channel.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _textColor,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          channel.author,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: _textColor.withOpacity(0.7),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        // ОПИСАНИЕ
+                        Expanded(
+                          child: Text(
+                            channel.description,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _textColor.withOpacity(0.8),
+                              height: 1.4,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // СТАТИСТИКА
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: borderColor.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildStatItem(
+                                _formatNumber(channel.subscribers),
+                                'подписчиков',
+                                fontSize: 10,
+                                color: borderColor,
+                              ),
+                              Container(
+                                width: 1,
+                                height: 30,
+                                color: borderColor.withOpacity(0.3),
+                              ),
+                              _buildStatItem(
+                                channel.videos.toString(),
+                                'видео',
+                                fontSize: 10,
+                                color: borderColor,
+                              ),
+                              Container(
+                                width: 1,
+                                height: 30,
+                                color: borderColor.withOpacity(0.3),
+                              ),
+                              _buildStatItem(
+                                channel.rating.toStringAsFixed(1),
+                                'рейтинг',
+                                fontSize: 10,
+                                color: borderColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // КНОПКА ПОДПИСКИ И ХЕШТЕГИ
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: channel.tags.take(2).map((tag) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.7),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: borderColor.withOpacity(0.4),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '#$tag',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: borderColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // КНОПКА ПОДПИСКИ
+                            Container(
+                              width: 100,
+                              child: ElevatedButton(
+                                onPressed: () => _toggleSubscription(index, stateProvider),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: channel.isSubscribed
+                                      ? Colors.white.withOpacity(0.8)
+                                      : _primaryColor,
+                                  foregroundColor: channel.isSubscribed
+                                      ? borderColor
+                                      : Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                      color: channel.isSubscribed
+                                          ? borderColor.withOpacity(0.5)
+                                          : _primaryColor,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  elevation: 2,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      channel.isSubscribed ? Icons.check : Icons.add,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      channel.isSubscribed ? 'Подписка' : 'Подписаться',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String value, String label,
+      {double fontSize = 12, Color? color, IconData? icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: fontSize + 2,
+              color: color,
+            ),
+            const SizedBox(height: 2),
+          ],
           Text(
             value,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.black,
+              color: color ?? _textColor,
               fontSize: fontSize,
               fontWeight: FontWeight.w700,
             ),
@@ -1250,7 +1441,7 @@ class _CardsPageState extends State<CardsPage> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.grey[600],
+              color: (color ?? _textColor).withOpacity(0.7),
               fontSize: fontSize - 1,
               fontWeight: FontWeight.w500,
             ),
@@ -1271,7 +1462,8 @@ class _CardsPageState extends State<CardsPage> {
     final channelId = channel.id.toString();
 
     // Получаем актуальное количество подписчиков
-    final currentSubscribers = stateProvider.getSubscribers(channelId) ?? channel.subscribers;
+    final currentSubscribers = stateProvider.getSubscribers(channelId) ??
+        channel.subscribers;
 
     // Переключаем подписку через ChannelStateProvider
     stateProvider.toggleSubscription(channelId, currentSubscribers);
@@ -1284,7 +1476,8 @@ class _CardsPageState extends State<CardsPage> {
         if (originalIndex != -1) {
           _channels[originalIndex] = _channels[originalIndex].copyWith(
             isSubscribed: stateProvider.isSubscribed(channelId),
-            subscribers: stateProvider.getSubscribers(channelId) ?? _channels[originalIndex].subscribers,
+            subscribers: stateProvider.getSubscribers(channelId) ??
+                _channels[originalIndex].subscribers,
           );
         }
       });
@@ -1316,66 +1509,79 @@ class _CardsPageState extends State<CardsPage> {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: TextField(
         controller: _searchController,
         autofocus: true,
         decoration: InputDecoration(
           hintText: 'Поиск каналов...',
-          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 15),
+          prefixIcon: Icon(
+              Icons.search_rounded, size: 20, color: _primaryColor),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+            icon: Icon(Icons.clear_rounded, size: 18, color: Colors.grey),
             onPressed: () => _searchController.clear(),
           )
               : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         ),
-        style: const TextStyle(fontSize: 16),
+        style: const TextStyle(fontSize: 15),
       ),
     );
   }
 
-  // ВИДЖЕТЫ ФИЛЬТРОВ И КАТЕГОРИЙ
+  // ВИДЖЕТЫ ФИЛЬТРОВ И КАТЕГОРИЙ В СТИЛЕ ARTICLESPAGE
   Widget _buildFiltersCard(double horizontalPadding) {
     if (!_showFilters) return const SizedBox.shrink();
 
+    final isMobile = _isMobile(context);
+
     return Container(
       margin: EdgeInsets.symmetric(
-          horizontal: _isMobile ? 0 : horizontalPadding,
-          vertical: 8
+        horizontal: isMobile ? 12 : horizontalPadding,
+        vertical: 4,
       ),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_isMobile ? 0 : 12),
-        ),
-        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: _surfaceColor,
         child: Container(
-          padding: EdgeInsets.all(_isMobile ? 12 : 16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Фильтры',
-                style: TextStyle(
-                  fontSize: _isMobile ? 14 : 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  'Фильтры',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               SizedBox(
-                height: _isMobile ? 36 : 40,
+                height: isMobile ? 36 : 40,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   shrinkWrap: true,
-                  children: _filterOptions.map((filter) => _buildFilterChip(filter)).toList(),
+                  children: _filterOptions.map((filter) =>
+                      _buildFilterChip(filter)).toList(),
                 ),
               ),
             ],
@@ -1386,43 +1592,40 @@ class _CardsPageState extends State<CardsPage> {
   }
 
   Widget _buildCategoriesCard(double horizontalPadding) {
+    final isMobile = _isMobile(context);
+
     return Container(
       margin: EdgeInsets.symmetric(
-          horizontal: _isMobile ? 0 : horizontalPadding,
-          vertical: 8
+        horizontal: isMobile ? 12 : horizontalPadding,
+        vertical: 4,
       ),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_isMobile ? 0 : 12),
-        ),
-        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: _surfaceColor,
         child: Container(
-          padding: EdgeInsets.all(_isMobile ? 12 : 16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Категории',
-                style: TextStyle(
-                  fontSize: _isMobile ? 14 : 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  'Категории',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textColor,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                height: _isMobile ? 36 : 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  shrinkWrap: true,
-                  children: _categories
-                      .map((category) => _buildCategoryChip(category))
-                      .toList(),
-                ),
-              ),
+              // АДАПТИВНЫЙ СПИСОК КАТЕГОРИЙ
+              if (isMobile)
+                _buildMobileCategories()
+              else
+                _buildDesktopCategories(),
             ],
           ),
         ),
@@ -1430,30 +1633,54 @@ class _CardsPageState extends State<CardsPage> {
     );
   }
 
-  Widget _buildCategoryChip(RoomCategory category) {
+  // ГОРИЗОНТАЛЬНЫЙ СКРОЛЛ КАТЕГОРИЙ ДЛЯ ТЕЛЕФОНА
+  Widget _buildMobileCategories() {
+    return SizedBox(
+      height: 42,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        shrinkWrap: true,
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final category = _categories[index];
+          return _buildMobileCategoryChip(category);
+        },
+      ),
+    );
+  }
+
+  // КАТЕГОРИИ ДЛЯ ДЕСКТОПА
+  Widget _buildDesktopCategories() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _categories.map((category) =>
+          _buildDesktopCategoryChip(category)).toList(),
+    );
+  }
+
+  Widget _buildMobileCategoryChip(RoomCategory category) {
     final isSelected = _selectedCategoryId == category.id;
 
     return Container(
-      margin: EdgeInsets.only(right: _isMobile ? 6 : 8),
+      margin: const EdgeInsets.only(right: 6),
       child: Material(
         color: isSelected ? category.color : Colors.transparent,
-        borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: () {
             if (!_isMounted) return;
             setState(() => _selectedCategoryId = category.id);
           },
-          borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isMobile ? 12 : 16,
-              vertical: _isMobile ? 6 : 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSelected ? category.color : Colors.grey[300]!,
-                width: 1,
+                color: isSelected ? category.color : Colors.grey.shade300,
+                width: 1.5,
               ),
             ),
             child: Row(
@@ -1461,16 +1688,16 @@ class _CardsPageState extends State<CardsPage> {
               children: [
                 Icon(
                   category.icon,
-                  size: _isMobile ? 14 : 16,
+                  size: 14,
                   color: isSelected ? Colors.white : category.color,
                 ),
-                SizedBox(width: _isMobile ? 4 : 6),
+                const SizedBox(width: 4),
                 Text(
                   category.title,
                   style: TextStyle(
-                    fontSize: _isMobile ? 12 : 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: isSelected ? Colors.white : Colors.black87,
+                    color: isSelected ? Colors.white : _textColor,
                   ),
                 ),
               ],
@@ -1481,14 +1708,59 @@ class _CardsPageState extends State<CardsPage> {
     );
   }
 
+  Widget _buildDesktopCategoryChip(RoomCategory category) {
+    final isSelected = _selectedCategoryId == category.id;
+
+    return Material(
+      color: isSelected ? category.color : Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: () {
+          if (!_isMounted) return;
+          setState(() => _selectedCategoryId = category.id);
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? category.color : Colors.grey.shade300,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                category.icon,
+                size: 16,
+                color: isSelected ? Colors.white : category.color,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                category.title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isSelected ? Colors.white : _textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilterChip(FilterOption filter) {
     final isActive = _activeFilters.contains(filter.id);
 
     return Container(
-      margin: EdgeInsets.only(right: _isMobile ? 6 : 8),
+      margin: const EdgeInsets.only(right: 8),
       child: Material(
-        color: isActive ? Colors.blue : Colors.transparent,
-        borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+        color: isActive ? _primaryColor : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: () {
             if (!_isMounted) return;
@@ -1500,17 +1772,14 @@ class _CardsPageState extends State<CardsPage> {
               }
             });
           },
-          borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isMobile ? 12 : 16,
-              vertical: _isMobile ? 6 : 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_isMobile ? 16 : 20),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isActive ? Colors.blue : Colors.grey[300]!,
-                width: 1,
+                color: isActive ? _primaryColor : Colors.grey.shade300,
+                width: 1.5,
               ),
             ),
             child: Row(
@@ -1518,16 +1787,16 @@ class _CardsPageState extends State<CardsPage> {
               children: [
                 Icon(
                   filter.icon,
-                  size: _isMobile ? 14 : 16,
-                  color: isActive ? Colors.white : Colors.blue,
+                  size: 16,
+                  color: isActive ? Colors.white : _primaryColor,
                 ),
-                SizedBox(width: _isMobile ? 4 : 6),
+                const SizedBox(width: 6),
                 Text(
                   filter.title,
                   style: TextStyle(
-                    fontSize: _isMobile ? 12 : 13,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: isActive ? Colors.white : Colors.black87,
+                    color: isActive ? Colors.white : _textColor,
                   ),
                 ),
               ],
@@ -1538,9 +1807,254 @@ class _CardsPageState extends State<CardsPage> {
     );
   }
 
+  // КОМПАКТНЫЙ APP BAR В СТИЛЕ ARTICLESPAGE
+  // APP BAR С ФОНОМ И ВЫРАВНИВАНИЕМ ПРАВОГО КОНТЕНТА КАК В ARTICLESPAGE
+  Widget _buildCompactAppBar(double horizontalPadding, bool isMobile) {
+    // Вычисляем отступ для выравнивания с категориями
+    final categoriesCardMargin = isMobile ? 12.0 : horizontalPadding;
+    final categoriesContentPadding = isMobile ? 12.0 : 16.0;
+    final categoriesTitlePadding = 4.0;
+
+    // Общий отступ от левого края до текста "Категории"
+    final totalCategoriesLeftPadding = categoriesCardMargin +
+        categoriesContentPadding + categoriesTitlePadding;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : horizontalPadding,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _primaryColor,
+            _secondaryColor,
+          ],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (!_showSearchBar) ...[
+            // Заголовок "Каналы" с фоном и выравниванием по категориям
+            Padding(
+              padding: EdgeInsets.only(left: totalCategoriesLeftPadding -
+                  (isMobile ? 12 : horizontalPadding)),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Каналы',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            // Правый контент выровненный по правому краю категорий
+            Container(
+              margin: EdgeInsets.only(right: totalCategoriesLeftPadding -
+                  (isMobile ? 12 : horizontalPadding)),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                          Icons.search_rounded, color: Colors.white, size: 18),
+                    ),
+                    onPressed: () => setState(() => _showSearchBar = true),
+                  ),
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: _showFilters
+                            ? Colors.white.withOpacity(0.3)
+                            : Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.filter_alt_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    onPressed: () =>
+                        setState(() => _showFilters = !_showFilters),
+                  ),
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                          Icons.sort_rounded, color: Colors.white, size: 18),
+                    ),
+                    onPressed: _showSortBottomSheet,
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (_showSearchBar)
+            Expanded(
+              child: Row(
+                children: [
+                  // Поле поиска с выравниванием
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: totalCategoriesLeftPadding -
+                            (isMobile ? 12 : horizontalPadding),
+                        right: 8,
+                      ),
+                      child: _buildSearchField(),
+                    ),
+                  ),
+                  // Кнопка закрытия с выравниванием
+                  Padding(
+                    padding: EdgeInsets.only(right: totalCategoriesLeftPadding -
+                        (isMobile ? 12 : horizontalPadding)),
+                    child: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                            Icons.close_rounded, color: Colors.white, size: 18),
+                      ),
+                      onPressed: () =>
+                          setState(() {
+                            _showSearchBar = false;
+                            _searchController.clear();
+                            _searchQuery = '';
+                          }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showSortBottomSheet() {
+    if (!_isMounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) =>
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Сортировка',
+                  style: TextStyle(fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _textColor),
+                ),
+                const SizedBox(height: 16),
+                ..._sortOptions.map((option) =>
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                            option.icon, size: 20, color: _primaryColor),
+                      ),
+                      title: Text(
+                        option.title,
+                        style: TextStyle(fontSize: 15,
+                            color: _textColor,
+                            fontWeight: FontWeight.w500),
+                      ),
+                      trailing: _selectedSort == option.id
+                          ? Icon(Icons.check, color: _primaryColor, size: 20)
+                          : null,
+                      onTap: () {
+                        if (!_isMounted) return;
+                        setState(() => _selectedSort = option.id);
+                        Navigator.pop(context);
+                      },
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    )).toList(),
+              ],
+            ),
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = _getHorizontalPadding(context);
+    final isMobile = _isMobile(context);
 
     return Consumer<ChannelStateProvider>(
       builder: (context, channelStateProvider, child) {
@@ -1555,7 +2069,10 @@ class _CardsPageState extends State<CardsPage> {
                   const SizedBox(height: 16),
                   Text(
                     'Загрузка каналов...',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme
+                        .of(context)
+                        .textTheme
+                        .titleMedium,
                   ),
                 ],
               ),
@@ -1566,280 +2083,227 @@ class _CardsPageState extends State<CardsPage> {
         // Принудительно обновляем каналы при каждом изменении состояния
         final channels = _getFilteredChannels(channelStateProvider);
 
+
         return Scaffold(
           backgroundColor: Colors.transparent,
           body: Container(
-            decoration: const BoxDecoration(
+            constraints: BoxConstraints(
+              minWidth: _minContentWidth,
+            ),
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF5F5F5),
-                  Color(0xFFE8E8E8),
+                  _backgroundColor,
+                  _backgroundColor.withOpacity(0.9),
                 ],
               ),
             ),
             child: SafeArea(
-              child: Column(
-                children: [
-                  // AppBar
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: _isMobile ? 16 : horizontalPadding,
-                        vertical: 8
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                    ),
-                    child: Row(
-                      children: [
-                        if (!_showSearchBar) ...[
-                          const Text(
-                            'Каналы',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                        ],
-                        if (_showSearchBar)
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: _buildSearchField(),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      color: Colors.black,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    if (!_isMounted) return;
-                                    setState(() {
-                                      _showSearchBar = false;
-                                      _searchController.clear();
-                                      _searchQuery = '';
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[100],
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.search,
-                                    color: Colors.black,
-                                    size: 18,
-                                  ),
-                                ),
-                                onPressed: () {
-                                  if (!_isMounted) return;
-                                  setState(() => _showSearchBar = true);
-                                },
-                              ),
-                              IconButton(
-                                icon: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[100],
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    _showFilters ? Icons.filter_alt_off : Icons.filter_alt,
-                                    color: Colors.black,
-                                    size: 18,
-                                  ),
-                                ),
-                                onPressed: () {
-                                  if (!_isMounted) return;
-                                  setState(() => _showFilters = !_showFilters);
-                                },
-                              ),
-                              IconButton(
-                                icon: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[100],
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.sort,
-                                    color: Colors.black,
-                                    size: 18,
-                                  ),
-                                ),
-                                onPressed: _showSortBottomSheet,
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildContent(channelStateProvider, horizontalPadding, channels),
-                  ),
-                ],
-              ),
+              bottom: false,
+              child: isMobile
+                  ? _buildMobileLayout(
+                  horizontalPadding, channelStateProvider, channels)
+                  : _buildDesktopLayout(_buildDesktopContent(
+                  horizontalPadding, channelStateProvider, channels)),
             ),
           ),
           floatingActionButton: FloatingActionButton(
             onPressed: _createNewChannel,
-            backgroundColor: Colors.blue,
+            backgroundColor: _primaryColor,
             foregroundColor: Colors.white,
-            child: const Icon(Icons.add, size: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.add, size: 28),
           ),
         );
       },
     );
   }
 
-  Widget _buildContent(ChannelStateProvider stateProvider, double horizontalPadding, List<Channel> channels) {
-    return CustomScrollView(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: _buildFiltersCard(horizontalPadding),
-        ),
-        SliverToBoxAdapter(
-          child: _buildCategoriesCard(horizontalPadding),
-        ),
-        if (channels.isEmpty)
-          SliverFillRemaining(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 40, color: Colors.grey[400]),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Каналы не найдены',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Попробуйте изменить параметры поиска',
-                    style: TextStyle(color: Colors.grey, fontSize: 10),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _createNewChannel,
-                    child: const Text('Создать первый канал'),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else
-          SliverPadding(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isMobile ? 0 : horizontalPadding,
-              vertical: _isMobile ? 0 : 8,
-            ),
-            sliver: _isMobile
-                ? SliverList(
-              delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                  final channel = channels[index];
-                  // Обновляем канал актуальным состоянием
-                  final updatedChannel = channel.copyWith(
-                    isSubscribed: stateProvider.isSubscribed(channel.id.toString()),
-                    subscribers: stateProvider.getSubscribers(channel.id.toString()) ?? channel.subscribers,
-                  );
-
-                  return _buildChannelCard(updatedChannel, index, stateProvider);
-                },
-                childCount: channels.length,
-              ),
-            )
-                : SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _getCrossAxisCount(context),
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: _getCardAspectRatio(context),
-              ),
-              delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                  final channel = channels[index];
-                  // Обновляем канал актуальным состоянием
-                  final updatedChannel = channel.copyWith(
-                    isSubscribed: stateProvider.isSubscribed(channel.id.toString()),
-                    subscribers: stateProvider.getSubscribers(channel.id.toString()) ?? channel.subscribers,
-                  );
-
-                  return _buildChannelCard(updatedChannel, index, stateProvider);
-                },
-                childCount: channels.length,
-              ),
-            ),
+  Widget _buildMobileLayout(double horizontalPadding,
+      ChannelStateProvider stateProvider, List<Channel> channels) {
+    return Column(
+      children: [
+        // КОМПАКТНЫЙ APP BAR
+        _buildCompactAppBar(horizontalPadding, true),
+        // Контент
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            child: _buildMobileContent(
+                stateProvider, horizontalPadding, channels),
           ),
+        ),
       ],
     );
   }
 
-  void _showSortBottomSheet() {
-    if (!_isMounted) return;
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
+  Widget _buildMobileContent(ChannelStateProvider stateProvider,
+      double horizontalPadding, List<Channel> channels) {
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        // Фильтры
+        SliverToBoxAdapter(child: _buildFiltersCard(horizontalPadding)),
+
+        // Категории
+        SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
+
+        // Разделитель
+        SliverToBoxAdapter(
+          child: Container(
+            height: 1,
+            margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            color: Colors.grey.shade100,
+          ),
+        ),
+
+        // Карточки каналов
+        _buildChannelsGrid(stateProvider, horizontalPadding, channels, true),
+      ],
+    );
+  }
+
+  Widget _buildDesktopContent(double horizontalPadding,
+      ChannelStateProvider stateProvider, List<Channel> channels) {
+    return Column(
+      children: [
+        // КОМПАКТНЫЙ APP BAR
+        _buildCompactAppBar(horizontalPadding, false),
+        // Контент
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            child: _buildDesktopContentBody(
+                stateProvider, horizontalPadding, channels),
+          ),
+        ),
+      ],
+    );
+  }
+
+
+  Widget _buildDesktopContentBody(ChannelStateProvider stateProvider,
+      double horizontalPadding, List<Channel> channels) {
+    return _buildDesktopLayout(
+      CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // Фильтры
+          SliverToBoxAdapter(child: _buildFiltersCard(horizontalPadding)),
+
+          // Категории
+          SliverToBoxAdapter(child: _buildCategoriesCard(horizontalPadding)),
+
+          // Разделитель
+          SliverToBoxAdapter(
+            child: Container(
+              height: 1,
+              margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              color: Colors.grey.shade100,
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Сортировка',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+
+          // Карточки каналов
+          _buildChannelsGrid(stateProvider, horizontalPadding, channels, false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChannelsGrid(ChannelStateProvider stateProvider, double horizontalPadding, List<Channel> channels, bool isMobile) {
+    if (channels.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.play_circle_filled_rounded, size: 48, color: Colors.grey.shade400),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Каналы не найдены',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _textColor),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Попробуйте изменить параметры поиска\nили выбрать другую категорию',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            ..._sortOptions.map((option) => ListTile(
-              leading: Icon(option.icon, size: 18),
-              title: Text(
-                option.title,
-                style: const TextStyle(fontSize: 13),
-              ),
-              trailing: _selectedSort == option.id
-                  ? const Icon(Icons.check, color: Colors.blue, size: 18)
-                  : null,
-              onTap: () {
-                if (!_isMounted) return;
-                setState(() => _selectedSort = option.id);
-                Navigator.pop(context);
-              },
-            )).toList(),
-          ],
+          ),
+        ),
+      );
+    }
+
+    // ДЛЯ МОБИЛЬНЫХ - ИСПОЛЬЗУЕМ SliverList
+    if (isMobile) {
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+              (context, index) {
+            if (index >= channels.length) return const SizedBox.shrink();
+
+            final channel = channels[index];
+            // Обновляем канал актуальным состоянием
+            final updatedChannel = channel.copyWith(
+              isSubscribed: stateProvider.isSubscribed(channel.id.toString()),
+              subscribers: stateProvider.getSubscribers(channel.id.toString()) ?? channel.subscribers,
+            );
+
+            return _buildChannelCard(updatedChannel, index, stateProvider);
+          },
+          childCount: channels.length,
+        ),
+      );
+    }
+
+    // ДЛЯ ПЛАНШЕТОВ И КОМПЬЮТЕРОВ - ИСПОЛЬЗУЕМ SliverGrid С ТАКИМИ ЖЕ ОТСТУПАМИ КАК В ARTICLESPAGE
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 16, // ТАКОЙ ЖЕ ВЕРТИКАЛЬНЫЙ ОТСТУП КАК В ARTICLESPAGE
+      ),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _getCrossAxisCount(context),
+          crossAxisSpacing: 16, // ТАКОЙ ЖЕ ГОРИЗОНТАЛЬНЫЙ ОТСТУП КАК В ARTICLESPAGE
+          mainAxisSpacing: 16,  // ТАКОЙ ЖЕ ВЕРТИКАЛЬНЫЙ ОТСТУП КАК В ARTICLESPAGE
+          childAspectRatio: 360 / 460, // ФИКСИРОВАННОЕ СООТНОШЕНИЕ как в ArticlesPage
+        ),
+        delegate: SliverChildBuilderDelegate(
+              (context, index) {
+            if (index >= channels.length) return const SizedBox.shrink();
+
+            final channel = channels[index];
+            // Обновляем канал актуальным состоянием
+            final updatedChannel = channel.copyWith(
+              isSubscribed: stateProvider.isSubscribed(channel.id.toString()),
+              subscribers: stateProvider.getSubscribers(channel.id.toString()) ?? channel.subscribers,
+            );
+
+            return Padding(
+              padding: const EdgeInsets.all(2), // ТАКОЙ ЖЕ ВНУТРЕННИЙ ОТСТУП КАК В ARTICLESPAGE
+              child: _buildChannelCard(updatedChannel, index, stateProvider),
+            );
+          },
+          childCount: channels.length,
         ),
       ),
     );

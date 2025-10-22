@@ -1,10 +1,11 @@
 // 🔄 КОМПОНЕНТ ШАПКИ РЕПОСТА
-// Отображает информацию о том, кто репостнул и оригинальный пост
+// Использует универсальную систему изображений
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/user_provider.dart';
 import '../../../../providers/channel_state_provider.dart';
+import '../../../../providers/news_provider.dart';
 import '../../utils/image_utils.dart';
 import '../../utils/layout_utils.dart';
 
@@ -32,6 +33,7 @@ class RepostHeader extends StatelessWidget {
 
     // 📊 ДАННЫЕ РЕПОСТА
     final repostedByName = _getStringValue(news['reposted_by_name']);
+    final repostedById = _getStringValue(news['reposted_by']);
     final createdAt = _getStringValue(news['created_at']);
     final repostComment = _getStringValue(news['repost_comment']);
     final hasRepostComment = repostComment.isNotEmpty;
@@ -43,7 +45,6 @@ class RepostHeader extends StatelessWidget {
 
     // 🖼️ АВАТАРКА ТОГО, КТО РЕПОСТНУЛ - ВСЕГДА АВАТАРКА ПОЛЬЗОВАТЕЛЯ
     final isCurrentUser = repostedByName == userProvider.userName;
-    final reposterAvatarUrl = _getReposterAvatarUrl(repostedByName, isCurrentUser);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -57,12 +58,7 @@ class RepostHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 🖼️ АВАТАРКА РЕПОСТЕРА (ВСЕГДА ПОЛЬЗОВАТЕЛЬ)
-                ImageUtils.buildUserAvatarWidget(
-                  avatarUrl: reposterAvatarUrl,
-                  displayName: repostedByName,
-                  size: LayoutUtils.getAvatarSize(context),
-                  onTap: onUserProfile,
-                ),
+                _buildReposterAvatar(context, repostedByName, repostedById, isCurrentUser),
 
                 const SizedBox(width: 12),
 
@@ -97,7 +93,8 @@ class RepostHeader extends StatelessWidget {
                       _buildRepostMetaInfo(
                           createdAt,
                           isOriginalChannelPost,
-                          originalChannelName
+                          originalChannelName,
+                          hasRepostComment
                       ),
                     ],
                   ),
@@ -130,19 +127,6 @@ class RepostHeader extends StatelessWidget {
                   cursor: SystemMouseCursors.click,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.group_rounded, size: 14, color: Colors.blue),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Оригинальный канал: $originalChannelName',
-                        style: TextStyle(
-                          color: Colors.blue.shade700,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          // ❌ УБРАНО ПОДЧЕРКИВАНИЕ
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
@@ -152,33 +136,19 @@ class RepostHeader extends StatelessWidget {
     );
   }
 
-  /// 🖼️ ПОЛУЧАЕТ АВАТАРКУ РЕПОСТЕРА - ВСЕГДА АВАТАРКА ПОЛЬЗОВАТЕЛЯ
-  String _getReposterAvatarUrl(String reposterName, bool isCurrentUser) {
-    print('🔍 RepostHeader - получение аватарки РЕПОСТЕРА:');
-    print('   - reposterName: $reposterName');
-    print('   - isCurrentUser: $isCurrentUser');
-
-    final reposterAvatar = _getStringValue(news['author_avatar']);
-    if (reposterAvatar.isNotEmpty) {
-      print('✅ RepostHeader: Используется аватарка репостера из author_avatar: $reposterAvatar');
-      return reposterAvatar;
-    }
-
-    print('🔄 RepostHeader: Используется стандартная логика для аватарки пользователя');
-    final standardAvatar = ImageUtils.getUserAvatarUrl(
-      news: news,
+  /// 🖼️ СОЗДАЕТ ВИДЖЕТ АВАТАРКИ РЕПОСТЕРА
+  Widget _buildReposterAvatar(BuildContext context, String reposterName, String reposterId, bool isCurrentUser) {
+    return ImageUtils.buildUserAvatarWidget(
+      context: context,
+      userId: reposterId,
       userName: reposterName,
-      isCurrentUser: isCurrentUser,
+      size: LayoutUtils.getAvatarSize(context),
+      onTap: onUserProfile,
     );
-    print('✅ RepostHeader: Стандартная аватарка пользователя: $standardAvatar');
-    return standardAvatar;
   }
 
   /// 📊 СОЗДАЕТ МЕТА-ИНФОРМАЦИЮ РЕПОСТА
-  Widget _buildRepostMetaInfo(String createdAt, bool isOriginalChannelPost, String originalChannelName) {
-    final repostComment = _getStringValue(news['repost_comment']);
-    final hasRepostComment = repostComment.isNotEmpty;
-
+  Widget _buildRepostMetaInfo(String createdAt, bool isOriginalChannelPost, String originalChannelName, bool hasRepostComment) {
     return Container(
       height: 16,
       child: SingleChildScrollView(
@@ -214,7 +184,7 @@ class RepostHeader extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              hasRepostComment ? 'Репост с комментарием' : 'Репост',
+              hasRepostComment ? 'Репост' : 'Репост',
               style: TextStyle(
                 color: hasRepostComment ? Colors.blue : Colors.green,
                 fontSize: 11,

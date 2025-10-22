@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.1
+  sdk: '>=3.8.1 <4.0.0'
 
 dependencies:
   flutter:
@@ -36,9 +36,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_launcher_icons: "^0.13.1"
+  flutter_launcher_icons: ^0.13.1
 
-# ИСПРАВЛЕННЫЙ ПУТЬ К ИКОНКЕ
 flutter_icons:
   android: "launcher_icon"
   image_path: "assets/images/icon.png"
@@ -48,17 +47,16 @@ flutter_icons:
 flutter:
   uses-material-design: true
 
+  # Для веб-версии добавляем генерацию
+  generate: true
+
   assets:
     - assets/images/register.png
     - assets/images/icon.png
-    # Статьи
     - assets/images/articles_images/article_cover/
     - assets/images/articles_images/photo_for_articles/
-    # События
     - assets/images/event_photos/
-    # Каналы
     - assets/images/cards_image/avatarka/
     - assets/images/cards_image/owner/
-    # Прогнозы лиги (добавьте эту строку)
     - assets/images/predictions_league_image/
     - assets/images/ava_news/

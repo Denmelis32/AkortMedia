@@ -407,27 +407,43 @@ class StorageService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final key = _getUserProfileImageUrlKey(userId);
+
+      print('🔄 [STORAGE] Saving profile image URL for user: $userId');
+      print('   📤 URL to save: $url');
+      print('   🔑 Storage key: $key');
+
       if (url == null) {
         await prefs.remove(key);
-        print('🗑️ URL аватарки удален для пользователя: $userId');
+        print('🗑️ [STORAGE] URL аватарки удален для пользователя: $userId');
       } else {
         await prefs.setString(key, url);
-        print('💾 URL аватарки сохранен для пользователя: $userId');
+
+        // НЕМЕДЛЕННАЯ ПРОВЕРКА СОХРАНЕНИЯ
+        final savedValue = prefs.getString(key);
+        print('💾 [STORAGE] URL аватарки сохранен для пользователя: $userId');
+        print('   ✅ Проверка сохранения: $savedValue');
+        print('   🔍 Совпадение с исходным: ${savedValue == url}');
       }
     } catch (e) {
-      print('❌ Ошибка сохранения URL аватарки для пользователя $userId: $e');
+      print('❌ [STORAGE] Ошибка сохранения URL аватарки для пользователя $userId: $e');
     }
   }
+
 
   static Future<String?> loadProfileImageUrl(String userId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final key = _getUserProfileImageUrlKey(userId);
       final url = prefs.getString(key);
-      print('📂 URL аватарки загружен для пользователя: $userId - $url');
+
+      print('📂 [STORAGE] Loading profile image URL for user: $userId');
+      print('   🔑 Storage key: $key');
+      print('   📥 Loaded URL: $url');
+
       return url;
     } catch (e) {
-      print('❌ Ошибка загрузки URL аватарки для пользователя $userId: $e');
+      print(
+          '❌ [STORAGE] Ошибка загрузки URL аватарки для пользователя $userId: $e');
       return null;
     }
   }
@@ -436,15 +452,25 @@ class StorageService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final key = _getUserProfileImagePathKey(userId);
+
+      print('🔄 [STORAGE] Saving profile image file path for user: $userId');
+      print('   📤 File path to save: $filePath');
+      print('   🔑 Storage key: $key');
+
       if (filePath == null) {
         await prefs.remove(key);
-        print('🗑️ Файл аватарки удален для пользователя: $userId');
+        print('🗑️ [STORAGE] Файл аватарки удален для пользователя: $userId');
       } else {
         await prefs.setString(key, filePath);
-        print('💾 Файл аватарки сохранен для пользователя: $userId');
+
+        // НЕМЕДЛЕННАЯ ПРОВЕРКА
+        final savedValue = prefs.getString(key);
+        print('💾 [STORAGE] Файл аватарки сохранен для пользователя: $userId');
+        print('   ✅ Проверка сохранения: $savedValue');
+        print('   🔍 Совпадение с исходным: ${savedValue == filePath}');
       }
     } catch (e) {
-      print('❌ Ошибка сохранения файла аватарки для пользователя $userId: $e');
+      print('❌ [STORAGE] Ошибка сохранения файла аватарки для пользователя $userId: $e');
     }
   }
 
@@ -453,10 +479,14 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       final key = _getUserProfileImagePathKey(userId);
       final path = prefs.getString(key);
-      print('📂 Файл аватарки загружен для пользователя: $userId - $path');
+
+      print('📂 [STORAGE] Loading profile image file path for user: $userId');
+      print('   🔑 Storage key: $key');
+      print('   📥 Loaded path: $path');
+
       return path;
     } catch (e) {
-      print('❌ Ошибка загрузки файла аватарки для пользователя $userId: $e');
+      print('❌ [STORAGE] Ошибка загрузки файла аватарки для пользователя $userId: $e');
       return null;
     }
   }

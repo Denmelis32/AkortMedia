@@ -166,13 +166,13 @@ class _NewsCardState extends State<NewsCard>
           // Если не нашли кастомную, используем стандартную логику для канала
           final originalChannelName = _getStringValue(widget.news['original_channel_name']);
           if (originalChannelName.isNotEmpty) {
-            final channelFallbackAvatar = ImageUtils.getUserAvatarUrl(
-              news: widget.news,
+            // 🎯 ОБНОВЛЕНО: Используем универсальную систему аватарок для каналов
+            final channelFallbackAvatar = ImageUtils.getUniversalAvatarUrl(
+              context: context,
+              userId: 'channel_${originalChannelName.hashCode.abs()}', // Генерируем ID для канала
               userName: originalChannelName,
-              isCurrentUser: false,
-              isChannel: true,
             );
-            print('✅ NewsCard: Используется fallback аватарка канала: $channelFallbackAvatar');
+            print('✅ NewsCard: Используется универсальная аватарка канала: $channelFallbackAvatar');
             return channelFallbackAvatar;
           }
         }

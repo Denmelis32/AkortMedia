@@ -23,6 +23,36 @@ class EventListScreen extends StatefulWidget {
 
 class _EventListScreenState extends State<EventListScreen>
     with TickerProviderStateMixin {
+  // НОВЫЙ ОСНОВНОЙ ЦВЕТ #1B2A30 (темный сине-зеленый)
+  final Color _primaryColor = const Color(0xFF1B2A30);
+  final Color _secondaryColor = const Color(0xFF2A3D45); // Более светлый оттенок
+  final Color _backgroundColor = const Color(0xFFF5F7FA);
+  final Color _surfaceColor = Colors.white;
+  final Color _textColor = const Color(0xFF37474F);
+
+  // Темные градиенты для карточек
+  final List<Color> _cardGradients = [
+    const Color(0xFFE3F2FD), // Светло-голубой
+    const Color(0xFFF3E5F5), // Светло-фиолетовый
+    const Color(0xFFE8F5E8), // Светло-зеленый
+    const Color(0xFFFFF3E0), // Светло-оранжевый
+    const Color(0xFFFCE4EC), // Светло-розовый
+    const Color(0xFFE0F2F1), // Светло-бирюзовый
+    const Color(0xFFEDE7F6), // Светло-лавандовый
+    const Color(0xFFFFF8E1), // Светло-желтый
+  ];
+
+  final List<Color> _cardBorderColors = [
+    const Color(0xFF90CAF9), // Голубой
+    const Color(0xFFCE93D8), // Фиолетовый
+    const Color(0xFFA5D6A7), // Зеленый
+    const Color(0xFFFFCC80), // Оранжевый
+    const Color(0xFFF48FB1), // Розовый
+    const Color(0xFF80CBC4), // Бирюзовый
+    const Color(0xFFB39DDB), // Лавандовый
+    const Color(0xFFFFE082), // Желтый
+  ];
+
   List<Event> events = [];
   int _currentTabIndex = 0;
   String _searchQuery = '';
@@ -59,6 +89,10 @@ class _EventListScreenState extends State<EventListScreen>
   // Анимации
   late AnimationController _refreshController;
 
+  // ФИКСИРОВАННАЯ МАКСИМАЛЬНАЯ ШИРИНА ДЛЯ ДЕСКТОПА
+  double get _maxContentWidth => 1200;
+  double get _minContentWidth => 320;
+
   // Пример популярных событий - ИНИЦИАЛИЗИРУЕМ СРАЗУ
   late final List<Event> _featuredEvents = EventData.featuredEvents;
 
@@ -67,7 +101,7 @@ class _EventListScreenState extends State<EventListScreen>
       id: 'all',
       title: 'Все',
       icon: Icons.all_inclusive_rounded,
-      color: Colors.blue,
+      color: const Color(0xFF1B2A30), // Новый цвет
       count: 156,
     ),
     EventCategory(
@@ -83,7 +117,7 @@ class _EventListScreenState extends State<EventListScreen>
       title: 'Выставки',
       description: 'Искусство и культура',
       icon: Icons.palette_rounded,
-      color: Colors.blue,
+      color: const Color(0xFF1B2A30), // Новый цвет
       count: 28,
     ),
     EventCategory(
@@ -130,6 +164,47 @@ class _EventListScreenState extends State<EventListScreen>
 
   final List<String> _cities = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань'];
   final List<String> _popularTags = ['бесплатно', 'премьера', 'онлайн', 'для детей', 'гастрономия', 'искусство', 'музыка', 'спорт'];
+
+  // АДАПТИВНЫЕ МЕТОДЫ КАК В ПЕРВОМ ФАЙЛЕ
+  bool _isMobile(BuildContext context) {
+    return MediaQuery.of(context).size.width <= 600;
+  }
+
+  // ШИРИНА КОНТЕНТА С УЧЕТОМ ОГРАНИЧЕНИЙ
+  double _getContentWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth > _maxContentWidth) return _maxContentWidth;
+    return screenWidth;
+  }
+
+  int _getCrossAxisCount(BuildContext context) {
+    final contentWidth = _getContentWidth(context);
+    if (contentWidth > 1000) return 3;
+    if (contentWidth > 700) return 2;
+    return 1;
+  }
+
+  // АДАПТИВНЫЕ ОТСТУПЫ
+  double _getHorizontalPadding(BuildContext context) {
+    final contentWidth = _getContentWidth(context);
+    if (contentWidth > 1000) return 24;
+    if (contentWidth > 800) return 20;
+    if (contentWidth > 600) return 16;
+    return 12;
+  }
+
+  // ОСНОВНОЙ LAYOUT С ФИКСИРОВАННОЙ ШИРИНОЙ
+  Widget _buildDesktopLayout(Widget content) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: _maxContentWidth,
+          minWidth: _minContentWidth,
+        ),
+        child: content,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -300,141 +375,33 @@ class _EventListScreenState extends State<EventListScreen>
     return TodayEvents.getEvents();
   }
 
-  // 🆕 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ ОТСТУПОВ КАК В CARDS_PAGE
-  double _getContentMargin(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 200;
-    if (width > 800) return 100;
-    if (width > 600) return 60;
-    return 0;
-  }
-
   @override
   Widget build(BuildContext context) {
     final filteredEvents = _getFilteredEvents();
     final todayEvents = _getTodayEvents();
-    final isMobile = MediaQuery.of(context).size.width <= 600;
-    final horizontalPadding = _getContentMargin(context);
+    final isMobile = _isMobile(context);
+    final horizontalPadding = _getHorizontalPadding(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF5F5F5),
-                  Color(0xFFE8E8E8),
+                  _backgroundColor,
+                  _backgroundColor.withOpacity(0.9),
                 ],
               ),
             ),
             child: SafeArea(
-              child: Column(
-                children: [
-                  // AppBar как в CardsPage с одинаковыми отступами
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 16 : horizontalPadding,
-                      vertical: 8,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                    ),
-                    child: _showSearchBar
-                        ? _buildSearchAppBar()
-                        : _buildMainAppBar(),
-                  ),
-                  Expanded(
-                    child: _isLoading && events.isEmpty
-                        ? _buildLoadingState()
-                        : RefreshIndicator(
-                      onRefresh: _refreshData,
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 1400),
-                        margin: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 0 : horizontalPadding,
-                        ),
-                        child: CustomScrollView(
-                          controller: _scrollController,
-                          physics: const BouncingScrollPhysics(),
-                          slivers: [
-                            // Секция главных событий
-                            SliverToBoxAdapter(
-                              child: FeaturedSection(
-                                featuredEvents: _featuredEvents,
-                                onEventTap: _openEventDetails,
-                                fadeAnimation: _fadeAnimation,
-                              ),
-                            ),
-
-                            // Секция категорий
-                            SliverToBoxAdapter(
-                              child: CategoriesSection(
-                                categories: _categories,
-                                currentTabIndex: _currentTabIndex,
-                                onTabChanged: (index) => setState(() => _currentTabIndex = index),
-                                fadeAnimation: _fadeAnimation,
-                              ),
-                            ),
-
-                            // Статистика
-                            SliverToBoxAdapter(
-                              child: QuickStatsSection(
-                                totalEventsCreated: _totalEventsCreated,
-                                eventsThisMonth: _eventsThisMonth,
-                                totalFavorites: _totalFavorites,
-                              ),
-                            ),
-
-                            // Сегодняшние события
-                            SliverToBoxAdapter(
-                              child: TodaySection(
-                                todayEvents: todayEvents,
-                                onEventTap: _openEventDetails,
-                              ),
-                            ),
-
-                            // Заголовок событий
-                            EventsTitleSection(eventsCount: filteredEvents.length),
-
-                            // Предстоящие события
-                            UpcomingSection(
-                              events: filteredEvents,
-                              favoriteEvents: _favoriteEvents,
-                              attendingEvents: _attendingEvents,
-                              eventViews: _eventViews,
-                              onEventTap: _openEventDetails,
-                              onFavorite: _toggleFavorite,
-                              onAttend: _toggleAttending,
-                              onCreateEvent: _openAddEventDialog,
-                            ),
-
-                            // Индикатор загрузки
-                            if (_isLoading && _hasMore)
-                              const SliverToBoxAdapter(
-                                child: Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(20),
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                ),
-                              ),
-
-                            // Отступ снизу для кнопки
-                            SliverToBoxAdapter(
-                              child: SizedBox(height: isMobile ? 80 : 100),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              bottom: false,
+              child: isMobile
+                  ? _buildMobileLayout(horizontalPadding, filteredEvents, todayEvents)
+                  : _buildDesktopLayout(_buildDesktopContent(horizontalPadding, filteredEvents, todayEvents)),
             ),
           ),
 
@@ -449,161 +416,423 @@ class _EventListScreenState extends State<EventListScreen>
     );
   }
 
-  // Остальные методы остаются без изменений...
-  Widget _buildMainAppBar() {
-    return Row(
+  Widget _buildMobileLayout(double horizontalPadding, List<Event> filteredEvents, List<Event> todayEvents) {
+    return Column(
       children: [
-        const Text(
-          'Афиша',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+        // КОМПАКТНЫЙ APP BAR
+        _buildCompactAppBar(horizontalPadding, true),
+        // Контент
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            child: _buildMobileContent(horizontalPadding, filteredEvents, todayEvents),
           ),
-        ),
-        const Spacer(),
-        Row(
-          children: [
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.search,
-                  color: Colors.black,
-                  size: 18,
-                ),
-              ),
-              onPressed: () => setState(() => _showSearchBar = true),
-            ),
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _getActiveFiltersCount() > 0 ? Icons.filter_alt : Icons.filter_alt_outlined,
-                  color: Colors.black,
-                  size: 18,
-                ),
-              ),
-              onPressed: _showAdvancedFilters,
-            ),
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.sort,
-                  color: Colors.black,
-                  size: 18,
-                ),
-              ),
-              onPressed: _showSortBottomSheet,
-            ),
-          ],
         ),
       ],
     );
   }
 
-  Widget _buildSearchAppBar() {
-    return Row(
+  Widget _buildDesktopContent(double horizontalPadding, List<Event> filteredEvents, List<Event> todayEvents) {
+    return Column(
       children: [
+        // КОМПАКТНЫЙ APP BAR
+        _buildCompactAppBar(horizontalPadding, false),
+        // Контент
         Expanded(
           child: Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: TextField(
-              controller: _searchController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Поиск событий...',
-                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-                  onPressed: () => _searchController.clear(),
-                )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            width: double.infinity,
+            child: _buildDesktopContentBody(horizontalPadding, filteredEvents, todayEvents),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopContentBody(double horizontalPadding, List<Event> filteredEvents, List<Event> todayEvents) {
+    return _buildDesktopLayout(
+      _isLoading && events.isEmpty
+          ? _buildLoadingState()
+          : RefreshIndicator(
+        onRefresh: _refreshData,
+        child: Container(
+          constraints: BoxConstraints(maxWidth: _maxContentWidth),
+          margin: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+          ),
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              // Секция главных событий
+              SliverToBoxAdapter(
+                child: FeaturedSection(
+                  featuredEvents: _featuredEvents,
+                  onEventTap: _openEventDetails,
+                  fadeAnimation: _fadeAnimation,
+                ),
               ),
-              style: const TextStyle(fontSize: 16),
-              onChanged: (value) => setState(() => _searchQuery = value),
+
+              // Секция категорий
+              SliverToBoxAdapter(
+                child: CategoriesSection(
+                  categories: _categories,
+                  currentTabIndex: _currentTabIndex,
+                  onTabChanged: (index) => setState(() => _currentTabIndex = index),
+                  fadeAnimation: _fadeAnimation,
+                ),
+              ),
+
+              // Статистика
+              SliverToBoxAdapter(
+                child: QuickStatsSection(
+                  totalEventsCreated: _totalEventsCreated,
+                  eventsThisMonth: _eventsThisMonth,
+                  totalFavorites: _totalFavorites,
+                ),
+              ),
+
+              // Сегодняшние события
+              SliverToBoxAdapter(
+                child: TodaySection(
+                  todayEvents: todayEvents,
+                  onEventTap: _openEventDetails,
+                ),
+              ),
+
+              // Заголовок событий
+              EventsTitleSection(eventsCount: filteredEvents.length),
+
+              // Предстоящие события
+              UpcomingSection(
+                events: filteredEvents,
+                favoriteEvents: _favoriteEvents,
+                attendingEvents: _attendingEvents,
+                eventViews: _eventViews,
+                onEventTap: _openEventDetails,
+                onFavorite: _toggleFavorite,
+                onAttend: _toggleAttending,
+                onCreateEvent: _openAddEventDialog,
+              ),
+
+              // Индикатор загрузки
+              if (_isLoading && _hasMore)
+                const SliverToBoxAdapter(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                ),
+
+              // Отступ снизу для кнопки
+              SliverToBoxAdapter(
+                child: SizedBox(height: 100),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileContent(double horizontalPadding, List<Event> filteredEvents, List<Event> todayEvents) {
+    return _isLoading && events.isEmpty
+        ? _buildLoadingState()
+        : RefreshIndicator(
+      onRefresh: _refreshData,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: _maxContentWidth),
+        margin: EdgeInsets.symmetric(
+          horizontal: horizontalPadding,
+        ),
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // Секция главных событий
+            SliverToBoxAdapter(
+              child: FeaturedSection(
+                featuredEvents: _featuredEvents,
+                onEventTap: _openEventDetails,
+                fadeAnimation: _fadeAnimation,
+              ),
+            ),
+
+            // Секция категорий
+            SliverToBoxAdapter(
+              child: CategoriesSection(
+                categories: _categories,
+                currentTabIndex: _currentTabIndex,
+                onTabChanged: (index) => setState(() => _currentTabIndex = index),
+                fadeAnimation: _fadeAnimation,
+              ),
+            ),
+
+            // Статистика
+            SliverToBoxAdapter(
+              child: QuickStatsSection(
+                totalEventsCreated: _totalEventsCreated,
+                eventsThisMonth: _eventsThisMonth,
+                totalFavorites: _totalFavorites,
+              ),
+            ),
+
+            // Сегодняшние события
+            SliverToBoxAdapter(
+              child: TodaySection(
+                todayEvents: todayEvents,
+                onEventTap: _openEventDetails,
+              ),
+            ),
+
+            // Заголовок событий
+            EventsTitleSection(eventsCount: filteredEvents.length),
+
+            // Предстоящие события
+            UpcomingSection(
+              events: filteredEvents,
+              favoriteEvents: _favoriteEvents,
+              attendingEvents: _attendingEvents,
+              eventViews: _eventViews,
+              onEventTap: _openEventDetails,
+              onFavorite: _toggleFavorite,
+              onAttend: _toggleAttending,
+              onCreateEvent: _openAddEventDialog,
+            ),
+
+            // Индикатор загрузки
+            if (_isLoading && _hasMore)
+              const SliverToBoxAdapter(
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              ),
+
+            // Отступ снизу для кнопки
+            SliverToBoxAdapter(
+              child: SizedBox(height: 80),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // КОМПАКТНЫЙ APP BAR В СТИЛЕ ПЕРВОГО ФАЙЛА
+  Widget _buildCompactAppBar(double horizontalPadding, bool isMobile) {
+    // Вычисляем отступ для выравнивания с категориями
+    final categoriesCardMargin = isMobile ? 12.0 : horizontalPadding;
+    final categoriesContentPadding = isMobile ? 12.0 : 16.0;
+    final categoriesTitlePadding = 4.0;
+
+    // Общий отступ от левого края до текста "Категории"
+    final totalCategoriesLeftPadding = categoriesCardMargin +
+        categoriesContentPadding + categoriesTitlePadding;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : horizontalPadding,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _primaryColor,
+            _secondaryColor,
+          ],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: _showSearchBar
+          ? _buildSearchAppBar(isMobile, horizontalPadding, totalCategoriesLeftPadding)
+          : _buildMainAppBar(isMobile, horizontalPadding, totalCategoriesLeftPadding),
+    );
+  }
+
+  Widget _buildMainAppBar(bool isMobile, double horizontalPadding, double totalCategoriesLeftPadding) {
+    return Row(
+      children: [
+        // Заголовок "Афиша" с фоном и выравниванием по категориям
+        Padding(
+          padding: EdgeInsets.only(left: totalCategoriesLeftPadding - (isMobile ? 12 : horizontalPadding)),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.event_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Афиша',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              shape: BoxShape.circle,
+        const Spacer(),
+        // Правый контент выровненный по правому краю категорий
+        Container(
+          margin: EdgeInsets.only(right: totalCategoriesLeftPadding - (isMobile ? 12 : horizontalPadding)),
+          child: Row(
+            children: [
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.search_rounded, color: Colors.white, size: 18),
+                ),
+                onPressed: () => setState(() => _showSearchBar = true),
+              ),
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: _getActiveFiltersCount() > 0
+                        ? Colors.white.withOpacity(0.3)
+                        : Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _getActiveFiltersCount() > 0 ? Icons.filter_alt_rounded : Icons.filter_alt_outlined,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                onPressed: _showAdvancedFilters,
+              ),
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.sort_rounded, color: Colors.white, size: 18),
+                ),
+                onPressed: _showSortBottomSheet,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchAppBar(bool isMobile, double horizontalPadding, double totalCategoriesLeftPadding) {
+    return Row(
+      children: [
+        // Поле поиска с выравниванием
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: totalCategoriesLeftPadding - (isMobile ? 12 : horizontalPadding),
+              right: 8,
             ),
-            child: const Icon(
-              Icons.close,
-              color: Colors.black,
-              size: 18,
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Поиск событий...',
+                  hintStyle: TextStyle(color: Colors.grey[600], fontSize: 15),
+                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: _primaryColor),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                    icon: Icon(Icons.clear_rounded, size: 18, color: Colors.grey),
+                    onPressed: () => _searchController.clear(),
+                  )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                style: const TextStyle(fontSize: 15),
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ),
             ),
           ),
-          onPressed: () => setState(() {
-            _showSearchBar = false;
-            _searchController.clear();
-            _searchQuery = '';
-          }),
+        ),
+        // Кнопка закрытия с выравниванием
+        Padding(
+          padding: EdgeInsets.only(right: totalCategoriesLeftPadding - (isMobile ? 12 : horizontalPadding)),
+          child: IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.close_rounded, color: Colors.white, size: 18),
+            ),
+            onPressed: () => setState(() {
+              _showSearchBar = false;
+              _searchController.clear();
+              _searchQuery = '';
+            }),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildPermanentAddButton() {
-    return Material(
-      elevation: 6,
-      borderRadius: BorderRadius.circular(25),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.blue.shade600, Colors.blue.shade800],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: InkWell(
-          onTap: _openAddEventDialog,
-          borderRadius: BorderRadius.circular(25),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add, size: 20, color: Colors.white),
-                const SizedBox(width: 8),
-              ],
-            ),
-          ),
-        ),
+    return FloatingActionButton(
+      onPressed: _openAddEventDialog,
+      backgroundColor: _primaryColor,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
+      child: const Icon(Icons.add, size: 28),
     );
   }
 
@@ -613,7 +842,7 @@ class _EventListScreenState extends State<EventListScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade400),
+            valueColor: AlwaysStoppedAnimation<Color>(_primaryColor),
           ),
           const SizedBox(height: 16),
           Text(
@@ -777,8 +1006,12 @@ class _EventListScreenState extends State<EventListScreen>
   void _showSortBottomSheet() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: _surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -790,25 +1023,35 @@ class _EventListScreenState extends State<EventListScreen>
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 12),
-            const Text(
+            const SizedBox(height: 16),
+            Text(
               'Сортировка',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textColor),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             ...['date', 'popularity', 'price_low', 'price_high', 'rating'].map((sortOption) => ListTile(
-              leading: const Icon(Icons.sort, size: 18),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.sort, size: 20, color: _primaryColor),
+              ),
               title: Text(
                 _getSortOptionTitle(sortOption),
-                style: const TextStyle(fontSize: 13),
+                style: TextStyle(fontSize: 15, color: _textColor, fontWeight: FontWeight.w500),
               ),
               trailing: _sortBy == sortOption
-                  ? const Icon(Icons.check, color: Colors.blue, size: 18)
+                  ? Icon(Icons.check, color: _primaryColor, size: 20)
                   : null,
               onTap: () {
                 setState(() => _sortBy = sortOption);
                 Navigator.pop(context);
               },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             )).toList(),
           ],
         ),

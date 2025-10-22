@@ -6,23 +6,64 @@ import 'package:my_app/providers/news_provider.dart';
 class ProfileUtils {
   String generateUserId(String email) {
     final cleanEmail = email.trim().toLowerCase();
-    return 'user_${cleanEmail.hashCode.abs()}';
+    final userId = 'user_${cleanEmail.hashCode.abs()}';
+    print('🆔 ProfileUtils: Generated user ID: $userId for email: $cleanEmail');
+    return userId;
   }
 
   double getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1000) return 280;
-    if (width > 700) return 80;
-    return 16;
+    final height = MediaQuery.of(context).size.height;
+
+    // Адаптивные отступы на основе размера экрана
+    if (width > 1200) return width * 0.2; // 20% для десктопа
+    if (width > 800) return width * 0.1;  // 10% для планшета
+    if (width > 600) return 24;          // Фиксированный для больших телефонов
+    return 16;                           // Стандартный для мобильных
   }
 
   double getContentMaxWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1400) return 600;
+
+    // Адаптивная максимальная ширина контента
+    if (width > 1400) return 800;
+    if (width > 1200) return 700;
     if (width > 1000) return 600;
-    if (width > 700) return 600;
-    return double.infinity;
+    if (width > 800) return 500;
+    if (width > 600) return 450;
+    return width - 32; // На мобильных занимает почти всю ширину
   }
+
+  double getAdaptiveValue(BuildContext context, {double mobile = 16, double tablet = 24, double desktop = 32}) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return desktop;
+    if (width > 600) return tablet;
+    return mobile;
+  }
+
+  double getAdaptiveFontSize(BuildContext context, {double mobile = 14, double tablet = 16, double desktop = 18}) {
+    final width = MediaQuery.of(context).size.width;
+    final textScaleFactor = MediaQuery.of(context).textScaleFactor;
+
+    double baseSize;
+    if (width > 1200) {
+      baseSize = desktop;
+    } else if (width > 600) {
+      baseSize = tablet;
+    } else {
+      baseSize = mobile;
+    }
+
+    return baseSize * textScaleFactor;
+  }
+
+  // УДАЛЕНО: Конфликтующее свойство
+  // bool get isMobile => throw UnsupportedError('Use isMobile(context)');
+
+  // Статические методы для проверки типа устройства
+  static bool isMobile(BuildContext context) => MediaQuery.of(context).size.width < 600;
+  static bool isTablet(BuildContext context) => MediaQuery.of(context).size.width >= 600 && MediaQuery.of(context).size.width < 1200;
+  static bool isDesktop(BuildContext context) => MediaQuery.of(context).size.width >= 1200;
 
   Color getUserColor(String userName) {
     final colors = [
@@ -57,7 +98,6 @@ class ProfileUtils {
   }
 
   Map<String, int> getUserStats(List<dynamic> news, String userName) {
-    // Заглушка - возвращаем фиксированные данные
     return {
       'posts': 23,
       'likes': 156,
@@ -66,11 +106,9 @@ class ProfileUtils {
   }
 
   List<dynamic> getUserReposts(List<dynamic> news, String userEmail) {
-    // Заглушка - возвращаем пустой список
     return [];
   }
 
-  // Добавленные методы для исправления ошибок
   Widget buildNewsSliver({
     required BuildContext context,
     required List<dynamic> news,
@@ -78,33 +116,87 @@ class ProfileUtils {
     required double contentMaxWidth,
     required VoidCallback onLogout,
   }) {
-    // Заглушка - возвращаем пустой sliver
     return SliverToBoxAdapter(
       child: Container(
         margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
         constraints: BoxConstraints(maxWidth: contentMaxWidth),
-        padding: const EdgeInsets.all(20),
-        child: const Text(
+        padding: EdgeInsets.all(getAdaptiveValue(context, mobile: 16, tablet: 20, desktop: 24)),
+        child: Text(
           'Функционал постов будет добавлен позже',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(
+            color: Colors.grey,
+            fontSize: getAdaptiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
+          ),
         ),
       ),
     );
   }
 
   String? getUserCoverUrl(BuildContext context, String userEmail) {
-    // Заглушка - возвращаем null
-    return null;
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    return newsProvider.coverImageUrl;
   }
 
   File? getProfileImage(BuildContext context, String userEmail) {
-    // Заглушка - возвращаем null
     return null;
   }
 
   String? getProfileImageUrl(BuildContext context, String userEmail) {
-    // Заглушка - возвращаем null
     return null;
+  }
+
+
+  File? getUserCoverFile(BuildContext context, String userEmail) {
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    return newsProvider.coverImageFile;
+  }
+
+  // НОВЫЕ МЕТОДЫ ДЛЯ АДАПТИВНОГО ДИЗАЙНА
+
+  int getGridCrossAxisCount(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 4;
+    if (width > 800) return 3;
+    if (width > 600) return 2;
+    return 2; // Для мобильных
+  }
+
+  double getAdaptiveIconSize(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 24;
+    if (width > 800) return 22;
+    if (width > 600) return 20;
+    return 18; // Для мобильных
+  }
+
+  double getAdaptiveCardHeight(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 120;
+    if (width > 800) return 110;
+    if (width > 600) return 100;
+    return 90; // Для мобильных
+  }
+
+  EdgeInsets getAdaptivePadding(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return const EdgeInsets.all(24);
+    if (width > 800) return const EdgeInsets.all(20);
+    if (width > 600) return const EdgeInsets.all(16);
+    return const EdgeInsets.all(12); // Для мобильных
+  }
+
+  BorderRadius getAdaptiveBorderRadius(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 600) return BorderRadius.circular(20);
+    return BorderRadius.circular(16); // Для мобильных
+  }
+
+  double getAdaptiveSpacing(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 1200) return 24;
+    if (width > 800) return 20;
+    if (width > 600) return 16;
+    return 12; // Для мобильных
   }
 }

@@ -23,13 +23,6 @@ class CommentInput extends StatelessWidget {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // 🖼️ АВАТАРКА ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
-    final currentUserAvatar = ImageUtils.getUserAvatarUrl(
-      news: {},
-      userName: userProvider.userName,
-      isCurrentUser: true,
-    );
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey[50],
@@ -48,26 +41,12 @@ class CommentInput extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // 🖼️ АВАТАРКА ПОЛЬЗОВАТЕЛЯ
-          Container(
-            width: 44,
-            height: 44,
-            margin: const EdgeInsets.only(left: 16),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withOpacity(0.6),
-                width: 2,
-              ),
-            ),
-            child: ClipOval(
-              child: ImageUtils.buildImageWidget(
-                currentUserAvatar,
-                width: 44,
-                height: 44,
-                fit: BoxFit.cover,
-              ),
-            ),
+          // 🖼️ АВАТАРКА ПОЛЬЗОВАТЕЛЯ С УНИВЕРСАЛЬНОЙ СИСТЕМОЙ
+          ImageUtils.buildUserAvatarWidget(
+            context: context,
+            userId: userProvider.userId,
+            userName: userProvider.userName,
+            size: 44,
           ),
 
           const SizedBox(width: 16),
@@ -87,7 +66,7 @@ class CommentInput extends StatelessWidget {
                 context,
                 text,
                 userProvider.userName,
-                currentUserAvatar,
+                userProvider.userId,
               ),
             ),
           ),
@@ -96,7 +75,7 @@ class CommentInput extends StatelessWidget {
           _buildSendButton(
             context,
             userProvider.userName,
-            currentUserAvatar,
+            userProvider.userId,
           ),
         ],
       ),
@@ -104,7 +83,7 @@ class CommentInput extends StatelessWidget {
   }
 
   /// 📤 СОЗДАЕТ КНОПКУ ОТПРАВКИ КОММЕНТАРИЯ
-  Widget _buildSendButton(BuildContext context, String userName, String userAvatar) {
+  Widget _buildSendButton(BuildContext context, String userName, String userId) {
     return Container(
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
@@ -127,7 +106,7 @@ class CommentInput extends StatelessWidget {
         onPressed: () => _handleCommentButtonPress(
           context,
           userName,
-          userAvatar,
+          userId,
         ),
         padding: const EdgeInsets.all(12),
       ),
@@ -135,23 +114,30 @@ class CommentInput extends StatelessWidget {
   }
 
   /// 🎯 ОБРАБОТЧИК НАЖАТИЯ КНОПКИ ОТПРАВКИ
-  void _handleCommentButtonPress(BuildContext context, String userName, String userAvatar) {
+  void _handleCommentButtonPress(BuildContext context, String userName, String userId) {
     final text = commentController.text.trim();
     if (text.isNotEmpty) {
-      _submitComment(context, text, userName, userAvatar);
+      _submitComment(context, text, userName, userId);
     }
   }
 
   /// 🎯 ОБРАБОТЧИК ОТПРАВКИ ЧЕРЕЗ ENTER
-  void _handleCommentSubmission(BuildContext context, String text, String userName, String userAvatar) {
+  void _handleCommentSubmission(BuildContext context, String text, String userName, String userId) {
     final trimmedText = text.trim();
     if (trimmedText.isNotEmpty) {
-      _submitComment(context, trimmedText, userName, userAvatar);
+      _submitComment(context, trimmedText, userName, userId);
     }
   }
 
   /// 📤 ОТПРАВЛЯЕТ КОММЕНТАРИЙ И ПОКАЗЫВАЕТ УВЕДОМЛЕНИЕ
-  void _submitComment(BuildContext context, String text, String userName, String userAvatar) {
+  void _submitComment(BuildContext context, String text, String userName, String userId) {
+    // Получаем URL аватарки для комментария
+    final userAvatar = ImageUtils.getUniversalAvatarUrl(
+      context: context,
+      userId: userId,
+      userName: userName,
+    );
+
     // 📤 ВЫЗЫВАЕМ КОЛБЭК
     onComment(text, userName, userAvatar);
 

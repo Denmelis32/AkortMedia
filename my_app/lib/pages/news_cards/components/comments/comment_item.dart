@@ -2,6 +2,8 @@
 // Отображает отдельный комментарий с аватаркой, именем автора и текстом
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../providers/user_provider.dart';
 import '../../models/news_card_models.dart';
 import '../../utils/image_utils.dart';
 
@@ -17,19 +19,29 @@ class CommentItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
     // 📊 ПОЛУЧАЕМ ДАННЫЕ КОММЕНТАРИЯ
     final author = _getStringValue(comment['author']);
     final text = _getStringValue(comment['text']);
     final time = _getStringValue(comment['time']);
     final authorAvatar = _getStringValue(comment['author_avatar']);
 
+    // Генерируем ID автора комментария для универсальной системы
+    final authorId = _getAuthorId(comment, userProvider);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 🖼️ АВАТАРКА АВТОРА КОММЕНТАРИЯ
-          _buildCommentAvatar(authorAvatar, author),
+          // 🖼️ АВАТАРКА АВТОРА КОММЕНТАРИЯ С УНИВЕРСАЛЬНОЙ СИСТЕМОЙ
+          ImageUtils.buildUserAvatarWidget(
+            context: context,
+            userId: authorId,
+            userName: author,
+            size: 44,
+          ),
 
           const SizedBox(width: 16),
 
@@ -67,36 +79,6 @@ class CommentItem extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  /// 🖼️ СОЗДАЕТ АВАТАРКУ ДЛЯ КОММЕНТАРИЯ
-  Widget _buildCommentAvatar(String avatarUrl, String authorName) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white.withOpacity(0.6),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipOval(
-        child: ImageUtils.buildImageWidget(
-          avatarUrl,
-          width: 44,
-          height: 44,
-          fit: BoxFit.cover,
-        ),
       ),
     );
   }
@@ -140,6 +122,19 @@ class CommentItem extends StatelessWidget {
         height: 1.4,
       ),
     );
+  }
+
+  /// 🆔 ПОЛУЧАЕТ ID АВТОРА КОММЕНТАРИЯ
+  String _getAuthorId(Map<String, dynamic> comment, UserProvider userProvider) {
+    final author = _getStringValue(comment['author']);
+
+    // Если комментарий от текущего пользователя, используем его ID
+    if (author == userProvider.userName) {
+      return userProvider.userId;
+    }
+
+    // Для других пользователей генерируем ID из имени
+    return 'user_${author.hashCode.abs()}';
   }
 
   // 🎯 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ

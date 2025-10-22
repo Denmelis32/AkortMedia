@@ -50,15 +50,19 @@ class FilterChipsRow extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: contentMaxWidth),
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12),
+            color: const Color(0xFFF1F5F9), // Светлый серо-голубой фон
+            borderRadius: BorderRadius.circular(16), // Всегда закругленные углы
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
               ),
             ],
+            border: Border.all(
+              color: Colors.grey.withOpacity(0.1),
+              width: 1,
+            ),
           ),
           child: Row(
             children: List.generate(filterOptions.length, (index) {
@@ -67,43 +71,67 @@ class FilterChipsRow extends StatelessWidget {
               return Expanded(
                 child: Container(
                   margin: EdgeInsets.only(
-                    right: index < filterOptions.length - 1 ? 8 : 0,
+                    right: index < filterOptions.length - 1 ? 6 : 0,
                   ),
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
-                        // Просто устанавливаем фильтр - не переключаем на "все"
                         pageState.setFilter(index);
                       },
-                      borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12), // Всегда закругленные углы
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isSelected ? NewsTheme.primaryColor.withOpacity(0.1) : Colors.transparent,
-                          borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(8),
-                          border: isSelected ? Border.all(
-                            color: NewsTheme.primaryColor.withOpacity(0.3),
-                            width: 1,
+                          gradient: isSelected ? LinearGradient(
+                            colors: [
+                              const Color(0xFF6366F1).withOpacity(0.15),
+                              const Color(0xFF8B5CF6).withOpacity(0.08),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ) : null,
+                          color: isSelected ? null : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12), // Всегда закругленные углы
+                          border: isSelected ? Border.all(
+                            color: const Color(0xFF6366F1).withOpacity(0.25),
+                            width: 1.5,
+                          ) : Border.all(
+                            color: Colors.grey.withOpacity(0.15),
+                            width: 1,
+                          ),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              filterIcons[index],
-                              size: 18,
-                              color: isSelected ? NewsTheme.primaryColor : Colors.grey[600],
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF6366F1).withOpacity(0.1)
+                                    : Colors.white.withOpacity(0.7),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                filterIcons[index],
+                                size: 16,
+                                color: isSelected
+                                    ? const Color(0xFF6366F1)
+                                    : Colors.grey[700],
+                              ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 6),
                             Text(
                               filterOptions[index],
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? NewsTheme.primaryColor : Colors.black87,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected
+                                    ? const Color(0xFF6366F1)
+                                    : Colors.grey[800],
+                                letterSpacing: -0.1,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

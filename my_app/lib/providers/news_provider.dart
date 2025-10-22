@@ -334,126 +334,252 @@ class NewsProvider with ChangeNotifier {
 
   // ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ПРОФИЛЕМ
   Future<void> updateProfileImageUrl(String? url) async {
-    if (_isDisposed || _currentUserId == null) return;
+    if (_isDisposed || _currentUserId == null) {
+      print('❌ [PROVIDER] Cannot update profile: disposed=$_isDisposed, userId=$_currentUserId');
+      return;
+    }
 
     final user = _userProfiles[_currentUserId!];
-    if (user == null) return;
+    if (user == null) {
+      print('❌ [PROVIDER] User not found: $_currentUserId');
+      return;
+    }
+
+    print('🔄 [PROVIDER] Updating profile image URL for user $_currentUserId: $url');
 
     // Валидация URL
+    String? validatedUrl = url;
     if (url != null && url.isNotEmpty) {
       try {
         final uri = Uri.parse(url);
         if (!uri.hasScheme) {
-          url = 'https://$url';
+          validatedUrl = 'https://$url';
+          print('   🔧 Added https scheme: $validatedUrl');
         }
 
-        final response = await http.head(Uri.parse(url));
+        // Проверяем доступность изображения
+        print('   🔍 Checking image availability...');
+        final response = await http.head(Uri.parse(validatedUrl!));
         if (response.statusCode != 200) {
-          print('❌ Image URL not accessible: ${response.statusCode}');
-          return;
+          print('❌ [PROVIDER] Image URL not accessible: ${response.statusCode}');
+          throw Exception('Изображение недоступно: ${response.statusCode}');
         }
+        print('   ✅ Image is accessible');
       } catch (e) {
-        print('❌ Invalid image URL: $e');
-        return;
+        print('❌ [PROVIDER] Invalid image URL: $e');
+        throw Exception('Некорректная ссылка на изображение: $e');
       }
     }
 
+    // ОБНОВЛЯЕМ ДАННЫЕ В ПАМЯТИ
     _userProfiles[_currentUserId!] = user.copyWith(
-      profileImageUrl: url,
-      profileImageFile: null,
+      profileImageUrl: validatedUrl,
+      profileImageFile: null, // Очищаем файл при установке URL
     );
 
+    print('✅ [PROVIDER] Profile image updated in memory');
+
+    // НЕМЕДЛЕННОЕ уведомление слушателей
     _safeNotifyListeners();
-    await StorageService.saveProfileImageUrl(_currentUserId!, url);
-    print('✅ Profile image URL updated for user $_currentUserId: $url');
+
+    // Сохранение в хранилище
+    try {
+      await StorageService.saveProfileImageUrl(_currentUserId!, validatedUrl);
+      print('✅ [PROVIDER] Profile image URL saved to storage');
+    } catch (e) {
+      print('❌ [PROVIDER] Error saving to storage: $e');
+    }
+
+    // Дополнительная проверка
+    final updatedUser = _userProfiles[_currentUserId!];
+    print('🔍 [PROVIDER] Verification - current profile image: ${updatedUser?.profileImageUrl}');
+
+    // ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ДАННЫХ
+    await _loadUserProfileData(_currentUserId!);
   }
 
+
   Future<void> updateProfileImageFile(File? file) async {
-    if (_isDisposed || _currentUserId == null) return;
+    if (_isDisposed || _currentUserId == null) {
+      print('❌ [PROVIDER] Cannot update profile file: disposed=$_isDisposed, userId=$_currentUserId');
+      return;
+    }
 
     final user = _userProfiles[_currentUserId!];
-    if (user == null) return;
+    if (user == null) {
+      print('❌ [PROVIDER] User not found: $_currentUserId');
+      return;
+    }
 
+    print('🔄 [PROVIDER] Updating profile image FILE for user $_currentUserId: ${file?.path}');
+
+    // ОБНОВЛЯЕМ ДАННЫЕ В ПАМЯТИ
     _userProfiles[_currentUserId!] = user.copyWith(
       profileImageFile: file,
-      profileImageUrl: null,
+      profileImageUrl: null, // Очищаем URL при установке файла
     );
+
+    print('✅ [PROVIDER] Profile image file updated in memory');
 
     if (file != null) {
       final exists = await file.exists();
       if (exists) {
-        await StorageService.saveProfileImageFilePath(_currentUserId!, file.path);
-        print('✅ Profile image file updated for user $_currentUserId: ${file.path}');
+        try {
+          await StorageService.saveProfileImageFilePath(_currentUserId!, file.path);
+          print('✅ [PROVIDER] Profile image file saved to storage: ${file.path}');
+        } catch (e) {
+          print('❌ [PROVIDER] Error saving file path: $e');
+        }
       } else {
-        print('❌ File does not exist: ${file.path}');
+        print('❌ [PROVIDER] File does not exist: ${file.path}');
         _userProfiles[_currentUserId!] = user.copyWith(profileImageFile: null);
       }
     } else {
       await StorageService.saveProfileImageFilePath(_currentUserId!, null);
-      print('✅ Profile image file removed for user $_currentUserId');
+      print('✅ [PROVIDER] Profile image file removed from storage');
     }
 
+    // НЕМЕДЛЕННОЕ уведомление
     _safeNotifyListeners();
-  }
 
+    // Дополнительная проверка
+    final updatedUser = _userProfiles[_currentUserId!];
+    print('🔍 [PROVIDER] Verification - current profile file: ${updatedUser?.profileImageFile?.path}');
+
+    // ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ДАННЫХ
+    await _loadUserProfileData(_currentUserId!);
+  }
   // НОВЫЕ МЕТОДЫ ДЛЯ ОБЛОЖКИ
   Future<void> updateCoverImageUrl(String? url) async {
-    if (_isDisposed || _currentUserId == null) return;
+    if (_isDisposed || _currentUserId == null) {
+      print('❌ [COVER] Cannot update cover: disposed=$_isDisposed, userId=$_currentUserId');
+      return;
+    }
 
     final user = _userProfiles[_currentUserId!];
-    if (user == null) return;
+    if (user == null) {
+      print('❌ [COVER] User not found: $_currentUserId');
+      return;
+    }
+
+    print('🔄 [COVER] Updating cover image URL for user $_currentUserId: $url');
 
     // Валидация URL
+    String? validatedUrl = url;
     if (url != null && url.isNotEmpty) {
       try {
         final uri = Uri.parse(url);
         if (!uri.hasScheme) {
-          url = 'https://$url';
+          validatedUrl = 'https://$url';
+          print('   🔧 Added https scheme: $validatedUrl');
         }
+
+        // Проверяем доступность изображения
+        print('   🔍 Checking cover image availability...');
+        final response = await http.head(Uri.parse(validatedUrl!));
+        if (response.statusCode != 200) {
+          print('❌ [COVER] Cover URL not accessible: ${response.statusCode}');
+          throw Exception('Обложка недоступна: ${response.statusCode}');
+        }
+        print('   ✅ Cover image is accessible');
       } catch (e) {
-        print('❌ Invalid cover URL: $e');
-        return;
+        print('❌ [COVER] Invalid cover URL: $e');
+        throw Exception('Некорректная ссылка на обложку: $e');
       }
     }
 
-    _userProfiles[_currentUserId!] = user.copyWith(coverImageUrl: url);
+    // ОБНОВЛЯЕМ ДАННЫЕ В ПАМЯТИ
+    _userProfiles[_currentUserId!] = user.copyWith(
+      coverImageUrl: validatedUrl,
+      coverImageFile: null, // Очищаем файл при установке URL
+    );
+
+    print('✅ [COVER] Cover image updated in memory');
+
+    // НЕМЕДЛЕННОЕ уведомление слушателей
     _safeNotifyListeners();
-    await StorageService.saveCoverImageUrl(_currentUserId!, url);
-    print('✅ Cover image URL updated for user $_currentUserId: $url');
+
+    // Сохранение в хранилище
+    try {
+      await StorageService.saveCoverImageUrl(_currentUserId!, validatedUrl);
+      print('✅ [COVER] Cover image URL saved to storage');
+    } catch (e) {
+      print('❌ [COVER] Error saving to storage: $e');
+    }
+
+    // Дополнительная проверка
+    final updatedUser = _userProfiles[_currentUserId!];
+    print('🔍 [COVER] Verification - current cover image: ${updatedUser?.coverImageUrl}');
+
+    // ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ДАННЫХ
+    await _loadUserProfileData(_currentUserId!);
   }
 
+
+
+
   Future<void> updateCoverImageFile(File? file) async {
-    if (_isDisposed || _currentUserId == null) return;
+    if (_isDisposed || _currentUserId == null) {
+      print('❌ [COVER] Cannot update cover file: disposed=$_isDisposed, userId=$_currentUserId');
+      return;
+    }
 
     final user = _userProfiles[_currentUserId!];
-    if (user == null) return;
+    if (user == null) {
+      print('❌ [COVER] User not found: $_currentUserId');
+      return;
+    }
 
-    _userProfiles[_currentUserId!] = user.copyWith(coverImageFile: file);
+    print('🔄 [COVER] Updating cover image FILE for user $_currentUserId: ${file?.path}');
+
+    // ОБНОВЛЯЕМ ДАННЫЕ В ПАМЯТИ
+    _userProfiles[_currentUserId!] = user.copyWith(
+      coverImageFile: file,
+      coverImageUrl: null, // Очищаем URL при установке файла
+    );
+
+    print('✅ [COVER] Cover image file updated in memory');
 
     if (file != null) {
       final exists = await file.exists();
       if (exists) {
-        await StorageService.saveCoverImageFilePath(_currentUserId!, file.path);
-        print('✅ Cover image file updated for user $_currentUserId: ${file.path}');
+        try {
+          await StorageService.saveCoverImageFilePath(_currentUserId!, file.path);
+          print('✅ [COVER] Cover image file saved to storage: ${file.path}');
+        } catch (e) {
+          print('❌ [COVER] Error saving file path: $e');
+        }
       } else {
-        print('❌ Cover file does not exist: ${file.path}');
+        print('❌ [COVER] File does not exist: ${file.path}');
         _userProfiles[_currentUserId!] = user.copyWith(coverImageFile: null);
       }
     } else {
       await StorageService.saveCoverImageFilePath(_currentUserId!, null);
-      print('✅ Cover image file removed for user $_currentUserId');
+      print('✅ [COVER] Cover image file removed from storage');
     }
 
+    // НЕМЕДЛЕННОЕ уведомление
     _safeNotifyListeners();
+
+    // Дополнительная проверка
+    final updatedUser = _userProfiles[_currentUserId!];
+    print('🔍 [COVER] Verification - current cover file: ${updatedUser?.coverImageFile?.path}');
+
+    // ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ДАННЫХ
+    await _loadUserProfileData(_currentUserId!);
   }
 
   // Загрузка данных профиля пользователя
+  // В NewsProvider - УЛУЧШЕННАЯ ЗАГРУЗКА
   Future<void> _loadUserProfileData(String userId) async {
     if (_isDisposed) return;
 
     try {
+      print('🔄 [PROVIDER] Loading profile data for user: $userId');
+
       // Загружаем URL аватарки
       final savedUrl = await StorageService.loadProfileImageUrl(userId);
+      print('📥 [PROVIDER] Loaded profile URL: $savedUrl');
 
       // Загружаем файл аватарки
       final savedFilePath = await StorageService.loadProfileImageFilePath(userId);
@@ -462,8 +588,10 @@ class NewsProvider with ChangeNotifier {
         final file = File(savedFilePath);
         if (await file.exists()) {
           profileFile = file;
+          print('📥 [PROVIDER] Loaded profile file: ${file.path}');
         } else {
           await StorageService.saveProfileImageFilePath(userId, null);
+          print('⚠️ [PROVIDER] Profile file not found, clearing path');
         }
       }
 
@@ -475,12 +603,14 @@ class NewsProvider with ChangeNotifier {
         final file = File(savedCoverPath);
         if (await file.exists()) {
           coverFile = file;
+          print('📥 [PROVIDER] Loaded cover file: ${file.path}');
         } else {
           await StorageService.saveCoverImageFilePath(userId, null);
+          print('⚠️ [PROVIDER] Cover file not found, clearing path');
         }
       }
 
-      // Обновляем профиль
+      // Обновляем профиль в памяти
       if (_userProfiles.containsKey(userId)) {
         _userProfiles[userId] = _userProfiles[userId]!.copyWith(
           profileImageUrl: savedUrl,
@@ -488,12 +618,19 @@ class NewsProvider with ChangeNotifier {
           coverImageUrl: savedCoverUrl,
           coverImageFile: coverFile,
         );
+
+        print('✅ [PROVIDER] Profile data loaded successfully');
+        print('🔍 [PROVIDER] Final state - Profile URL: $savedUrl, Profile File: ${profileFile?.path}');
+        print('🔍 [PROVIDER] Final state - Cover URL: $savedCoverUrl, Cover File: ${coverFile?.path}');
+      } else {
+        print('❌ [PROVIDER] User profile not found in memory: $userId');
       }
 
-      print('✅ Profile data loaded for user $userId');
+      // УВЕДОМЛЯЕМ СЛУШАТЕЛЕЙ
       _safeNotifyListeners();
+
     } catch (e) {
-      print('❌ Error loading profile data for user $userId: $e');
+      print('❌ [PROVIDER] Error loading profile data for user $userId: $e');
     }
   }
 
@@ -775,8 +912,8 @@ class NewsProvider with ChangeNotifier {
 
       // Определяем аватар автора
       final authorName = newsItem['author_name']?.toString() ?? 'Пользователь';
-      final authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
-
+      final authorId = newsItem['author_id']?.toString() ?? '';
+      final authorAvatar = getUserAvatarUrl(authorId, authorName);
       // Для репостов гарантируем правильную структуру данных
       final isRepost = newsItem['is_repost'] == true;
       final repostComment = newsItem['repost_comment']?.toString() ?? '';
@@ -814,9 +951,61 @@ class NewsProvider with ChangeNotifier {
     await _saveNewsToStorage();
   }
 
+
+  // В класс NewsProvider добавьте:
+
+  /// 🎯 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ ПОЛЬЗОВАТЕЛЯ
+  // В классе NewsProvider - ОБНОВЛЕННЫЙ МЕТОД
+  String getUserAvatarUrl(String userId, String userName) {
+    try {
+      print('🔍 NewsProvider: Getting avatar for user $userName ($userId)');
+
+      // 1. 🥇 ПРИОРИТЕТ: Проверяем текущего пользователя
+      if (_currentUserId == userId) {
+        final currentUser = _getCurrentUser();
+        if (currentUser != null) {
+          // Файл с рабочего стола
+          if (currentUser.profileImageFile != null) {
+            print('✅ NewsProvider: Using CURRENT USER profile image FILE: ${currentUser.profileImageFile!.path}');
+            return currentUser.profileImageFile!.path;
+          }
+
+          // URL из интернета
+          if (currentUser.profileImageUrl != null && currentUser.profileImageUrl!.isNotEmpty) {
+            print('✅ NewsProvider: Using CURRENT USER profile image URL: ${currentUser.profileImageUrl}');
+            return currentUser.profileImageUrl!;
+          }
+        }
+      }
+
+      // 2. 🥈 ПРИОРИТЕТ: Проверяем других пользователей из _userProfiles
+      final userProfile = getUserProfile(userId);
+      if (userProfile != null) {
+        if (userProfile.profileImageFile != null) {
+          print('✅ NewsProvider: Using profile image FILE for $userName: ${userProfile.profileImageFile!.path}');
+          return userProfile.profileImageFile!.path;
+        }
+
+        if (userProfile.profileImageUrl != null && userProfile.profileImageUrl!.isNotEmpty) {
+          print('✅ NewsProvider: Using profile image URL for $userName: ${userProfile.profileImageUrl}');
+          return userProfile.profileImageUrl!;
+        }
+      }
+
+      // 3. 🥉 FALLBACK: Локальные assets
+      final fallbackAvatar = _getFallbackAvatarUrl(userName);
+      print('🎯 NewsProvider: Using fallback avatar for $userName: $fallbackAvatar');
+      return fallbackAvatar;
+
+    } catch (e) {
+      print('❌ NewsProvider: Error getting avatar for $userName: $e');
+      return _getFallbackAvatarUrl(userName);
+    }
+  }
+
   /// Создание начальных новостей
   Future<void> _createInitialNews() async {
-    final mockNews = _getMockNews();
+    final mockNews = MockNewsData.getMockNews(); // ← ПРАВИЛЬНЫЙ ВЫЗОВ
 
     _safeOperation(() {
       _news = mockNews;
@@ -1035,7 +1224,11 @@ class NewsProvider with ChangeNotifier {
   }
 
   // ИСПРАВЛЕННЫЙ МЕТОД: Используем локальные аватарки вместо URL
+  // В классе NewsProvider замените метод _getFallbackAvatarUrl:
+
+// ИСПРАВЛЕННЫЙ МЕТОД: Используем универсальную систему
   String _getFallbackAvatarUrl(String userName) {
+    // Теперь используем ту же логику, что и в ImageUtils
     final avatars = [
       'assets/images/ava_news/ava1.png',
       'assets/images/ava_news/ava2.png',
@@ -1055,15 +1248,10 @@ class NewsProvider with ChangeNotifier {
     final index = userName.hashCode.abs() % avatars.length;
     final selectedAvatar = avatars[index];
 
-    print('🎲 Generated fallback avatar for $userName: $selectedAvatar (index: $index)');
+    print('🎲 NewsProvider: Generated fallback avatar for $userName: $selectedAvatar (index: $index)');
     return selectedAvatar;
   }
 
-  List<dynamic> _getMockNews() {
-    return MockNewsData.getMockNews();
-  }
-
-  // ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ МЕТОД addNews В news_provider.dart
   // ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ МЕТОД addNews В news_provider.dart
   Future<void> addNews(Map<String, dynamic> newsItem, {BuildContext? context}) async {
     if (_isDisposed) return;
@@ -1105,19 +1293,20 @@ class NewsProvider with ChangeNotifier {
       // ДЛЯ РЕПОСТОВ: сохраняем все данные репоста
       String authorAvatar;
       if (isRepost) {
-        // Для репостов используем аватар репостнувшего пользователя
-        authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
+        final repostedById = newsItem['reposted_by']?.toString() ?? '';
+        final repostedByName = newsItem['reposted_by_name']?.toString() ?? authorName;
+
+        // Используем универсальную систему
+        authorAvatar = getUserAvatarUrl(repostedById, repostedByName);
 
         print('🔄 ADDING REPOST TO PROVIDER:');
         print('   Repost ID: $uniqueId');
-        print('   Reposted by: ${newsItem['reposted_by_name']}');
-        print('   Original author: ${newsItem['original_author_name']}');
-        print('   Original channel: ${newsItem['original_channel_name']}');
-        print('   Is original channel: ${newsItem['is_original_channel_post']}');
-        print('   Repost comment: "$repostComment"');
+        print('   Reposted by: $repostedByName ($repostedById)');
+        print('   Avatar: $authorAvatar');
       } else {
         // Для обычных постов
-        authorAvatar = newsItem['author_avatar']?.toString() ?? _getFallbackAvatarUrl(authorName);
+        final authorId = newsItem['author_id']?.toString() ?? '';
+        authorAvatar = getUserAvatarUrl(authorId, authorName);
       }
 
       // ВАЖНОЕ ИСПРАВЛЕНИЕ: Для репостов с комментариями - ГАРАНТИРУЕМ, что обычные комментарии ПУСТЫЕ
@@ -1921,11 +2110,27 @@ class NewsProvider with ChangeNotifier {
     print('✅ Profile image removed for user $_currentUserId');
   }
 
-  void removeCoverImage() {
-    if (_isDisposed || _currentUserId == null) return;
+
+  bool hasProfileImage() {
+    if (_isDisposed || _currentUserId == null) return false;
+    final user = _userProfiles[_currentUserId!];
+    return user?.profileImageUrl != null || user?.profileImageFile != null;
+  }
+
+
+  Future<void> removeCoverImage() async {
+    if (_isDisposed || _currentUserId == null) {
+      print('❌ [COVER] Cannot remove cover: disposed=$_isDisposed, userId=$_currentUserId');
+      return;
+    }
 
     final user = _userProfiles[_currentUserId!];
-    if (user == null) return;
+    if (user == null) {
+      print('❌ [COVER] User not found: $_currentUserId');
+      return;
+    }
+
+    print('🗑️ [COVER] Removing cover image for user $_currentUserId');
 
     _userProfiles[_currentUserId!] = user.copyWith(
       coverImageUrl: null,
@@ -1935,17 +2140,14 @@ class NewsProvider with ChangeNotifier {
     _safeNotifyListeners();
 
     // Очищаем в хранилище
-    StorageService.saveCoverImageUrl(_currentUserId!, null);
-    StorageService.saveCoverImageFilePath(_currentUserId!, null);
+    await StorageService.saveCoverImageUrl(_currentUserId!, null);
+    await StorageService.saveCoverImageFilePath(_currentUserId!, null);
 
-    print('✅ Cover image removed for user $_currentUserId');
+    print('✅ [COVER] Cover image removed for user $_currentUserId');
   }
 
-  bool hasProfileImage() {
-    if (_isDisposed || _currentUserId == null) return false;
-    final user = _userProfiles[_currentUserId!];
-    return user?.profileImageUrl != null || user?.profileImageFile != null;
-  }
+
+
 
   bool hasCoverImage() {
     if (_isDisposed || _currentUserId == null) return false;

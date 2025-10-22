@@ -1188,6 +1188,7 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                   key: ValueKey(league.id),
                   league: league,
                   onTap: () => _openLeagueDetail(leagueData),
+                  isMobile: true,
                 ),
                 if (_isSelectionMode)
                   Positioned(
@@ -1263,6 +1264,8 @@ class _PredictionsLeaguePageState extends State<PredictionsLeaguePage> {
                     key: ValueKey(league.id),
                     league: league,
                     onTap: () => _openLeagueDetail(leagueData),
+                    isMobile: false,
+
                   ),
                   if (_isSelectionMode)
                     Positioned(

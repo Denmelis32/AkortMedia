@@ -3,370 +3,359 @@ import '../pages/rooms_pages/models/room.dart';
 import '../pages/rooms_pages/models/room_category.dart';
 
 class RoomService {
-  Future<List<Room>> getRooms() async {
+  // Кэш для хранения комнат
+  List<Room>? _cachedRooms;
+  final Map<String, Room> _roomCache = {};
+
+  // Получение списка комнат с кэшированием
+  Future<List<Room>> getRooms({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedRooms != null) {
+      return _cachedRooms!;
+    }
+
     // Имитация загрузки из API
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     final now = DateTime.now();
-
-    return [
-      Room(
+    final rooms = [
+      _createRoom(
         id: '1',
         title: 'Роккер Ближник',
         description: 'Обсуждаем ванильные деньки',
         imageUrl: 'assets/images/ava_news/ava29.png',
         currentParticipants: 12450,
         messageCount: 89456,
-        isJoined: true,
-        createdAt: now.subtract(const Duration(days: 2)),
-        lastActivity: now.subtract(const Duration(minutes: 5)),
-        category: RoomCategory.youtube, // ИСПРАВЛЕНО: tech → technology
-        creatorId: 'user1',
+        category: RoomCategory.youtube,
         creatorName: 'Нонаши Покемонов',
-        creatorAvatarUrl: 'assets/images/ava_news/ava29.png', // НОВОЕ ПОЛЕ
-        moderators: ['user2', 'user3'],
-        isPrivate: false,
+        creatorAvatarUrl: 'https://avatars.mds.yandex.net/i?id=afbd7642e852a1eb5203048042bb5fe0_l-10702804-images-thumbs&n=13',
         tags: ['Ваниль', 'День'],
-        language: 'ru', // НОВОЕ ПОЛЕ
         isPinned: true,
         maxParticipants: 15000,
-        rules: 'Будьте вежливы, делитесь знаниями',
-        bannedUsers: [],
-        isActive: true,
         rating: 4.8,
         ratingCount: 245,
-        allowedUsers: [],
-        password: '',
-        accessLevel: RoomAccessLevel.public,
-        hasMedia: true,
-        isVerified: true,
         viewCount: 125000,
         favoriteCount: 4500,
+        createdAt: now.subtract(const Duration(days: 2)),
+        lastActivity: now.subtract(const Duration(minutes: 5)),
       ),
-      Room(
+      _createRoom(
         id: '2',
         title: 'Flutter Development',
-        description: 'Сообщество разработчиков Flutter. Помощь, обмен опытом, лучшие практики',
+        description: 'Сообщество разработчиков Flutter',
         imageUrl: 'assets/images/ava_news/ava28.png',
         currentParticipants: 8734,
         messageCount: 45678,
-        isJoined: false,
-        createdAt: now.subtract(const Duration(days: 15)),
-        lastActivity: now.subtract(const Duration(hours: 2)),
         category: RoomCategory.programming,
-        creatorId: 'user4',
         creatorName: 'Мария Разработчик',
-        creatorAvatarUrl: 'assets/images/ava_news/ava28.png', // НОВОЕ ПОЛЕ
-        moderators: ['user5'],
-        isPrivate: false,
-        tags: ['flutter', 'dart', 'mobile', 'development', 'программирование'],
-        language: 'ru', // НОВОЕ ПОЛЕ
-        isPinned: false,
-        maxParticipants: 10000,
-        rules: 'Помогайте новичкам, делитесь кодом',
-        bannedUsers: ['spam_user'],
-        isActive: true,
+        creatorAvatarUrl: 'assets/images/ava_news/ava28.png',
+        tags: ['flutter', 'dart', 'mobile'],
         rating: 4.9,
         ratingCount: 189,
-        allowedUsers: [],
-        password: '',
-        accessLevel: RoomAccessLevel.public,
-        hasMedia: true,
-        isVerified: true,
         viewCount: 89000,
         favoriteCount: 3200,
+        createdAt: now.subtract(const Duration(days: 15)),
+        lastActivity: now.subtract(const Duration(hours: 2)),
       ),
-      Room(
+      _createRoom(
         id: '3',
         title: 'Бизнес и Стартапы',
-        description: 'Обсуждение бизнес-идей, инвестиций и развития стартапов',
+        description: 'Обсуждение бизнес-идей и инвестиций',
         imageUrl: 'assets/images/ava_news/ava27.png',
         currentParticipants: 5432,
         messageCount: 23456,
-        isJoined: true,
-        createdAt: now.subtract(const Duration(days: 30)),
-        lastActivity: now.subtract(const Duration(days: 1)),
         category: RoomCategory.business,
-        creatorId: 'user6',
         creatorName: 'Дмитрий Бизнесмен',
-        creatorAvatarUrl: 'assets/images/ava_news/ava27.png',// НОВОЕ ПОЛЕ
-        moderators: ['user7', 'user8'],
+        creatorAvatarUrl: 'assets/images/ava_news/ava27.png',
+        tags: ['бизнес', 'стартапы', 'инвестиции'],
         isPrivate: true,
-        tags: ['бизнес', 'стартапы', 'инвестиции', 'предпринимательство'],
-        language: 'ru', // НОВОЕ ПОЛЕ
-        isPinned: false,
-        maxParticipants: 5000,
-        rules: 'Конфиденциальность, только деловые обсуждения',
-        bannedUsers: [],
-        isActive: true,
+        accessType: RoomAccessType.private,
         rating: 4.7,
         ratingCount: 156,
-        allowedUsers: ['user1', 'user2', 'user3'],
-        password: '',
-        accessLevel: RoomAccessLevel.private,
-        hasMedia: false,
-        isVerified: false,
         viewCount: 45000,
         favoriteCount: 1200,
+        createdAt: now.subtract(const Duration(days: 30)),
+        lastActivity: now.subtract(const Duration(days: 1)),
       ),
-      Room(
+      _createRoom(
         id: '4',
         title: 'Игровая индустрия',
-        description: 'Новости игр, разработка, геймдизайн и киберспорт и много-много всего обсуждаем',
+        description: 'Новости игр и разработка',
         imageUrl: 'assets/images/ava_news/ava26.png',
         currentParticipants: 15678,
         messageCount: 67890,
-        isJoined: false,
-        createdAt: now.subtract(const Duration(days: 10)),
-        lastActivity: now.subtract(const Duration(minutes: 30)),
         category: RoomCategory.games,
-        creatorId: 'user9',
         creatorName: 'Иван Геймер',
-        creatorAvatarUrl: 'assets/images/ava_news/ava26.png',// НОВОЕ ПОЛЕ
-        moderators: ['user10'],
-        isPrivate: false,
-        tags: ['игры', 'геймдев', 'киберспорт', 'streaming'],
-        language: 'ru', // НОВОЕ ПОЛЕ
+        creatorAvatarUrl: 'assets/images/ava_news/ava26.png',
+        tags: ['игры', 'геймдев', 'киберспорт'],
         isPinned: true,
         maxParticipants: 20000,
-        rules: 'Уважайте мнение других, никакого токсичного поведения',
-        bannedUsers: ['toxic_user1', 'toxic_user2'],
-        isActive: true,
+        accessType: RoomAccessType.password,
+        password: 'gaming2024',
         rating: 4.6,
         ratingCount: 278,
-        allowedUsers: [],
-        password: 'gaming2024',
-        accessLevel: RoomAccessLevel.protected,
-        hasMedia: true,
-        isVerified: true,
         viewCount: 167000,
         favoriteCount: 5600,
+        createdAt: now.subtract(const Duration(days: 10)),
+        lastActivity: now.subtract(const Duration(minutes: 30)),
       ),
     ];
+
+    _cachedRooms = rooms;
+    // Обновляем кэш отдельных комнат
+    for (final room in rooms) {
+      _roomCache[room.id] = room;
+    }
+
+    return rooms;
   }
 
+  // Вспомогательный метод для создания комнат
+  Room _createRoom({
+    required String id,
+    required String title,
+    required String description,
+    required String imageUrl,
+    required int currentParticipants,
+    required int messageCount,
+    required RoomCategory category,
+    required String creatorName,
+    required String? creatorAvatarUrl,
+    required List<String> tags,
+    DateTime? createdAt,
+    DateTime? lastActivity,
+    bool isJoined = false,
+    bool isPrivate = false,
+    bool isPinned = false,
+    int maxParticipants = 10000,
+    double rating = 0.0,
+    int ratingCount = 0,
+    int viewCount = 0,
+    int favoriteCount = 0,
+    RoomAccessType accessType = RoomAccessType.public,
+    String password = '',
+  }) {
+    final now = DateTime.now();
+    return Room(
+      id: id,
+      title: title,
+      description: description,
+      imageUrl: imageUrl,
+      currentParticipants: currentParticipants,
+      messageCount: messageCount,
+      isJoined: isJoined,
+      createdAt: createdAt ?? now,
+      lastActivity: lastActivity ?? now,
+      category: category,
+      creatorId: 'user_$id',
+      creatorName: creatorName,
+      creatorAvatarUrl: creatorAvatarUrl,
+      moderators: const [],
+      isPrivate: isPrivate,
+      tags: tags,
+      language: 'ru',
+      isPinned: isPinned,
+      maxParticipants: maxParticipants,
+      rules: '',
+      bannedUsers: const [],
+      isActive: true,
+      rating: rating,
+      ratingCount: ratingCount,
+      allowedUsers: const [],
+      password: password,
+      accessLevel: RoomAccessLevel.fromAccessType(accessType),
+      scheduledStart: null,
+      duration: null,
+      hasMedia: true,
+      isVerified: rating > 4.5,
+      viewCount: viewCount,
+      favoriteCount: favoriteCount,
+      customIcon: null,
+      hasPendingInvite: false,
+      communityId: null,
+      accessType: accessType,
+    );
+  }
+
+  // Создание новой комнаты
   Future<Room> createRoom({
     required String title,
     required String description,
     required RoomCategory category,
-    bool isPrivate = false,
-    List<String> tags = const [],
-    String language = 'ru',
-    int maxParticipants = 100,
-    String rules = '',
-    RoomAccessLevel accessLevel = RoomAccessLevel.public,
+    RoomAccessType accessType = RoomAccessType.public,
     String password = '',
+    List<String> tags = const [],
+    int maxParticipants = 100,
     DateTime? scheduledStart,
-    Duration? duration,
-    bool hasMedia = false,
-    bool enableVoiceChat = false,
-    bool enableVideoChat = false,
   }) async {
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 500));
 
-    final now = DateTime.now();
-
-    return Room(
+    final room = _createRoom(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
       description: description,
       imageUrl: _getDefaultImageForCategory(category),
       currentParticipants: 1,
       messageCount: 0,
-      isJoined: true,
-      createdAt: now,
-      lastActivity: now,
       category: category,
-      creatorId: 'current_user',
-      creatorName: 'Текущий Пользователь',
-      creatorAvatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100', // НОВОЕ ПОЛЕ
-      moderators: [],
-      isPrivate: isPrivate,
+      creatorName: 'Вы',
+      creatorAvatarUrl: null,
       tags: tags,
-      language: language, // НОВОЕ ПОЛЕ
-      isPinned: false,
+      isJoined: true,
       maxParticipants: maxParticipants,
-      rules: rules,
-      bannedUsers: [],
-      isActive: true,
-      rating: 0.0,
-      ratingCount: 0,
-      allowedUsers: [],
+      accessType: accessType,
       password: password,
-      accessLevel: accessLevel,
-      scheduledStart: scheduledStart,
-      duration: duration,
-      hasMedia: hasMedia,
-      isVerified: false,
-      viewCount: 0,
-      favoriteCount: 0,
     );
+
+    // Добавляем в кэш
+    _cachedRooms?.insert(0, room);
+    _roomCache[room.id] = room;
+
+    return room;
   }
 
+  // Обновление комнаты
   Future<void> updateRoom(Room room) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    // Имитация обновления на сервере
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    // Обновляем в кэше
+    _roomCache[room.id] = room;
+    final index = _cachedRooms?.indexWhere((r) => r.id == room.id);
+    if (index != null && index != -1) {
+      _cachedRooms?[index] = room;
+    }
+
     if (kDebugMode) {
       print('Room updated: ${room.title}');
     }
   }
 
-  String _getDefaultImageForCategory(RoomCategory category) {
-    switch (category.id) {
-      case 'technology':
-        return 'https://avatars.mds.yandex.net/i?id=1e90171b7d4bc14b07b66f1f6757ff2f_l-9837529-images-thumbs&n=13';
-      case 'programming':
-        return 'https://avatars.mds.yandex.net/i?id=32c0a73c0990f1f127a8f440607ad510f6650260-4559382-images-thumbs&n=13';
-      case 'business':
-        return 'https://avatars.mds.yandex.net/i?id=dda503b4fa8209f9669720bbe1d3b708_l-10251881-images-thumbs&n=13';
-      case 'games':
-        return 'https://avatars.mds.yandex.net/i?id=1d8887bee2ca66b5d364c0c930a7ae4f_l-5115383-images-thumbs&n=13';
-      case 'sport':
-        return 'https://i.pinimg.com/736x/fe/90/2a/fe902a418aeeac098af585df9d84b67f.jpg';
-      case 'youtube':
-        return 'https://avatars.mds.yandex.net/i?id=a3c059dfd766f0b77cb583919bc5c0c8_l-5245909-images-thumbs&n=13';
-      case 'communication':
-        return 'https://avatars.mds.yandex.net/i?id=af750c649d6cf46534419eb162e883c7500e26bc-4828405-images-thumbs&n=13';
-      default:
-        return 'https://avatars.mds.yandex.net/i?id=2154efb7672c374c3a7d819f4f4590e55315e1d1-4316446-images-thumbs&n=13';
+  // Получение комнаты по ID
+  Future<Room?> getRoomById(String roomId) async {
+    // Проверяем кэш
+    if (_roomCache.containsKey(roomId)) {
+      return _roomCache[roomId];
     }
+
+    // Если нет в кэше, загружаем все комнаты
+    final rooms = await getRooms();
+    return rooms.firstWhere((room) => room.id == roomId);
   }
 
-  Future<void> deleteRoom(String roomId) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    // Имитация удаления на сервере
+  // Удаление комнаты
+  Future<bool> deleteRoom(String roomId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // Удаляем из кэша
+    _roomCache.remove(roomId);
+    _cachedRooms?.removeWhere((room) => room.id == roomId);
+
     if (kDebugMode) {
       print('Room deleted: $roomId');
     }
+    return true;
   }
 
-  Future<void> joinRoom(String roomId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  Future<void> leaveRoom(String roomId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-
-  // Методы для работы с рейтингами
-  Future<double> rateRoom(String roomId, double rating) async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    return rating;
-  }
-
-  // Методы для модерации
-  Future<void> addModerator(String roomId, String userId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  Future<void> removeModerator(String roomId, String userId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  Future<void> banUser(String roomId, String userId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  Future<void> unbanUser(String roomId, String userId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  // Методы для работы с тегами
-  Future<void> addTag(String roomId, String tag) async {
+  // Упрощенные методы для участия/выхода
+  Future<bool> joinRoom(String roomId) async {
     await Future.delayed(const Duration(milliseconds: 200));
+
+    final room = await getRoomById(roomId);
+    if (room != null && room.hasAvailableSpots) {
+      final updatedRoom = room.copyWith(
+        currentParticipants: room.currentParticipants + 1,
+        isJoined: true,
+      );
+      await updateRoom(updatedRoom);
+      return true;
+    }
+    return false;
   }
 
-  Future<void> removeTag(String roomId, String tag) async {
+  Future<bool> leaveRoom(String roomId) async {
     await Future.delayed(const Duration(milliseconds: 200));
+
+    final room = await getRoomById(roomId);
+    if (room != null && room.isJoined) {
+      final updatedRoom = room.copyWith(
+        currentParticipants: room.currentParticipants - 1,
+        isJoined: false,
+      );
+      await updateRoom(updatedRoom);
+      return true;
+    }
+    return false;
   }
 
-  // Методы для запланированных комнат
-  Future<void> scheduleRoom(String roomId, DateTime startTime, Duration duration) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-  }
-
-  Future<void> cancelScheduledRoom(String roomId) async {
+  // Рейтинг комнаты
+  Future<bool> rateRoom(String roomId, double rating) async {
     await Future.delayed(const Duration(milliseconds: 300));
+
+    final room = await getRoomById(roomId);
+    if (room != null) {
+      final newRatingCount = room.ratingCount + 1;
+      final newRating = ((room.rating * room.ratingCount) + rating) / newRatingCount;
+
+      final updatedRoom = room.copyWith(
+        rating: double.parse(newRating.toStringAsFixed(1)),
+        ratingCount: newRatingCount,
+      );
+      await updateRoom(updatedRoom);
+      return true;
+    }
+    return false;
   }
 
   // Поиск комнат
   Future<List<Room>> searchRooms(String query) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    final allRooms = await getRooms();
-    return allRooms.where((room) =>
-    room.title.toLowerCase().contains(query.toLowerCase()) ||
-        room.description.toLowerCase().contains(query.toLowerCase()) ||
-        room.tags.any((tag) => tag.toLowerCase().contains(query.toLowerCase())) ||
-        room.creatorName.toLowerCase().contains(query.toLowerCase())
+    if (query.isEmpty) {
+      return await getRooms();
+    }
+
+    final rooms = await getRooms();
+    final lowerQuery = query.toLowerCase();
+
+    return rooms.where((room) =>
+    room.title.toLowerCase().contains(lowerQuery) ||
+        room.description.toLowerCase().contains(lowerQuery) ||
+        room.tags.any((tag) => tag.toLowerCase().contains(lowerQuery)) ||
+        room.category.title.toLowerCase().contains(lowerQuery)
     ).toList();
   }
 
-  // Получение статистики
-  Future<Map<String, dynamic>> getRoomStats(String roomId) async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    return {
-      'views': 15000,
-      'uniqueVisitors': 4500,
-      'avgSessionDuration': '12:34',
-      'popularTags': ['flutter', 'dart', 'mobile'],
-      'peakActivity': '19:00-21:00',
-      'ratingDistribution': [5, 15, 30, 40, 10],
-      'growthRate': '+12.5%',
-      'activityLevel': 0.75, // НОВАЯ СТАТИСТИКА
-      'hasPendingInvite': false, // НОВАЯ СТАТИСТИКА
+  // Получение рекомендуемых комнат
+  Future<List<Room>> getRecommendedRooms() async {
+    final rooms = await getRooms();
+    return rooms
+        .where((room) => room.isActive && room.isHighlyRated && room.hasAvailableSpots)
+        .take(5)
+        .toList();
+  }
+
+  // Получение популярных комнат
+  Future<List<Room>> getPopularRooms() async {
+    final rooms = await getRooms();
+    return rooms
+        .where((room) => room.isActive && room.isPopular)
+        .toList()
+      ..sort((a, b) => b.currentParticipants.compareTo(a.currentParticipants));
+  }
+
+  // Очистка кэша
+  void clearCache() {
+    _cachedRooms = null;
+    _roomCache.clear();
+  }
+
+  // Вспомогательный метод для получения изображения по категории
+  String _getDefaultImageForCategory(RoomCategory category) {
+    const defaultImages = {
+      'technology': 'https://avatars.mds.yandex.net/i?id=1e90171b7d4bc14b07b66f1f6757ff2f_l-9837529-images-thumbs&n=13',
+      'programming': 'https://avatars.mds.yandex.net/i?id=32c0a73c0990f1f127a8f440607ad510f6650260-4559382-images-thumbs&n=13',
+      'business': 'https://avatars.mds.yandex.net/i?id=dda503b4fa8209f9669720bbe1d3b708_l-10251881-images-thumbs&n=13',
+      'games': 'https://avatars.mds.yandex.net/i?id=1d8887bee2ca66b5d364c0c930a7ae4f_l-5115383-images-thumbs&n=13',
+      'youtube': 'https://avatars.mds.yandex.net/i?id=a3c059dfd766f0b77cb583919bc5c0c8_l-5245909-images-thumbs&n=13',
     };
-  }
 
-  // НОВЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ИЗБРАННЫМ
-  Future<void> addToFavorites(String roomId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  Future<void> removeFromFavorites(String roomId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  Future<List<Room>> getFavoriteRooms() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    final allRooms = await getRooms();
-    return allRooms.where((room) => room.isJoined).take(3).toList();
-  }
-
-  // НОВЫЕ МЕТОДЫ ДЛЯ АНАЛИТИКИ
-  Future<void> trackRoomView(String roomId) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-  }
-
-  Future<Map<String, dynamic>> getUserRoomStats(String userId) async {
-    await Future.delayed(const Duration(milliseconds: 700));
-    return {
-      'roomsCreated': 5,
-      'roomsJoined': 12,
-      'totalMessages': 456,
-      'averageRating': 4.3,
-      'favoriteCategories': ['Технологии', 'Программирование'],
-      'hasNewInvites': true, // НОВАЯ СТАТИСТИКА
-    };
-  }
-
-  // НОВЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ПРИГЛАШЕНИЯМИ
-  Future<void> sendRoomInvite(String roomId, String userId) async {
-    await Future.delayed(const Duration(milliseconds: 400));
-  }
-
-  Future<void> acceptRoomInvite(String inviteId) async {
-    await Future.delayed(const Duration(milliseconds: 400));
-  }
-
-  Future<void> declineRoomInvite(String inviteId) async {
-    await Future.delayed(const Duration(milliseconds: 400));
-  }
-
-  Future<List<Room>> getRoomInvites() async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    final allRooms = await getRooms();
-    // Возвращаем приватные комнаты как пример приглашений
-    return allRooms.where((room) => room.isPrivate).take(2).toList();
+    return defaultImages[category.id] ?? defaultImages['technology']!;
   }
 }

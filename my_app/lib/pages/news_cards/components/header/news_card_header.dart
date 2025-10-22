@@ -3,9 +3,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../providers/user_tags_provider.dart';
+import '../../../../providers/news_providers/user_tags_provider.dart';
 import '../../../../providers/user_provider.dart';
-import '../../../../providers/channel_state_provider.dart';
+import '../../../../providers/channel_provider/channel_state_provider.dart';
 import '../../../../providers/news_providers/news_provider.dart';
 import '../../dialogs/tag_edit_dialog.dart';
 import '../../models/news_card_enums.dart';

@@ -2,7 +2,7 @@
 // Позволяет пользователю изменить название и цвет персонального тега
 
 import 'package:flutter/material.dart';
-import '../../../providers/user_tags_provider.dart';
+import '../../../providers/news_providers/user_tags_provider.dart';
 import '../models/news_card_models.dart';
 
 class TagEditDialog extends StatefulWidget {

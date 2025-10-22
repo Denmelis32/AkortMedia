@@ -16,13 +16,30 @@ class CategoriesSection extends StatelessWidget {
     required this.fadeAnimation,
   }) : super(key: key);
 
-  // 🆕 Метод для определения горизонтальных отступов
+  // 🆕 Метод для определения горизонтальных отступов как во втором файле
   double _getHorizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     if (width > 1200) return 200;
     if (width > 800) return 100;
     if (width > 600) return 60;
     return 0;
+  }
+
+  // 🆕 Метод для определения максимальной ширины контента как во втором файле
+  double _getMaxContentWidth() => 1200;
+  double _getMinContentWidth() => 320;
+
+  // 🆕 Основной layout с фиксированной шириной как во втором файле
+  Widget _buildDesktopLayout(Widget content) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: _getMaxContentWidth(),
+          minWidth: _getMinContentWidth(),
+        ),
+        child: content,
+      ),
+    );
   }
 
   @override
@@ -34,48 +51,90 @@ class CategoriesSection extends StatelessWidget {
       opacity: fadeAnimation,
       child: Container(
         // 🆕 Убрали margin, так как контейнер уже имеет отступы
-        child: Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(isMobile ? 0 : 12),
-          ),
-          color: Colors.white,
-          margin: EdgeInsets.symmetric(
-            horizontal: isMobile ? 16 : 0, // 🆕 Только на мобильных
-            vertical: 8,
-          ),
-          child: Container(
-            padding: EdgeInsets.all(isMobile ? 12 : 16),
-            width: double.infinity,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Категории',
-                  style: TextStyle(
-                    fontSize: isMobile ? 14 : 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
+        child: isMobile
+            ? _buildMobileCard()
+            : _buildDesktopLayout(_buildDesktopCard(horizontalPadding)),
+      ),
+    );
+  }
 
-                SizedBox(
-                  height: isMobile ? 36 : 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    shrinkWrap: true,
-                    padding: EdgeInsets.only(
-                      right: isMobile ? 0 : horizontalPadding, // 🆕 Отступ справа для десктопа
-                    ),
-                    children: categories
-                        .map((category) => _buildCategoryChip(category, isMobile))
-                        .toList(),
-                  ),
+  // 🆕 Мобильная версия карточки
+  Widget _buildMobileCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        color: Colors.white,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Категории',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 36,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  shrinkWrap: true,
+                  children: categories
+                      .map((category) => _buildCategoryChip(category, true))
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🆕 Десктопная версия карточки
+  Widget _buildDesktopCard(double horizontalPadding) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        color: Colors.white,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Категории',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  shrinkWrap: true,
+                  padding: EdgeInsets.only(right: horizontalPadding),
+                  children: categories
+                      .map((category) => _buildCategoryChip(category, false))
+                      .toList(),
+                ),
+              ),
+            ],
           ),
         ),
       ),

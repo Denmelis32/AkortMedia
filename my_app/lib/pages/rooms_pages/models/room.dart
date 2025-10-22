@@ -1,6 +1,6 @@
 // models/room.dart
 import 'package:flutter/material.dart';
-import 'room_category.dart'; // Импортируем класс категорий
+import 'room_category.dart';
 
 class Room {
   final String id;
@@ -40,9 +40,10 @@ class Room {
   final int favoriteCount;
   final String? customIcon;
   final bool hasPendingInvite;
+  final String? communityId;
 
-  // ДОБАВЬТЕ ЭТО ПОЛЕ
-  final String? communityId; // ID связанного сообщества
+  // НОВОЕ ПОЛЕ: Тип доступа к комнате
+  final RoomAccessType accessType;
 
   Room({
     required this.id,
@@ -80,13 +81,14 @@ class Room {
     this.favoriteCount = 0,
     this.customIcon,
     this.hasPendingInvite = false,
-    this.communityId, // ДОБАВЬТЕ ЭТОТ ПАРАМЕТР
+    this.communityId,
+    required this.accessType, // НОВЫЙ ОБЯЗАТЕЛЬНЫЙ ПАРАМЕТР
   });
 
-  // Добавьте геттер для проверки принадлежности к сообществу
+  // Геттер для совместимости
   bool get hasCommunity => communityId != null && communityId!.isNotEmpty;
 
-  // Обновите метод copyWith
+  // Обновленный метод copyWith
   Room copyWith({
     String? id,
     String? title,
@@ -123,7 +125,8 @@ class Room {
     int? favoriteCount,
     String? customIcon,
     bool? hasPendingInvite,
-    String? communityId, // ДОБАВЬТЕ ЭТОТ ПАРАМЕТР
+    String? communityId,
+    RoomAccessType? accessType, // НОВЫЙ ПАРАМЕТР
   }) {
     return Room(
       id: id ?? this.id,
@@ -161,11 +164,85 @@ class Room {
       favoriteCount: favoriteCount ?? this.favoriteCount,
       customIcon: customIcon ?? this.customIcon,
       hasPendingInvite: hasPendingInvite ?? this.hasPendingInvite,
-      communityId: communityId ?? this.communityId, // ДОБАВЬТЕ ЭТУ СТРОКУ
+      communityId: communityId ?? this.communityId,
+      accessType: accessType ?? this.accessType, // НОВАЯ СТРОКА
     );
   }
 
-  // Добавьте метод для получения информации о сообществе
+  // НОВЫЕ ГЕТТЕРЫ ДЛЯ ТИПОВ ДОСТУПА
+  bool get isPublic => accessType == RoomAccessType.public;
+  bool get isPrivateRoom => accessType == RoomAccessType.private;
+  bool get isPasswordProtected => accessType == RoomAccessType.password;
+  bool get isInviteOnly => accessType == RoomAccessType.private;
+
+  // Геттер для отображения типа комнаты
+  String get accessTypeDisplay {
+    switch (accessType) {
+      case RoomAccessType.public:
+        return 'Публичная';
+      case RoomAccessType.private:
+        return 'Закрытая';
+      case RoomAccessType.password:
+        return 'С паролем';
+    }
+  }
+
+  // Цвет для типа доступа
+  Color get accessTypeColor {
+    switch (accessType) {
+      case RoomAccessType.public:
+        return Colors.green;
+      case RoomAccessType.private:
+        return Colors.orange;
+      case RoomAccessType.password:
+        return Colors.blue;
+    }
+  }
+
+  // Иконка для типа доступа
+  IconData get accessTypeIcon {
+    switch (accessType) {
+      case RoomAccessType.public:
+        return Icons.public;
+      case RoomAccessType.private:
+        return Icons.lock;
+      case RoomAccessType.password:
+        return Icons.password;
+    }
+  }
+
+  // Обновленный метод проверки доступа
+  bool hasAccess(String userId, {String? inputPassword, bool? isInvited}) {
+    if (!isActive) return false;
+    if (bannedUsers.contains(userId)) return false;
+
+    switch (accessType) {
+      case RoomAccessType.public:
+        return true;
+      case RoomAccessType.private:
+        return allowedUsers.contains(userId) ||
+            userId == creatorId ||
+            moderators.contains(userId) ||
+            (isInvited == true);
+      case RoomAccessType.password:
+        if (inputPassword == null) return false;
+        return inputPassword == password;
+    }
+  }
+
+  // Метод для получения требований к доступу
+  String get accessRequirements {
+    switch (accessType) {
+      case RoomAccessType.public:
+        return 'Открыта для всех';
+      case RoomAccessType.private:
+        return 'Только по приглашению';
+      case RoomAccessType.password:
+        return 'Требуется пароль';
+    }
+  }
+
+  // Обновленный метод для информации о сообществе
   Map<String, dynamic>? get communityInfo {
     if (!hasCommunity) return null;
     return {
@@ -173,16 +250,17 @@ class Room {
       'name': 'Сообщество $title',
       'memberCount': currentParticipants,
       'roomCount': 1,
+      'accessType': accessTypeDisplay,
     };
   }
 
-  // Остальные методы остаются без изменений...
+  // Остальные геттеры и методы остаются без изменений, но обновлены для работы с accessType
   bool get isOwner => creatorId == 'current_user_id';
   bool get isModerator => moderators.contains('current_user_id');
   bool get isFull => currentParticipants >= maxParticipants;
   bool get isScheduled => scheduledStart != null;
   bool get canJoin => isActive && !isFull && !bannedUsers.contains('current_user_id');
-  bool get requiresPassword => accessLevel == RoomAccessLevel.protected && password.isNotEmpty;
+  bool get requiresPassword => accessType == RoomAccessType.password && password.isNotEmpty;
   bool get isExpired => isScheduled && scheduledStart!.isBefore(DateTime.now());
   double get participationRate => maxParticipants > 0 ? currentParticipants / maxParticipants : 0;
   bool get isPopular => currentParticipants > 50 || rating > 4.0;
@@ -192,7 +270,7 @@ class Room {
   bool get isTrending => viewCount > 1000 || favoriteCount > 100;
   bool get isHighlyRated => rating >= 4.5 && ratingCount >= 10;
 
-  // НОВЫЕ ГЕТТЕРЫ
+  // Обновленные геттеры
   bool get hasNewInvites => hasPendingInvite;
   bool get hasUnreadMessages => messageCount > 0;
 
@@ -204,7 +282,7 @@ class Room {
     return 'Активна';
   }
 
-  // Методы проверки прав
+  // Методы проверки прав (без изменений)
   bool canEdit(String userId) => userId == creatorId || moderators.contains(userId);
   bool canDelete(String userId) => userId == creatorId;
   bool canBan(String userId) => userId == creatorId || moderators.contains(userId);
@@ -212,8 +290,7 @@ class Room {
   bool canManage(String userId) => canEdit(userId) || isModerator;
   bool canModerate(String userId) => canManage(userId);
 
-
-  // Методы для работы со временем
+  // Методы для работы со временем (без изменений)
   Duration? get timeUntilStart {
     if (!isScheduled) return null;
     return scheduledStart!.difference(DateTime.now());
@@ -252,26 +329,7 @@ class Room {
     return '${lastActivity.hour.toString().padLeft(2, '0')}:${lastActivity.minute.toString().padLeft(2, '0')}';
   }
 
-  // Метод для проверки доступа
-  bool hasAccess(String userId, {String? inputPassword}) {
-    if (!isActive) return false;
-    if (bannedUsers.contains(userId)) return false;
-
-    // Используем сравнение по id вместо switch
-    if (accessLevel.id == 'public') {
-      return true;
-    } else if (accessLevel.id == 'private') {
-      return allowedUsers.contains(userId) || userId == creatorId || moderators.contains(userId);
-    } else if (accessLevel.id == 'protected') {
-      if (inputPassword == null) return false;
-      return inputPassword == password;
-    }
-
-    return false; // fallback
-  }
-
-
-  // Метод для форматирования информации
+  // Обновленный метод для форматирования информации
   Map<String, dynamic> toBriefInfo() {
     return {
       'title': title,
@@ -286,10 +344,14 @@ class Room {
       'isVerified': isVerified,
       'language': language,
       'hasPendingInvite': hasPendingInvite,
+      'accessType': accessTypeDisplay, // НОВОЕ ПОЛЕ
+      'isPublic': isPublic,
+      'isPrivate': isPrivateRoom,
+      'requiresPassword': requiresPassword,
     };
   }
 
-  // Работа с тегами
+  // Работа с тегами (без изменений)
   bool hasTag(String tag) => tags.contains(tag.toLowerCase());
 
   Room addTag(String tag) {
@@ -308,7 +370,7 @@ class Room {
 
   List<String> get popularTags => tags.take(3).toList();
 
-  // Поиск и фильтрация
+  // Поиск и фильтрация (без изменений)
   bool matchesQuery(String query) {
     if (query.isEmpty) return true;
 
@@ -330,7 +392,13 @@ class Room {
     return this.language == language;
   }
 
-  // Валидация комнаты
+  // НОВЫЙ МЕТОД: Фильтрация по типу доступа
+  bool matchesAccessType(RoomAccessType? filterAccessType) {
+    if (filterAccessType == null) return true;
+    return accessType == filterAccessType;
+  }
+
+  // Валидация комнаты (обновлена)
   bool get isValid {
     return title.isNotEmpty &&
         title.length >= 3 &&
@@ -344,10 +412,14 @@ class Room {
         maxParticipants <= 1000 &&
         rating >= 0 &&
         rating <= 5 &&
-        currentParticipants <= maxParticipants;
+        currentParticipants <= maxParticipants &&
+        // НОВАЯ ВАЛИДАЦИЯ ДЛЯ ПАРОЛЯ
+        (accessType != RoomAccessType.password || password.isNotEmpty) &&
+        // ВАЛИДАЦИЯ ДЛЯ ПРИВАТНЫХ КОМНАТ
+        (accessType != RoomAccessType.private || allowedUsers.isNotEmpty || moderators.isNotEmpty);
   }
 
-  // Получение цвета статуса
+  // Получение цвета статуса (без изменений)
   Color get statusColor {
     switch (status) {
       case 'Активна':
@@ -367,7 +439,7 @@ class Room {
     }
   }
 
-  // Форматирование длительности
+  // Форматирование длительности (без изменений)
   String get formattedDuration {
     if (duration == null) return 'Без ограничения';
     final hours = duration!.inHours;
@@ -376,7 +448,7 @@ class Room {
     return '$minutes мин';
   }
 
-  // Рейтинг в виде звездочек
+  // Рейтинг в виде звездочек (без изменений)
   Widget buildRatingStars({double size = 16, bool showCount = false}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -403,7 +475,7 @@ class Room {
     );
   }
 
-  // Индикатор заполненности
+  // Индикатор заполненности (без изменений)
   Widget buildCapacityIndicator({double height = 6, double width = 100}) {
     final percentage = participationRate;
     Color color;
@@ -449,9 +521,12 @@ class Room {
     );
   }
 
-  // Бейджи для комнаты
+  // Обновленные бейджи для комнаты
   List<Widget> buildBadges({bool showAll = false}) {
     final badges = <Widget>[];
+
+    // Бейдж типа доступа (всегда показываем)
+    badges.add(_buildAccessTypeBadge());
 
     if (isVerified) {
       badges.add(_buildBadge('Проверено', Icons.verified_rounded, Colors.blue));
@@ -475,6 +550,11 @@ class Room {
       badges.add(_buildBadge('Приглашение', Icons.mark_email_unread_rounded, Colors.pink));
     }
     return badges;
+  }
+
+  // НОВЫЙ МЕТОД: Бейдж типа доступа
+  Widget _buildAccessTypeBadge() {
+    return _buildBadge(accessTypeDisplay, accessTypeIcon, accessTypeColor);
   }
 
   Widget _buildBadge(String text, IconData icon, Color color) {
@@ -504,7 +584,7 @@ class Room {
     );
   }
 
-  // Метод для получения иконки комнаты
+  // Метод для получения иконки комнаты (без изменений)
   Widget getRoomIcon({double size = 40, Color? color}) {
     if (customIcon != null) {
       // TODO: Загрузить кастомную иконку
@@ -533,29 +613,26 @@ class Room {
     );
   }
 
-  // Метод для получения цвета комнаты
+  // Метод для получения цвета комнаты (без изменений)
   Color get roomColor => category.color;
 
-  // Метод для получения уровня активности
+  // Метод для получения уровня активности (без изменений)
   double get activityLevel {
     final messageRate = messageCount / (currentParticipants > 0 ? currentParticipants : 1);
     final timeSinceLastActivity = DateTime.now().difference(lastActivity).inMinutes;
 
     double activity = 0.0;
 
-    // Учитываем количество сообщений
     if (messageRate > 10) activity += 0.4;
     else if (messageRate > 5) activity += 0.3;
     else if (messageRate > 2) activity += 0.2;
     else activity += 0.1;
 
-    // Учитываем время последней активности
     if (timeSinceLastActivity < 5) activity += 0.4;
     else if (timeSinceLastActivity < 30) activity += 0.3;
     else if (timeSinceLastActivity < 60) activity += 0.2;
     else activity += 0.1;
 
-    // Учитываем количество участников
     if (participationRate > 0.8) activity += 0.2;
     else if (participationRate > 0.5) activity += 0.15;
     else if (participationRate > 0.2) activity += 0.1;
@@ -571,7 +648,7 @@ class Room {
     return 'Низкая';
   }
 
-  // НОВЫЙ МЕТОД: Получение информации о комнате для отображения
+  // Обновленный метод: Получение информации о комнате для отображения
   Map<String, dynamic> get displayInfo {
     return {
       'id': id,
@@ -586,6 +663,11 @@ class Room {
       'hasPendingInvite': hasPendingInvite,
       'activityLevel': activityLevelText,
       'lastActivity': formattedLastActivity,
+      'accessType': accessTypeDisplay, // НОВОЕ ПОЛЕ
+      'accessRequirements': accessRequirements,
+      'isPublic': isPublic,
+      'isPrivate': isPrivateRoom,
+      'requiresPassword': requiresPassword,
     };
   }
 
@@ -601,19 +683,25 @@ class Room {
 
   @override
   String toString() {
-    return 'Room{id: $id, title: $title, participants: $currentParticipants/$maxParticipants, category: ${category.title}, rating: $rating, status: $status}';
+    return 'Room{id: $id, title: $title, participants: $currentParticipants/$maxParticipants, category: ${category.title}, accessType: $accessType, rating: $rating, status: $status}';
   }
 }
 
-// Остальные классы (RoomSettings, RoomStatistics и т.д.) остаются без изменений
-// но нужно обновить RoomAccessLevel и RoomSortBy чтобы они тоже были классами, а не enum
+// НОВЫЙ ENUM: Типы доступа к комнате
+enum RoomAccessType {
+  public,
+  private,
+  password,
+}
 
+// Обновленный RoomAccessLevel для совместимости
 class RoomAccessLevel {
   final String id;
   final String title;
   final IconData icon;
   final Color color;
   final String description;
+  final RoomAccessType accessType; // НОВОЕ ПОЛЕ ДЛЯ СОВМЕСТИМОСТИ
 
   const RoomAccessLevel({
     required this.id,
@@ -621,6 +709,7 @@ class RoomAccessLevel {
     required this.icon,
     required this.color,
     required this.description,
+    required this.accessType,
   });
 
   static const RoomAccessLevel public = RoomAccessLevel(
@@ -629,6 +718,7 @@ class RoomAccessLevel {
     icon: Icons.public,
     color: Colors.green,
     description: 'Доступна всем пользователям',
+    accessType: RoomAccessType.public,
   );
 
   static const RoomAccessLevel private = RoomAccessLevel(
@@ -637,6 +727,7 @@ class RoomAccessLevel {
     icon: Icons.lock,
     color: Colors.orange,
     description: 'Только по приглашению',
+    accessType: RoomAccessType.private,
   );
 
   static const RoomAccessLevel protected = RoomAccessLevel(
@@ -645,11 +736,25 @@ class RoomAccessLevel {
     icon: Icons.security,
     color: Colors.blue,
     description: 'С паролем',
+    accessType: RoomAccessType.password,
   );
 
   static List<RoomAccessLevel> get allLevels => [public, private, protected];
+
+  // Метод для конвертации из RoomAccessType
+  static RoomAccessLevel fromAccessType(RoomAccessType accessType) {
+    switch (accessType) {
+      case RoomAccessType.public:
+        return public;
+      case RoomAccessType.private:
+        return private;
+      case RoomAccessType.password:
+        return protected;
+    }
+  }
 }
 
+// RoomSortBy остается без изменений
 class RoomSortBy {
   final String id;
   final String title;
@@ -684,10 +789,13 @@ class RoomSortBy {
     description: 'По количеству участников',
   );
 
+  // НОВЫЙ ВАРИАНТ: Сортировка по типу доступа
+  static const RoomAccessType accessType = RoomAccessType.public;
+
   static List<RoomSortBy> get allSortOptions => [newest, popular, participants];
 }
 
-// Расширение для форматирования чисел
+// Расширение для форматирования чисел (без изменений)
 extension NumberFormatting on int {
   String formatCount() {
     if (this >= 1000000) {
@@ -697,4 +805,53 @@ extension NumberFormatting on int {
     }
     return toString();
   }
+}
+
+// НОВОЕ РАСШИРЕНИЕ: Утилиты для работы с RoomAccessType
+extension RoomAccessTypeExtension on RoomAccessType {
+  String get displayName {
+    switch (this) {
+      case RoomAccessType.public:
+        return 'Публичная';
+      case RoomAccessType.private:
+        return 'Закрытая';
+      case RoomAccessType.password:
+        return 'С паролем';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case RoomAccessType.public:
+        return Icons.public;
+      case RoomAccessType.private:
+        return Icons.lock;
+      case RoomAccessType.password:
+        return Icons.password;
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case RoomAccessType.public:
+        return Colors.green;
+      case RoomAccessType.private:
+        return Colors.orange;
+      case RoomAccessType.password:
+        return Colors.blue;
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case RoomAccessType.public:
+        return 'Видна всем пользователям';
+      case RoomAccessType.private:
+        return 'Только по приглашению';
+      case RoomAccessType.password:
+        return 'Доступ по паролю';
+    }
+  }
+
+
 }

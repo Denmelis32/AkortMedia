@@ -31,7 +31,7 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
     return MediaQuery.of(context).size.width <= 600;
   }
 
-  // УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+  // 🖼️ УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
   Widget _buildEventImage(double height, {double? width}) {
     final imageUrl = widget.event.imageUrl;
 
@@ -39,38 +39,49 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
       return _buildGradientBackground(height, width);
     }
 
-    print('🖼️ Loading event image: $imageUrl');
-
     try {
       if (imageUrl.startsWith('http')) {
-        // Для сетевых изображений
         return Image.network(
           imageUrl,
           height: height,
           width: width ?? double.infinity,
           fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return _buildImageLoadingPlaceholder(height, width);
+          },
           errorBuilder: (context, error, stackTrace) {
-            print('❌ Event network image error: $error');
             return _buildGradientBackground(height, width);
           },
         );
       } else {
-        // Для локальных assets
         return Image.asset(
           imageUrl,
           height: height,
           width: width ?? double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            print('❌ Event asset image error: $error for path: $imageUrl');
             return _buildGradientBackground(height, width);
           },
         );
       }
     } catch (e) {
-      print('❌ Exception loading event image: $e');
       return _buildGradientBackground(height, width);
     }
+  }
+
+  Widget _buildImageLoadingPlaceholder([double? height, double? width]) {
+    return Container(
+      height: height,
+      width: width ?? double.infinity,
+      color: Colors.grey[200],
+      child: Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(widget.event.color),
+        ),
+      ),
+    );
   }
 
   Widget _buildGradientBackground([double? height, double? width]) {
@@ -88,27 +99,33 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
           ],
         ),
       ),
+      child: Icon(
+        EventUtils.getCategoryIcon(widget.event.category),
+        size: 32,
+        color: Colors.white.withOpacity(0.8),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return _isMobile(context)
-        ? _buildMobileCard()
-        : _buildDesktopCard();
+        ? _buildMobileCard()  // 📱 Мобильная версия
+        : _buildDesktopCard(context); // 💻 Десктоп версия с контекстом
   }
 
-  // 📱 МОБИЛЬНАЯ ВЕРСИЯ
+  // 📱 МОБИЛЬНАЯ ВЕРСИЯ - ФИКСИРОВАННАЯ КАРТОЧКА
   Widget _buildMobileCard() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      height: 140, // 🎯 ФИКСИРОВАННАЯ ВЫСОТА
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -117,104 +134,102 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
         color: Colors.transparent,
         child: InkWell(
           onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            height: 140,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ЛЕВАЯ ЧАСТЬ - ИЗОБРАЖЕНИЕ
-                Container(
-                  width: 100,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 🖼️ ЛЕВАЯ ЧАСТЬ - ФОТОГРАФИЯ (ФИКСИРОВАННАЯ ШИРИНА)
+              Container(
+                width: 120, // 🎯 УМЕНЬШЕНА ШИРИНА ДЛЯ БОЛЬШЕГО МЕСТА
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
                   ),
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                    child: _buildEventImage(140, width: 100),
+                  child: Stack(
+                    children: [
+                      _buildEventImage(140, width: 120),
+                      // 🏷️ Категория поверх изображения
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                EventUtils.getCategoryIcon(widget.event.category),
+                                size: 10.0, // 🛠️ FIX: double вместо int
+                                color: widget.event.color,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                _getCategoryShort(widget.event.category),
+                                style: TextStyle(
+                                  color: widget.event.color,
+                                  fontSize: 8.0, // 🛠️ FIX: double вместо int
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
 
-                // ПРАВАЯ ЧАСТЬ - КОНТЕНТ
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Заголовок и категория
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.event.title,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.black87,
-                                  height: 1.2,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: widget.event.color.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    EventUtils.getCategoryIcon(widget.event.category),
-                                    size: 10,
-                                    color: widget.event.color,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    _getCategoryShort(widget.event.category),
-                                    style: TextStyle(
-                                      color: widget.event.color,
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-
-                        // Организатор
-                        Text(
-                          widget.event.organizer,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
+              // 📝 ПРАВАЯ ЧАСТЬ - ИНФОРМАЦИЯ
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Заголовок
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 36),
+                        child: Text(
+                          widget.event.title,
+                          style: const TextStyle(
+                            fontSize: 14.0, // 🛠️ FIX: double вместо int
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black87,
+                            height: 1.2,
                           ),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
+                      ),
+                      const SizedBox(height: 4),
 
-                        // Описание
-                        Expanded(
+                      // Организатор
+                      Text(
+                        widget.event.organizer,
+                        style: TextStyle(
+                          fontSize: 11.0, // 🛠️ FIX: double вместо int
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Описание
+                      Expanded(
+                        child: Container(
+                          constraints: const BoxConstraints(maxHeight: 28),
                           child: Text(
-                            _getShortDescription(widget.event.description ?? 'Без описания'),
+                            _getShortDescription(widget.event.description ?? 'Описание отсутствует'),
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 10.0, // 🛠️ FIX: double вместо int
                               color: Colors.grey[700],
                               height: 1.3,
                             ),
@@ -222,32 +237,258 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                      ),
 
-                        // Информация и кнопки
+                      // Информация и кнопки
+                      Row(
+                        children: [
+                          // Информация о времени и месте
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildInfoRow(
+                                  Icons.access_time_outlined,
+                                  _formatTime(widget.event.date),
+                                  isMobile: true,
+                                ),
+                                const SizedBox(height: 2),
+                                _buildInfoRow(
+                                  Icons.location_on_outlined,
+                                  _getShortLocation(widget.event.location ?? 'Место не указано'),
+                                  isMobile: true,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Кнопки действий
+                          Row(
+                            children: [
+                              _buildIconButton(
+                                onPressed: widget.onFavorite,
+                                icon: widget.isFavorite ? Icons.favorite : Icons.favorite_border,
+                                isActive: widget.isFavorite,
+                                activeColor: Colors.red,
+                                tooltip: 'В избранное',
+                                isMobile: true,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildMobileAttendButton(),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 💻 ДЕСКТОП ВЕРСИЯ - АДАПТИВНАЯ КАРТОЧКА
+  Widget _buildDesktopCard(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // 🎯 АДАПТИВНЫЕ РАЗМЕРЫ В ЗАВИСИМОСТИ ОТ ШИРИНЫ ЭКРАНА
+    final cardWidth = _getAdaptiveCardWidth(screenWidth);
+    final imageWidth = _getAdaptiveImageWidth(screenWidth);
+    final cardHeight = _getAdaptiveCardHeight(screenWidth);
+
+    return Container(
+      width: cardWidth, // 🎯 АДАПТИВНАЯ ШИРИНА
+      height: cardHeight, // 🎯 АДАПТИВНАЯ ВЫСОТА
+      margin: const EdgeInsets.all(8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 🖼️ ЛЕВАЯ ЧАСТЬ - ФОТОГРАФИЯ (АДАПТИВНАЯ ШИРИНА)
+                Container(
+                  width: imageWidth,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
+                    ),
+                    child: Stack(
+                      children: [
+                        _buildEventImage(cardHeight, width: imageWidth),
+                        // 🏷️ Категория поверх изображения
+                        Positioned(
+                          top: 12,
+                          left: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.95),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  EventUtils.getCategoryIcon(widget.event.category),
+                                  size: 12.0, // 🛠️ FIX: double вместо int
+                                  color: widget.event.color,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _getCategoryShort(widget.event.category),
+                                  style: TextStyle(
+                                    color: widget.event.color,
+                                    fontSize: 10.0, // 🛠️ FIX: double вместо int
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // 💰 Цена в левом нижнем углу
+                        Positioned(
+                          bottom: 12,
+                          left: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              widget.event.price == 0 ? 'БЕСПЛАТНО' : '${widget.event.price}₽',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.0, // 🛠️ FIX: double вместо int
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 📝 ПРАВАЯ ЧАСТЬ - ИНФОРМАЦИЯ
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.all(_getContentPadding(screenWidth)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Заголовок и организатор
+                        Container(
+                          constraints: BoxConstraints(maxHeight: _getTitleMaxHeight(screenWidth)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.event.title,
+                                style: TextStyle(
+                                  fontSize: _getTitleFontSize(screenWidth),
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.black87,
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.event.organizer,
+                                style: TextStyle(
+                                  fontSize: _getSubtitleFontSize(screenWidth),
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: _getSpacing(screenWidth)),
+
+                        // Описание
+                        Expanded(
+                          child: Container(
+                            constraints: BoxConstraints(maxHeight: _getDescriptionMaxHeight(screenWidth)),
+                            child: Text(
+                              widget.event.description ?? 'Описание отсутствует',
+                              style: TextStyle(
+                                fontSize: _getDescriptionFontSize(screenWidth),
+                                color: Colors.grey[700],
+                                height: 1.4,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: _getSpacing(screenWidth)),
+
+                        // Детали и кнопки
                         Row(
                           children: [
-                            // Место и время
+                            // Детали события
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _buildInfoRow(
-                                    Icons.location_on_outlined,
-                                    widget.event.location ?? 'Место не указано',
-                                    isMobile: true,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  _buildInfoRow(
                                     Icons.access_time_outlined,
-                                    _formatTime(widget.event.date),
-                                    isMobile: true,
+                                    '${_formatDateShort(widget.event.date)} • ${_formatTime(widget.event.date)}',
+                                    isMobile: false,
+                                    screenWidth: screenWidth,
+                                  ),
+                                  SizedBox(height: _getSmallSpacing(screenWidth)),
+                                  _buildInfoRow(
+                                    Icons.location_on_outlined,
+                                    _getShortLocation(widget.event.location ?? 'Место не указано'),
+                                    isMobile: false,
+                                    screenWidth: screenWidth,
                                   ),
                                 ],
                               ),
                             ),
 
                             // Кнопки действий
-                            Row(
+                            Column(
                               children: [
                                 _buildIconButton(
                                   onPressed: widget.onFavorite,
@@ -255,10 +496,10 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
                                   isActive: widget.isFavorite,
                                   activeColor: Colors.red,
                                   tooltip: 'В избранное',
-                                  isMobile: true,
+                                  isMobile: false,
                                 ),
-                                const SizedBox(width: 6),
-                                _buildMobileAttendButton(),
+                                SizedBox(height: _getSmallSpacing(screenWidth)),
+                                _buildDesktopAttendButton(),
                               ],
                             ),
                           ],
@@ -275,361 +516,73 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
     );
   }
 
-  // 💻 ДЕСКТОП ВЕРСИЯ
-  Widget _buildDesktopCard() {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: Container(
-        margin: const EdgeInsets.all(8),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: 280,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ВЕРХНЯЯ ЧАСТЬ С ИЗОБРАЖЕНИЕМ
-                  Stack(
-                    children: [
-                      // ОСНОВНОЕ ИЗОБРАЖЕНИЕ - универсальное для локальных и сетевых
-                      Container(
-                        height: 140,
-                        width: double.infinity,
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
-                          ),
-                          child: _buildEventImage(140),
-                        ),
-                      ),
+  // 🎯 АДАПТИВНЫЕ РАЗМЕРЫ ДЛЯ ДЕСКТОПА
 
-                      // Затемнение снизу для лучшей читаемости текста
-                      Container(
-                        height: 140,
-                        decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
-                          ),
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              Colors.black.withOpacity(0.4),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Контент поверх изображения
-                      Positioned(
-                        left: 12,
-                        right: 12,
-                        bottom: 12,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Заголовок
-                            Text(
-                              widget.event.title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-
-                            // Организатор
-                            Text(
-                              widget.event.organizer,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withOpacity(0.9),
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Категория в левом верхнем углу
-                      Positioned(
-                        top: 12,
-                        left: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                EventUtils.getCategoryIcon(widget.event.category),
-                                size: 12,
-                                color: widget.event.color,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _getCategoryShort(widget.event.category),
-                                style: TextStyle(
-                                  color: widget.event.color,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Цена в правом верхнем углу
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.85),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            widget.event.price == 0 ? 'БЕСПЛАТНО' : '${widget.event.price}₽',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // ОСНОВНОЙ КОНТЕНТ
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Описание
-                        Text(
-                          widget.event.description ?? 'Без описания',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[700],
-                            height: 1.4,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 12),
-
-                        // ДЕТАЛИ
-                        _buildDetailSection(),
-                        const SizedBox(height: 12),
-
-                        // ХЕШТЕГИ
-                        if (widget.event.tags.isNotEmpty) ...[
-                          _buildHashtags(),
-                          const SizedBox(height: 12),
-                        ],
-
-                        // ФУТЕР С КНОПКАМИ И СТАТИСТИКОЙ
-                        _buildFooter(),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  double _getAdaptiveCardWidth(double screenWidth) {
+    if (screenWidth < 700) return 320; // 🚨 МИНИМАЛЬНАЯ ШИРИНА ДЛЯ 2 КОЛОНОК
+    if (screenWidth < 800) return 340;
+    if (screenWidth < 900) return 360;
+    if (screenWidth < 1000) return 380;
+    return 400; // 🚨 МАКСИМАЛЬНАЯ ШИРИНА
   }
 
-  Widget _buildDetailSection() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          _buildDetailRow(
-            Icons.calendar_today_outlined,
-            _formatDateFull(widget.event.date),
-          ),
-          const SizedBox(height: 6),
-          _buildDetailRow(
-            Icons.access_time_outlined,
-            _formatTime(widget.event.date),
-          ),
-          const SizedBox(height: 6),
-          _buildDetailRow(
-            Icons.location_on_outlined,
-            widget.event.location ?? 'Место не указано',
-          ),
-        ],
-      ),
-    );
+  double _getAdaptiveImageWidth(double screenWidth) {
+    if (screenWidth < 700) return 120;
+    if (screenWidth < 800) return 130;
+    if (screenWidth < 900) return 140;
+    if (screenWidth < 1000) return 150;
+    return 160;
   }
 
-  Widget _buildDetailRow(IconData icon, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 14, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
+  double _getAdaptiveCardHeight(double screenWidth) {
+    if (screenWidth < 700) return 160;
+    if (screenWidth < 800) return 170;
+    return 180;
   }
 
-  Widget _buildHashtags() {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: widget.event.tags.take(3).map((tag) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.blue[50]!,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue[100]!),
-          ),
-          child: Text(
-            '#$tag',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.blue[700]!,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        );
-      }).toList(),
-    );
+  double _getContentPadding(double screenWidth) {
+    if (screenWidth < 700) return 12;
+    if (screenWidth < 800) return 14;
+    return 16;
   }
 
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        // Статистика
-        Row(
-          children: [
-            _buildStatItem(
-              Icons.people_outline,
-              '${widget.event.currentAttendees}/${widget.event.maxAttendees}',
-            ),
-            const SizedBox(width: 16),
-            _buildStatItem(
-              Icons.visibility_outlined,
-              '${_formatNumber(widget.viewCount)}',
-            ),
-            const Spacer(),
-            if (widget.event.isOnline)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green[50]!,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.green[100]!),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.videocam_outlined, size: 12, color: Colors.green[700]!),
-                    const SizedBox(width: 4),
-                    Text(
-                      'ОНЛАЙН',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.green[700]!,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Кнопки действий
-        Row(
-          children: [
-            _buildIconButton(
-              onPressed: widget.onFavorite,
-              icon: widget.isFavorite ? Icons.favorite : Icons.favorite_border,
-              isActive: widget.isFavorite,
-              activeColor: Colors.red,
-              tooltip: 'В избранное',
-              isMobile: false,
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: _buildAttendButton(isMobile: false)),
-          ],
-        ),
-      ],
-    );
+  double _getTitleMaxHeight(double screenWidth) {
+    if (screenWidth < 700) return 45;
+    if (screenWidth < 800) return 48;
+    return 50;
   }
 
-  Widget _buildStatItem(IconData icon, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: Colors.grey[500]),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
+  double _getTitleFontSize(double screenWidth) {
+    if (screenWidth < 700) return 14.0;
+    if (screenWidth < 800) return 15.0;
+    return 16.0;
+  }
+
+  double _getSubtitleFontSize(double screenWidth) {
+    if (screenWidth < 700) return 11.0;
+    return 12.0;
+  }
+
+  double _getDescriptionMaxHeight(double screenWidth) {
+    if (screenWidth < 700) return 32;
+    if (screenWidth < 800) return 34;
+    return 36;
+  }
+
+  double _getDescriptionFontSize(double screenWidth) {
+    if (screenWidth < 700) return 11.0;
+    return 12.0;
+  }
+
+  double _getSpacing(double screenWidth) {
+    if (screenWidth < 700) return 6;
+    if (screenWidth < 800) return 7;
+    return 8;
+  }
+
+  double _getSmallSpacing(double screenWidth) {
+    if (screenWidth < 700) return 4;
+    return 6;
   }
 
   Widget _buildIconButton({
@@ -641,26 +594,26 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
     required bool isMobile,
   }) {
     return Container(
-      width: isMobile ? 32 : 40,
-      height: isMobile ? 32 : 40,
+      width: isMobile ? 32 : 36,
+      height: isMobile ? 32 : 36,
       decoration: BoxDecoration(
-        color: isActive ? activeColor.withOpacity(0.1) : Colors.grey[100],
+        color: isActive ? activeColor.withOpacity(0.1) : Colors.grey[50],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isActive ? activeColor.withOpacity(0.3) : Colors.grey[300]!,
+          width: 1.5,
         ),
       ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon,
-          size: isMobile ? 16 : 18,
-          color: isActive ? activeColor : Colors.grey[600],
-        ),
-        padding: EdgeInsets.zero,
-        tooltip: tooltip,
-        style: IconButton.styleFrom(
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: Icon(
+            icon,
+            size: isMobile ? 16.0 : 18.0, // 🛠️ FIX: double вместо int
+            color: isActive ? activeColor : Colors.grey[600],
+          ),
         ),
       ),
     );
@@ -686,7 +639,7 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
           borderRadius: BorderRadius.circular(8),
           child: Icon(
             isAttending ? Icons.check_circle_outlined : Icons.event_available_outlined,
-            size: 16,
+            size: 16.0, // 🛠️ FIX: double вместо int
             color: isAttending ? Colors.green : Colors.blue,
           ),
         ),
@@ -694,10 +647,11 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
     );
   }
 
-  Widget _buildAttendButton({required bool isMobile}) {
+  Widget _buildDesktopAttendButton() {
     final isAttending = widget.isAttending;
     return Container(
-      height: isMobile ? 32 : 40,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         color: isAttending ? Colors.green[50]! : Colors.blue,
         borderRadius: BorderRadius.circular(8),
@@ -711,40 +665,30 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
         child: InkWell(
           onTap: widget.onAttend,
           borderRadius: BorderRadius.circular(8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isAttending ? Icons.check_circle_outlined : Icons.event_available_outlined,
-                size: isMobile ? 14 : 16,
-                color: isAttending ? Colors.green : Colors.white,
-              ),
-              if (!isMobile) const SizedBox(width: 6),
-              if (!isMobile) Text(
-                isAttending ? 'Вы участвуете' : 'Участвовать',
-                style: TextStyle(
-                  fontSize: isMobile ? 11 : 12,
-                  fontWeight: FontWeight.w600,
-                  color: isAttending ? Colors.green : Colors.white,
-                ),
-              ),
-            ],
+          child: Icon(
+            isAttending ? Icons.check_circle_outlined : Icons.event_available_outlined,
+            size: 18.0, // 🛠️ FIX: double вместо int
+            color: isAttending ? Colors.green : Colors.white,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text, {required bool isMobile}) {
+  Widget _buildInfoRow(IconData icon, String text, {required bool isMobile, double? screenWidth}) {
+    // 🛠️ FIX: Все размеры должны быть double
+    final fontSize = isMobile ? 10.0 : (screenWidth != null && screenWidth < 700 ? 11.0 : 12.0);
+    final iconSize = isMobile ? 12.0 : (screenWidth != null && screenWidth < 700 ? 13.0 : 14.0);
+
     return Row(
       children: [
-        Icon(icon, size: isMobile ? 10 : 12, color: Colors.grey[600]),
-        const SizedBox(width: 4),
+        Icon(icon, size: iconSize, color: Colors.grey[600]),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
             style: TextStyle(
-              fontSize: isMobile ? 9 : 11,
+              fontSize: fontSize,
               color: Colors.grey[600],
               fontWeight: FontWeight.w500,
             ),
@@ -756,14 +700,17 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
     );
   }
 
-  // МЕТОДЫ ДЛЯ ФОРМАТИРОВАНИЯ ДАТЫ
-  String _formatDay(DateTime date) {
-    return date.day.toString().padLeft(2, '0');
+  // Вспомогательные методы
+  String _getShortDescription(String description) {
+    const maxLength = 60;
+    if (description.length <= maxLength) return description;
+    return '${description.substring(0, maxLength)}...';
   }
 
-  String _formatMonthShort(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[date.month - 1];
+  String _getShortLocation(String location) {
+    const maxLength = 25;
+    if (location.length <= maxLength) return location;
+    return '${location.substring(0, maxLength)}...';
   }
 
   String _formatTime(DateTime date) {
@@ -772,20 +719,10 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
     return '$hour:$minute';
   }
 
-  String _formatDateFull(DateTime date) {
-    const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
-    const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-
-    final dayName = days[date.weekday - 1];
+  String _formatDateShort(DateTime date) {
+    const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
     final monthName = months[date.month - 1];
-
-    return '$dayName, ${date.day} $monthName ${date.year}';
-  }
-
-  String _getShortDescription(String description) {
-    const maxLength = 60;
-    if (description.length <= maxLength) return description;
-    return '${description.substring(0, maxLength)}...';
+    return '${date.day} $monthName';
   }
 
   String _getCategoryShort(String category) {
@@ -799,7 +736,7 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
       'Встречи': 'ВСТРЕЧА',
       'Концерт': 'КОНЦЕРТ',
       'Выставка': 'ВЫСТАВКА',
-      'Вечеринка': 'ВЕЧЕРИНКА',
+      'Вечеринка': 'ВЕЧЕРИнКА',
       'Лекция': 'ЛЕКЦИЯ',
       'Мастер-класс': 'МАСТЕР-КЛАСС',
       'Семинар': 'СЕМИНАР',
@@ -807,11 +744,5 @@ class _AdaptiveEventCardState extends State<AdaptiveEventCard> {
       'Выпускной': 'ВЫПУСКНОЙ',
     };
     return categories[category] ?? category.toUpperCase();
-  }
-
-  String _formatNumber(int number) {
-    if (number >= 1000000) return '${(number / 1000000).toStringAsFixed(1)}M';
-    if (number >= 1000) return '${(number / 1000).toStringAsFixed(1)}K';
-    return number.toString();
   }
 }

@@ -7,8 +7,8 @@ import 'package:provider/provider.dart';
 import '../../providers/state_sync_provider.dart';
 import '../../services/interaction_manager.dart' as im;
 import '../../state_sync_mixin.dart';
-import '../cards_detail_page/channel_detail_page.dart';
-import '../cards_detail_page/models/channel.dart';
+import '../channel_page/cards_detail_page/channel_detail_page.dart';
+import '../channel_page/cards_detail_page/models/channel.dart';
 import 'components/header/repost_header.dart';
 import 'models/news_card_models.dart' hide PostInteractionState;
 import 'models/news_card_enums.dart';
@@ -29,9 +29,9 @@ import 'utils/image_utils.dart';
 
 // ПРОВАЙДЕРЫ
 import '../../providers/news_providers/news_provider.dart';
-import '../../providers/user_tags_provider.dart';
+import '../../providers/news_providers/user_tags_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../providers/channel_state_provider.dart';
+import '../../providers/channel_provider/channel_state_provider.dart';
 
 // СЕРВИСЫ
 import '../../services/repost_manager.dart';

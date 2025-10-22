@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/providers/channel_state_provider.dart';
-import 'package:my_app/providers/communities_provider.dart';
-import 'package:my_app/providers/community_state_provider.dart';
+import 'package:my_app/providers/channel_provider/channel_state_provider.dart';
+import 'package:my_app/providers/communities_provider%20/communities_provider.dart';
+import 'package:my_app/providers/communities_provider%20/community_state_provider.dart';
 import 'package:my_app/providers/news_providers/news_provider_factory.dart';
 import 'package:my_app/providers/state_sync_provider.dart';
-import 'package:my_app/providers/user_tags_provider.dart';
+import 'package:my_app/providers/news_providers/user_tags_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/news_providers/news_provider.dart';
-import 'providers/channel_posts_provider.dart';
+import 'providers/channel_provider/channel_posts_provider.dart';
 import 'providers/articles_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/room_provider.dart';
@@ -205,7 +205,13 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => ChannelPostsProvider()),
         ChangeNotifierProvider(create: (_) => ArticlesProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => RoomProvider(RoomService())),
+        ChangeNotifierProvider(create: (context) {
+          final userProvider = context.read<UserProvider>();
+          return RoomProvider(
+            RoomService(),
+            currentUserId: userProvider.userId, // Передаем ID пользователя
+          );
+        }),
         ChangeNotifierProvider(create: (_) => CommuninitiesProvider()),
         ChangeNotifierProvider(create: (_) => CommunityStateProvider()),
         ChangeNotifierProvider(create: (_) => UserTagsProvider()),

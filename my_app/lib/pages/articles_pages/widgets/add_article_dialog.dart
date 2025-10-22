@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/article.dart';
 import 'article_card.dart';
 
-enum ContentBlockType { text, image, heading, subheading }
+enum ContentBlockType { text, image, heading1, heading2, heading3, quote, link, code, divider }
 
 class ContentBlock {
   final ContentBlockType type;
   final String content;
+  final String? extra;
 
-  ContentBlock({required this.type, required this.content});
+  ContentBlock({required this.type, required this.content, this.extra});
+
+  ContentBlock copyWith({ContentBlockType? type, String? content, String? extra}) {
+    return ContentBlock(
+      type: type ?? this.type,
+      content: content ?? this.content,
+      extra: extra ?? this.extra,
+    );
+  }
 }
 
 class AddArticlePage extends StatefulWidget {
@@ -45,10 +55,10 @@ class _AddArticlePageState extends State<AddArticlePage> {
   String? _imageError;
 
   final List<String> _popularImages = [
-    'https://avatars.mds.yandex.net/i?id=726f36664cfa9350596fb7856ad6633a2625ef83-9555577-images-thumbs&n=13',
-    'https://picsum.photos/500/300?grayscale',
-    'https://picsum.photos/500/300?blur=2',
-    'https://picsum.photos/500/300?random=1',
+    'https://avatars.mds.yandex.net/i?id=428b91f28c0d53eef74258629e71789d_l-5275490-images-thumbs&n=13',
+    'https://avatars.mds.yandex.net/i?id=081e78a338934d66f3c74787c390ebb9_l-5437458-images-thumbs&n=13',
+    'https://avatars.mds.yandex.net/i?id=3997640509660414271ff6e5fd5453e7_l-5235251-images-thumbs&n=13',
+    'https://avatars.mds.yandex.net/i?id=2e0e387e1de7d776436ac269f6f78473_l-16397087-images-thumbs&n=13',
   ];
 
   final List<ContentBlock> _contentBlocks = [];
@@ -56,6 +66,17 @@ class _AddArticlePageState extends State<AddArticlePage> {
   final FocusNode _titleFocusNode = FocusNode();
   final FocusNode _subtitleFocusNode = FocusNode();
   final FocusNode _descriptionFocusNode = FocusNode();
+
+  // Переменные для перетаскивания
+  int? _draggedIndex;
+  int? _targetIndex;
+
+  // Контроллеры для диалогов
+  final TextEditingController _quoteController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _codeLanguageController = TextEditingController();
+  final TextEditingController _linkUrlController = TextEditingController();
+  final TextEditingController _linkTextController = TextEditingController();
 
   @override
   void initState() {
@@ -67,7 +88,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
     _isImageValid = true;
     _contentBlocks.add(ContentBlock(type: ContentBlockType.text, content: ''));
 
-    // Автофокус на заголовок при открытии
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FocusScope.of(context).requestFocus(_titleFocusNode);
     });
@@ -109,7 +129,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
           ),
           child: Column(
             children: [
-              // ХЕДЕР
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -150,7 +169,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ПОПУЛЯРНЫЕ ИЗОБРАЖЕНИЯ
                       const Text(
                         'Популярные обложки',
                         style: TextStyle(
@@ -220,7 +238,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
 
                       const SizedBox(height: 24),
 
-                      // СВОЙ URL
                       const Text(
                         'Или введите свой URL',
                         style: TextStyle(
@@ -258,7 +275,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
 
                       const SizedBox(height: 20),
 
-                      // ПРЕДПРОСМОТР
                       if (_imageUrlController.text.isNotEmpty)
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,7 +325,6 @@ class _AddArticlePageState extends State<AddArticlePage> {
                 ),
               ),
 
-              // КНОПКИ
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -366,7 +381,7 @@ class _AddArticlePageState extends State<AddArticlePage> {
     );
   }
 
-  // ОСТАЛЬНЫЕ МЕТОДЫ ОСТАЮТСЯ БЕЗ ИЗМЕНЕНИЙ...
+  // МЕТОДЫ ДЛЯ БЛОКОВ СОДЕРЖАНИЯ
   void _addTextBlock() {
     setState(() {
       _contentBlocks.add(ContentBlock(type: ContentBlockType.text, content: ''));
@@ -374,16 +389,23 @@ class _AddArticlePageState extends State<AddArticlePage> {
     _scrollToBottom();
   }
 
-  void _addHeadingBlock() {
+  void _addHeading1Block() {
     setState(() {
-      _contentBlocks.add(ContentBlock(type: ContentBlockType.heading, content: ''));
+      _contentBlocks.add(ContentBlock(type: ContentBlockType.heading1, content: ''));
     });
     _scrollToBottom();
   }
 
-  void _addSubheadingBlock() {
+  void _addHeading2Block() {
     setState(() {
-      _contentBlocks.add(ContentBlock(type: ContentBlockType.subheading, content: ''));
+      _contentBlocks.add(ContentBlock(type: ContentBlockType.heading2, content: ''));
+    });
+    _scrollToBottom();
+  }
+
+  void _addHeading3Block() {
+    setState(() {
+      _contentBlocks.add(ContentBlock(type: ContentBlockType.heading3, content: ''));
     });
     _scrollToBottom();
   }
@@ -391,30 +413,70 @@ class _AddArticlePageState extends State<AddArticlePage> {
   void _addImageBlock() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Добавить изображение'),
-        content: TextFormField(
-          decoration: const InputDecoration(
-            labelText: 'URL изображения',
-            hintText: 'https://example.com/image.jpg',
-          ),
-          onChanged: (value) {
-            if (value.isNotEmpty && value.startsWith('http')) {
-              setState(() {
-                _contentBlocks.add(ContentBlock(type: ContentBlockType.image, content: value));
-              });
-              Navigator.pop(context);
-            }
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-        ],
-      ),
+      builder: (context) => _buildImageDialog(),
     );
+  }
+
+  void _addQuoteBlock() {
+    showDialog(
+      context: context,
+      builder: (context) => _buildQuoteDialog(),
+    );
+  }
+
+  void _addCodeBlock() {
+    showDialog(
+      context: context,
+      builder: (context) => _buildCodeDialog(),
+    );
+  }
+
+  void _addDividerBlock() {
+    setState(() {
+      _contentBlocks.add(ContentBlock(type: ContentBlockType.divider, content: ''));
+    });
+    _scrollToBottom();
+  }
+
+  // МЕТОДЫ ПЕРЕТАСКИВАНИЯ
+  void _onDragStarted(int index) {
+    setState(() {
+      _draggedIndex = index;
+    });
+  }
+
+  void _onDragEnd(int index) {
+    setState(() {
+      _draggedIndex = null;
+      _targetIndex = null;
+    });
+  }
+
+  void _onDragAccept(int index) {
+    if (_draggedIndex != null && _draggedIndex != index) {
+      setState(() {
+        final draggedItem = _contentBlocks[_draggedIndex!];
+        _contentBlocks.removeAt(_draggedIndex!);
+        final newIndex = index > _draggedIndex! ? index - 1 : index;
+        _contentBlocks.insert(newIndex, draggedItem);
+        _draggedIndex = null;
+        _targetIndex = null;
+      });
+    }
+  }
+
+  void _onDragEnter(int index) {
+    setState(() {
+      _targetIndex = index;
+    });
+  }
+
+  void _onDragLeave(int index) {
+    setState(() {
+      if (_targetIndex == index) {
+        _targetIndex = null;
+      }
+    });
   }
 
   void _scrollToBottom() {
@@ -435,13 +497,344 @@ class _AddArticlePageState extends State<AddArticlePage> {
 
   void _updateBlockContent(int index, String content) {
     setState(() {
-      _contentBlocks[index] = ContentBlock(
-        type: _contentBlocks[index].type,
-        content: content,
-      );
+      _contentBlocks[index] = _contentBlocks[index].copyWith(content: content);
     });
   }
 
+  void _updateBlockExtra(int index, String extra) {
+    setState(() {
+      _contentBlocks[index] = _contentBlocks[index].copyWith(extra: extra);
+    });
+  }
+
+  // ДИАЛОГИ
+  Widget _buildImageDialog() {
+    String imageUrl = '';
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Добавить изображение',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'URL изображения',
+                hintText: 'https://example.com/image.jpg',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              onChanged: (value) => imageUrl = value,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Отмена'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
+                        setState(() {
+                          _contentBlocks.add(ContentBlock(type: ContentBlockType.image, content: imageUrl));
+                        });
+                        Navigator.pop(context);
+                        _scrollToBottom();
+                      }
+                    },
+                    child: const Text('Добавить'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuoteDialog() {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Добавить цитату',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 120,
+              child: TextField(
+                controller: _quoteController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Текст цитаты',
+                  hintText: 'Введите цитату...',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Отмена'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (_quoteController.text.isNotEmpty) {
+                        setState(() {
+                          _contentBlocks.add(ContentBlock(type: ContentBlockType.quote, content: _quoteController.text));
+                        });
+                        _quoteController.clear();
+                        Navigator.pop(context);
+                        _scrollToBottom();
+                      }
+                    },
+                    child: const Text('Добавить'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCodeDialog() {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Добавить код',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _codeLanguageController,
+              decoration: const InputDecoration(
+                labelText: 'Язык программирования',
+                hintText: 'dart, javascript, python...',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 150,
+              child: TextField(
+                controller: _codeController,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: 'Код',
+                  hintText: 'Введите код...',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Отмена'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (_codeController.text.isNotEmpty) {
+                        setState(() {
+                          _contentBlocks.add(ContentBlock(
+                            type: ContentBlockType.code,
+                            content: _codeController.text,
+                            extra: _codeLanguageController.text.isEmpty ? 'text' : _codeLanguageController.text,
+                          ));
+                        });
+                        _codeController.clear();
+                        _codeLanguageController.clear();
+                        Navigator.pop(context);
+                        _scrollToBottom();
+                      }
+                    },
+                    child: const Text('Добавить'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // МЕТОДЫ ДЛЯ ССЫЛОК В ТЕКСТЕ
+  void _showLinkDialog(BuildContext context, TextEditingController controller) {
+    String url = '';
+    String text = '';
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Добавить ссылку',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'URL ссылки',
+                  hintText: 'https://example.com',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onChanged: (value) => url = value,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Текст ссылки',
+                  hintText: 'Описание ссылки',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onChanged: (value) => text = value,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Отмена'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (url.isNotEmpty && text.isNotEmpty) {
+                          final link = '<a href="$url">$text</a>';
+                          final newText = '${controller.text} $link';
+                          controller.text = newText;
+                          Navigator.pop(context);
+                        }
+                      },
+                      child: const Text('Добавить'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showLinkConfirmation(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Перейти по ссылке?'),
+        content: Text('Вы действительно хотите перейти по адресу:\n$url'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _launchUrl(url);
+            },
+            child: const Text('Перейти'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Widget _buildRichText(String text, Function(String) onLinkTap) {
+    final linkRegex = RegExp(r'<a href="([^"]+)">([^<]+)</a>');
+    final parts = text.split(linkRegex);
+    final matches = linkRegex.allMatches(text).toList();
+
+    if (matches.isEmpty) {
+      return Text(text);
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(color: Colors.black, fontSize: 16),
+        children: [
+          for (int i = 0; i < parts.length; i++) ...[
+            TextSpan(text: parts[i]),
+            if (i < matches.length)
+              WidgetSpan(
+                child: GestureDetector(
+                  onTap: () => onLinkTap(matches[i].group(1)!),
+                  child: Text(
+                    matches[i].group(2)!,
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ВАЛИДАЦИЯ И СОХРАНЕНИЕ
   bool _validateForm() {
     if (_titleController.text.isEmpty || _titleController.text.length < 3) {
       _showValidationError('Заголовок должен содержать минимум 3 символа');
@@ -460,8 +853,9 @@ class _AddArticlePageState extends State<AddArticlePage> {
 
     final hasContent = _contentBlocks.any((block) =>
     (block.type == ContentBlockType.text ||
-        block.type == ContentBlockType.heading ||
-        block.type == ContentBlockType.subheading) &&
+        block.type == ContentBlockType.heading1 ||
+        block.type == ContentBlockType.heading2 ||
+        block.type == ContentBlockType.heading3) &&
         block.content.trim().isNotEmpty);
 
     if (!hasContent) {
@@ -500,18 +894,31 @@ class _AddArticlePageState extends State<AddArticlePage> {
     );
   }
 
+  // ИСПРАВЛЕННЫЙ МЕТОД: Правильное форматирование контента
   void _publishArticle() {
     if (_formKey.currentState!.validate() && _validateForm()) {
       final content = _contentBlocks.map((block) {
         switch (block.type) {
           case ContentBlockType.text:
             return block.content;
-          case ContentBlockType.heading:
+          case ContentBlockType.heading1:
             return '[HEADING:${block.content}]';
-          case ContentBlockType.subheading:
+          case ContentBlockType.heading2:
+            return '[SUBHEADING:${block.content}]';
+          case ContentBlockType.heading3:
             return '[SUBHEADING:${block.content}]';
           case ContentBlockType.image:
             return '[IMAGE:${block.content}]';
+          case ContentBlockType.quote:
+            return '[QUOTE:${block.content}]';
+          case ContentBlockType.link:
+            return '[LINK:${block.content}:${block.extra ?? ""}]';
+          case ContentBlockType.code:
+          // ЗАМЕНЯЕМ ПЕРЕНОСЫ СТРОК НА СПЕЦИАЛЬНЫЙ СИМВОЛ
+            final escapedCode = block.content.replaceAll('\n', '\\n');
+            return '[CODE:${block.extra ?? "text"}:$escapedCode]';
+          case ContentBlockType.divider:
+            return '[DIVIDER]';
         }
       }).join('\n\n');
 
@@ -565,12 +972,23 @@ class _AddArticlePageState extends State<AddArticlePage> {
     switch (type) {
       case ContentBlockType.text:
         return Icons.text_fields;
-      case ContentBlockType.heading:
+      case ContentBlockType.heading1:
         return Icons.title;
-      case ContentBlockType.subheading:
-        return Icons.subtitles;
+      case ContentBlockType.heading2:
+        return Icons.format_size;
+      case ContentBlockType.heading3:
+        return Icons.text_format;
       case ContentBlockType.image:
         return Icons.image;
+      case ContentBlockType.quote:
+        return Icons.format_quote;
+      case ContentBlockType.code:
+        return Icons.code;
+      case ContentBlockType.divider:
+        return Icons.horizontal_rule;
+      case ContentBlockType.link:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 
@@ -578,12 +996,23 @@ class _AddArticlePageState extends State<AddArticlePage> {
     switch (type) {
       case ContentBlockType.text:
         return Colors.blue;
-      case ContentBlockType.heading:
+      case ContentBlockType.heading1:
         return Colors.orange;
-      case ContentBlockType.subheading:
-        return Colors.purple;
+      case ContentBlockType.heading2:
+        return Colors.deepOrange;
+      case ContentBlockType.heading3:
+        return Colors.red;
       case ContentBlockType.image:
         return Colors.green;
+      case ContentBlockType.quote:
+        return Colors.amber;
+      case ContentBlockType.code:
+        return Colors.brown;
+      case ContentBlockType.divider:
+        return Colors.grey;
+      case ContentBlockType.link:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 
@@ -591,12 +1020,23 @@ class _AddArticlePageState extends State<AddArticlePage> {
     switch (type) {
       case ContentBlockType.text:
         return 'Текст';
-      case ContentBlockType.heading:
-        return 'Заголовок';
-      case ContentBlockType.subheading:
-        return 'Подзаголовок';
+      case ContentBlockType.heading1:
+        return 'Заголовок 1';
+      case ContentBlockType.heading2:
+        return 'Заголовок 2';
+      case ContentBlockType.heading3:
+        return 'Заголовок 3';
       case ContentBlockType.image:
         return 'Изображение';
+      case ContentBlockType.quote:
+        return 'Цитата';
+      case ContentBlockType.code:
+        return 'Код';
+      case ContentBlockType.divider:
+        return 'Разделитель';
+      case ContentBlockType.link:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 
@@ -621,7 +1061,7 @@ class _AddArticlePageState extends State<AddArticlePage> {
         child: SafeArea(
           child: Column(
             children: [
-              // УЛУЧШЕННЫЙ ХЕДЕР
+              // ХЕДЕР
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
@@ -651,16 +1091,23 @@ class _AddArticlePageState extends State<AddArticlePage> {
                       ),
                     ),
                     const Spacer(),
-                    OutlinedButton.icon(
-                      onPressed: _saveDraft,
-                      icon: const Icon(Icons.save, size: 18),
-                      label: const Text('Черновик'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue,
-                        side: const BorderSide(color: Colors.blue),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    if (isDesktop)
+                      OutlinedButton.icon(
+                        onPressed: _saveDraft,
+                        icon: const Icon(Icons.save, size: 18),
+                        label: const Text('Черновик'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                          side: const BorderSide(color: Colors.blue),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
                       ),
-                    ),
+                    if (!isDesktop)
+                      IconButton(
+                        onPressed: _saveDraft,
+                        icon: const Icon(Icons.save, color: Colors.blue),
+                        tooltip: 'Сохранить черновик',
+                      ),
                   ],
                 ),
               ),
@@ -911,45 +1358,28 @@ class _AddArticlePageState extends State<AddArticlePage> {
                               const SizedBox(height: 16),
 
                               // БЛОКИ СОДЕРЖАНИЯ
-                              ..._contentBlocks.asMap().entries.map((entry) {
-                                final index = entry.key;
-                                final block = entry.value;
-                                return _buildContentBlock(index, block);
-                              }),
+                              ReorderableListView(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                onReorder: (oldIndex, newIndex) {
+                                  setState(() {
+                                    if (oldIndex < newIndex) {
+                                      newIndex -= 1;
+                                    }
+                                    final item = _contentBlocks.removeAt(oldIndex);
+                                    _contentBlocks.insert(newIndex, item);
+                                  });
+                                },
+                                children: [
+                                  for (int index = 0; index < _contentBlocks.length; index++)
+                                    _buildContentBlock(index, _contentBlocks[index]),
+                                ],
+                              ),
 
                               const SizedBox(height: 16),
 
                               // КНОПКИ ДОБАВЛЕНИЯ БЛОКОВ
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: [
-                                  _buildAddBlockButton(
-                                    icon: Icons.text_fields,
-                                    label: 'Текст',
-                                    color: Colors.blue,
-                                    onTap: _addTextBlock,
-                                  ),
-                                  _buildAddBlockButton(
-                                    icon: Icons.title,
-                                    label: 'Заголовок',
-                                    color: Colors.orange,
-                                    onTap: _addHeadingBlock,
-                                  ),
-                                  _buildAddBlockButton(
-                                    icon: Icons.subtitles,
-                                    label: 'Подзаголовок',
-                                    color: Colors.purple,
-                                    onTap: _addSubheadingBlock,
-                                  ),
-                                  _buildAddBlockButton(
-                                    icon: Icons.image,
-                                    label: 'Изображение',
-                                    color: Colors.green,
-                                    onTap: _addImageBlock,
-                                  ),
-                                ],
-                              ),
+                              _buildBlockButtonsGrid(isDesktop),
                             ],
                           ),
                         ),
@@ -1069,6 +1499,7 @@ class _AddArticlePageState extends State<AddArticlePage> {
     final blockColor = _getBlockColor(block.type);
 
     return Container(
+      key: Key('block_$index'),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
@@ -1109,6 +1540,12 @@ class _AddArticlePageState extends State<AddArticlePage> {
                   ),
                 ),
                 const Spacer(),
+                Icon(
+                  Icons.drag_handle,
+                  size: 18,
+                  color: Colors.grey.shade500,
+                ),
+                const SizedBox(width: 8),
                 if (_contentBlocks.length > 1)
                   IconButton(
                     icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
@@ -1132,38 +1569,65 @@ class _AddArticlePageState extends State<AddArticlePage> {
   Widget _buildBlockContent(int index, ContentBlock block) {
     switch (block.type) {
       case ContentBlockType.text:
-        return TextFormField(
-          initialValue: block.content,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            hintText: 'Введите текст...',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.all(12),
-          ),
-          onChanged: (value) => _updateBlockContent(index, value),
+        final controller = TextEditingController(text: block.content);
+        return Column(
+          children: [
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Введите текст...',
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.all(12),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.link),
+                  onPressed: () => _showLinkDialog(context, controller),
+                  tooltip: 'Добавить ссылку',
+                ),
+              ),
+              onChanged: (value) => _updateBlockContent(index, value),
+            ),
+            if (block.content.contains('<a href="'))
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _buildRichText(block.content, _showLinkConfirmation),
+              ),
+          ],
         );
-      case ContentBlockType.heading:
-        return TextFormField(
-          initialValue: block.content,
+      case ContentBlockType.heading1:
+        return TextField(
+          controller: TextEditingController(text: block.content),
           maxLines: 2,
           decoration: const InputDecoration(
-            hintText: 'Введите заголовок...',
+            hintText: 'Введите заголовок 1 уровня...',
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.all(12),
           ),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           onChanged: (value) => _updateBlockContent(index, value),
         );
-      case ContentBlockType.subheading:
-        return TextFormField(
-          initialValue: block.content,
+      case ContentBlockType.heading2:
+        return TextField(
+          controller: TextEditingController(text: block.content),
           maxLines: 2,
           decoration: const InputDecoration(
-            hintText: 'Введите подзаголовок...',
+            hintText: 'Введите заголовок 2 уровня...',
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.all(12),
           ),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          onChanged: (value) => _updateBlockContent(index, value),
+        );
+      case ContentBlockType.heading3:
+        return TextField(
+          controller: TextEditingController(text: block.content),
+          maxLines: 2,
+          decoration: const InputDecoration(
+            hintText: 'Введите заголовок 3 уровня...',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.all(12),
+          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           onChanged: (value) => _updateBlockContent(index, value),
         );
       case ContentBlockType.image:
@@ -1207,6 +1671,171 @@ class _AddArticlePageState extends State<AddArticlePage> {
             ),
           ],
         );
+      case ContentBlockType.quote:
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border(
+              left: BorderSide(color: Colors.amber.shade400, width: 4),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.format_quote, color: Colors.amber.shade600),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Цитата',
+                    style: TextStyle(
+                      color: Colors.amber.shade800,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                block.content,
+                style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 14),
+              ),
+            ],
+          ),
+        );
+      case ContentBlockType.code:
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade900,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.code, color: Colors.grey.shade400),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Код ${block.extra != null ? '(${block.extra})' : ''}',
+                    style: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  block.content,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      case ContentBlockType.divider:
+        return Container(
+          height: 1,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.grey.shade300,
+                Colors.grey.shade500,
+                Colors.grey.shade300,
+              ],
+            ),
+          ),
+        );
+      case ContentBlockType.link:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+    }
+  }
+
+  Widget _buildBlockButtonsGrid(bool isDesktop) {
+    final buttons = [
+      _buildAddBlockButton(
+        icon: Icons.text_fields,
+        label: 'Текст',
+        color: Colors.blue,
+        onTap: _addTextBlock,
+      ),
+      _buildAddBlockButton(
+        icon: Icons.title,
+        label: 'Заголовок 1',
+        color: Colors.orange,
+        onTap: _addHeading1Block,
+      ),
+      _buildAddBlockButton(
+        icon: Icons.format_size,
+        label: 'Заголовок 2',
+        color: Colors.deepOrange,
+        onTap: _addHeading2Block,
+      ),
+      _buildAddBlockButton(
+        icon: Icons.text_format,
+        label: 'Заголовок 3',
+        color: Colors.red,
+        onTap: _addHeading3Block,
+      ),
+      _buildAddBlockButton(
+        icon: Icons.image,
+        label: 'Изображение',
+        color: Colors.green,
+        onTap: _addImageBlock,
+      ),
+      _buildAddBlockButton(
+        icon: Icons.format_quote,
+        label: 'Цитата',
+        color: Colors.amber,
+        onTap: _addQuoteBlock,
+      ),
+      _buildAddBlockButton(
+        icon: Icons.code,
+        label: 'Код',
+        color: Colors.brown,
+        onTap: _addCodeBlock,
+      ),
+      _buildAddBlockButton(
+        icon: Icons.horizontal_rule,
+        label: 'Разделитель',
+        color: Colors.grey,
+        onTap: _addDividerBlock,
+      ),
+    ];
+
+    if (isDesktop) {
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: buttons,
+      );
+    } else {
+      return GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 4,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 1.2,
+        children: buttons,
+      );
     }
   }
 
@@ -1223,16 +1852,18 @@ class _AddArticlePageState extends State<AddArticlePage> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 8),
+              Icon(icon, size: 20, color: color),
+              const SizedBox(height: 4),
               Text(
                 label,
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: color,
                 ),
@@ -1254,6 +1885,11 @@ class _AddArticlePageState extends State<AddArticlePage> {
     _titleFocusNode.dispose();
     _subtitleFocusNode.dispose();
     _descriptionFocusNode.dispose();
+    _quoteController.dispose();
+    _linkUrlController.dispose();
+    _linkTextController.dispose();
+    _codeController.dispose();
+    _codeLanguageController.dispose();
     super.dispose();
   }
 }

@@ -2,7 +2,7 @@
 // Показывает пользовательские теги и позволяет их редактировать
 
 import 'package:flutter/material.dart';
-import '../../../../providers/user_tags_provider.dart';
+import '../../../../providers/news_providers/user_tags_provider.dart';
 import '../../dialogs/tag_edit_dialog.dart';
 import '../../utils/layout_utils.dart';
 

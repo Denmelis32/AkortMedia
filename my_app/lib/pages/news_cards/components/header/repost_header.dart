@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/user_provider.dart';
-import '../../../../providers/channel_state_provider.dart';
+import '../../../../providers/channel_provider/channel_state_provider.dart';
 import '../../../../providers/news_providers/news_provider.dart';
 import '../../utils/image_utils.dart';
 import '../../utils/layout_utils.dart';

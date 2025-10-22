@@ -15,7 +15,7 @@ import 'widgets/sort_bottom_sheet.dart';
 import 'services/article_service.dart';
 import 'services/layout_service.dart';
 import '../../providers/articles_provider.dart';
-import '../../providers/channel_state_provider.dart';
+import '../../providers/channel_provider/channel_state_provider.dart';
 import 'test_articles.dart';
 
 class ArticlesPage extends StatefulWidget {

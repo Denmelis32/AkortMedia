@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:my_app/providers/channel_state_provider.dart';
 import 'package:my_app/providers/communities_provider.dart';
 import 'package:my_app/providers/community_state_provider.dart';
+import 'package:my_app/providers/news_providers/news_provider_factory.dart';
 import 'package:my_app/providers/state_sync_provider.dart';
 import 'package:my_app/providers/user_tags_provider.dart';
 import 'package:provider/provider.dart';
@@ -200,7 +201,7 @@ class _MyAppState extends State<MyApp> {
       providers: [
         // Существующие провайдеры
         ChangeNotifierProvider(create: (_) => ChannelStateProvider()),
-        ChangeNotifierProvider(create: (_) => NewsProvider()),
+        ChangeNotifierProvider(create: (_) => NewsProviderFactory.create()),
         ChangeNotifierProvider(create: (_) => ChannelPostsProvider()),
         ChangeNotifierProvider(create: (_) => ArticlesProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),

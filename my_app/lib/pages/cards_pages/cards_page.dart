@@ -6,11 +6,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../rooms_pages/models/filter_option.dart';
 import '../rooms_pages/models/room_category.dart';
 import '../rooms_pages/models/sort_option.dart';
-import 'channel_detail_page.dart';
-import 'dialogs/channel_utils.dart';
-import 'models/channel.dart';
+import '../cards_page/channel_detail_page.dart';
+import '../cards_page/dialogs/channel_utils.dart';
+import '../cards_page/models/channel.dart';
 import '../../providers/channel_state_provider.dart';
-import 'dialogs/create_channel_dialog.dart';
+import '../cards_page/dialogs/create_channel_dialog.dart';
 
 class CardsPage extends StatefulWidget {
   final String userName;

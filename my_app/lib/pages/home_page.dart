@@ -4,7 +4,7 @@ import 'news_page/news_page.dart';
 import 'predictions_league_page/predictions_league_page.dart';
 import 'articles_pages/articles_page.dart';
 import 'rooms_pages/rooms_page.dart';
-import 'cards_page/cards_page.dart';
+import 'cards_pages/cards_page.dart';
 import 'event_page/event_list_screen.dart';
 import 'media_gallery_page.dart'; // ДОБАВЛЯЕМ ИМПОРТ
 

@@ -3,7 +3,7 @@ import 'dart:io';import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../../../providers/news_provider.dart';
+import '../../../../providers/news_providers/news_provider.dart';
 import '../../../../providers/state_sync_provider.dart';
 import '../../../../providers/user_provider.dart';
 import '../../../../services/interaction_manager.dart' as im;

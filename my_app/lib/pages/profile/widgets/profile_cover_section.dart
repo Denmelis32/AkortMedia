@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/news_provider.dart';
+import '../../../providers/news_providers/news_provider.dart';
 import '../components/cover_picker_modal.dart';
 import '../utils/profile_utils.dart';
 

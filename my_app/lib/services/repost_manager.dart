@@ -1,6 +1,6 @@
 // lib/services/repost_manager.dart
 import 'package:flutter/material.dart';
-import 'package:my_app/providers/news_provider.dart';
+import 'package:my_app/providers/news_providers/news_provider.dart';
 import 'package:my_app/services/storage_service.dart';
 import 'package:my_app/services/interaction_manager.dart';
 

@@ -1,4 +1,3 @@
-// lib/pages/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'news_page/news_page.dart';
@@ -7,6 +6,7 @@ import 'articles_pages/articles_page.dart';
 import 'rooms_pages/rooms_page.dart';
 import 'cards_page/cards_page.dart';
 import 'event_page/event_list_screen.dart';
+import 'media_gallery_page.dart'; // ДОБАВЛЯЕМ ИМПОРТ
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -35,7 +35,7 @@ class _HomePageState extends State<HomePage> {
     return width > 1024;
   }
 
-  // ОБНОВЛЕННЫЕ ЦВЕТА ДЛЯ КАЖДОЙ ВКЛАДКИ (согласно изменениям в страницах)
+  // ОБНОВЛЕННЫЕ ЦВЕТА ДЛЯ КАЖДОЙ ВКЛАДКИ (добавляем цвет для медиа)
   final List<Color> _tabColors = [
     const Color(0xFF7E57C2), // NewsPage - фиолетовый
     const Color(0xFF2E8B57), // ArticlesPage - зеленый
@@ -43,9 +43,10 @@ class _HomePageState extends State<HomePage> {
     const Color(0xFF26A69A), // AdaptiveRoomsPage - бирюзовый
     const Color(0xFF9E2C21), // PredictionsLeaguePage - красный
     const Color(0xFF1B2A30), // EventListScreen - темный сине-зеленый
+    const Color(0xFF2196F3), // MediaGalleryPage - синий (НОВАЯ ВКЛАДКА)
   ];
 
-  // Иконки для боковой панели
+  // Иконки для боковой панели (добавляем иконку для медиа)
   final List<IconData> _tabIcons = [
     Icons.newspaper_rounded,
     Icons.article_rounded,
@@ -53,9 +54,10 @@ class _HomePageState extends State<HomePage> {
     Icons.chat_rounded,
     Icons.sports_soccer_rounded,
     Icons.event_rounded,
+    Icons.photo_library_rounded, // НОВАЯ ИКОНКА ДЛЯ МЕДИА
   ];
 
-  // Названия для боковой панели
+  // Названия для боковой панели (добавляем название для медиа)
   final List<String> _tabLabels = [
     'Лента',
     'Статьи',
@@ -63,6 +65,7 @@ class _HomePageState extends State<HomePage> {
     'Обсуждение',
     'Прогнозы',
     'События',
+    'Медиа', // НОВАЯ ВКЛАДКА
   ];
 
   @override
@@ -89,22 +92,22 @@ class _HomePageState extends State<HomePage> {
         onLogout: widget.onLogout,
         userAvatarUrl: '',
       ),
-      AdaptiveRoomsPage(
-        onLogout: widget.onLogout,
-      ),
+      AdaptiveRoomsPage(onLogout: widget.onLogout),
       PredictionsLeaguePage(
         userName: widget.userName,
         userEmail: widget.userEmail,
         onLogout: widget.onLogout,
       ),
       EventListScreen(),
+      MediaGalleryPage(userName: widget.userName), // НОВАЯ СТРАНИЦА
     ];
   }
 
   @override
   void didUpdateWidget(HomePage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.userName != widget.userName || oldWidget.userEmail != widget.userEmail) {
+    if (oldWidget.userName != widget.userName ||
+        oldWidget.userEmail != widget.userEmail) {
       _initializePages();
     }
   }
@@ -155,100 +158,102 @@ class _HomePageState extends State<HomePage> {
       ),
       child: _isSidebarVisible
           ? Column(
-        children: [
-          // Заголовок и кнопка закрытия
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Меню',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                // Заголовок и кнопка закрытия
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Меню',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _isSidebarVisible = false;
+                          });
+                        },
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        tooltip: 'Скрыть панель',
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _isSidebarVisible = false;
-                    });
-                  },
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    color: Colors.white,
-                    size: 24,
+
+                const SizedBox(height: 16),
+
+                // Навигационные пункты - УПРОЩЕННАЯ СТРУКТУРА
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _tabLabels.length,
+                    itemBuilder: (context, index) {
+                      final isSelected = _currentIndex == index;
+                      return _buildDesktopNavItem(
+                        icon: _tabIcons[index],
+                        label: _tabLabels[index],
+                        index: index,
+                        isSelected: isSelected,
+                      );
+                    },
                   ),
-                  tooltip: 'Скрыть панель',
+                ),
+
+                // Информация о пользователе
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const Divider(color: Colors.white30),
+                      const SizedBox(height: 8),
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: Colors.white,
+                        child: Text(
+                          widget.userName.isNotEmpty
+                              ? widget.userName[0].toUpperCase()
+                              : 'U',
+                          style: TextStyle(
+                            color: _tabColors[_currentIndex],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.userName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        widget.userEmail,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Навигационные пункты - УПРОЩЕННАЯ СТРУКТУРА
-          Expanded(
-            child: ListView.builder(
-              itemCount: _tabLabels.length,
-              itemBuilder: (context, index) {
-                final isSelected = _currentIndex == index;
-                return _buildDesktopNavItem(
-                  icon: _tabIcons[index],
-                  label: _tabLabels[index],
-                  index: index,
-                  isSelected: isSelected,
-                );
-              },
-            ),
-          ),
-
-          // Информация о пользователе
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const Divider(color: Colors.white30),
-                const SizedBox(height: 8),
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.white,
-                  child: Text(
-                    widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U',
-                    style: TextStyle(
-                      color: _tabColors[_currentIndex],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.userName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  widget.userEmail,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      )
+            )
           : const SizedBox.shrink(),
     );
   }
@@ -275,11 +280,7 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 24,
-                ),
+                Icon(icon, color: Colors.white, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -389,6 +390,13 @@ class _HomePageState extends State<HomePage> {
               index: 5,
               currentColor: currentColor,
             ),
+            _buildBottomNavItem(
+              // НОВАЯ КНОПКА ДЛЯ МЕДИА
+              icon: Icons.photo_library_rounded,
+              label: 'Медиа',
+              index: 6,
+              currentColor: currentColor,
+            ),
           ],
         ),
       ),
@@ -403,7 +411,9 @@ class _HomePageState extends State<HomePage> {
   }) {
     final isSelected = _currentIndex == index;
     final itemColor = isSelected ? Colors.white : Colors.white.withOpacity(0.7);
-    final backgroundColor = isSelected ? Colors.white.withOpacity(0.3) : Colors.transparent;
+    final backgroundColor = isSelected
+        ? Colors.white.withOpacity(0.3)
+        : Colors.transparent;
 
     return BottomNavigationBarItem(
       icon: Container(
@@ -411,32 +421,20 @@ class _HomePageState extends State<HomePage> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: backgroundColor,
-          border: isSelected ? Border.all(
-            color: Colors.white.withOpacity(0.5),
-            width: 1,
-          ) : null,
+          border: isSelected
+              ? Border.all(color: Colors.white.withOpacity(0.5), width: 1)
+              : null,
         ),
-        child: Icon(
-          icon,
-          size: 22,
-          color: itemColor,
-        ),
+        child: Icon(icon, size: 22, color: itemColor),
       ),
       activeIcon: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.white.withOpacity(0.3),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.5),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
         ),
-        child: Icon(
-          icon,
-          size: 22,
-          color: Colors.white,
-        ),
+        child: Icon(icon, size: 22, color: Colors.white),
       ),
       label: label,
     );

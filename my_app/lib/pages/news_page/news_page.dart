@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dialogs.dart';
-import '../../../providers/news_provider.dart';
+import '../../providers/news_providers/news_provider.dart';
 import '../../../services/api_service.dart';
 import '../news_cards/news_card.dart';
 import 'utils.dart';

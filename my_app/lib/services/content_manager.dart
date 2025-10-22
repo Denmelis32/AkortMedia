@@ -1,6 +1,6 @@
 // lib/services/content_manager.dart
 import 'package:flutter/foundation.dart';
-import '../providers/news_provider.dart';
+import '../providers/news_providers/news_provider.dart';
 import '../providers/channel_posts_provider.dart';
 import '../providers/articles_provider.dart';
 

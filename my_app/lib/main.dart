@@ -5,7 +5,7 @@ import 'package:my_app/providers/community_state_provider.dart';
 import 'package:my_app/providers/state_sync_provider.dart';
 import 'package:my_app/providers/user_tags_provider.dart';
 import 'package:provider/provider.dart';
-import 'providers/news_provider.dart';
+import 'providers/news_providers/news_provider.dart';
 import 'providers/channel_posts_provider.dart';
 import 'providers/articles_provider.dart';
 import 'providers/user_provider.dart';

@@ -28,7 +28,7 @@ import 'utils/layout_utils.dart';
 import 'utils/image_utils.dart';
 
 // ПРОВАЙДЕРЫ
-import '../../providers/news_provider.dart';
+import '../../providers/news_providers/news_provider.dart';
 import '../../providers/user_tags_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/channel_state_provider.dart';

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:my_app/providers/news_provider.dart';
+import 'package:my_app/providers/news_providers/news_provider.dart';
 
 class ImageUtils {
   // 🎯 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ ИЗ ЛЮБОГО ИСТОЧНИКА

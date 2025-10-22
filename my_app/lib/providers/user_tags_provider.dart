@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'news_provider.dart';
+import 'news_providers/news_provider.dart';
 
 class UserTagsProvider with ChangeNotifier {
   Map<String, Map<String, Map<String, Map<String, dynamic>>>> _userTags = {};

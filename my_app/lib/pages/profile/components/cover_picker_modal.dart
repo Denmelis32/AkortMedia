@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
-import 'package:my_app/providers/news_provider.dart';
+import 'package:my_app/providers/news_providers/news_provider.dart';
 import 'package:my_app/services/file_picker_service.dart'; // Исправленный путь
 import '../utils/profile_utils.dart';
 

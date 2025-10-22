@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../../providers/user_tags_provider.dart';
 import '../../../../providers/user_provider.dart';
 import '../../../../providers/channel_state_provider.dart';
-import '../../../../providers/news_provider.dart';
+import '../../../../providers/news_providers/news_provider.dart';
 import '../../dialogs/tag_edit_dialog.dart';
 import '../../models/news_card_enums.dart';
 import '../../utils/image_utils.dart';

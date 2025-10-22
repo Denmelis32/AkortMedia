@@ -8,7 +8,7 @@ import 'package:clipboard/clipboard.dart';
 
 import '../../providers/channel_detail_provider.dart';
 import '../../providers/articles_provider.dart';
-import '../../providers/news_provider.dart';
+import '../../providers/news_providers/news_provider.dart';
 import '../../providers/channel_posts_provider.dart';
 import '../../providers/channel_state_provider.dart';
 import '../articles_pages/models/article.dart';

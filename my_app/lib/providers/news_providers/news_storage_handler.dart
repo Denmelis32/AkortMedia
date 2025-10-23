@@ -30,17 +30,22 @@ class NewsStorageHandler {
       StorageService.removeBookmark(newsId);
       StorageService.removeUserTags(newsId);
 
-      // Пытаемся удалить через API (игнорируем ошибки для локальных постов)
-      try {
-        await ApiService.deleteNews(newsId);
-      } catch (e) {
-        print('⚠️ API delete error (expected for local posts): $e');
+      // 🎯 ИСПРАВЛЕНИЕ: Добавляем проверку на локальные посты
+      // Локальные посты имеют префикс 'local-', серверные - нет
+      if (!newsId.startsWith('local-')) {
+        try {
+          await ApiService.deleteNews(newsId);
+          print('✅ News deleted from server: $newsId');
+        } catch (e) {
+          print('⚠️ API delete error (may be expected): $e');
+        }
+      } else {
+        print('ℹ️ Local post, skipping server deletion: $newsId');
       }
     } catch (e) {
       print('❌ Error removing news data: $e');
     }
   }
-
 
   Future<void> removeAllData() async {
     try {
@@ -50,7 +55,6 @@ class NewsStorageHandler {
       print('❌ Error clearing all data: $e');
     }
   }
-
 
   Future<Map<String, dynamic>> loadUserData() async {
     try {

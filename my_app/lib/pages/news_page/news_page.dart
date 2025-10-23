@@ -479,16 +479,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   // 🎯 ОБНОВЛЕННЫЙ МЕТОД СОЗДАНИЯ НОВОСТИ С УНИВЕРСАЛЬНОЙ СИСТЕМОЙ АВАТАРОК
-  // 🎯 ОБНОВЛЕННЫЙ МЕТОД СОЗДАНИЯ НОВОСТИ С ДЕТАЛЬНЫМ ЛОГИРОВАНИЕМ
   Future<void> _addNews(String title, String description, String hashtags) async {
     if (description.isEmpty || !_isMounted) return;
 
     final hashtagsArray = _formatHashtags(hashtags);
 
     print('🎯 ========== НАЧАЛО СОЗДАНИЯ НОВОСТИ ==========');
-    print('🔍 NewsPage: Creating news for user: ${widget.userName}');
-    print('🔍 NewsPage: User email: ${widget.userEmail}');
-    print('🔍 NewsPage: Generated userId: ${_generateUserId(widget.userEmail)}');
 
     _safeProviderOperation((newsProvider) => newsProvider.setLoading(true));
 
@@ -498,15 +494,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       await _safeProviderOperationAsync((newsProvider) async {
         await newsProvider.loadProfileData();
         print('✅ NewsPage: Profile data loaded');
-
-        // ПРОВЕРЯЕМ ТЕКУЩИЕ ДАННЫЕ ПРОФИЛЯ
-        final currentUrl = newsProvider.profileImageUrl;
-        final currentFile = newsProvider.profileImageFile;
-        print('🔍 NewsPage: Current profile data - URL: $currentUrl, File: $currentFile');
       });
-
-      // ДАЕМ ВРЕМЯ НА ОБНОВЛЕНИЕ СОСТОЯНИЯ
-      await Future.delayed(const Duration(milliseconds: 50));
 
       // 🎯 ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ
       print('🔄 NewsPage: Getting avatar URL for new post...');
@@ -519,8 +507,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'hashtags': hashtagsArray,
       });
 
+      // 🎯 ИСПРАВЛЯЕМ ОШИБКУ С SPREAD OPERATOR
       final Map<String, dynamic> newsItem = _convertToStringDynamicMap({
-        ...newNews,
+        'id': newNews['id'],
+        'title': newNews['title'] ?? title.trim(),
+        'description': newNews['description'] ?? description.trim(),
+        'hashtags': newNews['hashtags'] ?? hashtagsArray,
         'author_name': widget.userName,
         'author_id': _generateUserId(widget.userEmail),
         'author_avatar': currentAvatarUrl,
@@ -541,7 +533,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     } catch (e) {
       print('❌ NewsPage: Error creating news via API: $e');
 
-      // 🎯 ЛОКАЛЬНОЕ СОЗДАНИЕ С ТАКОЙ ЖЕ ЛОГИКОЙ
+      // 🎯 ЛОКАЛЬНОЕ СОЗДАНИЕ
       print('🔄 NewsPage: Creating local news...');
       final currentAvatarUrl = _getUniversalUserAvatarUrl(context);
       print('✅ NewsPage: Final avatar URL for local post: $currentAvatarUrl');
@@ -643,30 +635,11 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
     _safeProviderOperation((newsProvider) {
       final news = Map<String, dynamic>.from(newsProvider.news[index]);
+      final newsId = news['id'].toString();
 
-      try {
-        ApiService.updateNews(news['id'].toString(), {
-          'title': title,
-          'description': description,
-          'hashtags': hashtagsArray,
-        }).then((_) {
-          newsProvider.updateNews(index, {
-            ...news,
-            'title': title,
-            'description': description,
-            'hashtags': hashtagsArray,
-          });
-          _showSuccessSnackBar('📝 Новость обновлена');
-        }).catchError((e) {
-          newsProvider.updateNews(index, {
-            ...news,
-            'title': title,
-            'description': description,
-            'hashtags': hashtagsArray,
-          });
-          _showSuccessSnackBar('💾 Изменения сохранены локально');
-        });
-      } catch (e) {
+      // 🎯 ИСПРАВЛЕНИЕ: Проверяем, это локальная или серверная новость
+      if (newsId.startsWith('local-')) {
+        // Локальная новость - просто обновляем локально
         newsProvider.updateNews(index, {
           ...news,
           'title': title,
@@ -674,6 +647,40 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
           'hashtags': hashtagsArray,
         });
         _showSuccessSnackBar('💾 Изменения сохранены локально');
+      } else {
+        // Серверная новость - пытаемся обновить на сервере
+        try {
+          ApiService.updateNews(newsId, {
+            'title': title,
+            'description': description,
+            'hashtags': hashtagsArray,
+          }).then((_) {
+            newsProvider.updateNews(index, {
+              ...news,
+              'title': title,
+              'description': description,
+              'hashtags': hashtagsArray,
+            });
+            _showSuccessSnackBar('📝 Новость обновлена');
+          }).catchError((e) {
+            // При ошибке всё равно обновляем локально
+            newsProvider.updateNews(index, {
+              ...news,
+              'title': title,
+              'description': description,
+              'hashtags': hashtagsArray,
+            });
+            _showSuccessSnackBar('💾 Изменения сохранены локально');
+          });
+        } catch (e) {
+          newsProvider.updateNews(index, {
+            ...news,
+            'title': title,
+            'description': description,
+            'hashtags': hashtagsArray,
+          });
+          _showSuccessSnackBar('💾 Изменения сохранены локально');
+        }
       }
     });
   }

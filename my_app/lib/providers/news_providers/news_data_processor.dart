@@ -1,7 +1,6 @@
 // lib/providers/news_providers/news_data_processor.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../pages/news_page/mock_news_data.dart';
 import '../../services/storage_service.dart';
 import 'user_profile_manager.dart';
 
@@ -227,9 +226,7 @@ class NewsDataProcessor {
     return colors[hash.abs() % colors.length];
   }
 
-  List<dynamic> getMockNews() {
-    return MockNewsData.getMockNews();
-  }
+
 
   int findNewsIndexById(List<dynamic> news, String newsId) {
     return news.indexWhere((item) => item['id'].toString() == newsId);

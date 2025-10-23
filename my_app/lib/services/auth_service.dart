@@ -4,11 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://localhost:5001/api/auth';
+  static const String baseUrl = 'https://your-api-id.apigw.yandexcloud.net/auth';
 
-  // Логин
+  // 🎯 РЕАЛЬНЫЙ ЛОГИН ЧЕРЕЗ API
   static Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      print('🔐 Attempting login for: $email');
+
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
@@ -18,23 +20,36 @@ class AuthService {
         }),
       );
 
+      print('🔐 Login response: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // Сохраняем токен
+
+        // 🎯 СОХРАНЯЕМ ТОКЕН И ПОЛЬЗОВАТЕЛЯ
         await _saveToken(data['token']);
-        await _saveUser(data['user']);
+        await _saveUser(data['user'] ?? {
+          'id': data['user']?['id'] ?? 'user_${email.hashCode}',
+          'name': data['user']?['name'] ?? 'Пользователь',
+          'email': email,
+        });
+
+        print('✅ Login successful for: ${data['user']?['name']}');
         return data;
       } else {
-        throw Exception('Login failed: ${response.statusCode}');
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Ошибка входа: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Login error: $e');
+      print('❌ Login error: $e');
+      throw Exception('Ошибка входа: $e');
     }
   }
 
-  // Регистрация
+  // 🎯 РЕАЛЬНАЯ РЕГИСТРАЦИЯ ЧЕРЕЗ API
   static Future<Map<String, dynamic>> register(String email, String password, String name) async {
     try {
+      print('👤 Attempting registration for: $name ($email)');
+
       final response = await http.post(
         Uri.parse('$baseUrl/register'),
         headers: {'Content-Type': 'application/json'},
@@ -45,55 +60,82 @@ class AuthService {
         }),
       );
 
+      print('👤 Registration response: ${response.statusCode}');
+
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
+
+        // 🎯 ЕСЛИ СЕРВЕР ВОЗВРАЩАЕТ ТОКЕН ПРИ РЕГИСТРАЦИИ
+        if (data['token'] != null) {
+          await _saveToken(data['token']);
+          await _saveUser(data['user'] ?? {
+            'id': data['user']?['id'] ?? 'user_${email.hashCode}',
+            'name': name,
+            'email': email,
+          });
+        }
+
+        print('✅ Registration successful for: $name');
         return data;
       } else {
-        throw Exception('Registration failed: ${response.statusCode}');
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Ошибка регистрации: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Registration error: $e');
+      print('❌ Registration error: $e');
+      throw Exception('Ошибка регистрации: $e');
     }
   }
 
-  // Сохранение токена
+  // 🎯 СОХРАНЕНИЕ ТОКЕНА (БЕЗ ИЗМЕНЕНИЙ)
   static Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
+    print('💾 Token saved: ${token.substring(0, 20)}...');
   }
 
-  // Сохранение пользователя
+  // 🎯 СОХРАНЕНИЕ ПОЛЬЗОВАТЕЛЯ (БЕЗ ИЗМЕНЕНИЙ)
   static Future<void> _saveUser(Map<String, dynamic> user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_data', json.encode(user));
+    print('💾 User data saved: ${user['name']}');
   }
 
-  // Получение токена
+  // 🎯 ПОЛУЧЕНИЕ ТОКЕНА (БЕЗ ИЗМЕНЕНИЙ)
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    final token = prefs.getString('auth_token');
+    if (token != null) {
+      print('🔑 Token retrieved: ${token.substring(0, 20)}...');
+    }
+    return token;
   }
 
-  // Получение пользователя
+  // 🎯 ПОЛУЧЕНИЕ ПОЛЬЗОВАТЕЛЯ (БЕЗ ИЗМЕНЕНИЙ)
   static Future<Map<String, dynamic>?> getUser() async {
     final prefs = await SharedPreferences.getInstance();
     final userData = prefs.getString('user_data');
     if (userData != null) {
-      return json.decode(userData);
+      final user = json.decode(userData);
+      print('👤 User data retrieved: ${user['name']}');
+      return user;
     }
     return null;
   }
 
-  // Выход
+  // 🎯 ВЫХОД (БЕЗ ИЗМЕНЕНИЙ)
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_data');
+    print('🚪 User logged out');
   }
 
-  // Проверка авторизации
+  // 🎯 ПРОВЕРКА АВТОРИЗАЦИИ (БЕЗ ИЗМЕНЕНИЙ)
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
-    return token != null;
+    final isLoggedIn = token != null;
+    print('🔐 Login status: $isLoggedIn');
+    return isLoggedIn;
   }
 }

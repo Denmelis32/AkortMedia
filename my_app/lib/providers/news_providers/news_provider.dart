@@ -1,8 +1,10 @@
 // lib/providers/news_providers/news_provider.dart
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'user_profile_manager.dart';
 import 'interaction_coordinator.dart';
 import 'repost_manager.dart';
@@ -184,47 +186,88 @@ class NewsProvider with ChangeNotifier {
   }
 
   // 🎯 ОСНОВНЫЕ МЕТОДЫ РАБОТЫ С НОВОСТЯМИ
+  // lib/providers/news_providers/news_provider.dart
   Future<void> loadNews() async {
-    if (_isDisposed) return;
-
-    _setLoading(true);
-    _setError(null);
-
     try {
-      print('🔄 Loading news from server...');
+      _isLoading = true;
+      notifyListeners();
 
-      final serverNews = await ApiService.getNews();
+      // 🎯 ЗАГРУЖАЕМ НОВОСТИ НЕПОСРЕДСТВЕННО ИЗ YDB
+      final news = await ApiService.getNews();
 
-      if (serverNews.isNotEmpty) {
-        await _processServerNews(serverNews);
-      } else {
-        await _loadLocalNewsAsFallback();
-      }
+      _news = news;
+      _isLoading = false;
+      notifyListeners();
+
+      print('✅ News loaded from YDB: ${news.length} items');
     } catch (e) {
-      print('❌ Error loading news from server: $e');
-      _setError('Ошибка загрузки данных с сервера');
-      await _loadLocalNewsAsFallback();
-    } finally {
-      _setLoading(false);
-      await _performFinalSyncAndCleanup();
+      print('❌ Failed to load news from YDB: $e');
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   Future<void> _processServerNews(List<dynamic> serverNews) async {
+    print('🔄 Processing ${serverNews.length} server news items');
+
     final processedNews = await _dataProcessor.processNewsData(
       news: serverNews,
       profileManager: _profileManager,
     );
 
+    print('✅ Processed ${processedNews.length} news items');
+
     _safeOperation(() {
       _news = processedNews;
+      print('📢 Notifying listeners with ${_news.length} items');
       _safeNotifyListeners();
     });
 
     await _storageHandler.saveNews(_news);
     _interactionCoordinator.initializeInteractions(processedNews);
 
-    print('✅ Processed ${processedNews.length} news items from server');
+    print('✅ Server news processing completed');
+  }
+
+
+  // В news_provider.dart добавь:
+  Future<void> ensureDataPersistence() async {
+    if (_isDisposed) return;
+
+    try {
+      print('🔄 ensureDataPersistence: Starting...');
+
+      // 🎯 ПРИНУДИТЕЛЬНО ЗАГРУЖАЕМ ИЗ КЭША
+      final prefs = await SharedPreferences.getInstance();
+      final cachedNewsJson = prefs.getString('cached_news');
+
+      if (cachedNewsJson != null && cachedNewsJson.isNotEmpty) {
+        try {
+          final cachedNews = json.decode(cachedNewsJson) as List<dynamic>;
+          if (cachedNews.isNotEmpty) {
+            print('✅ Loading from cache: ${cachedNews.length} items');
+
+            _safeOperation(() {
+              _news = List.from(cachedNews); // 🎯 СОЗДАЕМ КОПИЮ
+              _safeNotifyListeners();
+            });
+
+            _interactionCoordinator.initializeInteractions(cachedNews);
+            print('✅ Cache loaded successfully');
+          }
+        } catch (e) {
+          print('❌ Error loading cache: $e');
+          await prefs.remove('cached_news');
+        }
+      }
+
+      // 🎯 ЗАГРУЖАЕМ СВЕЖИЕ ДАННЫЕ С СЕРВЕРА
+      await loadNews();
+
+      print('✅ Data persistence ensured');
+    } catch (e) {
+      print('❌ Error ensuring data persistence: $e');
+    }
   }
 
   Future<void> _loadLocalNewsAsFallback() async {
@@ -519,29 +562,7 @@ class NewsProvider with ChangeNotifier {
     _storageHandler.removeAllData();
   }
 
-  Future<void> ensureDataPersistence() async {
-    if (_isDisposed) return;
 
-    try {
-      await _profileManager.loadProfileData();
-
-      final hasConnection = await ApiService.checkConnection();
-
-      if (hasConnection) {
-        await loadNews();
-      } else {
-        await _loadLocalNewsAsFallback();
-      }
-
-      print('✅ Data persistence ensured (online: $hasConnection)');
-    } catch (e) {
-      print('❌ Error ensuring data persistence: $e');
-      _safeOperation(() {
-        _news = [];
-        _safeNotifyListeners();
-      });
-    }
-  }
 
   // 🎯 МЕТОДЫ РАБОТЫ С КОММЕНТАРИЯМИ
   void addCommentToNews(String newsId, Map<String, dynamic> comment) {

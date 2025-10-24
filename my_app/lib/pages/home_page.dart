@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/news_providers/news_provider.dart';
+import '../providers/user_provider.dart';
+import '../services/auth_service.dart';
 import 'channel_page/cards_pages/cards_page.dart';
 import 'news_page/news_page.dart';
 import 'predictions_league_page/predictions_league_page.dart';
 import 'articles_pages/articles_page.dart';
 import 'rooms_pages/rooms_page.dart';
 import 'event_page/event_list_screen.dart';
-import 'media_gallery_page.dart'; // ДОБАВЛЯЕМ ИМПОРТ
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -28,6 +30,9 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
   late List<Widget> _pages;
   bool _isSidebarVisible = true;
+  String _userName = '';
+  String _userEmail = '';
+  bool _isLoading = true;
 
   // Определяем, является ли устройство компьютером
   bool get _isDesktop {
@@ -35,7 +40,7 @@ class _HomePageState extends State<HomePage> {
     return width > 1024;
   }
 
-  // ОБНОВЛЕННЫЕ ЦВЕТА ДЛЯ КАЖДОЙ ВКЛАДКИ (добавляем цвет для медиа)
+  // ОБНОВЛЕННЫЕ ЦВЕТА ДЛЯ КАЖДОЙ ВКЛАДКИ
   final List<Color> _tabColors = [
     const Color(0xFF7E57C2), // NewsPage - фиолетовый
     const Color(0xFF2E8B57), // ArticlesPage - зеленый
@@ -43,10 +48,9 @@ class _HomePageState extends State<HomePage> {
     const Color(0xFF26A69A), // AdaptiveRoomsPage - бирюзовый
     const Color(0xFF9E2C21), // PredictionsLeaguePage - красный
     const Color(0xFF1B2A30), // EventListScreen - темный сине-зеленый
-    const Color(0xFF2196F3), // MediaGalleryPage - синий (НОВАЯ ВКЛАДКА)
   ];
 
-  // Иконки для боковой панели (добавляем иконку для медиа)
+  // Иконки для боковой панели
   final List<IconData> _tabIcons = [
     Icons.newspaper_rounded,
     Icons.article_rounded,
@@ -54,10 +58,9 @@ class _HomePageState extends State<HomePage> {
     Icons.chat_rounded,
     Icons.sports_soccer_rounded,
     Icons.event_rounded,
-    Icons.photo_library_rounded, // НОВАЯ ИКОНКА ДЛЯ МЕДИА
   ];
 
-  // Названия для боковой панели (добавляем название для медиа)
+  // Названия для боковой панели
   final List<String> _tabLabels = [
     'Лента',
     'Статьи',
@@ -65,41 +68,79 @@ class _HomePageState extends State<HomePage> {
     'Обсуждение',
     'Прогнозы',
     'События',
-    'Медиа', // НОВАЯ ВКЛАДКА
   ];
 
   @override
   void initState() {
     super.initState();
+    _userName = widget.userName;
+    _userEmail = widget.userEmail;
+    _loadUserDataAndNews();
     _initializePages();
+  }
+
+  // 🎯 ДОБАВИЛИ МЕТОД ДЛЯ ЗАГРУЗКИ ДАННЫХ
+  Future<void> _loadUserDataAndNews() async {
+    try {
+      print('🎯 HomePage: Loading user data and news...');
+
+      // Загружаем данные пользователя
+      final user = await AuthService.getUser();
+      if (user != null) {
+        setState(() {
+          _userName = user['name'] ?? 'Пользователь';
+          _userEmail = user['email'] ?? '';
+        });
+
+        // Инициализируем UserProvider
+        final userProvider = context.read<UserProvider>();
+        final userId = user['id'] ?? 'user_${DateTime.now().millisecondsSinceEpoch}';
+        userProvider.setUserData(_userName, _userEmail, userId: userId);
+
+        print('✅ HomePage: User data loaded - $_userName ($userId)');
+      }
+
+      // Загружаем новости
+      final newsProvider = context.read<NewsProvider>();
+      await newsProvider.ensureDataPersistence();
+
+      print('✅ HomePage: News loaded - ${newsProvider.news.length} items');
+
+    } catch (e) {
+      print('❌ HomePage: Error loading data - $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+      _initializePages();
+    }
   }
 
   void _initializePages() {
     _pages = [
       NewsPage(
-        userName: widget.userName,
-        userEmail: widget.userEmail,
+        userName: _userName, // 🎯 ИСПОЛЬЗУЕМ ОБНОВЛЕННОЕ ИМЯ
+        userEmail: _userEmail,
         onLogout: widget.onLogout,
       ),
       ArticlesPage(
-        userName: widget.userName,
-        userEmail: widget.userEmail,
+        userName: _userName,
+        userEmail: _userEmail,
         onLogout: widget.onLogout,
       ),
       CardsPage(
-        userName: widget.userName,
-        userEmail: widget.userEmail,
+        userName: _userName,
+        userEmail: _userEmail,
         onLogout: widget.onLogout,
         userAvatarUrl: '',
       ),
       AdaptiveRoomsPage(onLogout: widget.onLogout),
       PredictionsLeaguePage(
-        userName: widget.userName,
-        userEmail: widget.userEmail,
+        userName: _userName,
+        userEmail: _userEmail,
         onLogout: widget.onLogout,
       ),
       EventListScreen(),
-      MediaGalleryPage(userName: widget.userName), // НОВАЯ СТРАНИЦА
     ];
   }
 
@@ -110,6 +151,31 @@ class _HomePageState extends State<HomePage> {
         oldWidget.userEmail != widget.userEmail) {
       _initializePages();
     }
+  }
+
+  // 🎯 ДОБАВИЛИ ЭКРАН ЗАГРУЗКИ
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(_tabColors[0]),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Загрузка данных...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // Виджет плавающей кнопки для показа боковой панели
@@ -158,102 +224,102 @@ class _HomePageState extends State<HomePage> {
       ),
       child: _isSidebarVisible
           ? Column(
+        children: [
+          // Заголовок и кнопка закрытия
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Заголовок и кнопка закрытия
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Меню',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _isSidebarVisible = false;
-                          });
-                        },
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        tooltip: 'Скрыть панель',
-                      ),
-                    ],
+                Text(
+                  'Меню',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-
-                const SizedBox(height: 16),
-
-                // Навигационные пункты - УПРОЩЕННАЯ СТРУКТУРА
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _tabLabels.length,
-                    itemBuilder: (context, index) {
-                      final isSelected = _currentIndex == index;
-                      return _buildDesktopNavItem(
-                        icon: _tabIcons[index],
-                        label: _tabLabels[index],
-                        index: index,
-                        isSelected: isSelected,
-                      );
-                    },
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _isSidebarVisible = false;
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 24,
                   ),
-                ),
-
-                // Информация о пользователе
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const Divider(color: Colors.white30),
-                      const SizedBox(height: 8),
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          widget.userName.isNotEmpty
-                              ? widget.userName[0].toUpperCase()
-                              : 'U',
-                          style: TextStyle(
-                            color: _tabColors[_currentIndex],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.userName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        widget.userEmail,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
+                  tooltip: 'Скрыть панель',
                 ),
               ],
-            )
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Навигационные пункты
+          Expanded(
+            child: ListView.builder(
+              itemCount: _tabLabels.length,
+              itemBuilder: (context, index) {
+                final isSelected = _currentIndex == index;
+                return _buildDesktopNavItem(
+                  icon: _tabIcons[index],
+                  label: _tabLabels[index],
+                  index: index,
+                  isSelected: isSelected,
+                );
+              },
+            ),
+          ),
+
+          // Информация о пользователе
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                const Divider(color: Colors.white30),
+                const SizedBox(height: 8),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.white,
+                  child: Text(
+                    _userName.isNotEmpty
+                        ? _userName[0].toUpperCase()
+                        : 'U',
+                    style: TextStyle(
+                      color: _tabColors[_currentIndex],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  _userEmail,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      )
           : const SizedBox.shrink(),
     );
   }
@@ -390,13 +456,6 @@ class _HomePageState extends State<HomePage> {
               index: 5,
               currentColor: currentColor,
             ),
-            _buildBottomNavItem(
-              // НОВАЯ КНОПКА ДЛЯ МЕДИА
-              icon: Icons.photo_library_rounded,
-              label: 'Медиа',
-              index: 6,
-              currentColor: currentColor,
-            ),
           ],
         ),
       ),
@@ -451,6 +510,11 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 🎯 ПОКАЗЫВАЕМ ЭКРАН ЗАГРУЗКИ
+    if (_isLoading) {
+      return _buildLoadingScreen();
+    }
+
     // Для компьютера используем боковую панель
     if (_isDesktop) {
       return Scaffold(
@@ -463,7 +527,7 @@ class _HomePageState extends State<HomePage> {
                 // Боковая панель навигации
                 _buildDesktopSidebar(),
 
-                // Основной контент - УПРОЩЕННАЯ СТРУКТУРА
+                // Основной контент
                 Expanded(
                   child: Container(
                     color: const Color(0xFFF8F9FA),

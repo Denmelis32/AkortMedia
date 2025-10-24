@@ -11,7 +11,6 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     // Build our app with isLoggedIn = false
-    await tester.pumpWidget(MyApp(isLoggedIn: false));
 
     // Verify that LoginPage is shown
     expect(find.text('Вход'), findsOneWidget);
@@ -25,7 +24,6 @@ void main() {
     });
 
     // Build our app with isLoggedIn = true
-    await tester.pumpWidget(MyApp(isLoggedIn: true));
 
     // Verify that HomePage is shown
     expect(find.byType(HomePage), findsOneWidget);

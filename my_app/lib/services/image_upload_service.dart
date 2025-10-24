@@ -6,7 +6,7 @@ import 'package:path/path.dart' as path;
 import 'api_service.dart';
 
 class ImageUploadService {
-  static const String baseUrl = 'https://your-api-id.apigw.yandexcloud.net';
+  static const String baseUrl = 'http://localhost:3000/api';
 
   // 🎯 ИСПРАВЛЯЕМ МЕТОД ДЛЯ ПОЛУЧЕНИЯ ЗАГОЛОВКОВ
   static Future<Map<String, String>> _getHeaders() async {

@@ -1,4 +1,3 @@
-// lib/pages/news_page/news_page.dart
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -26,7 +25,7 @@ import 'widgets/app_bar.dart';
 // Импортируем ImageUtils для универсальной системы аватарок
 import '../news_cards/utils/image_utils.dart';
 
-// Оптимизированный NewsCardItem для лучшей производительности
+// Оптимизированный NewsCardItem с анимацией появления
 class NewsCardItem extends StatelessWidget {
   final Map<String, dynamic> news;
   final VoidCallback onLike;
@@ -42,6 +41,7 @@ class NewsCardItem extends StatelessWidget {
   final String Function(String) getTimeAgo;
   final ScrollController scrollController;
   final VoidCallback onLogout;
+  final int index; // 🎯 ДОБАВЛЕНО: индекс для staggered анимации
 
   const NewsCardItem({
     super.key,
@@ -59,26 +59,34 @@ class NewsCardItem extends StatelessWidget {
     required this.getTimeAgo,
     required this.scrollController,
     required this.onLogout,
+    required this.index, // 🎯 ДОБАВЛЕНО
   });
 
   @override
   Widget build(BuildContext context) {
-    return NewsCard(
-      key: ValueKey('news-${news['id']}-${news['likes']}-${news['isBookmarked']}'),
-      news: news,
-      onLike: onLike,
-      onBookmark: onBookmark,
-      onRepost: onRepost,
-      onComment: onComment,
-      onFollow: onFollow,
-      onEdit: onEdit,
-      onDelete: onDelete,
-      onShare: onShare,
-      onTagEdit: onTagEdit,
-      formatDate: formatDate,
-      getTimeAgo: getTimeAgo,
-      scrollController: scrollController,
-      onLogout: onLogout,
+    return AnimatedOpacity(
+      duration: Duration(milliseconds: 300 + (index * 100)), // 🎯 Staggered анимация
+      opacity: 1.0,
+      child: Transform.translate(
+        offset: Offset(0, 0),
+        child: NewsCard(
+          key: ValueKey('news-${news['id']}-${news['likes']}-${news['isBookmarked']}'),
+          news: news,
+          onLike: onLike,
+          onBookmark: onBookmark,
+          onRepost: onRepost,
+          onComment: onComment,
+          onFollow: onFollow,
+          onEdit: onEdit,
+          onDelete: onDelete,
+          onShare: onShare,
+          onTagEdit: onTagEdit,
+          formatDate: formatDate,
+          getTimeAgo: getTimeAgo,
+          scrollController: scrollController,
+          onLogout: onLogout,
+        ),
+      ),
     );
   }
 }
@@ -105,6 +113,8 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   bool _isMounted = false;
+  bool _isInitialLoad = true; // 🎯 ДОБАВЛЕНО: флаг первой загрузки
+  bool _isLoadingInProgress = false; // 🎯 ДОБАВЛЕНО: флаг текущей загрузки
 
   // Улучшенный кэш для отфильтрованных новостей
   final _newsCache = <String, List<dynamic>>{};
@@ -117,7 +127,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     _isMounted = true;
     _pageState = NewsPageState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
@@ -127,13 +137,122 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       ),
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // 🎯 ИСПРАВЛЕНО: Упрощенная инициализация без дублирования
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isMounted) return;
-      await _ensureDataPersistence();
-      _loadNews(showLoading: true);
-      _safeProviderOperation((newsProvider) => newsProvider.loadUserTags());
-      _animationController.forward();
+      _initializeApp();
     });
+  }
+
+  // 🎯 НОВЫЙ МЕТОД: Упрощенная инициализация
+  // 🎯 ОБНОВЛЕННЫЙ МЕТОД ИНИЦИАЛИЗАЦИИ
+  Future<void> _initializeApp() async {
+    try {
+      print('🎯 NewsPage: Starting initialization...');
+
+      // 1. Сначала загружаем данные
+      await _ensureDataPersistence();
+
+      // 2. Затем загружаем новости
+      await _loadInitialNews();
+
+      // 3. Синхронизируем локальные посты
+      await _syncLocalPosts();
+
+      // 4. Загружаем теги пользователя
+      _safeProviderOperation((newsProvider) => newsProvider.loadUserTags());
+
+      // 5. Запускаем анимацию
+      _animationController.forward();
+
+      _isInitialLoad = false;
+      print('✅ NewsPage: Initialization completed successfully');
+
+    } catch (e) {
+      print('❌ NewsPage: Initialization error: $e');
+    }
+  }
+
+
+  // 🎯 ДОБАВЬ ЭТОТ МЕТОД В _NewsPageState
+  Future<void> _syncLocalPosts() async {
+    try {
+      print('🔄 Checking for local posts to sync...');
+
+      _safeProviderOperation((newsProvider) {
+        final localPosts = newsProvider.news.where((post) {
+          final id = post['id']?.toString() ?? '';
+          return id.startsWith('local-');
+        }).toList();
+
+        print('📱 Found ${localPosts.length} local posts to sync');
+
+        for (final post in localPosts) {
+          _trySyncLocalPost(post);
+        }
+      });
+    } catch (e) {
+      print('❌ Error syncing local posts: $e');
+    }
+  }
+
+  Future<void> _trySyncLocalPost(Map<String, dynamic> post) async {
+    try {
+      final postId = post['id'].toString();
+      print('🔄 Syncing local post: $postId');
+
+      final serverNews = await ApiService.createNews({
+        'title': post['title'],
+        'description': post['description'],
+        'hashtags': post['hashtags'] ?? [],
+      });
+
+      // 🎯 ЗАМЕНЯЕМ ЛОКАЛЬНЫЙ ПОСТ НА СЕРВЕРНЫЙ
+      _safeProviderOperation((newsProvider) {
+        final index = newsProvider.findNewsIndexById(postId);
+        if (index != -1) {
+          newsProvider.news[index] = {
+            ...serverNews,
+            'id': serverNews['id'], // 🎯 ВАЖНО: заменяем ID
+            'isLiked': post['isLiked'] ?? false,
+            'isBookmarked': post['isBookmarked'] ?? false,
+            'isFollowing': post['isFollowing'] ?? false,
+          };
+          newsProvider.notifyListeners();
+          print('✅ Local post synced: $postId → ${serverNews['id']}');
+        }
+      });
+
+    } catch (e) {
+      print('❌ Failed to sync local post ${post['id']}: $e');
+    }
+  }
+
+  // 🎯 НОВЫЙ МЕТОД: Загрузка начальных новостей
+  Future<void> _loadInitialNews() async {
+    if (!_isMounted || _isLoadingInProgress) return;
+
+    _isLoadingInProgress = true;
+
+    try {
+      _safeProviderOperation((newsProvider) {
+        print('🔄 Setting loading state to true');
+        newsProvider.setLoading(true);
+      });
+
+      await _safeProviderOperationAsync((newsProvider) => newsProvider.loadNews());
+    } catch (e) {
+      print('❌ Initial news load error: $e');
+    } finally {
+      _isLoadingInProgress = false;
+
+      if (_isMounted) {
+        _safeProviderOperation((newsProvider) {
+          print('🔄 Setting loading state to false');
+          newsProvider.setLoading(false);
+        });
+      }
+    }
   }
 
   // 🔄 ГЕНЕРАЦИЯ USER_ID ДЛЯ УНИВЕРСАЛЬНОЙ СИСТЕМЫ АВАТАРОК
@@ -142,36 +261,25 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   // 🎯 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ
-  // 🎯 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРКИ - ОБНОВЛЕННЫЙ
   String _getUniversalUserAvatarUrl(BuildContext context) {
     try {
       final userId = _generateUserId(widget.userEmail);
-      print('🔍 NewsPage: Getting universal avatar for ${widget.userName} ($userId)');
-
-      // ПРЯМОЙ ДОСТУП К ПРОВАЙДЕРУ ДЛЯ ПОЛУЧЕНИЯ АКТУАЛЬНОЙ АВАТАРКИ
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-
-      // 1. Пытаемся получить аватарку напрямую из UserProfileManager
       final directAvatar = newsProvider.getUserAvatarUrl(userId, widget.userName);
-      print('🔍 NewsPage: Direct avatar from provider: $directAvatar');
 
-      // 2. Если получили Яндекс аватарку - используем её
       if (directAvatar != null &&
           directAvatar.isNotEmpty &&
           !directAvatar.contains('assets/images/ava_news/') &&
           directAvatar.contains('yandex')) {
-        print('✅ NewsPage: Using Yandex avatar: $directAvatar');
         return directAvatar;
       }
 
-      // 3. Если нет Яндекс аватарки, используем ImageUtils как fallback
       final fallbackAvatar = ImageUtils.getUniversalAvatarUrl(
         context: context,
         userId: userId,
         userName: widget.userName,
       );
 
-      print('✅ NewsPage: Using fallback avatar: $fallbackAvatar');
       return fallbackAvatar;
 
     } catch (e) {
@@ -180,11 +288,305 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     }
   }
 
+  // 🎯 ИСПРАВЛЕННЫЙ МЕТОД ЗАГРУЗКИ НОВОСТЕЙ
+  Future<void> _loadNews({bool showLoading = false}) async {
+    if (!_isMounted || _isLoadingInProgress) return;
+
+    _isLoadingInProgress = true;
+
+    try {
+      if (showLoading) {
+        _safeProviderOperation((newsProvider) {
+          newsProvider.setLoading(true);
+        });
+      }
+
+      await _safeProviderOperationAsync((newsProvider) => newsProvider.loadNews());
+    } catch (e) {
+      print('❌ Load news error: $e');
+      if (_isMounted) {
+        _showErrorSnackBar('Ошибка загрузки: ${e.toString()}');
+      }
+    } finally {
+      _isLoadingInProgress = false;
+
+      if (showLoading && _isMounted) {
+        _safeProviderOperation((newsProvider) {
+          newsProvider.setLoading(false);
+        });
+      }
+    }
+  }
+
+  // 🎯 ИСПРАВЛЕННЫЙ МЕТОД ОБНОВЛЕНИЯ
+  Future<void> _onRefresh() async {
+    if (!_isMounted || _isLoadingInProgress) return;
+
+    _isLoadingInProgress = true;
+
+    try {
+      await _safeProviderOperationAsync((newsProvider) => newsProvider.loadNews());
+      if (_isMounted) {
+        _refreshController.refreshCompleted();
+        _showSuccessSnackBar('Новости обновлены');
+      }
+    } catch (e) {
+      if (_isMounted) {
+        _refreshController.refreshFailed();
+        _showErrorSnackBar('Ошибка обновления: ${e.toString()}');
+      }
+    } finally {
+      _isLoadingInProgress = false;
+    }
+  }
+
+  // 🎯 УЛУЧШЕННЫЙ МЕТОД ДЛЯ ПОСТРОЕНИЯ UI
+  Widget _buildNewsContent(NewsPageState pageState, NewsProvider newsProvider) {
+    // Используем кэшированные данные
+    final filteredNews = _getCachedFilteredNews(
+        newsProvider.news,
+        pageState.searchQuery,
+        pageState.currentFilter
+    );
+    final hasActiveFilters = pageState.currentFilter != 0 || pageState.searchQuery.isNotEmpty;
+
+    // 🎯 ПРОВЕРКА СОСТОЯНИЯ ЗАГРУЗКИ
+    if (newsProvider.isLoading && newsProvider.news.isEmpty) {
+      return _buildShimmerScaffold();
+    }
+
+    return Theme(
+      data: NewsTheme.themeData,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: NewsAppBar(
+          userName: widget.userName,
+          userEmail: widget.userEmail,
+          isSearching: pageState.isSearching,
+          searchQuery: pageState.searchQuery,
+          onSearchChanged: (query) {
+            if (!_isMounted) return;
+            pageState.setSearchQuery(query);
+            if (query.isNotEmpty) {
+              pageState.addToRecentSearches(query);
+            }
+          },
+          onSearchToggled: () {
+            if (!_isMounted) return;
+            pageState.setSearching(!pageState.isSearching);
+          },
+          onProfilePressed: () => _showProfilePage(context),
+          onClearFilters: _clearAllFilters,
+          hasActiveFilters: hasActiveFilters,
+          newMessagesCount: 3,
+          profileImageUrl: newsProvider.profileImageUrl,
+          profileImageFile: newsProvider.profileImageFile,
+        ),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFF5F5F5),
+                Color(0xFFE8E8E8),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: SmartRefresher(
+              enablePullDown: true,
+              enablePullUp: false,
+              header: const ClassicHeader(
+                completeText: 'Обновлено',
+                refreshingText: 'Обновление...',
+                releaseText: 'Отпустите для обновления',
+                idleText: 'Потяните для обновления',
+                completeIcon: Icon(Icons.check_rounded, color: Colors.green),
+                refreshingIcon: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+              controller: _refreshController,
+              onRefresh: _onRefresh,
+              onLoading: () => _refreshController.loadComplete(),
+              child: CustomScrollView(
+                controller: pageState.scrollController,
+                physics: const BouncingScrollPhysics(),
+                slivers: _buildSliverContent(pageState, newsProvider, filteredNews, hasActiveFilters),
+              ),
+            ),
+          ),
+        ),
+        floatingActionButton: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            _buildScrollToTopButton(),
+            const SizedBox(height: 16),
+            AnimatedFAB(
+              onPressed: _showAddNewsDialog,
+              tooltip: 'Создать новость',
+              icon: Icons.add_rounded,
+              scrollController: pageState.scrollController,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🎯 МЕТОД ДЛЯ ПОСТРОЕНИЯ SHIMMER SCAFFOLD
+  Widget _buildShimmerScaffold() {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: Text(
+          'Новости',
+          style: TextStyle(
+            color: Colors.grey[800],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      body: const NewsShimmerLoader(),
+    );
+  }
+
+  List<Widget> _buildSliverContent(NewsPageState pageState, NewsProvider newsProvider, List<dynamic> filteredNews, bool hasActiveFilters) {
+    return [
+      SliverToBoxAdapter(
+        child: Column(
+          children: [
+            if (newsProvider.news.isNotEmpty)
+              const FilterChipsRow(),
+
+            if (hasActiveFilters && filteredNews.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Center(
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width > 700 ? 600 : double.infinity,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: NewsTheme.primaryColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: NewsTheme.primaryColor.withOpacity(0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.filter_alt_rounded, size: 16, color: NewsTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _getFilterDescription(pageState.currentFilter, pageState.searchQuery, filteredNews.length),
+                              style: TextStyle(
+                                color: NewsTheme.primaryColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _clearAllFilters,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: NewsTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Очистить',
+                                style: TextStyle(
+                                  color: NewsTheme.primaryColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+
+      // 🎯 УСЛОВНОЕ ОТОБРАЖЕНИЕ КОНТЕНТА
+      if (newsProvider.news.isEmpty && !newsProvider.isLoading)
+        SliverFillRemaining(
+          child: EmptyNewsState(onCreateNews: _showAddNewsDialog),
+        )
+      else if (filteredNews.isEmpty && !newsProvider.isLoading)
+        SliverFillRemaining(
+          child: NoResultsState(
+            searchQuery: pageState.searchQuery,
+            onClearSearch: pageState.clearSearch,
+          ),
+        )
+      else
+        SliverPadding(
+          padding: EdgeInsets.zero,
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                final news = Map<String, dynamic>.from(filteredNews[index]);
+                final newsId = news['id'].toString();
+                final originalIndex = newsProvider.findNewsIndexById(newsId);
+
+                if (originalIndex == -1) {
+                  return const SizedBox.shrink();
+                }
+
+                return Padding(
+                  padding: _getNewsCardPadding(context, index, filteredNews.length),
+                  child: NewsCardItem(
+                    key: ValueKey('news-$newsId-$index-${news['likes']}-${news['isBookmarked']}'),
+                    news: news,
+                    index: index,
+                    onLike: () => _safeNewsAction(originalIndex, _toggleLike),
+                    onBookmark: () => _safeNewsAction(originalIndex, _toggleBookmark),
+                    onRepost: () => _safeNewsAction(originalIndex, _toggleRepost),
+                    onComment: (text, userName, userAvatar) => _safeNewsAction(
+                        originalIndex,
+                            (idx) => _addComment(idx, text, userName, userAvatar)
+                    ),
+                    onFollow: () => _safeNewsAction(originalIndex, _toggleFollow),
+                    onEdit: () => _safeNewsAction(originalIndex, _showEditNewsDialog),
+                    onDelete: () => _safeNewsAction(originalIndex, _showDeleteConfirmationDialog),
+                    onShare: () => _safeNewsAction(originalIndex, _shareNews),
+                    onTagEdit: (tagId, newTagName, color) =>
+                        _safeNewsAction(originalIndex, (idx) => _editUserTag(idx, tagId, newTagName, color)),
+                    formatDate: formatDate,
+                    getTimeAgo: getTimeAgo,
+                    scrollController: pageState.scrollController,
+                    onLogout: widget.onLogout,
+                  ),
+                );
+              },
+              childCount: filteredNews.length,
+            ),
+          ),
+        ),
+    ];
+  }
+
   // Оптимизированный кэш для отфильтрованных новостей
   List<dynamic> _getCachedFilteredNews(List<dynamic> news, String searchQuery, int currentFilter) {
     final cacheKey = '$searchQuery-$currentFilter-${news.length}';
 
-    // Используем кэш если данные не изменились
     if (_lastCacheKey == cacheKey && _newsCache.containsKey(cacheKey) && _lastNewsCount == news.length) {
       return _newsCache[cacheKey]!;
     }
@@ -194,7 +596,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     _lastCacheKey = cacheKey;
     _lastNewsCount = news.length;
 
-    // Очищаем старый кэш (сохраняем только последние 3 запросы)
     if (_newsCache.length > 3) {
       final keysToRemove = _newsCache.keys.toList()..remove(cacheKey);
       for (final key in keysToRemove.take(keysToRemove.length - 2)) {
@@ -206,14 +607,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   List<dynamic> _performFiltering(List<dynamic> news, String searchQuery, int currentFilter) {
-    // Быстрый выход если нет фильтров
     if (searchQuery.isEmpty && currentFilter == 0) {
       return news;
     }
 
     List<dynamic> filtered = List.from(news);
 
-    // Применяем поиск
     if (searchQuery.isNotEmpty) {
       final query = searchQuery.toLowerCase();
       filtered = filtered.where((item) {
@@ -221,11 +620,9 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         final title = newsItem['title']?.toString().toLowerCase() ?? '';
         final description = newsItem['description']?.toString().toLowerCase() ?? '';
 
-        // Оптимизация: сначала проверяем title (самый быстрый вариант)
         if (title.contains(query)) return true;
         if (description.contains(query)) return true;
 
-        // Более медленные проверки только если нужно
         final hashtags = (newsItem['hashtags'] is List
             ? (newsItem['hashtags'] as List).join(' ').toLowerCase()
             : '');
@@ -236,7 +633,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       }).toList();
     }
 
-    // Применяем фильтр
     if (currentFilter != 0) {
       switch (currentFilter) {
         case 1: // Мои новости
@@ -279,7 +675,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         operation(newsProvider);
       }
     } catch (e) {
-      // Игнорируем ошибки доступа к провайдеру
+      print('❌ Safe provider operation error: $e');
     }
   }
 
@@ -289,7 +685,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     try {
       await _safeProviderOperationAsync((newsProvider) => newsProvider.ensureDataPersistence());
     } catch (e) {
-      // Игнорируем ошибки
+      print('❌ Ensure data persistence error: $e');
     }
   }
 
@@ -304,24 +700,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     return EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 0);
   }
 
-  Future<void> _loadNews({bool showLoading = false}) async {
-    if (!_isMounted) return;
-
-    try {
-      if (showLoading) {
-        _safeProviderOperation((newsProvider) => newsProvider.setLoading(true));
-      }
-
-      await _safeProviderOperationAsync((newsProvider) => newsProvider.loadNews());
-    } catch (e) {
-      _showErrorSnackBar('Ошибка загрузки: ${e.toString()}');
-    } finally {
-      if (showLoading && _isMounted) {
-        _safeProviderOperation((newsProvider) => newsProvider.setLoading(false));
-      }
-    }
-  }
-
   Future<void> _safeProviderOperationAsync(Future Function(NewsProvider) operation) async {
     if (!_isMounted) return;
 
@@ -332,23 +710,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       }
     } catch (e) {
       rethrow;
-    }
-  }
-
-  Future<void> _onRefresh() async {
-    if (!_isMounted) return;
-
-    try {
-      await _safeProviderOperationAsync((newsProvider) => newsProvider.loadNews());
-      if (_isMounted) {
-        _refreshController.refreshCompleted();
-        _showSuccessSnackBar('Новости обновлены');
-      }
-    } catch (e) {
-      if (_isMounted) {
-        _refreshController.refreshFailed();
-        _showErrorSnackBar('Ошибка обновления: ${e.toString()}');
-      }
     }
   }
 
@@ -473,72 +834,47 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
         newsProvider.addCommentToNews(newsId, newComment);
       } catch (e) {
-        // Игнорируем ошибки добавления комментария
+        print('❌ Add comment error: $e');
       }
     });
   }
 
-  // 🎯 ОБНОВЛЕННЫЙ МЕТОД СОЗДАНИЯ НОВОСТИ С УНИВЕРСАЛЬНОЙ СИСТЕМОЙ АВАТАРОК
+  // 🎯 ОБНОВЛЕННЫЙ МЕТОД СОЗДАНИЯ НОВОСТИ
+  // 🎯 УПРОЩЕННЫЙ МЕТОД СОЗДАНИЯ НОВОСТИ
   Future<void> _addNews(String title, String description, String hashtags) async {
     if (description.isEmpty || !_isMounted) return;
 
     final hashtagsArray = _formatHashtags(hashtags);
 
-    print('🎯 ========== НАЧАЛО СОЗДАНИЯ НОВОСТИ ==========');
-
     _safeProviderOperation((newsProvider) => newsProvider.setLoading(true));
 
     try {
-      // 🔄 ПРИНУДИТЕЛЬНО ЗАГРУЖАЕМ ДАННЫЕ ПРОФИЛЯ
-      print('🔄 NewsPage: Loading profile data before creating post...');
-      await _safeProviderOperationAsync((newsProvider) async {
-        await newsProvider.loadProfileData();
-        print('✅ NewsPage: Profile data loaded');
-      });
-
-      // 🎯 ПОЛУЧАЕМ АКТУАЛЬНУЮ АВАТАРКУ
-      print('🔄 NewsPage: Getting avatar URL for new post...');
       final currentAvatarUrl = _getUniversalUserAvatarUrl(context);
-      print('✅ NewsPage: Final avatar URL for new post: $currentAvatarUrl');
 
+      // 🎯 ПРЯМОЕ СОЗДАНИЕ НА СЕРВЕРЕ
       final newNews = await ApiService.createNews({
         'title': title.trim(),
         'description': description.trim(),
         'hashtags': hashtagsArray,
-      });
-
-      // 🎯 ИСПРАВЛЯЕМ ОШИБКУ С SPREAD OPERATOR
-      final Map<String, dynamic> newsItem = _convertToStringDynamicMap({
-        'id': newNews['id'],
-        'title': newNews['title'] ?? title.trim(),
-        'description': newNews['description'] ?? description.trim(),
-        'hashtags': newNews['hashtags'] ?? hashtagsArray,
         'author_name': widget.userName,
         'author_id': _generateUserId(widget.userEmail),
         'author_avatar': currentAvatarUrl,
-        'isLiked': false,
-        'isBookmarked': false,
-        'isFollowing': false,
-        'likes': 0,
-        'comments': [],
-        'user_tags': <String, String>{},
-        'tag_color': _generateColorFromId(newNews['id']?.toString() ?? '').value,
-        'is_channel_post': false,
       });
 
-      print('✅ NewsPage: News item created with avatar: $currentAvatarUrl');
-      _safeProviderOperation((newsProvider) => newsProvider.addNews(newsItem, context: context));
+      // 🎯 ДОБАВЛЯЕМ СРАЗУ В СПИСОК
+      _safeProviderOperation((newsProvider) {
+        newsProvider.addNews(newNews, context: context);
+      });
+
       _showSuccessSnackBar('🎉 Новость успешно создана!');
 
     } catch (e) {
       print('❌ NewsPage: Error creating news via API: $e');
 
-      // 🎯 ЛОКАЛЬНОЕ СОЗДАНИЕ
-      print('🔄 NewsPage: Creating local news...');
+      // 🎯 ЕСЛИ ОШИБКА - СОЗДАЕМ ЛОКАЛЬНО И СРАЗУ СИНХРОНИЗИРУЕМ
       final currentAvatarUrl = _getUniversalUserAvatarUrl(context);
-      print('✅ NewsPage: Final avatar URL for local post: $currentAvatarUrl');
 
-      final Map<String, dynamic> localNewsItem = _convertToStringDynamicMap({
+      final localNewsItem = {
         'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
         'title': title.trim(),
         'description': description.trim(),
@@ -555,13 +891,19 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'isFollowing': false,
         'tag_color': _generateColorFromId('local-${DateTime.now().millisecondsSinceEpoch}').value,
         'is_channel_post': false,
+      };
+
+      _safeProviderOperation((newsProvider) {
+        newsProvider.addNews(localNewsItem, context: context);
       });
 
-      print('✅ NewsPage: Local news item created with avatar: $currentAvatarUrl');
-      _safeProviderOperation((newsProvider) => newsProvider.addNews(localNewsItem, context: context));
       _showSuccessSnackBar('📝 Новость создана локально');
+
+      // 🎯 ПЫТАЕМСЯ СИНХРОНИЗИРОВАТЬ СРАЗУ
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _trySyncLocalPost(localNewsItem);
+      });
     } finally {
-      print('🎯 ========== ЗАВЕРШЕНИЕ СОЗДАНИЯ НОВОСТИ ==========');
       if (_isMounted) {
         _safeProviderOperation((newsProvider) => newsProvider.setLoading(false));
       }
@@ -637,9 +979,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       final news = Map<String, dynamic>.from(newsProvider.news[index]);
       final newsId = news['id'].toString();
 
-      // 🎯 ИСПРАВЛЕНИЕ: Проверяем, это локальная или серверная новость
       if (newsId.startsWith('local-')) {
-        // Локальная новость - просто обновляем локально
         newsProvider.updateNews(index, {
           ...news,
           'title': title,
@@ -648,7 +988,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         });
         _showSuccessSnackBar('💾 Изменения сохранены локально');
       } else {
-        // Серверная новость - пытаемся обновить на сервере
         try {
           ApiService.updateNews(newsId, {
             'title': title,
@@ -663,7 +1002,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
             });
             _showSuccessSnackBar('📝 Новость обновлена');
           }).catchError((e) {
-            // При ошибке всё равно обновляем локально
             newsProvider.updateNews(index, {
               ...news,
               'title': title,
@@ -1131,6 +1469,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                                       child: NewsCardItem(
                                         key: ValueKey('news-$newsId-$index-${news['likes']}-${news['isBookmarked']}'),
                                         news: news,
+                                        index: index,
                                         onLike: () => _safeNewsAction(originalIndex, _toggleLike),
                                         onBookmark: () => _safeNewsAction(originalIndex, _toggleBookmark),
                                         onRepost: () => _safeNewsAction(originalIndex, _toggleRepost),

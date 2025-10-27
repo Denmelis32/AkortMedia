@@ -53,7 +53,6 @@ flutter:
   assets:
     - assets/images/register.png
     - assets/images/icon.png
-    - assets/images/articles_images/article_cover/
     - assets/images/articles_images/photo_for_articles/
     - assets/images/event_photos/
     - assets/images/cards_image/avatarka/

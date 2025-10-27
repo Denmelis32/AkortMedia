@@ -17,13 +17,18 @@ class UserTagsProvider with ChangeNotifier {
   final List<Color> _availableColors = [
     Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.red,
     Colors.teal, Colors.pink, Colors.indigo, Colors.amber, Colors.cyan,
+    Colors.deepOrange, Colors.lightBlue, Colors.lightGreen, Colors.deepPurple,
   ];
+
+  // Статистика использования тегов
+  final Map<String, int> _tagUsageStats = {};
+  final Map<String, DateTime> _tagLastUsed = {};
 
   List<Color> get availableColors => _availableColors;
   bool get isInitialized => _isInitialized;
   String get currentUserId => _currentUserId;
 
-  // Основной метод инициализации, который должен вызываться при старте приложения
+  // Основной метод инициализации
   Future<void> initialize(UserProvider userProvider) async {
     if (_isInitialized) {
       print('⚠️ UserTagsProvider: уже инициализирован');
@@ -41,17 +46,6 @@ class UserTagsProvider with ChangeNotifier {
     }
 
     await _initializeCore();
-  }
-
-  void clearCurrentUserTags() {
-    if (_currentUserId.isNotEmpty && _userTags.containsKey(_currentUserId)) {
-      _userTags.remove(_currentUserId);
-      print('✅ UserTagsProvider: теги очищены для пользователя $_currentUserId');
-      notifyListeners();
-
-      // Также сохраняем изменения в хранилище
-      _saveUserTagsToStorage();
-    }
   }
 
   // Альтернативная инициализация с прямым userId
@@ -81,9 +75,56 @@ class UserTagsProvider with ChangeNotifier {
       await _createDefaultTagsForUser(_currentUserId);
     }
 
+    _updateUsageStats();
     debugPrintTags();
     notifyListeners();
     print('✅ UserTagsProvider: инициализация завершена для пользователя $_currentUserId');
+  }
+
+  // 🆕 МЕТОД: Обновление статистики использования
+  void _updateUsageStats() {
+    _tagUsageStats.clear();
+    _tagLastUsed.clear();
+
+    if (_userTags.containsKey(_currentUserId)) {
+      final userData = _userTags[_currentUserId]!;
+
+      userData.forEach((postId, postTags) {
+        postTags.forEach((tagId, tagData) {
+          final tagName = tagData['name']?.toString() ?? '';
+          if (tagName.isNotEmpty && tagName != 'Новый тег') {
+            _tagUsageStats[tagName] = (_tagUsageStats[tagName] ?? 0) + 1;
+            _tagLastUsed[tagName] = DateTime.now();
+          }
+        });
+      });
+    }
+  }
+
+  // 🆕 МЕТОД: Получение популярных тегов
+  List<Map<String, dynamic>> getPopularTags({int limit = 10}) {
+    final sortedTags = _tagUsageStats.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return sortedTags.take(limit).map((entry) {
+      return {
+        'name': entry.key,
+        'count': entry.value,
+        'last_used': _tagLastUsed[entry.key],
+      };
+    }).toList();
+  }
+
+  void clearCurrentUserTags() {
+    if (_currentUserId.isNotEmpty && _userTags.containsKey(_currentUserId)) {
+      _userTags.remove(_currentUserId);
+      _tagUsageStats.clear();
+      _tagLastUsed.clear();
+      print('✅ UserTagsProvider: теги очищены для пользователя $_currentUserId');
+      notifyListeners();
+
+      _saveUserTagsToStorage();
+    }
   }
 
   // Обновление пользователя при смене аккаунта
@@ -95,7 +136,6 @@ class UserTagsProvider with ChangeNotifier {
     await _saveUserTagsToStorage();
     _currentUserId = newUserId;
 
-    // Переинициализируем для нового пользователя
     await _loadUserTagsForCurrentUser();
   }
 
@@ -109,6 +149,7 @@ class UserTagsProvider with ChangeNotifier {
       await _createDefaultTagsForUser(_currentUserId);
     }
 
+    _updateUsageStats();
     notifyListeners();
   }
 
@@ -168,7 +209,6 @@ class UserTagsProvider with ChangeNotifier {
   }
 
   // Создание дефолтных тегов для пользователя
-  // Создание дефолтных тегов для пользователя
   Future<void> _createDefaultTagsForUser(String userId) async {
     if (userId.isEmpty) return;
 
@@ -190,6 +230,7 @@ class UserTagsProvider with ChangeNotifier {
     };
 
     await _saveUserTagsToStorage();
+    _updateUsageStats();
     print('✅ UserTagsProvider: созданы дефолтные персональные теги для пользователя $userId');
   }
 
@@ -228,7 +269,6 @@ class UserTagsProvider with ChangeNotifier {
 
   Color getTagColorForPost(String postId, String tagId) {
     if (_currentUserId.isEmpty || !_userTags.containsKey(_currentUserId)) {
-      print('⚠️ UserTagsProvider: нет данных для получения цвета тега $tagId, используем мок цвет');
       return _getMockTagColor(postId, tagId);
     }
 
@@ -238,9 +278,7 @@ class UserTagsProvider with ChangeNotifier {
     if (userTags.containsKey(postId) && userTags[postId]!.containsKey(tagId)) {
       final tagData = userTags[postId]![tagId];
       if (tagData != null && tagData['color'] is Color) {
-        final color = tagData['color'] as Color;
-        print('✅ UserTagsProvider: найден цвет для тега $tagId в посте $postId: $color');
-        return color;
+        return tagData['color'] as Color;
       }
     }
 
@@ -248,19 +286,13 @@ class UserTagsProvider with ChangeNotifier {
     if (userTags.containsKey('default') && userTags['default']!.containsKey(tagId)) {
       final tagData = userTags['default']![tagId];
       if (tagData != null && tagData['color'] is Color) {
-        final color = tagData['color'] as Color;
-        print('✅ UserTagsProvider: найден цвет для тега $tagId в дефолтных тегах: $color');
-        return color;
+        return tagData['color'] as Color;
       }
     }
 
-    // Если тег не найден, используем цвет из мок данных
-    final mockColor = _getMockTagColor(postId, tagId);
-    print('ℹ️ UserTagsProvider: цвет для тега $tagId взят из мок данных: $mockColor');
-    return mockColor;
+    return _getMockTagColor(postId, tagId);
   }
 
-  // ДОБАВЛЕН ОТСУТСТВУЮЩИЙ МЕТОД
   Map<String, Color> getLastUsedTagColors() {
     if (_currentUserId.isEmpty || !_userTags.containsKey(_currentUserId)) {
       return {'tag1': _getDefaultColor('tag1')};
@@ -311,8 +343,6 @@ class UserTagsProvider with ChangeNotifier {
     return {'tag1': _getDefaultColor('tag1')};
   }
 
-  // В UserTagsProvider обновляем метод:
-
   Future<void> initializeTagsForNewPost(String postId) async {
     if (_currentUserId.isEmpty) {
       print('❌ UserTagsProvider: currentUserId не установлен для инициализации тегов нового поста');
@@ -327,7 +357,6 @@ class UserTagsProvider with ChangeNotifier {
     // Создаем структуру если её нет
     if (!_userTags.containsKey(_currentUserId)) {
       _userTags[_currentUserId] = {};
-      print('✅ UserTagsProvider: создана структура для пользователя $_currentUserId');
     }
 
     // ✅ ГАРАНТИРУЕМ, ЧТО ТЕГИ БУДУТ СОЗДАНЫ ДЛЯ НОВОГО ПОСТА
@@ -353,11 +382,10 @@ class UserTagsProvider with ChangeNotifier {
     });
 
     await _saveUserTagsToStorage();
+    _updateUsageStats();
     notifyListeners();
 
     print('✅ UserTagsProvider: инициализированы теги для нового поста $postId: $lastTags');
-
-    // Отладочная информация
     debugPrintTags();
   }
 
@@ -382,13 +410,11 @@ class UserTagsProvider with ChangeNotifier {
     // Создаем структуру если её нет
     if (!_userTags.containsKey(_currentUserId)) {
       _userTags[_currentUserId] = {};
-      print('✅ UserTagsProvider: создана структура для пользователя $_currentUserId');
     }
 
     // Убедимся, что для этого поста есть запись
     if (!_userTags[_currentUserId]!.containsKey(postId)) {
       _userTags[_currentUserId]![postId] = {};
-      print('✅ UserTagsProvider: создана структура для поста $postId');
     }
 
     // Сохраняем тег для конкретного поста
@@ -397,42 +423,26 @@ class UserTagsProvider with ChangeNotifier {
       'color': color,
     };
 
-    // ВАЖНОЕ ИЗМЕНЕНИЕ: ГЛОБАЛЬНОЕ ОБНОВЛЕНИЕ
+    // Обновляем статистику
+    if (newName.isNotEmpty && newName != 'Новый тег') {
+      _tagUsageStats[newName] = (_tagUsageStats[newName] ?? 0) + 1;
+      _tagLastUsed[newName] = DateTime.now();
+    }
+
+    // Глобальное обновление
     if (updateGlobally) {
       await updateTagGlobally(tagId, newName, color, context: context);
     } else {
       await _saveUserTagsToStorage();
       notifyListeners();
 
-      // Все равно уведомляем NewsProvider для обновления UI
       if (context != null) {
         _notifyNewsProvider(context);
       }
     }
 
     print('✅ UserTagsProvider: тег сохранен для пользователя $_currentUserId и поста $postId: $tagId -> $newName ($color)');
-
-    // Отладочная информация после обновления
     debugPrintTags();
-  }
-
-  Future<void> _updateUserDefaultTags(String tagId, String newName, Color color) async {
-    if (!_userTags.containsKey(_currentUserId)) {
-      _userTags[_currentUserId] = {};
-    }
-
-    if (!_userTags[_currentUserId]!.containsKey('default')) {
-      _userTags[_currentUserId]!['default'] = {};
-    }
-
-    // Сохраняем тег в дефолтные настройки пользователя
-    _userTags[_currentUserId]!['default']![tagId] = {
-      'name': newName,
-      'color': color,
-    };
-
-    await _saveUserTagsToStorage();
-    print('✅ UserTagsProvider: тег сохранен в дефолтные настройки пользователя: $tagId -> $newName');
   }
 
   Future<void> saveTagsForNewPost({
@@ -463,6 +473,12 @@ class UserTagsProvider with ChangeNotifier {
         'name': tagName,
         'color': color,
       };
+
+      // Обновляем статистику
+      if (tagName.isNotEmpty && tagName != 'Новый тег') {
+        _tagUsageStats[tagName] = (_tagUsageStats[tagName] ?? 0) + 1;
+        _tagLastUsed[tagName] = DateTime.now();
+      }
     });
 
     await _saveUserTagsToStorage();
@@ -471,11 +487,120 @@ class UserTagsProvider with ChangeNotifier {
     print('✅ UserTagsProvider: сохранены теги для нового поста $postId: $tags');
   }
 
-  Map<String, String> _getDefaultTags() {
+  // 🆕 МЕТОД: Получение всех тегов пользователя
+  Map<String, String> getAllUserTags() {
+    final allTags = <String, String>{};
+
+    if (_currentUserId.isEmpty || !_userTags.containsKey(_currentUserId)) {
+      return allTags;
+    }
+
+    final userTags = _userTags[_currentUserId]!;
+
+    userTags.forEach((postId, postTags) {
+      postTags.forEach((tagId, tagData) {
+        final tagName = tagData['name']?.toString() ?? '';
+        if (tagName.isNotEmpty && tagName != 'Новый тег') {
+          allTags[tagId] = tagName;
+        }
+      });
+    });
+
+    return allTags;
+  }
+
+  // 🆕 МЕТОД: Поиск тегов
+  List<String> searchTags(String query) {
+    final results = <String>[];
+    final lowerQuery = query.toLowerCase();
+
+    _tagUsageStats.forEach((tagName, count) {
+      if (tagName.toLowerCase().contains(lowerQuery)) {
+        results.add(tagName);
+      }
+    });
+
+    // Сортируем по популярности
+    results.sort((a, b) => (_tagUsageStats[b] ?? 0).compareTo(_tagUsageStats[a] ?? 0));
+
+    return results;
+  }
+
+  // 🆕 МЕТОД: Удаление тега
+  Future<void> deleteTag(String tagName) async {
+    if (_currentUserId.isEmpty || !_userTags.containsKey(_currentUserId)) {
+      return;
+    }
+
+    bool hasChanges = false;
+    final userTags = _userTags[_currentUserId]!;
+
+    userTags.forEach((postId, postTags) {
+      final keysToRemove = <String>[];
+
+      postTags.forEach((tagId, tagData) {
+        if (tagData['name'] == tagName) {
+          keysToRemove.add(tagId);
+        }
+      });
+
+      for (final tagId in keysToRemove) {
+        postTags.remove(tagId);
+        hasChanges = true;
+      }
+    });
+
+    if (hasChanges) {
+      _tagUsageStats.remove(tagName);
+      _tagLastUsed.remove(tagName);
+      await _saveUserTagsToStorage();
+      notifyListeners();
+      print('✅ UserTagsProvider: тег "$tagName" удален');
+    }
+  }
+
+  // 🆕 МЕТОД: Переименование тега
+  Future<void> renameTag(String oldName, String newName) async {
+    if (_currentUserId.isEmpty || !_userTags.containsKey(_currentUserId)) {
+      return;
+    }
+
+    bool hasChanges = false;
+    final userTags = _userTags[_currentUserId]!;
+
+    userTags.forEach((postId, postTags) {
+      postTags.forEach((tagId, tagData) {
+        if (tagData['name'] == oldName) {
+          tagData['name'] = newName;
+          hasChanges = true;
+        }
+      });
+    });
+
+    if (hasChanges) {
+      // Обновляем статистику
+      final count = _tagUsageStats[oldName] ?? 0;
+      _tagUsageStats.remove(oldName);
+      _tagUsageStats[newName] = count;
+
+      final lastUsed = _tagLastUsed[oldName];
+      _tagLastUsed.remove(oldName);
+      if (lastUsed != null) {
+        _tagLastUsed[newName] = lastUsed;
+      }
+
+      await _saveUserTagsToStorage();
+      notifyListeners();
+      print('✅ UserTagsProvider: тег "$oldName" переименован в "$newName"');
+    }
+  }
+
+  // 🆕 МЕТОД: Получение статистики тегов
+  Map<String, dynamic> getTagStats() {
     return {
-      'tag1': 'Фанат Манчестера',
-      'tag2': 'Спорт',
-      'tag3': 'Новости',
+      'total_tags': _tagUsageStats.length,
+      'most_used': getPopularTags(limit: 1).firstOrNull,
+      'total_usage_count': _tagUsageStats.values.fold(0, (sum, count) => sum + count),
     };
   }
 
@@ -802,7 +927,7 @@ class UserTagsProvider with ChangeNotifier {
   void _notifyNewsProvider(BuildContext context) {
     try {
       final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-      newsProvider.refreshAllPostsUserTags();
+      newsProvider.notifyListeners();
       print('✅ UserTagsProvider: NewsProvider уведомлен об обновлении тегов');
     } catch (e) {
       print('⚠️ UserTagsProvider: не удалось уведомить NewsProvider: $e');

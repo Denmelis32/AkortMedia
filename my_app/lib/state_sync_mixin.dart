@@ -15,6 +15,9 @@ mixin StateSyncMixin<T extends StatefulWidget> on State<T> {
     _initializeStateSync();
   }
 
+
+
+
   void _initializeStateSync() {
     // Инициализируем состояние поста
     _postState = interactionManager.getPostState(postId);
@@ -46,6 +49,9 @@ mixin StateSyncMixin<T extends StatefulWidget> on State<T> {
   void _initializePostState() {
     print('⚠️ StateSyncMixin: Need to override _initializePostState for $postId');
   }
+
+
+
 
   im.PostInteractionState? get postState => _postState;
 

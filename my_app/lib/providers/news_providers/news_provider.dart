@@ -1,865 +1,721 @@
-// lib/providers/news_providers/news_provider.dart
-import 'dart:io';
-
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'user_profile_manager.dart';
-import 'interaction_coordinator.dart';
-import 'repost_manager.dart';
-import 'news_data_processor.dart';
-import 'news_storage_handler.dart';
-import '../../services/storage_service.dart';
-import '../../services/interaction_manager.dart' as interaction_service;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../user_provider.dart';
 
 class NewsProvider with ChangeNotifier {
   List<dynamic> _news = [];
   bool _isLoading = true;
   String? _errorMessage;
-  bool _isDisposed = false;
+  bool _serverAvailable = true;
+  bool _isRefreshing = false;
 
-  // Менеджеры
-  final UserProfileManager _profileManager;
-  final InteractionCoordinator _interactionCoordinator;
-  final RepostManager _repostManager;
-  final NewsDataProcessor _dataProcessor;
-  final NewsStorageHandler _storageHandler;
+  final UserProvider userProvider;
 
   List<dynamic> get news => _news;
   bool get isLoading => _isLoading;
+  bool get isRefreshing => _isRefreshing;
   String? get errorMessage => _errorMessage;
-  bool get isDisposed => _isDisposed;
-  bool get mounted => !_isDisposed;
+  bool get serverAvailable => _serverAvailable;
 
-  // Делегированные геттеры
-  String? get profileImageUrl => _profileManager.profileImageUrl;
-  File? get profileImageFile => _profileManager.profileImageFile;
-  String? get coverImageUrl => _profileManager.coverImageUrl;
-  File? get coverImageFile => _profileManager.coverImageFile;
-  String? get currentUserId => _profileManager.currentUserId;
-
-  // 🎯 ГЕТТЕР ДЛЯ INTERACTION MANAGER
-  interaction_service.InteractionManager get interactionManager => _interactionCoordinator.interactionManager;
-
-  NewsProvider({
-    required UserProfileManager profileManager,
-    required InteractionCoordinator interactionCoordinator,
-    required RepostManager repostManager,
-    required NewsDataProcessor dataProcessor,
-    required NewsStorageHandler storageHandler,
-  }) : _profileManager = profileManager,
-        _interactionCoordinator = interactionCoordinator,
-        _repostManager = repostManager,
-        _dataProcessor = dataProcessor,
-        _storageHandler = storageHandler {
+  NewsProvider({required this.userProvider}) {
     _initialize();
   }
 
-  void _initialize() {
-    _setupManagers();
-    print('✅ NewsProvider initialized with all managers');
+  void _initialize() async {
+    print('✅ NewsProvider initialized with UserProvider: ${userProvider.userName}');
+    await loadNews();
   }
 
-  void _setupManagers() {
-    _interactionCoordinator.setCallbacks(
-      onLike: _handleLike,
-      onBookmark: _handleBookmark,
-      onRepost: _handleRepost,
-      onComment: _handleComment,
-      onCommentRemoval: _handleCommentRemoval,
-    );
-
-    _repostManager.initialize(
-      onRepostStateChanged: _safeNotifyListeners,
-      onRepostUpdated: _handleRepostUpdate,
-    );
-
-    _profileManager.setOnProfileUpdated(_safeNotifyListeners);
-  }
-
-  // 🎯 ОБРАБОТЧИКИ СОБЫТИЙ
-  void _handleLike(String postId, bool isLiked, int likesCount) {
-    if (_isDisposed) return;
-
-    _safeOperation(() async {
-      try {
-        await ApiService.toggleLikeNews(postId, isLiked);
-        print('✅ Like updated on server: $postId - $isLiked');
-      } catch (e) {
-        print('❌ Error updating like on server: $e');
-        _interactionCoordinator.syncPostState(postId);
-      }
-    });
-  }
-
-  void _handleBookmark(String postId, bool isBookmarked) {
-    if (_isDisposed) return;
-
-    _safeOperation(() async {
-      try {
-        await ApiService.toggleBookmarkNews(postId, isBookmarked);
-        print('✅ Bookmark updated on server: $postId - $isBookmarked');
-      } catch (e) {
-        print('❌ Error updating bookmark on server: $e');
-        _interactionCoordinator.syncPostState(postId);
-      }
-    });
-  }
-
-  void _handleRepost(String postId, bool isReposted, int repostsCount, String userId, String userName) {
-    if (_isDisposed) return;
-
-    _safeOperation(() async {
-      try {
-        await ApiService.toggleRepostNews(postId, isReposted);
-        print('✅ Repost updated on server: $postId - $isReposted');
-      } catch (e) {
-        print('❌ Error updating repost on server: $e');
-        _interactionCoordinator.syncPostState(postId);
-      }
-    });
-
-    if (isReposted) {
-      final index = _dataProcessor.findNewsIndexById(_news, postId);
-      if (index != -1) {
-        _repostManager.createRepost(
-          newsProvider: this,
-          originalIndex: index,
-          currentUserId: userId,
-          currentUserName: userName,
-        );
-      }
-    } else {
-      final repostId = _repostManager.getRepostIdForOriginal(this, postId, userId);
-      if (repostId != null) {
-        _repostManager.cancelRepost(
-          newsProvider: this,
-          repostId: repostId,
-          currentUserId: userId,
-        );
-      }
-    }
-  }
-
-  void _handleComment(String postId, Map<String, dynamic> comment) {
-    if (_isDisposed) return;
-
-    _safeOperation(() async {
-      try {
-        await ApiService.addComment(postId, comment);
-        print('✅ Comment added on server: $postId');
-      } catch (e) {
-        print('❌ Error adding comment on server: $e');
-      }
-    });
-
-    _interactionCoordinator.syncPostState(postId);
-    addCommentToNews(postId, comment);
-  }
-
-  void _handleCommentRemoval(String postId, String commentId) {
-    if (_isDisposed) return;
-
-    _safeOperation(() async {
-      try {
-        await ApiService.deleteComment(postId, commentId);
-        print('✅ Comment deleted on server: $postId - $commentId');
-      } catch (e) {
-        print('❌ Error deleting comment on server: $e');
-      }
-    });
-
-    _interactionCoordinator.syncPostState(postId);
-    final index = _dataProcessor.findNewsIndexById(_news, postId);
-    if (index != -1) {
-      removeCommentFromNews(index, commentId);
-    }
-  }
-
-  void _handleRepostUpdate(String postId, bool isReposted, int repostsCount) {
-    final index = _dataProcessor.findNewsIndexById(_news, postId);
-    if (index != -1) {
-      updateNewsRepostStatus(index, isReposted, repostsCount);
-    }
-  }
-
-  // 🎯 ОСНОВНЫЕ МЕТОДЫ РАБОТЫ С НОВОСТЯМИ
+  // 🎯 ЗАГРУЗКА ДАННЫХ ИЗ YDB
   Future<void> loadNews() async {
-    if (_isDisposed) return;
-
-    _setLoading(true);
-    _setError(null);
-
     try {
-      print('🔄 Loading news from server...');
+      _setLoading(true);
+      _setError(null);
 
-      final serverNews = await ApiService.getNews();
+      print('🌐 Loading news from YDB for user: ${userProvider.userName}');
 
-      if (serverNews.isNotEmpty) {
-        await _processServerNews(serverNews);
+      // Проверка подключения
+      _serverAvailable = await ApiService.testConnection();
+      print('🔗 Server available: $_serverAvailable');
+
+      if (_serverAvailable) {
+        // 🎯 ПРЕЖДЕ ЧЕМ ЗАГРУЖАТЬ НОВОСТИ, СИНХРОНИЗИРУЕМ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ
+        if (userProvider.isLoggedIn) {
+          print('👤 Pre-syncing user data...');
+          await userProvider.syncWithServer();
+        }
+
+        // Получаем данные из YDB
+        final news = await ApiService.getNews(limit: 50);
+        await _processServerNews(news);
       } else {
-        await _loadLocalNewsAsFallback();
+        // Автономный режим
+        await _loadLocalNews();
+        _setError('Сервер временно недоступен. Работаем в автономном режиме.');
       }
+
     } catch (e) {
-      print('❌ Error loading news from server: $e');
-      _setError('Ошибка загрузки данных с сервера');
-      await _loadLocalNewsAsFallback();
+      print('❌ Failed to load news from YDB: $e');
+      await _loadLocalNews();
+      _setError('Ошибка загрузки данных: ${e.toString()}');
     } finally {
       _setLoading(false);
-      await _performFinalSyncAndCleanup();
     }
   }
 
+  // 🎯 ОБРАБОТКА ДАННЫХ С СЕРВЕРА
+  // 🎯 ОБРАБОТКА ДАННЫХ С СЕРВЕРА
   Future<void> _processServerNews(List<dynamic> serverNews) async {
-    final processedNews = await _dataProcessor.processNewsData(
-      news: serverNews,
-      profileManager: _profileManager,
-    );
-
-    _safeOperation(() {
-      _news = processedNews;
-      _safeNotifyListeners();
-    });
-
-    await _storageHandler.saveNews(_news);
-    _interactionCoordinator.initializeInteractions(processedNews);
-
-    print('✅ Processed ${processedNews.length} news items from server');
-  }
-
-  Future<void> _loadLocalNewsAsFallback() async {
     try {
-      print('🔄 Loading local news as fallback...');
-      final cachedNews = await _storageHandler.loadNews();
+      print('🔄 Processing ${serverNews.length} news items from YDB');
 
-      if (cachedNews.isNotEmpty) {
-        await _processCachedNews(cachedNews);
-        _setError('Используются локальные данные (проблемы с сетью)');
-      } else {
-        _safeOperation(() {
-          _news = [];
-          _safeNotifyListeners();
-        });
-        print('ℹ️ No cached news found, initializing with empty list');
+      // Синхронизация пользователя
+      if (userProvider.isLoggedIn) {
+        print('👤 User is logged in, syncing with server...');
+        await userProvider.syncWithServer();
       }
-    } catch (e) {
-      print('❌ Error loading local news: $e');
-      _safeOperation(() {
-        _news = [];
-        _safeNotifyListeners();
-      });
-    }
-  }
 
-  Future<void> _processCachedNews(List<dynamic> cachedNews) async {
-    final processedNews = await _dataProcessor.processNewsData(
-      news: cachedNews,
-      profileManager: _profileManager,
-    );
+      // 🎯 ПОЛУЧАЕМ АКТУАЛЬНЫЕ ВЗАИМОДЕЙСТВИЯ ПОЛЬЗОВАТЕЛЯ
+      List<String> userLikes = [];
+      List<String> userBookmarks = [];
+      List<String> userReposts = [];
 
-    _safeOperation(() {
-      _news = processedNews;
-      _safeNotifyListeners();
-    });
+      if (_serverAvailable && userProvider.isLoggedIn) {
+        userLikes = await ApiService.syncUserLikes();
+        userBookmarks = await ApiService.syncUserBookmarks();
+        userReposts = await ApiService.syncUserReposts();
 
-    _interactionCoordinator.initializeInteractions(processedNews);
-    print('✅ Processed ${processedNews.length} cached news items');
-  }
+        print('❤️ Applying ${userLikes.length} user likes to news feed');
+        print('🔖 Applying ${userBookmarks.length} user bookmarks to news feed');
+        print('🔁 Applying ${userReposts.length} user reposts to news feed');
+      }
 
-  Future<void> _performFinalSyncAndCleanup() async {
-    _interactionCoordinator.syncAllPosts(_news);
-    await _cleanupRepostCommentDuplicates();
-    _dataProcessor.fixRepostCommentsDuplication(_news);
-    print('✅ Final sync and cleanup completed');
-  }
+      final List<Map<String, dynamic>> updatedNews = [];
 
-  Future<void> _cleanupRepostCommentDuplicates() async {
-    try {
-      int cleanedCount = 0;
+      for (final item in serverNews) {
+        try {
+          final safeItem = _ensureSafeTypes(item);
 
-      for (int i = 0; i < _news.length; i++) {
-        final newsItem = Map<String, dynamic>.from(_news[i]);
-        final isRepost = newsItem['is_repost'] == true;
-        final repostComment = newsItem['repost_comment']?.toString() ?? '';
-        final comments = List<dynamic>.from(newsItem['comments'] ?? []);
+          // Валидация данных
+          final id = _getSafeString(safeItem['id']);
+          final title = _getSafeString(safeItem['title']);
 
-        if (isRepost && repostComment.isNotEmpty && comments.isNotEmpty) {
-          print('❌ [CLEANUP] Found duplication in repost: ${newsItem['id']}');
+          // Пропускаем невалидные данные
+          if (id.isEmpty || id == 'unknown') {
+            print('⚠️ Skipping invalid post ID: "$id"');
+            continue;
+          }
 
-          final cleanItem = {
-            ...newsItem,
+          if (title.isEmpty) {
+            print('⚠️ Skipping post with empty title, ID: $id');
+            continue;
+          }
+
+          // 🎯 ПРОВЕРЯЕМ ВЗАИМОДЕЙСТВИЯ ПОЛЬЗОВАТЕЛЯ
+          final bool isUserLiked = userLikes.contains(id);
+          final bool isUserBookmarked = userBookmarks.contains(id);
+          final bool isUserReposted = userReposts.contains(id);
+
+          // 🎯 ИСПОЛЬЗУЕМ РЕАЛЬНЫЕ ДАННЫЕ ИЗ YDB
+          final int serverLikesCount = _getSafeInt(safeItem['likes_count'] ?? safeItem['likes']);
+          final int serverRepostsCount = _getSafeInt(safeItem['reposts_count'] ?? safeItem['reposts']);
+          final int serverCommentsCount = _getSafeInt(safeItem['comments_count']);
+          final int serverBookmarksCount = _getSafeInt(safeItem['bookmarks_count']);
+
+          // 🎯 ПРАВИЛЬНОЕ ИМЯ АВТОРА - если нет в данных, используем "Неизвестный автор"
+          final authorName = _getSafeString(safeItem['author_name']);
+          final finalAuthorName = authorName.isNotEmpty ? authorName : 'Неизвестный автор';
+
+          // Создаем объект с данными
+          final Map<String, dynamic> newsItem = <String, dynamic>{
+            'id': id,
+            'title': title,
+            'content': _getSafeString(safeItem['content']) ?? '',
+            'author_id': _getSafeString(safeItem['author_id']) ?? 'unknown',
+            'author_name': finalAuthorName, // ✅ ПРАВИЛЬНОЕ ИМЯ
+            'author_avatar': _getSafeString(safeItem['author_avatar']) ?? '',
+            'hashtags': _parseList(safeItem['hashtags']),
+            'is_repost': _getSafeBool(safeItem['is_repost']),
+
+            // 🎯 ОБНОВЛЕННЫЕ СТАТИСТИКИ С УЧЕТОМ РЕАЛЬНЫХ ДАННЫХ ИЗ YDB
+            'likes_count': serverLikesCount,
+            'comments_count': serverCommentsCount,
+            'reposts_count': serverRepostsCount,
+            'bookmarks_count': serverBookmarksCount,
+
+            'created_at': safeItem['created_at'] ?? DateTime.now().toIso8601String(),
+            'updated_at': safeItem['updated_at'] ?? DateTime.now().toIso8601String(),
+
+            // 🎯 ПРАВИЛЬНЫЕ ФЛАГИ ВЗАИМОДЕЙСТВИЙ
+            'isLiked': isUserLiked,
+            'isBookmarked': isUserBookmarked,
+            'isReposted': isUserReposted,
+
             'comments': [],
+            'source': 'YDB',
           };
 
-          _news[i] = cleanItem;
-          cleanedCount++;
+          updatedNews.add(newsItem);
+          print('✅ Added post: "$title" (ID: $id) - 👤 $finalAuthorName');
+          print('   Content: ${newsItem['content']}');
+          print('   Hashtags: ${newsItem['hashtags']}');
 
-          final postId = newsItem['id'].toString();
-          _interactionCoordinator.updateComments(postId, []);
+        } catch (e) {
+          print('❌ Error processing news item: $e');
+          continue;
         }
       }
 
-      if (cleanedCount > 0) {
-        await _storageHandler.saveNews(_news);
-        _safeNotifyListeners();
-        print('🎉 [CLEANUP] Cleaned $cleanedCount reposts with comment duplication');
+      _news = updatedNews;
+      await _saveNewsToLocal(_news);
+      _safeNotifyListeners();
+
+      print('✅ Processed ${_news.length} news items from YDB with real interaction data');
+
+    } catch (e) {
+      print('❌ Error processing news from YDB: $e');
+      _news = <Map<String, dynamic>>[];
+      await _saveNewsToLocal(_news);
+      _safeNotifyListeners();
+    }
+  }
+
+  // 🎯 ОБНОВЛЕНИЕ ДАННЫХ
+  Future<void> refreshNews() async {
+    if (_isRefreshing) return;
+
+    try {
+      _setRefreshing(true);
+      print('🔄 Manual refresh triggered for user: ${userProvider.userId}');
+
+      _serverAvailable = await ApiService.testConnection();
+
+      if (_serverAvailable) {
+        final news = await ApiService.getNews(limit: 50);
+        await _processServerNews(news);
+        _setError(null);
+      } else {
+        _setError('Сервер недоступен. Данные могут быть неактуальны.');
       }
     } catch (e) {
-      print('❌ [CLEANUP] Error cleaning repost duplicates: $e');
+      print('❌ Refresh failed: $e');
+      _setError('Ошибка обновления данных: ${e.toString()}');
+    } finally {
+      _setRefreshing(false);
     }
   }
 
-  // 🎯 СОЗДАНИЕ НОВОСТИ
-  Future<void> addNews(Map<String, dynamic> newsItem, {BuildContext? context}) async {
-    if (_isDisposed) return;
-
+  // 🎯 СОЗДАНИЕ НОВОСТИ В YDB - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  // 🎯 СОЗДАНИЕ НОВОСТИ В YDB - ИСПРАВЛЕННАЯ ВЕРСИЯ С РЕАЛЬНЫМ ИМЕНЕМ
+  Future<void> addNews(Map<String, dynamic> newsData) async {
     try {
-      final processedItem = await _dataProcessor.prepareNewsItem(
-        newsItem: newsItem,
-        profileManager: _profileManager,
-      );
+      if (!userProvider.isLoggedIn) {
+        throw Exception('Для создания поста необходимо войти в систему');
+      }
 
-      print('🔄 Sending news to server...');
-      final serverNews = await ApiService.createNews(processedItem);
+      // Синхронизация
+      await userProvider.syncWithServer();
 
-      _safeOperation(() {
-        _news.insert(0, serverNews);
-        _safeNotifyListeners();
-      });
+      print('🎯 Creating post in YDB as: ${userProvider.userName}');
 
-      await _storageHandler.saveNews(_news);
-      _interactionCoordinator.initializePostState(serverNews);
+      // 🎯 ИСПОЛЬЗУЕМ РЕАЛЬНЫЕ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ ИЗ PROVIDER
+      final String authorName = userProvider.userName.isNotEmpty
+          ? userProvider.userName
+          : 'Пользователь';
 
-      _showSuccessMessage(context, serverNews);
-      print('✅ News created on server: ${serverNews['id']}');
-
-    } catch (e) {
-      print('❌ Error creating news on server: $e');
-      _createNewsLocally(newsItem, context, e);
-    }
-  }
-
-  void _createNewsLocally(Map<String, dynamic> newsItem, BuildContext? context, dynamic error) {
-    try {
-      final localNewsItem = {
-        ...newsItem,
-        'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
-        'created_at': DateTime.now().toIso8601String(),
+      final Map<String, dynamic> authorData = {
+        'author_id': userProvider.userId,
+        'author_name': authorName, // ✅ ГАРАНТИРОВАННО РЕАЛЬНОЕ ИМЯ
+        'author_avatar': userProvider.profileImageUrl ?? '',
       };
 
-      _safeOperation(() {
-        _news.insert(0, localNewsItem);
-        _safeNotifyListeners();
+      // 🎯 ПРАВИЛЬНАЯ ПОДГОТОВКА ДАННЫХ С ВСЕМИ ПОЛЯМИ
+      final Map<String, dynamic> completeNewsData = <String, dynamic>{
+        'title': _getSafeString(newsData['title']),
+        'content': _getSafeString(newsData['content'] ?? ''),
+        'hashtags': _parseList(newsData['hashtags']),
+        ...authorData, // ✅ ВКЛЮЧАЕМ ДАННЫЕ АВТОРА
+      };
+
+      // Проверка обязательных полей
+      if (completeNewsData['title']?.isEmpty ?? true) {
+        throw Exception('Заголовок поста не может быть пустым');
+      }
+
+      print('📝 News data for YDB:');
+      print('   📝 Title: ${completeNewsData['title']}');
+      print('   📋 Content: ${completeNewsData['content']}');
+      print('   🏷️ Hashtags: ${completeNewsData['hashtags']}');
+      print('   👤 Author: ${completeNewsData['author_name']}'); // ✅ Должно показывать реальное имя
+      print('   🆔 Author ID: ${completeNewsData['author_id']}');
+
+      Map<String, dynamic> createdNews;
+
+      // Создание на сервере
+      try {
+        print('🌐 Creating news on YDB server...');
+        createdNews = await ApiService.createNews(completeNewsData);
+        print('✅ News created on YDB server: ${createdNews['id']}');
+
+      } catch (serverError) {
+        print('❌ YDB Server creation failed: $serverError');
+        throw Exception('Не удалось создать пост на сервере: ${serverError.toString()}');
+      }
+
+      // Добавление в ленту
+      final Map<String, dynamic> safeNews = _ensureSafeTypes(createdNews);
+
+      // 🎯 ДОБАВЛЯЕМ ВСЕ НЕОБХОДИМЫЕ ПОЛЯ ДЛЯ ОТОБРАЖЕНИЯ
+      final Map<String, dynamic> formattedNews = {
+        'id': _getSafeString(safeNews['id']),
+        'title': _getSafeString(safeNews['title']),
+        'content': _getSafeString(safeNews['content'] ?? ''),
+        'author_id': _getSafeString(safeNews['author_id'] ?? userProvider.userId),
+        'author_name': _getSafeString(safeNews['author_name'] ?? authorName), // ✅ РЕЗЕРВНОЕ ИМЯ
+        'author_avatar': _getSafeString(safeNews['author_avatar'] ?? ''),
+        'hashtags': _parseList(safeNews['hashtags']),
+        'likes_count': _getSafeInt(safeNews['likes_count'] ?? 0),
+        'comments_count': _getSafeInt(safeNews['comments_count'] ?? 0),
+        'reposts_count': _getSafeInt(safeNews['reposts_count'] ?? 0),
+        'bookmarks_count': _getSafeInt(safeNews['bookmarks_count'] ?? 0),
+        'isLiked': false,
+        'isBookmarked': false,
+        'isReposted': false,
+        'is_repost': false,
+        'created_at': _getSafeString(safeNews['created_at'] ?? DateTime.now().toIso8601String()),
+        'updated_at': _getSafeString(safeNews['updated_at'] ?? DateTime.now().toIso8601String()),
+        'comments': [],
+        'source': 'YDB',
+      };
+
+      _news.insert(0, formattedNews);
+      await _saveNewsToLocal(_news);
+
+      // Обновление статистики
+      userProvider.updateStats(<String, int>{
+        'posts': (userProvider.stats['posts'] ?? 0) + 1,
       });
 
-      _storageHandler.saveNews(_news);
-      _interactionCoordinator.initializePostState(localNewsItem);
+      _safeNotifyListeners();
+      print('✅ Post created successfully in YDB and added to feed');
 
-      _showSuccessMessage(context, localNewsItem);
-      print('✅ News created locally: ${localNewsItem['id']}');
-
-    } catch (localError) {
-      print('❌ Error creating local news: $localError');
-      _showErrorMessage(context, error);
-    }
-  }
-
-  void setCurrentUser(String userId, String userName, String userEmail) {
-    _profileManager.setCurrentUser(userId, userName, userEmail);
-    print('✅ NewsProvider: Current user set - $userName ($userId)');
-  }
-
-  // 🎯 МЕТОДЫ ПРОФИЛЯ
-  Future<void> updateProfileImageUrl(String? url) async {
-    try {
-      await _profileManager.updateProfileImageUrl(url);
     } catch (e) {
-      print('❌ Error updating profile image: $e');
+      print('❌ Error creating news in YDB: $e');
+      throw Exception('Ошибка создания поста в базе данных: ${e.toString()}');
     }
   }
 
-  Future<void> updateProfileImageFile(File? file) async {
+
+
+  // 🎯 ЛАЙКИ
+  Future<void> toggleLike(String postId) async {
+    final int index = _findNewsIndexById(postId);
+    if (index == -1) {
+      print('❌ Post not found in YDB: $postId');
+      return;
+    }
+
     try {
-      await _profileManager.updateProfileImageFile(file);
-    } catch (e) {
-      print('❌ Error updating profile image file: $e');
-    }
-  }
+      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
+      final bool isLiked = _getSafeBool(post['isLiked']);
+      final int currentLikes = _getSafeInt(post['likes_count'] ?? post['likes']);
 
-  Future<void> updateCoverImageUrl(String? url) async {
-    try {
-      await _profileManager.updateCoverImageUrl(url);
-    } catch (e) {
-      print('❌ Error updating cover image: $e');
-    }
-  }
+      print('🎯 Toggle like in YDB: $postId, current: $isLiked, likes: $currentLikes');
 
-  Future<void> updateCoverImageFile(File? file) async {
-    try {
-      await _profileManager.updateCoverImageFile(file);
-    } catch (e) {
-      print('❌ Error updating cover image file: $e');
-    }
-  }
+      // Оптимистичное обновление
+      _news[index] = <String, dynamic>{
+        ...post,
+        'isLiked': !isLiked,
+        'likes_count': isLiked ? currentLikes - 1 : currentLikes + 1,
+      };
 
-  void toggleRepost(int index, String currentUserId, String currentUserName) {
-    _repostManager.toggleRepost(
-      newsProvider: this,
-      originalIndex: index,
-      currentUserId: currentUserId,
-      currentUserName: currentUserName,
-    );
-  }
+      _safeNotifyListeners();
+      await _saveNewsToLocal(_news);
 
-  // 🎯 МЕТОДЫ СИНХРОНИЗАЦИИ
-  void syncPostStateFromInteractionManager(String postId) {
-    _interactionCoordinator.syncPostState(postId);
-  }
+      if (_serverAvailable) {
+        try {
+          if (!isLiked) {
+            await ApiService.likeNews(postId);
+            print('✅ Like sent to YDB: $postId');
+          } else {
+            await ApiService.unlikeNews(postId);
+            print('✅ Unlike sent to YDB: $postId');
+          }
 
-  void syncAllPostsFromInteractionManager() {
-    _interactionCoordinator.syncAllPosts(_news);
-  }
+          await refreshNews();
 
-  void forceSyncPost(String postId) {
-    _safeOperation(() {
-      try {
-        _interactionCoordinator.syncPostState(postId);
-        print('✅ Force synced post: $postId');
-      } catch (e) {
-        print('❌ Error force syncing post: $e');
+        } catch (e) {
+          print('❌ Like sync error with YDB: $e');
+          // Откат при ошибке
+          _news[index] = post;
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+          throw Exception('Не удалось синхронизировать лайк с базой данных');
+        }
       }
-    });
+    } catch (e) {
+      print('❌ Toggle like error: $e');
+      throw e;
+    }
   }
 
-  void forceSyncAllPosts() {
-    _safeOperation(() {
-      try {
-        _interactionCoordinator.syncAllPosts(_news);
-        print('✅ Force synced all posts');
-      } catch (e) {
-        print('❌ Error force syncing all posts: $e');
+  // 🎯 ЗАКЛАДКИ
+  Future<void> toggleBookmark(String postId) async {
+    final int index = _findNewsIndexById(postId);
+    if (index == -1) {
+      print('❌ Post not found in YDB: $postId');
+      return;
+    }
+
+    try {
+      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
+      final bool isBookmarked = _getSafeBool(post['isBookmarked']);
+
+      print('🎯 Toggle bookmark in YDB: $postId, current: $isBookmarked');
+
+      // Оптимистичное обновление
+      _news[index] = <String, dynamic>{
+        ...post,
+        'isBookmarked': !isBookmarked,
+      };
+
+      _safeNotifyListeners();
+      await _saveNewsToLocal(_news);
+
+      if (_serverAvailable) {
+        try {
+          if (!isBookmarked) {
+            await ApiService.bookmarkNews(postId);
+            print('✅ Bookmark sent to YDB: $postId');
+          } else {
+            await ApiService.unbookmarkNews(postId);
+            print('✅ Unbookmark sent to YDB: $postId');
+          }
+
+          await refreshNews();
+
+        } catch (e) {
+          print('❌ Bookmark sync error with YDB: $e');
+          _news[index] = post;
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+          throw Exception('Не удалось синхронизировать закладку с базой данных');
+        }
       }
-    });
+    } catch (e) {
+      print('❌ Toggle bookmark error: $e');
+      throw e;
+    }
+  }
+
+  // 🎯 РЕПОСТЫ
+  Future<void> toggleRepost(String postId) async {
+    final int index = _findNewsIndexById(postId);
+    if (index == -1) {
+      print('❌ Post not found in YDB: $postId');
+      return;
+    }
+
+    try {
+      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
+      final bool isReposted = _getSafeBool(post['isReposted']);
+      final int currentReposts = _getSafeInt(post['reposts_count'] ?? post['reposts']);
+
+      print('🎯 Toggle repost in YDB: $postId, current: $isReposted, reposts: $currentReposts');
+
+      // Оптимистичное обновление
+      _news[index] = <String, dynamic>{
+        ...post,
+        'isReposted': !isReposted,
+        'reposts_count': isReposted ? currentReposts - 1 : currentReposts + 1,
+      };
+
+      _safeNotifyListeners();
+      await _saveNewsToLocal(_news);
+
+      if (_serverAvailable) {
+        try {
+          if (!isReposted) {
+            await ApiService.repostNews(postId);
+            print('✅ Repost sent to YDB: $postId');
+          } else {
+            await ApiService.unrepostNews(postId);
+            print('✅ Unrepost sent to YDB: $postId');
+          }
+
+          await refreshNews();
+
+        } catch (e) {
+          print('❌ Repost sync error with YDB: $e');
+          _news[index] = post;
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+          throw Exception('Не удалось синхронизировать репост с базой данных');
+        }
+      }
+    } catch (e) {
+      print('❌ Toggle repost error: $e');
+      throw e;
+    }
+  }
+
+  // 🎯 КОММЕНТАРИИ - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  // 🎯 КОММЕНТАРИИ - ИСПРАВЛЕННАЯ ВЕРСИЯ С РЕАЛЬНЫМ ИМЕНЕМ
+  Future<void> addComment(String postId, String text) async {
+    final int index = _findNewsIndexById(postId);
+    if (index == -1) {
+      print('❌ Post not found in YDB for comment: $postId');
+      return;
+    }
+
+    try {
+      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
+      final int currentCommentsCount = _getSafeInt(post['comments_count']);
+
+      print('💬 Adding comment to YDB post: $postId');
+
+      // Оптимистичное обновление
+      _news[index] = <String, dynamic>{
+        ...post,
+        'comments_count': currentCommentsCount + 1,
+      };
+
+      _safeNotifyListeners();
+      await _saveNewsToLocal(_news);
+
+      if (_serverAvailable) {
+        try {
+          // ✅ ИСПРАВЛЕННЫЙ ВЫЗОВ - используем реальное имя пользователя
+          await ApiService.addComment(
+            postId,
+            text,
+            userProvider.userName.isNotEmpty ? userProvider.userName : 'Пользователь',
+          );
+
+          print('✅ Comment added successfully to YDB: $postId');
+          await refreshNews();
+
+        } catch (e) {
+          print('❌ Comment sync error with YDB: $e');
+          _news[index] = post;
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+          throw Exception('Не удалось добавить комментарий в базу данных: ${e.toString()}');
+        }
+      }
+    } catch (e) {
+      print('❌ Add comment error: $e');
+      throw Exception('Ошибка при добавлении комментария: ${e.toString()}');
+    }
+  }
+
+  // 🎯 ЛОКАЛЬНОЕ ХРАНИЛИЩЕ
+  Future<void> _loadLocalNews() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedNews = prefs.getString('cached_news');
+
+      if (cachedNews != null) {
+        final decodedNews = json.decode(cachedNews);
+        if (decodedNews is List) {
+          _news = decodedNews.map((item) => _ensureSafeTypes(item)).toList();
+          print('✅ Loaded ${_news.length} cached news items');
+        } else {
+          _news = <Map<String, dynamic>>[];
+        }
+      } else {
+        _news = <Map<String, dynamic>>[];
+        print('ℹ️ No cached news found');
+      }
+    } catch (e) {
+      print('❌ Error loading local news: $e');
+      _news = <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<void> _saveNewsToLocal(List<dynamic> news) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_news', json.encode(news));
+      print('💾 Saved ${news.length} news to local storage');
+    } catch (e) {
+      print('❌ Error saving news to local: $e');
+    }
   }
 
   // 🎯 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
-  void _setLoading(bool loading) {
-    _safeOperation(() {
-      _isLoading = loading;
-      _safeNotifyListeners();
+  Map<String, dynamic> _ensureSafeTypes(dynamic data) {
+    if (data == null) return <String, dynamic>{};
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map<dynamic, dynamic>) {
+      final Map<String, dynamic> result = <String, dynamic>{};
+      data.forEach((key, value) {
+        final String safeKey = key.toString();
+        result[safeKey] = value;
+      });
+      return result;
+    }
+    return <String, dynamic>{};
+  }
+
+  bool _getSafeBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true' || value == '1';
+    if (value is num) return value != 0;
+    return false;
+  }
+
+  int _getSafeInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is bool) return value ? 1 : 0;
+    return 0;
+  }
+
+  String _getSafeString(dynamic value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    return value.toString();
+  }
+
+  List<dynamic> _parseList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) return value;
+    if (value is String) {
+      try {
+        final parsed = json.decode(value);
+        if (parsed is List) return parsed;
+      } catch (e) {
+        if (value.contains(',')) {
+          return value.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList();
+        }
+        return value.isNotEmpty ? [value] : [];
+      }
+    }
+    return [];
+  }
+
+  Map<String, dynamic> _parseMap(dynamic value) {
+    if (value is Map) return value.cast<String, dynamic>();
+    if (value is String) {
+      try {
+        return Map<String, dynamic>.from(json.decode(value));
+      } catch (e) {
+        return {};
+      }
+    }
+    return {};
+  }
+
+  int _findNewsIndexById(String newsId) {
+    return _news.indexWhere((news) {
+      final Map<String, dynamic> safeNews = _ensureSafeTypes(news);
+      return safeNews['id']?.toString() == newsId;
     });
+  }
+
+  void clearError() {
+    _setError(null);
+  }
+
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    _safeNotifyListeners();
+  }
+
+  void _setRefreshing(bool refreshing) {
+    _isRefreshing = refreshing;
+    _safeNotifyListeners();
   }
 
   void _setError(String? message) {
-    _safeOperation(() {
-      _errorMessage = message;
-      _safeNotifyListeners();
-    });
+    _errorMessage = message;
+    _safeNotifyListeners();
   }
 
   void _safeNotifyListeners() {
-    if (!_isDisposed && hasListeners) {
+    if (hasListeners) {
       notifyListeners();
     }
   }
 
-  void _safeOperation(Function() operation) {
-    if (_isDisposed) {
-      print('⚠️ NewsProvider is disposed, skipping operation');
-      return;
-    }
-    operation();
-  }
+  // 🎯 ОБНОВЛЕНИЕ СЧЕТЧИКА КОММЕНТАРИЕВ ДЛЯ КОНКРЕТНОГО ПОСТА
+  void updatePostCommentsCount(String postId) {
+    final int index = _findNewsIndexById(postId);
+    if (index != -1) {
+      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
+      final int currentComments = _getSafeInt(post['comments_count']);
 
-  void _showSuccessMessage(BuildContext? context, Map<String, dynamic> newsItem) {
-    if (context != null && mounted) {
-      final isRepost = newsItem['is_repost'] == true;
-      final repostComment = newsItem['repost_comment']?.toString() ?? '';
-      final message = isRepost
-          ? (repostComment.isNotEmpty ? 'Репост с комментарием создан!' : 'Репост создан!')
-          : 'Пост создан!';
+      _news[index] = <String, dynamic>{
+        ...post,
+        'comments_count': currentComments + 1,
+      };
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  void _showErrorMessage(BuildContext? context, dynamic error) {
-    if (context != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка при создании поста: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  // 🎯 МЕТОДЫ УПРАВЛЕНИЯ СОСТОЯНИЕМ
-  void setLoading(bool loading) {
-    _setLoading(loading);
-  }
-
-  void setError(String? message) {
-    _setError(message);
-  }
-
-  void clearData() {
-    _safeOperation(() {
-      _news = [];
-      _isLoading = false;
-      _errorMessage = null;
       _safeNotifyListeners();
-    });
-    _storageHandler.removeAllData();
+      _saveNewsToLocal(_news);
+      print('✅ Updated comments count for post: $postId');
+    }
   }
 
-  Future<void> ensureDataPersistence() async {
-    if (_isDisposed) return;
+  // 🎯 ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ
+  Future<void> clearData() async {
+    _news = <Map<String, dynamic>>[];
+    _errorMessage = null;
+    _safeNotifyListeners();
 
     try {
-      await _profileManager.loadProfileData();
-
-      final hasConnection = await ApiService.checkConnection();
-
-      if (hasConnection) {
-        await loadNews();
-      } else {
-        await _loadLocalNewsAsFallback();
-      }
-
-      print('✅ Data persistence ensured (online: $hasConnection)');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('cached_news');
+      print('✅ Cleared news data');
     } catch (e) {
-      print('❌ Error ensuring data persistence: $e');
-      _safeOperation(() {
-        _news = [];
-        _safeNotifyListeners();
-      });
+      print('❌ Error clearing news data: $e');
     }
   }
 
-  // 🎯 МЕТОДЫ РАБОТЫ С КОММЕНТАРИЯМИ
-  void addCommentToNews(String newsId, Map<String, dynamic> comment) {
-    _safeOperation(() {
-      final index = _dataProcessor.findNewsIndexById(_news, newsId);
-      if (index != -1) {
-        final newsItem = _news[index];
+  List<dynamic> getPostsByAuthor(String authorId) {
+    return _news.where((post) {
+      final Map<String, dynamic> safePost = _ensureSafeTypes(post);
+      return safePost['author_id'] == authorId;
+    }).toList();
+  }
 
-        if (newsItem['comments'] == null) {
-          newsItem['comments'] = [];
-        }
-
-        final completeComment = {
-          ...comment,
-          'time': comment['time'] ?? DateTime.now().toIso8601String(),
-        };
-
-        (newsItem['comments'] as List).insert(0, completeComment);
-        _safeNotifyListeners();
-        _storageHandler.saveNews(_news);
-
-        print('✅ Комментарий добавлен к новости $newsId');
-      }
+  Map<String, int> getFeedStats() {
+    final totalPosts = _news.length;
+    final totalLikes = _news.fold(0, (sum, post) {
+      final safePost = _ensureSafeTypes(post);
+      return sum + _getSafeInt(safePost['likes_count']);
     });
-  }
-
-  void removeCommentFromNews(int index, String commentId) {
-    _safeOperation(() {
-      if (index >= 0 && index < _news.length) {
-        final newsItem = _news[index];
-
-        if (newsItem['comments'] != null) {
-          final commentsList = newsItem['comments'] as List;
-          final initialLength = commentsList.length;
-
-          commentsList.removeWhere((comment) => comment['id'] == commentId);
-
-          if (commentsList.length < initialLength) {
-            _safeNotifyListeners();
-            _storageHandler.saveNews(_news);
-            print('✅ Комментарий $commentId удален');
-          }
-        }
-      }
+    final totalComments = _news.fold(0, (sum, post) {
+      final safePost = _ensureSafeTypes(post);
+      return sum + _getSafeInt(safePost['comments_count']);
     });
+
+    return {
+      'total_posts': totalPosts,
+      'total_likes': totalLikes,
+      'total_comments': totalComments,
+    };
   }
 
-  // 🎯 МЕТОДЫ ОБНОВЛЕНИЯ СТАТУСОВ
-  void updateNewsRepostStatus(int index, bool isReposted, int repostsCount) {
-    _safeOperation(() {
-      if (index >= 0 && index < _news.length) {
-        _news[index]['isReposted'] = isReposted;
-        _news[index]['reposts'] = repostsCount;
-        _safeNotifyListeners();
-        _storageHandler.saveNews(_news);
-      }
-    });
+  bool isUserPost(String postId) {
+    final post = _findPostById(postId);
+    if (post == null) return false;
+    final authorId = _getSafeString(post['author_id']);
+    return authorId == userProvider.userId;
   }
 
-  void updateNewsLikeStatus(int index, bool isLiked, int likesCount) {
-    _safeOperation(() {
-      if (index >= 0 && index < _news.length) {
-        final newsItem = _news[index];
-        final newsId = newsItem['id'].toString();
-
-        _news[index] = {
-          ...newsItem,
-          'isLiked': isLiked,
-          'likes': likesCount,
-        };
-
-        _safeNotifyListeners();
-        _storageHandler.saveNews(_news);
-
-        if (isLiked) {
-          StorageService.addLike(newsId);
-        } else {
-          StorageService.removeLike(newsId);
-        }
-      }
-    });
+  Map<String, dynamic>? _findPostById(String postId) {
+    final index = _findNewsIndexById(postId);
+    return index != -1 ? _ensureSafeTypes(_news[index]) : null;
   }
 
-  void updateNewsBookmarkStatus(int index, bool isBookmarked) {
-    _safeOperation(() {
-      if (index >= 0 && index < _news.length) {
-        final newsItem = _news[index];
-        final newsId = newsItem['id'].toString();
-
-        _news[index] = {
-          ...newsItem,
-          'isBookmarked': isBookmarked,
-        };
-
-        _safeNotifyListeners();
-        _storageHandler.saveNews(_news);
-
-        if (isBookmarked) {
-          StorageService.addBookmark(newsId);
-        } else {
-          StorageService.removeBookmark(newsId);
-        }
-      }
-    });
-  }
-
-  void updateNewsFollowStatus(int index, bool isFollowing) {
-    _safeOperation(() {
-      if (index >= 0 && index < _news.length) {
-        final newsItem = _news[index];
-        final newsId = newsItem['id'].toString();
-
-        _news[index] = {
-          ...newsItem,
-          'isFollowing': isFollowing,
-        };
-
-        _safeNotifyListeners();
-        _storageHandler.saveNews(_news);
-
-        if (isFollowing) {
-          if (_profileManager.currentUserId != null) {
-            StorageService.addFollow(_profileManager.currentUserId!, newsId);
-          }
-        } else {
-          if (_profileManager.currentUserId != null) {
-            StorageService.removeFollow(_profileManager.currentUserId!, newsId);
-          }
-        }
-      }
-    });
-  }
-
-  // 🎯 МЕТОДЫ ОБНОВЛЕНИЯ НОВОСТЕЙ
-  void updateNews(int index, Map<String, dynamic> updatedNews) {
-    _safeOperation(() {
-      if (index >= 0 && index < _news.length) {
-        final originalNews = _news[index];
-        final preservedFields = {
-          'id': originalNews['id'],
-          'author_name': originalNews['author_name'],
-          'created_at': originalNews['created_at'],
-          'likes': originalNews['likes'],
-          'comments': originalNews['comments'],
-          'isLiked': originalNews['isLiked'],
-          'isBookmarked': originalNews['isBookmarked'],
-          'isFollowing': originalNews['isFollowing'],
-          'tag_color': originalNews['tag_color'],
-        };
-
-        _news[index] = {
-          ...preservedFields,
-          ...updatedNews,
-          'hashtags': _dataProcessor.parseHashtags(updatedNews['hashtags'] ?? originalNews['hashtags']),
-          'user_tags': updatedNews['user_tags'] ?? originalNews['user_tags'],
-        };
-
-        _safeNotifyListeners();
-        _storageHandler.saveNews(_news);
-      }
-    });
-  }
-
-  void updateNewsUserTag(int index, String tagId, String newTagName, {Color? color}) {
-    _safeOperation(() {
-      if (index >= 0 && index < _news.length) {
-        final newsItem = _news[index];
-        final newsId = newsItem['id'].toString();
-
-        final updatedUserTags = {
-          ..._ensureStringStringMap(newsItem['user_tags'] ?? {}),
-          tagId: newTagName,
-        };
-
-        final tagColor = color ?? Color(newsItem['tag_color'] ?? _dataProcessor.generateColorFromId(newsId).value);
-
-        final updatedNews = {
-          ...newsItem,
-          'user_tags': updatedUserTags,
-          'tag_color': tagColor.value,
-        };
-
-        _news[index] = updatedNews;
-        _safeNotifyListeners();
-
-        StorageService.updateUserTag(newsId, tagId, newTagName, color: tagColor.value);
-        _storageHandler.saveNews(_news);
-      }
-    });
-  }
-
-  void removeNews(int index) {
-    if (_isDisposed) return;
-
-    _safeOperation(() {
-      if (index >= 0 && index < _news.length) {
-        final newsItem = _news[index];
-        final newsId = newsItem['id'].toString();
-
-        _storageHandler.removeNewsData(newsId);
-        _news.removeAt(index);
-        _safeNotifyListeners();
-        _storageHandler.saveNews(_news);
-      }
-    });
-  }
-
-  // 🎯 МЕТОДЫ ПОИСКА
-  int findNewsIndexById(String newsId) {
-    return _dataProcessor.findNewsIndexById(_news, newsId);
-  }
-
-  bool containsNews(String newsId) {
-    return _dataProcessor.containsNews(_news, newsId);
-  }
-
-  // 🎯 МЕТОДЫ ПРОФИЛЯ
-  Future<void> loadProfileData() async {
-    await _profileManager.loadProfileData();
-  }
-
-  dynamic getCurrentProfileImage() {
-    return _profileManager.getCurrentProfileImage();
-  }
-
-  dynamic getCurrentCoverImage() {
-    return _profileManager.getCurrentCoverImage();
-  }
-
-  Future<void> removeCoverImage() async {
-    await _profileManager.removeCoverImage();
-  }
-
-  // 🎯 МЕТОДЫ ТЕГОВ
-  Future<void> loadUserTags() async {
-    if (_isDisposed) return;
-
-    try {
-      final userData = await _storageHandler.loadUserData();
-      final userTags = userData['userTags'];
-
-      _safeOperation(() {
-        for (var i = 0; i < _news.length; i++) {
-          final newsItem = _news[i];
-          final newsId = newsItem['id'].toString();
-
-          if (userTags.containsKey(newsId)) {
-            final newsTags = userTags[newsId]!;
-            Map<String, String> updatedUserTags = {'tag1': 'Новый тег'};
-
-            if (newsTags['tags'] is Map) {
-              final tagsMap = newsTags['tags'] as Map;
-              updatedUserTags = tagsMap.map((key, value) =>
-                  MapEntry(key.toString(), value.toString())
-              );
-            }
-
-            _dataProcessor.updateNewsTags(_news, i, updatedUserTags);
-          }
-        }
-        _safeNotifyListeners();
-      });
-    } catch (e) {
-      print('❌ Error loading user tags: $e');
-    }
-  }
-
-  void refreshAllPostsUserTags() {
-    _safeOperation(() {
-      _safeNotifyListeners();
-    });
-    print('✅ All posts refreshed for new tags display');
-  }
-
-  // 🎯 МЕТОДЫ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ
-  String getUserAvatarUrl(String userId, String userName) {
-    return _profileManager.getUserAvatarUrl(userId, userName);
-  }
-
-  UserProfile? getUserProfile(String userId) {
-    return _profileManager.getUserProfile(userId);
-  }
-
-  // 🎯 ВСПОМОГАТЕЛЬНЫЙ МЕТОД
-  Map<String, String> _ensureStringStringMap(dynamic map) {
-    if (map is Map<String, String>) {
-      return map;
-    }
-    if (map is Map) {
-      return map.map((key, value) => MapEntry(key.toString(), value.toString()));
-    }
-    return {'tag1': 'Новый тег'};
-  }
-
-  // 🎯 ДЕЛЕГИРОВАННЫЕ МЕТОДЫ ДЛЯ ДОСТУПА К МЕНЕДЖЕРАМ
-  UserProfileManager get profileManager => _profileManager;
-  InteractionCoordinator get interactionCoordinator => _interactionCoordinator;
-  RepostManager get repostManager => _repostManager;
-  NewsDataProcessor get dataProcessor => _dataProcessor;
-
-  @override
-  void dispose() {
-    _isDisposed = true;
-
-    _interactionCoordinator.setCallbacks(
-      onLike: null,
-      onBookmark: null,
-      onRepost: null,
-      onComment: null,
-      onCommentRemoval: null,
-    );
-
-    _repostManager.dispose();
-    _profileManager.setOnProfileUpdated(null);
-
-    _news.clear();
-    super.dispose();
-
-    print('✅ NewsProvider disposed');
+  void updateServerStatus(bool available) {
+    _serverAvailable = available;
+    _safeNotifyListeners();
   }
 }

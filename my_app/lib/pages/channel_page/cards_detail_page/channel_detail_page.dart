@@ -33,8 +33,7 @@ import 'dialogs/channel_options_dialog.dart';
 
 // Импорты вынесенных виджетов контента
 import 'models/channel_detail_state.dart';
-import 'widgets/content_widgets/wall_content.dart';
-import 'widgets/content_widgets/akor_content.dart';
+
 
 class ChannelDetailPage extends StatefulWidget {
   final Channel channel;
@@ -1129,12 +1128,6 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
 
     switch (index) {
       case 0:
-        return WallContent(
-          channel: widget.channel,
-          customAvatarUrl: avatarUrl,
-        );
-
-      case 1:
         return ArticlesGrid(
           key: const ValueKey('articles'),
           articles: articlesProvider.getArticlesForChannel(widget.channel.id),

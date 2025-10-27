@@ -1,4 +1,3 @@
-// test/widget_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/pages/home_page.dart';
@@ -10,8 +9,8 @@ void main() {
     // Mock SharedPreferences
     SharedPreferences.setMockInitialValues({});
 
-    // Build our app with isLoggedIn = false
-    await tester.pumpWidget(MyApp(isLoggedIn: false));
+    // Build our app with initialLoggedIn = false
+    await tester.pumpWidget(MyApp(initialLoggedIn: false));
 
     // Verify that LoginPage is shown
     expect(find.text('Вход'), findsOneWidget);
@@ -24,8 +23,8 @@ void main() {
       'user_data': '{"name": "Test User", "email": "test@example.com"}',
     });
 
-    // Build our app with isLoggedIn = true
-    await tester.pumpWidget(MyApp(isLoggedIn: true));
+    // Build our app with initialLoggedIn = true
+    await tester.pumpWidget(MyApp(initialLoggedIn: true));
 
     // Verify that HomePage is shown
     expect(find.byType(HomePage), findsOneWidget);

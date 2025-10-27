@@ -2,7 +2,7 @@
 import 'package:flutter/foundation.dart';
 import '../../services/interaction_manager.dart';
 
-class InteractionCoordinator {
+class InteractionCoordinator with ChangeNotifier { // ДОБАВЛЕНО: with ChangeNotifier
   final InteractionManager _interactionManager;
 
   Function(String, bool, int)? onLike;
@@ -48,6 +48,28 @@ class InteractionCoordinator {
         onCommentRemoval?.call(postId, commentId);
       },
     );
+  }
+
+  // 🆕 ДОБАВЛЕННЫЕ МЕТОДЫ ДЛЯ NewsProvider
+  void toggleLike(String postId) {
+    _interactionManager.toggleLike(postId);
+  }
+
+  void toggleBookmark(String postId) {
+    _interactionManager.toggleBookmark(postId);
+  }
+
+  void addComment(String postId, Map<String, dynamic> comment) {
+    _interactionManager.addComment(
+      postId: postId,
+      text: comment['text'] ?? '',
+      author: comment['author_name'] ?? 'Пользователь',
+      authorAvatar: comment['author_avatar'] ?? '',
+    );
+  }
+
+  void deleteComment(String postId, String commentId) {
+    _interactionManager.removeComment(postId, commentId);
   }
 
   void initializeInteractions(List<dynamic> newsList) {

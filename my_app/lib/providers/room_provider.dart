@@ -6,7 +6,7 @@ import '../services/room_service.dart';
 
 class RoomProvider with ChangeNotifier {
   final RoomService _roomService;
-  final String? _currentUserId; // Добавляем ID текущего пользователя
+  String? _currentUserId; // Убрали final чтобы можно было изменять
 
   List<Room> _rooms = [];
   List<Room> _filteredRooms = [];
@@ -35,19 +35,23 @@ class RoomProvider with ChangeNotifier {
   bool get showJoinedOnly => _showJoinedOnly;
   bool get showActiveOnly => _showActiveOnly;
   Set<String> get activeFilters => _activeFilters;
-  String get currentUserId => _currentUserId!;
+  String? get currentUserId => _currentUserId; // Изменили на nullable
 
   // НОВЫЕ МЕТОДЫ ДЛЯ ПРОВЕРКИ ДОСТУПА
   bool canJoinRoom(Room room, {String? password}) {
+    if (_currentUserId == null) return false;
     return room.hasAccess(_currentUserId!, inputPassword: password);
   }
 
   bool hasAccessToRoom(Room room, {String? password}) {
+    if (_currentUserId == null) return false;
     return room.hasAccess(_currentUserId!, inputPassword: password);
   }
 
   Future<void> joinRoomWithPassword(String roomId, String password) async {
     try {
+      if (_currentUserId == null) throw Exception('Пользователь не авторизован');
+
       final room = getRoomById(roomId);
       if (room == null) throw Exception('Комната не найдена');
 
@@ -59,6 +63,11 @@ class RoomProvider with ChangeNotifier {
     } catch (error) {
       rethrow;
     }
+  }
+
+  void updateCurrentUserId(String userId) {
+    _currentUserId = userId;
+    notifyListeners();
   }
 
   // ОСНОВНЫЕ МЕТОДЫ ДЛЯ ADAPTIVE ROOMS PAGE
@@ -135,6 +144,8 @@ class RoomProvider with ChangeNotifier {
   // МЕТОДЫ ДЛЯ РАБОТЫ С КОМНАТАМИ
   Future<void> toggleJoinRoom(String roomId) async {
     try {
+      if (_currentUserId == null) throw Exception('Пользователь не авторизован');
+
       final roomIndex = _rooms.indexWhere((room) => room.id == roomId);
       if (roomIndex != -1) {
         final room = _rooms[roomIndex];
@@ -506,6 +517,7 @@ class RoomProvider with ChangeNotifier {
 
   // НОВЫЙ МЕТОД: Получение доступных комнат для пользователя
   List<Room> getAccessibleRooms() {
+    if (_currentUserId == null) return [];
     return _rooms.where((room) => room.hasAccess(_currentUserId!)).toList();
   }
 }

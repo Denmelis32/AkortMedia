@@ -132,6 +132,10 @@ class InteractionManager with ChangeNotifier {
     print('🔴 InteractionManager disposed');
   }
 
+
+
+
+
   // Проверка доступности
   bool get isDisposed => _isDisposed;
 
@@ -165,6 +169,8 @@ class InteractionManager with ChangeNotifier {
 
     print('✅ Initialized post state for $postId');
   }
+
+
 
 
   // Массовая инициализация состояний

@@ -18,6 +18,13 @@ class UserProvider with ChangeNotifier {
     'following': 0,
   };
 
+  // 🆕 ПОЛЯ ДЛЯ ПОДПИСОК И ВЗАИМОДЕЙСТВИЙ
+  Set<String> _following = <String>{};
+  Set<String> _followers = <String>{};
+  Set<String> _likedPosts = <String>{};
+  Set<String> _bookmarkedPosts = <String>{};
+  Set<String> _repostedPosts = <String>{};
+
   String get userName => _userName;
   String get userEmail => _userEmail;
   String get userId => _userId;
@@ -26,6 +33,19 @@ class UserProvider with ChangeNotifier {
   Map<String, int> get stats => _stats;
   bool get isLoggedIn => _userName.isNotEmpty && _userId.isNotEmpty;
 
+  // 🆕 ГЕТТЕРЫ ДЛЯ ПОДПИСОК
+  Set<String> get following => _following;
+  Set<String> get followers => _followers;
+  Set<String> get likedPosts => _likedPosts;
+  Set<String> get bookmarkedPosts => _bookmarkedPosts;
+  Set<String> get repostedPosts => _repostedPosts;
+
+  // Методы проверки статусов
+  bool isFollowing(String userId) => _following.contains(userId);
+  bool isLiked(String postId) => _likedPosts.contains(postId);
+  bool isBookmarked(String postId) => _bookmarkedPosts.contains(postId);
+  bool isReposted(String postId) => _repostedPosts.contains(postId);
+
   // Константы для ключей SharedPreferences
   static const String _userNameKey = 'user_name';
   static const String _userEmailKey = 'user_email';
@@ -33,6 +53,13 @@ class UserProvider with ChangeNotifier {
   static const String _profileImageUrlKey = 'profile_image_url';
   static const String _coverImageUrlKey = 'cover_image_url';
   static const String _userStatsKey = 'user_stats';
+
+  // 🆕 КЛЮЧИ ДЛЯ ПОДПИСОК И ВЗАИМОДЕЙСТВИЙ
+  static const String _followingKey = 'user_following';
+  static const String _followersKey = 'user_followers';
+  static const String _likedPostsKey = 'user_liked_posts';
+  static const String _bookmarkedPostsKey = 'user_bookmarked_posts';
+  static const String _repostedPostsKey = 'user_reposted_posts';
 
   UserProvider() {
     _loadUserData();
@@ -56,17 +83,66 @@ class UserProvider with ChangeNotifier {
         _stats = statsMap.map((key, value) => MapEntry(key, value as int));
       }
 
+      // 🆕 ЗАГРУЗКА ПОДПИСОК И ВЗАИМОДЕЙСТВИЙ
+      _following = _loadStringSet(prefs, _followingKey);
+      _followers = _loadStringSet(prefs, _followersKey);
+      _likedPosts = _loadStringSet(prefs, _likedPostsKey);
+      _bookmarkedPosts = _loadStringSet(prefs, _bookmarkedPostsKey);
+      _repostedPosts = _loadStringSet(prefs, _repostedPostsKey);
+
       if (_userName.isNotEmpty) {
         print('✅ UserProvider: Loaded user data from storage');
         print('   👤 Name: $_userName');
         print('   📧 Email: $_userEmail');
         print('   🆔 ID: $_userId');
         print('   📊 Stats: $_stats');
+        print('   👥 Following: ${_following.length} users');
+        print('   ❤️ Liked posts: ${_likedPosts.length}');
+        print('   🔖 Bookmarked posts: ${_bookmarkedPosts.length}');
+        print('   🔁 Reposted posts: ${_repostedPosts.length}');
 
         notifyListeners();
       }
     } catch (e) {
       print('❌ UserProvider: Error loading user data: $e');
+    }
+  }
+
+  // 🆕 ВСПОМОГАТЕЛЬНЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ SET ИЗ SHARED_PREFERENCES
+  Set<String> _loadStringSet(SharedPreferences prefs, String key) {
+    try {
+      final jsonString = prefs.getString(key);
+      if (jsonString != null) {
+        final list = List<String>.from(json.decode(jsonString));
+        return list.toSet();
+      }
+    } catch (e) {
+      print('❌ Error loading $key: $e');
+    }
+    return <String>{};
+  }
+
+  // 🎯 ЗАГРУЗКА ПРОФИЛЯ ПОЛЬЗОВАТЕЛЯ ИЗ YDB
+  Future<void> loadUserProfile(String userId) async {
+    try {
+      print('👤 Loading user profile from YDB: $userId');
+
+      final profile = await AuthService.getUserProfile(userId);
+      if (profile != null) {
+        await setUserData(
+          profile['name'] ?? _userName,
+          profile['email'] ?? _userEmail,
+          userId: profile['id']?.toString() ?? userId,
+        );
+
+        if (profile['avatar'] != null) {
+          await updateProfileImage(profile['avatar']);
+        }
+
+        print('✅ User profile loaded from YDB: ${profile['name']}');
+      }
+    } catch (e) {
+      print('❌ Error loading user profile: $e');
     }
   }
 
@@ -90,9 +166,25 @@ class UserProvider with ChangeNotifier {
       // Сохраняем статистику
       await prefs.setString(_userStatsKey, json.encode(_stats));
 
+      // 🆕 СОХРАНЕНИЕ ПОДПИСОК И ВЗАИМОДЕЙСТВИЙ
+      await _saveStringSet(prefs, _followingKey, _following);
+      await _saveStringSet(prefs, _followersKey, _followers);
+      await _saveStringSet(prefs, _likedPostsKey, _likedPosts);
+      await _saveStringSet(prefs, _bookmarkedPostsKey, _bookmarkedPosts);
+      await _saveStringSet(prefs, _repostedPostsKey, _repostedPosts);
+
       print('💾 UserProvider: Saved user data to storage');
     } catch (e) {
       print('❌ UserProvider: Error saving user data: $e');
+    }
+  }
+
+  // 🆕 ВСПОМОГАТЕЛЬНЫЙ МЕТОД ДЛЯ СОХРАНЕНИЯ SET В SHARED_PREFERENCES
+  Future<void> _saveStringSet(SharedPreferences prefs, String key, Set<String> set) async {
+    try {
+      await prefs.setString(key, json.encode(set.toList()));
+    } catch (e) {
+      print('❌ Error saving $key: $e');
     }
   }
 
@@ -121,6 +213,157 @@ class UserProvider with ChangeNotifier {
     // Сохраняем данные
     await _saveUserData();
     notifyListeners();
+  }
+
+  // 🆕 СИНХРОНИЗАЦИЯ ПОДПИСОК С СЕРВЕРОМ
+  Future<void> syncFollowsWithServer() async {
+    try {
+      if (!isLoggedIn) return;
+
+      print('👥 Syncing follows with YDB...');
+
+      // Получаем подписки с сервера
+      final following = await ApiService.syncUserFollowing();
+      final followers = await ApiService.syncUserFollowers();
+
+      // Обновляем локальные данные
+      _following = following.toSet();
+      _followers = followers.toSet();
+
+      // Обновляем статистику
+      _stats['following'] = _following.length;
+      _stats['followers'] = _followers.length;
+
+      await _saveUserData();
+      _safeNotifyListeners();
+
+      print('✅ Follows synced: ${_following.length} following, ${_followers.length} followers');
+    } catch (e) {
+      print('❌ Sync follows error: $e');
+    }
+  }
+
+  // 🆕 СИНХРОНИЗАЦИЯ ВЗАИМОДЕЙСТВИЙ С СЕРВЕРОМ
+  Future<void> syncInteractionsWithServer() async {
+    try {
+      if (!isLoggedIn) return;
+
+      print('🔄 Syncing interactions with YDB...');
+
+      // Получаем взаимодействия с сервера
+      final likes = await ApiService.syncUserLikes();
+      final bookmarks = await ApiService.syncUserBookmarks();
+      final reposts = await ApiService.syncUserReposts();
+
+      // Обновляем локальные данные
+      _likedPosts = likes.toSet();
+      _bookmarkedPosts = bookmarks.toSet();
+      _repostedPosts = reposts.toSet();
+
+      // Обновляем статистику
+      _stats['likes'] = _likedPosts.length;
+
+      await _saveUserData();
+      _safeNotifyListeners();
+
+      print('✅ Interactions synced: ${_likedPosts.length} likes, ${_bookmarkedPosts.length} bookmarks, ${_repostedPosts.length} reposts');
+    } catch (e) {
+      print('❌ Sync interactions error: $e');
+    }
+  }
+
+  // 🆕 УПРАВЛЕНИЕ ПОДПИСКАМИ
+  Future<void> followUser(String targetUserId) async {
+    try {
+      if (!isLoggedIn) return;
+
+      print('👥 Following user in YDB: $targetUserId');
+
+      // Оптимистичное обновление
+      _following.add(targetUserId);
+      _stats['following'] = _following.length;
+
+      await _saveUserData();
+      _safeNotifyListeners();
+
+      // Синхронизация с сервером
+      try {
+        await ApiService.followUser(targetUserId); // ✅ ТЕПЕРЬ РАБОТАЕТ
+        print('✅ User followed successfully');
+      } catch (e) {
+        print('⚠️ Follow action saved locally: $e');
+      }
+    } catch (e) {
+      print('❌ Follow user error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> unfollowUser(String targetUserId) async {
+    try {
+      if (!isLoggedIn) return;
+
+      print('👥 Unfollowing user in YDB: $targetUserId');
+
+      // Оптимистичное обновление
+      _following.remove(targetUserId);
+      _stats['following'] = _following.length;
+
+      await _saveUserData();
+      _safeNotifyListeners();
+
+      // Синхронизация с сервером
+      try {
+        await ApiService.unfollowUser(targetUserId); // ✅ ТЕПЕРЬ РАБОТАЕТ
+        print('✅ User unfollowed successfully');
+      } catch (e) {
+        print('⚠️ Unfollow action saved locally: $e');
+      }
+    } catch (e) {
+      print('❌ Unfollow user error: $e');
+      rethrow;
+    }
+  }
+
+  // 🆕 УПРАВЛЕНИЕ ЛАЙКАМИ
+  Future<void> addLike(String postId) async {
+    _likedPosts.add(postId);
+    _stats['likes'] = _likedPosts.length;
+    await _saveUserData();
+    _safeNotifyListeners();
+  }
+
+  Future<void> removeLike(String postId) async {
+    _likedPosts.remove(postId);
+    _stats['likes'] = _likedPosts.length;
+    await _saveUserData();
+    _safeNotifyListeners();
+  }
+
+  // 🆕 УПРАВЛЕНИЕ ЗАКЛАДКАМИ
+  Future<void> addBookmark(String postId) async {
+    _bookmarkedPosts.add(postId);
+    await _saveUserData();
+    _safeNotifyListeners();
+  }
+
+  Future<void> removeBookmark(String postId) async {
+    _bookmarkedPosts.remove(postId);
+    await _saveUserData();
+    _safeNotifyListeners();
+  }
+
+  // 🆕 УПРАВЛЕНИЕ РЕПОСТАМИ
+  Future<void> addRepost(String postId) async {
+    _repostedPosts.add(postId);
+    await _saveUserData();
+    _safeNotifyListeners();
+  }
+
+  Future<void> removeRepost(String postId) async {
+    _repostedPosts.remove(postId);
+    await _saveUserData();
+    _safeNotifyListeners();
   }
 
   // 🎯 СИНХРОНИЗАЦИЯ С СЕРВЕРОМ
@@ -158,6 +401,10 @@ class UserProvider with ChangeNotifier {
         if (serverUserData['avatar'] != null) {
           await updateProfileImage(serverUserData['avatar']);
         }
+
+        // 🆕 СИНХРОНИЗИРУЕМ ПОДПИСКИ И ВЗАИМОДЕЙСТВИЯ
+        await syncFollowsWithServer();
+        await syncInteractionsWithServer();
 
         print('✅ UserProvider: Successfully synced with server');
       } else {
@@ -297,6 +544,21 @@ class UserProvider with ChangeNotifier {
     return _userId == authorId;
   }
 
+  // 🆕 ПОЛНАЯ СИНХРОНИЗАЦИЯ ВСЕХ ДАННЫХ
+  Future<void> fullSync() async {
+    try {
+      print('🔄 UserProvider: Starting full sync...');
+
+      await syncWithServer();
+      await syncFollowsWithServer();
+      await syncInteractionsWithServer();
+
+      print('✅ UserProvider: Full sync completed');
+    } catch (e) {
+      print('❌ UserProvider: Full sync error: $e');
+    }
+  }
+
   // 🎯 ОЧИСТКА ДАННЫХ (LOGOUT)
   Future<void> clearUserData() async {
     try {
@@ -308,6 +570,13 @@ class UserProvider with ChangeNotifier {
       await prefs.remove(_profileImageUrlKey);
       await prefs.remove(_coverImageUrlKey);
       await prefs.remove(_userStatsKey);
+
+      // 🆕 ОЧИСТКА ПОДПИСОК И ВЗАИМОДЕЙСТВИЙ
+      await prefs.remove(_followingKey);
+      await prefs.remove(_followersKey);
+      await prefs.remove(_likedPostsKey);
+      await prefs.remove(_bookmarkedPostsKey);
+      await prefs.remove(_repostedPostsKey);
 
       _userName = '';
       _userEmail = '';
@@ -321,6 +590,13 @@ class UserProvider with ChangeNotifier {
         'followers': 0,
         'following': 0,
       };
+
+      // 🆕 ОЧИСТКА ПОДПИСОК И ВЗАИМОДЕЙСТВИЙ
+      _following.clear();
+      _followers.clear();
+      _likedPosts.clear();
+      _bookmarkedPosts.clear();
+      _repostedPosts.clear();
 
       print('🚪 UserProvider: Cleared all user data');
       notifyListeners();
@@ -338,11 +614,23 @@ class UserProvider with ChangeNotifier {
       'profileImageUrl': _profileImageUrl,
       'coverImageUrl': _coverImageUrl,
       'stats': _stats,
+      'following': _following.toList(),
+      'followers': _followers.toList(),
+      'likedPosts': _likedPosts.toList(),
+      'bookmarkedPosts': _bookmarkedPosts.toList(),
+      'repostedPosts': _repostedPosts.toList(),
     };
+  }
+
+  // 🆕 БЕЗОПАСНОЕ УВЕДОМЛЕНИЕ СЛУШАТЕЛЕЙ
+  void _safeNotifyListeners() {
+    if (hasListeners) {
+      notifyListeners();
+    }
   }
 
   @override
   String toString() {
-    return 'UserProvider{name: $_userName, email: $_userEmail, id: $_userId, stats: $_stats}';
+    return 'UserProvider{name: $_userName, email: $_userEmail, id: $_userId, stats: $_stats, following: ${_following.length}, followers: ${_followers.length}}';
   }
 }

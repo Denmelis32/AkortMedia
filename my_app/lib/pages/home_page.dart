@@ -83,18 +83,20 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // 🎯 УЛУЧШЕННЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ДАННЫХ
+  // 🎯 УЛУЧШЕННЫЙ МЕТОД ДЛЯ ЗАГРУЗКИ ДАННЫХ ИЗ YDB
   Future<void> _loadUserDataAndNews() async {
     try {
-      print('🎯 HomePage: Loading user data and news...');
+      print('🎯 HomePage: Loading user data and news from YDB...');
 
       final userProvider = context.read<UserProvider>();
       final newsProvider = context.read<NewsProvider>();
 
-      // 🎯 СИНХРОНИЗИРУЕМ С СЕРВЕРОМ ПЕРЕД ВСЕМ
+      // 🎯 СИНХРОНИЗИРУЕМ С YDB
       if (userProvider.isLoggedIn) {
-        print('🔄 HomePage: Syncing user data with server...');
-        await userProvider.syncWithServer();
+        print('🔄 HomePage: Syncing user data with YDB...');
+
+        // Загружаем профиль пользователя из YDB
+        await userProvider.loadUserProfile(userProvider.userId);
 
         // Обновляем локальные данные
         setState(() {
@@ -102,33 +104,31 @@ class _HomePageState extends State<HomePage> {
           _userEmail = userProvider.userEmail;
         });
 
-        print('✅ HomePage: User data synced - $_userName (${userProvider.userId})');
-      } else {
-        // Если пользователь не залогинен, но мы на HomePage - что-то пошло не так
-        print('⚠️ HomePage: User not logged in but on HomePage');
-        widget.onLogout(); // Возвращаем на логин
-        return;
+        print('✅ HomePage: User data synced with YDB - $_userName (${userProvider.userId})');
       }
 
-      // Загружаем новости
-      print('🌐 HomePage: Loading news...');
+      // Загружаем новости из YDB
+      print('🌐 HomePage: Loading news from YDB...');
       await newsProvider.loadNews();
-      print('✅ HomePage: News loaded - ${newsProvider.news.length} items');
+      print('✅ HomePage: News loaded from YDB - ${newsProvider.news.length} items');
 
     } catch (e) {
-      print('❌ HomePage: Error loading data - $e');
-      // Показываем ошибку, но не прерываем работу
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка загрузки данных: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('❌ HomePage: Error loading data from YDB - $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка загрузки данных: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
-      _initializePages(); // Переинициализируем страницы с обновленными данными
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _initializePages();
+      }
     }
   }
 

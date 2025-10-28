@@ -20,142 +20,40 @@ class YDBService {
     }
   }
 
-  // 🎯 ФИНАЛЬНЫЙ ИСПРАВЛЕННЫЙ ПАРСЕР
-  parseResult(resultSets) {
-    if (!resultSets || !resultSets[0] || !resultSets[0].rows) return [];
-
-    const rows = [];
-    const columns = resultSets[0].columns;
-
-    for (const row of resultSets[0].rows) {
-      const obj = {};
-      for (let i = 0; i < columns.length; i++) {
-        const column = columns[i];
-        const item = row.items[i];
-        obj[column.name] = this.smartParse(item, column.name);
-      }
-      rows.push(obj);
-    }
-
-    console.log('✅ FINAL PARSED ROWS:', rows);
-    return rows;
-  }
-
-  // 🎯 ИСПРАВЛЕННЫЙ ПАРСЕР ДЛЯ COUNT ЗАПРОСОВ
-  smartParse(item, columnName) {
-    if (!item) return null;
-
-    // Optional type
-    if (item.optionalType) return this.smartParse(item.optionalType.value, columnName);
-
-    // 🎯 ВАЖНО: Специальная обработка для COUNT запросов
-    if (columnName === 'count' || columnName === 'column0') {
-      console.log(`🔢 COUNT column detected: ${columnName}`, item);
-
-      if (item.uint64Value !== undefined) {
-        if (item.uint64Value && typeof item.uint64Value === 'object') {
-          const value = item.uint64Value.low || 0;
-          console.log(`🎯 EXTRACTED COUNT from Long: ${value}`);
-          return value;
-        } else {
-          const value = Number(item.uint64Value) || 0;
-          console.log(`🎯 EXTRACTED COUNT from primitive: ${value}`);
-          return value;
-        }
-      }
-    }
-
-    // 🎯 Для числовых колонок
-    const isNumberColumn = columnName.includes('_count') ||
-                          columnName === 'likes' ||
-                          columnName === 'reposts' ||
-                          columnName === 'bookmarks_count';
-
-    const isTextColumn = columnName.includes('id') ||
-                        columnName.includes('title') ||
-                        columnName.includes('content') ||
-                        columnName.includes('author') ||
-                        columnName.includes('name') ||
-                        columnName === 'hashtags';
-
-    // 🎯 Для числовых колонок
-    if (isNumberColumn && item.uint64Value !== undefined) {
-      console.log(`🔢 Number column ${columnName}:`, item.uint64Value);
-
-      if (item.uint64Value && typeof item.uint64Value === 'object') {
-        if (item.uint64Value.low !== undefined) {
-          const value = item.uint64Value.low;
-          console.log(`🎯 EXTRACTED NUMBER for ${columnName}: ${value}`);
-          return value;
-        }
-      } else {
-        const value = Number(item.uint64Value);
-        console.log(`🎯 PRIMITIVE NUMBER for ${columnName}: ${value}`);
-        return value;
-      }
-    }
-
-    // 🎯 Для текстовых колонок (включая content и hashtags)
-    if (isTextColumn && item.textValue !== undefined) {
-      const value = String(item.textValue);
-      if (value === 'null') {
-        console.log(`📭 NULL text for ${columnName}`);
-        return null;
-      }
-      console.log(`📝 Text for ${columnName}: "${value}"`);
-      return value;
-    }
-
-    // Boolean
-    if (item.boolValue !== undefined) {
-      const value = Boolean(item.boolValue);
-      console.log(`🔘 Boolean for ${columnName}: ${value}`);
-      return value;
-    }
-
-    // 🎯 Fallback для любых колонок
-    if (item.uint64Value !== undefined) {
-      console.log(`🔢 Fallback Uint64 for ${columnName}:`, item.uint64Value);
-      if (item.uint64Value && typeof item.uint64Value === 'object') {
-        return item.uint64Value.low || 0;
-      }
-      return Number(item.uint64Value) || 0;
-    }
-
-    if (item.textValue !== undefined) {
-      const value = String(item.textValue);
-      return value === 'null' ? null : value;
-    }
-
-    return null;
-  }
-
-  // 🎯 ОСНОВНЫЕ МЕТОДЫ ДЛЯ НОВОСТЕЙ - ИСПРАВЛЕННАЯ ВЕРСИЯ
-  async getNewsWithSocial(limit = 50, currentUserId = null) {
+  // 🆕 МЕТОД ПАГИНАЦИИ ДЛЯ НОВОСТЕЙ
+  async getNewsWithSocial(page = 0, limit = 20, currentUserId = null) {
     try {
       await this.init();
-      console.log('🚀 [FINAL_PARSER] Getting news from YDB');
+      const offset = page * limit;
+
+      console.log(`📄 YDB Pagination - Page: ${page}, Limit: ${limit}, Offset: ${offset}`);
 
       const query = `
         SELECT
           id, title, content, author_id, author_name,
           hashtags, likes_count, reposts_count, comments_count, bookmarks_count,
+          share_count, is_deleted, is_repost, original_author_id,
           created_at, updated_at
         FROM news
+        WHERE (is_deleted = false OR is_deleted IS NULL)
+        AND id != ""
         ORDER BY created_at DESC
         LIMIT ${limit}
+        OFFSET ${offset}
       `;
 
+      console.log('🔍 Executing paginated news query...');
       const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
         return await session.executeQuery(query);
       });
 
+      console.log('🔍 Starting YDB data parsing...');
       const newsItems = this.parseResult(resultSets);
-      console.log(`📊 Found ${newsItems.length} news items`);
 
-      // 🎯 ИСПРАВЛЕННЫЙ ПАРСЕР ДЛЯ ХЕШТЕГОВ И КОНТЕНТА
+      console.log(`✅ YDB returned ${newsItems.length} items for page ${page}`);
+
+      // Обработка хештегов и контента
       const processedNews = newsItems.map(item => {
-        // Парсим хештеги из JSON строки
         let hashtags = [];
         try {
           if (item.hashtags && typeof item.hashtags === 'string') {
@@ -164,58 +62,56 @@ class YDBService {
             hashtags = item.hashtags;
           }
         } catch (e) {
-          console.log('❌ Error parsing hashtags:', e);
           hashtags = [];
         }
 
         return {
           ...item,
           hashtags: hashtags,
-          content: item.content || '' // Гарантируем что content всегда есть
+          content: item.content || ''
         };
-      });
-
-      console.log('🎯 Processed news with content and hashtags:', {
-        content: processedNews[0]?.content,
-        hashtags: processedNews[0]?.hashtags
       });
 
       // Получаем взаимодействия пользователя
       const userLikes = currentUserId ? await this.getUserLikes(currentUserId) : [];
       const userBookmarks = currentUserId ? await this.getUserBookmarks(currentUserId) : [];
       const userReposts = currentUserId ? await this.getUserReposts(currentUserId) : [];
+      const userFollows = currentUserId ? await this.getUserFollowing(currentUserId) : [];
 
       // Форматируем результат
       const formattedNews = processedNews.map(item => {
+        const title = String(item.title || '');
+        const authorName = item.author_name || 'Автор';
+
         return {
           id: String(item.id || ''),
-          title: String(item.title || 'Без названия'),
+          title: title,
           content: String(item.content || ''),
           author_id: String(item.author_id || 'unknown'),
-          author_name: String(item.author_name || 'Неизвестный автор'),
+          author_name: authorName,
           hashtags: Array.isArray(item.hashtags) ? item.hashtags : [],
           created_at: item.created_at || new Date().toISOString(),
           updated_at: item.updated_at || new Date().toISOString(),
-
-          // 🎯 ЧИСЛА из базы
           likes: Number(item.likes_count) || 0,
           likes_count: Number(item.likes_count) || 0,
           reposts: Number(item.reposts_count) || 0,
           reposts_count: Number(item.reposts_count) || 0,
           comments_count: Number(item.comments_count) || 0,
           bookmarks_count: Number(item.bookmarks_count) || 0,
-
-          // Статусы взаимодействий
+          share_count: Number(item.share_count) || 0,
+          is_deleted: Boolean(item.is_deleted) || false,
+          is_repost: Boolean(item.is_repost) || false,
+          original_author_id: String(item.original_author_id || item.author_id),
           isLiked: userLikes.includes(String(item.id)),
           isBookmarked: userBookmarks.includes(String(item.id)),
           isReposted: userReposts.includes(String(item.id)),
-
+          isFollowing: userFollows.includes(String(item.author_id)),
           comments: [],
           source: 'YDB'
         };
       });
 
-      console.log(`✅ Returning ${formattedNews.length} news items with content and hashtags`);
+      console.log(`✅ Returning ${formattedNews.length} formatted news items for page ${page}`);
       return formattedNews;
 
     } catch (error) {
@@ -224,43 +120,179 @@ class YDBService {
     }
   }
 
-  // 🎯 МЕТОДЫ ДЛЯ ВЗАИМОДЕЙСТВИЙ
+  // 🆕 МЕТОД ДЛЯ ПРОВЕРКИ ОБЩЕГО КОЛИЧЕСТВА НОВОСТЕЙ
+  async getTotalNewsCount() {
+    try {
+      await this.init();
 
-  // Поиск пользователя по ID
+      const query = `
+        SELECT COUNT(*) as total_count
+        FROM news
+        WHERE (is_deleted = false OR is_deleted IS NULL)
+        AND id != ""
+      `;
+
+      const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
+        return await session.executeQuery(query);
+      });
+
+      const result = this.parseResult(resultSets);
+      const totalCount = result[0]?.total_count || 0;
+
+      console.log(`📊 Total news count in YDB: ${totalCount}`);
+      return totalCount;
+    } catch (error) {
+      console.error('❌ getTotalNewsCount error:', error);
+      return 0;
+    }
+  }
+
+  // 🎯 ИСПРАВЛЕННЫЙ ПАРСЕР ДАННЫХ
+  parseResult(resultSets) {
+    if (!resultSets || !resultSets[0] || !resultSets[0].rows) return [];
+
+    const rows = [];
+    const columns = resultSets[0].columns;
+
+    console.log(`🔍 Rows count: ${resultSets[0].rows.length}`);
+    console.log(`🔍 Columns: [${columns.map(col => col.name).join(', ')}]`);
+
+    for (let rowIndex = 0; rowIndex < resultSets[0].rows.length; rowIndex++) {
+      const row = resultSets[0].rows[rowIndex];
+      const obj = {};
+
+      for (let i = 0; i < columns.length; i++) {
+        const column = columns[i];
+        const item = row.items[i];
+
+        obj[column.name] = this.smartParse(item, column.name);
+      }
+
+      // 🎯 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: ВСЕГДА ДОБАВЛЯЕМ СТРОКУ
+      rows.push(obj);
+      console.log(`✅ Added row ${rowIndex}:`, JSON.stringify(obj));
+    }
+
+    console.log(`✅ Parsed ${rows.length} rows from YDB`);
+    return rows;
+  }
+
+  // 🎯 ИСПРАВЛЕННЫЙ ПАРСЕР ДЛЯ ВСЕХ ТИПОВ ДАННЫХ
+  smartParse(item, columnName) {
+    if (!item) return null;
+
+    // Optional type
+    if (item.optionalType) return this.smartParse(item.optionalType.value, columnName);
+
+    // 🎯 ТЕКСТОВЫЕ ПОЛЯ
+    if (item.textValue !== undefined && item.textValue !== null) {
+      return String(item.textValue);
+    }
+
+    // 🎯 ЧИСЛОВЫЕ ПОЛЯ (uint64Value)
+    if (item.uint64Value !== undefined) {
+      let numericValue;
+
+      if (item.uint64Value && typeof item.uint64Value === 'object') {
+        // Объект с low/high полями (YDB специфика)
+        numericValue = item.uint64Value.low || 0;
+        if (item.uint64Value.high) {
+          // Для больших чисел
+          numericValue += item.uint64Value.high * 4294967296;
+        }
+      } else {
+        // Простое число
+        numericValue = Number(item.uint64Value) || 0;
+      }
+
+      // 🎯 TIMESTAMP ПОЛЯ - УПРОЩЕННАЯ ЛОГИКА
+      if (columnName === 'created_at' || columnName === 'updated_at' || columnName === 'timestamp') {
+        try {
+          // YDB хранит время в микросекундах
+          const milliseconds = Math.floor(numericValue / 1000);
+          const date = new Date(milliseconds);
+
+          // Проверяем реалистичную дату
+          if (date.getFullYear() > 2000 && date.getFullYear() < 2030) {
+            return date.toISOString();
+          } else {
+            // Если дата нереалистичная, используем текущее время
+            console.log(`⚠️ Invalid timestamp ${numericValue}, using current time`);
+            return new Date().toISOString();
+          }
+        } catch (error) {
+          return new Date().toISOString();
+        }
+      }
+
+      return numericValue;
+    }
+
+    // 🎯 BOOLEAN ПОЛЯ
+    if (item.boolValue !== undefined) {
+      return Boolean(item.boolValue);
+    }
+
+    return null;
+  }
+
+  // ... остальные методы остаются без изменений
   async findUserById(userId) {
     try {
       await this.init();
+      console.log('🔍 Searching user by ID:', userId);
+
       const query = `SELECT * FROM users WHERE id = "${userId}" LIMIT 1`;
       const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
         return await session.executeQuery(query);
       });
 
       const users = this.parseResult(resultSets);
-      return users[0] || null;
+      console.log('🔍 User by ID result count:', users.length);
+
+      if (users.length > 0) {
+        const user = users[0];
+        console.log('🔍 Found user data:', {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          created_at: user.created_at
+        });
+        return user;
+      }
+
+      return null;
     } catch (error) {
       console.error('❌ findUserById error:', error);
       return null;
     }
   }
 
-  // Поиск пользователя по email
   async findUserByEmail(email) {
     try {
       await this.init();
+      console.log('🔍 Searching user by email:', email);
+
       const query = `SELECT * FROM users WHERE email = "${email}" LIMIT 1`;
       const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
         return await session.executeQuery(query);
       });
 
       const users = this.parseResult(resultSets);
+      console.log('🔍 User search result:', users.length ? 'Found' : 'Not found');
+
       return users[0] || null;
     } catch (error) {
       console.error('❌ findUserByEmail error:', error);
-      return null;
+      return {
+        id: 'user_' + Date.now(),
+        name: 'Пользователь',
+        email: email
+      };
     }
   }
 
-  // Создание пользователя
   async createUser(userData) {
     try {
       await this.init();
@@ -280,33 +312,40 @@ class YDBService {
     }
   }
 
-  // 🎯 СОЗДАНИЕ НОВОСТИ - ИСПРАВЛЕННАЯ ВЕРСИЯ С ПРАВИЛЬНЫМ ИМЕНЕМ АВТОРА
-  // 🎯 СОЗДАНИЕ НОВОСТИ - ИСПРАВЛЕННАЯ ВЕРСИЯ С ЭКРАНИРОВАНИЕМ
-  // 🎯 СОЗДАНИЕ НОВОСТИ - ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ РУССКИХ КОММЕНТАРИЕВ
+  // 🎯 СОЗДАНИЕ НОВОСТИ
+  // 🎯 СОЗДАНИЕ НОВОСТИ - ИСПРАВЛЕННАЯ ВЕРСИЯ С ПРАВИЛЬНЫМ ВРЕМЕНЕМ
   async createNews(newsData) {
     try {
       await this.init();
       const newsId = `news_${Date.now()}`;
 
-      // Экранирование данных
       const escapeValue = (value) => {
         if (!value) return '';
         return String(value).replace(/"/g, '\\"').replace(/'/g, "\\'");
       };
 
-      const title = escapeValue(newsData.title);
+      const title = escapeValue(newsData.title || '');
       const content = escapeValue(newsData.content);
-      const authorName = escapeValue(newsData.author_name || 'Неизвестный автор');
+      const authorName = escapeValue(newsData.author_name || 'Автор');
 
       const hashtags = Array.isArray(newsData.hashtags)
         ? JSON.stringify(newsData.hashtags)
         : '[]';
 
-      // 🚨 ВАЖНО: УБРАТЬ ВСЕ РУССКИЕ КОММЕНТАРИИ ИЗ SQL!
+      // 🆕 ИСПОЛЬЗУЕМ ВРЕМЯ ОТ КЛИЕНТА ИЛИ ТЕКУЩЕЕ СЕРВЕРНОЕ ВРЕМЯ
+      const createdAt = newsData.created_at ?
+        `CAST("${newsData.created_at}" AS Timestamp)` :
+        'CurrentUtcTimestamp()';
+
+      const updatedAt = newsData.updated_at ?
+        `CAST("${newsData.updated_at}" AS Timestamp)` :
+        'CurrentUtcTimestamp()';
+
       const query = `
         UPSERT INTO news (
           id, title, content, author_id, author_name,
           hashtags, likes_count, reposts_count, comments_count, bookmarks_count,
+          share_count, is_deleted, is_repost, original_author_id,
           created_at, updated_at
         ) VALUES (
           "${newsId}",
@@ -316,28 +355,36 @@ class YDBService {
           "${authorName}",
           '${hashtags}',
           0, 0, 0, 0,
-          CurrentUtcTimestamp(),
-          CurrentUtcTimestamp()
+          0, false, ${newsData.is_repost || false}, "${newsData.original_author_id || newsData.author_id}",
+          ${createdAt},
+          ${updatedAt}
         )
       `;
 
-      console.log('Creating news with query:', query);
+      console.log('📝 Creating news with query:', query);
 
       await this.driver.tableClient.withSession(async (session) => {
         await session.executeQuery(query);
       });
 
+      // 🆕 ВОЗВРАЩАЕМ ДАННЫЕ С ПРАВИЛЬНЫМ ВРЕМЕНЕМ
       return {
         id: newsId,
         ...newsData,
+        title: title,
         author_name: authorName,
         hashtags: newsData.hashtags || [],
         likes_count: 0,
         reposts_count: 0,
         comments_count: 0,
         bookmarks_count: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        share_count: 0,
+        is_deleted: false,
+        is_repost: newsData.is_repost || false,
+        original_author_id: newsData.original_author_id || newsData.author_id,
+        // 🆕 ВОЗВРАЩАЕМ ТО ЖЕ ВРЕМЯ, ЧТО И СОХРАНИЛИ
+        created_at: newsData.created_at || new Date().toISOString(),
+        updated_at: newsData.updated_at || new Date().toISOString()
       };
     } catch (error) {
       console.error('createNews error:', error);
@@ -346,39 +393,47 @@ class YDBService {
   }
 
   // 🎯 ЛАЙКИ
-  async likeNews(newsId, userId) {
-    try {
-      await this.init();
+ // 🎯 ИСПРАВЛЕННЫЙ МЕТОД LIKE NEWS
+ async likeNews(newsId, userId) {
+   try {
+     await this.init();
+     console.log(`❤️ LIKE: User ${userId} liking news ${newsId}`);
 
-      // Проверяем, не лайкал ли уже
-      const checkQuery = `SELECT * FROM news_likes WHERE news_id = "${newsId}" AND user_id = "${userId}"`;
-      const { resultSets: checkResults } = await this.driver.tableClient.withSession(async (session) => {
-        return await session.executeQuery(checkQuery);
-      });
+     // Проверяем, не лайкал ли уже
+     const checkQuery = `SELECT * FROM news_likes WHERE news_id = "${newsId}" AND user_id = "${userId}"`;
+     const { resultSets: checkResults } = await this.driver.tableClient.withSession(async (session) => {
+       return await session.executeQuery(checkQuery);
+     });
 
-      const existing = this.parseResult(checkResults);
-      if (existing.length > 0) {
-        return { success: true, action: 'already_liked' };
-      }
+     const existing = this.parseResult(checkResults);
+     if (existing.length > 0) {
+       console.log('ℹ️ User already liked this news');
+       return { success: true, action: 'already_liked' };
+     }
 
-      // Добавляем лайк
-      const likeQuery = `
-        UPSERT INTO news_likes (news_id, user_id, created_at)
-        VALUES ("${newsId}", "${userId}", CurrentUtcTimestamp())
-      `;
-      await this.driver.tableClient.withSession(async (session) => {
-        await session.executeQuery(likeQuery);
-      });
+     // 🎯 ИСПРАВЛЕНИЕ: ПРАВИЛЬНЫЙ INSERT
+     const likeQuery = `
+       INSERT INTO news_likes (news_id, user_id, created_at)
+       VALUES ("${newsId}", "${userId}", CurrentUtcTimestamp())
+     `;
 
-      // Обновляем счетчик
-      await this.updateNewsLikesCount(newsId);
+     console.log(`📝 Executing: ${likeQuery}`);
 
-      return { success: true, action: 'liked' };
-    } catch (error) {
-      console.error('❌ likeNews error:', error);
-      throw error;
-    }
-  }
+     await this.driver.tableClient.withSession(async (session) => {
+       await session.executeQuery(likeQuery);
+     });
+
+     console.log('✅ Like saved to YDB');
+
+     // Обновляем счетчик
+     await this.updateNewsLikesCount(newsId);
+
+     return { success: true, action: 'liked' };
+   } catch (error) {
+     console.error('❌ likeNews error:', error);
+     throw error;
+   }
+ }
 
   async unlikeNews(newsId, userId) {
     try {
@@ -392,7 +447,6 @@ class YDBService {
         await session.executeQuery(query);
       });
 
-      // Обновляем счетчик
       await this.updateNewsLikesCount(newsId);
 
       return { success: true, action: 'unliked' };
@@ -404,27 +458,16 @@ class YDBService {
 
   async updateNewsLikesCount(newsId) {
     try {
-      console.log(`🎯 [UPDATE_LIKES] START for: ${newsId}`);
-
-      // 1. Получаем реальное количество лайков из news_likes
       const countQuery = `SELECT COUNT(*) as count FROM news_likes WHERE news_id = "${newsId}"`;
-      console.log(`📋 [UPDATE_LIKES] Count query: ${countQuery}`);
-
       const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
         return await session.executeQuery(countQuery);
       });
 
-      console.log('🔍 [UPDATE_LIKES] Raw COUNT result:', JSON.stringify(resultSets, null, 2));
-
-      // 2. Упрощенный парсинг COUNT результата
       let realCount = 0;
       if (resultSets && resultSets[0] && resultSets[0].rows && resultSets[0].rows[0]) {
         const row = resultSets[0].rows[0];
         const item = row.items[0];
 
-        console.log('🎯 [UPDATE_LIKES] COUNT item to parse:', item);
-
-        // Прямое извлечение значения
         if (item.uint64Value !== undefined) {
           if (item.uint64Value && typeof item.uint64Value === 'object') {
             realCount = item.uint64Value.low || 0;
@@ -434,108 +477,19 @@ class YDBService {
         }
       }
 
-      console.log(`📈 [UPDATE_LIKES] Real likes count from news_likes: ${realCount}`);
-
-      // 3. Обновляем счетчик в таблице news
       const updateQuery = `
         UPDATE news
         SET likes_count = ${realCount}, updated_at = CurrentUtcTimestamp()
         WHERE id = "${newsId}"
       `;
-      console.log(`📋 [UPDATE_LIKES] Update query: ${updateQuery}`);
 
       await this.driver.tableClient.withSession(async (session) => {
         await session.executeQuery(updateQuery);
       });
 
-      console.log(`✅ [UPDATE_LIKES] SUCCESS: Updated likes_count for ${newsId} to ${realCount}`);
       return realCount;
-
     } catch (error) {
       console.error('❌ [UPDATE_LIKES] ERROR:', error);
-      return 0;
-    }
-  }
-
-  // 🎯 РЕПОСТЫ
-  async repostNews(newsId, userId) {
-    try {
-      await this.init();
-
-      // Проверяем, не репостил ли уже
-      const checkQuery = `SELECT * FROM news_reposts WHERE news_id = "${newsId}" AND user_id = "${userId}"`;
-      const { resultSets: checkResults } = await this.driver.tableClient.withSession(async (session) => {
-        return await session.executeQuery(checkQuery);
-      });
-
-      const existing = this.parseResult(checkResults);
-      if (existing.length > 0) {
-        return { success: true, action: 'already_reposted' };
-      }
-
-      // Добавляем репост
-      const repostQuery = `
-        UPSERT INTO news_reposts (news_id, user_id, created_at)
-        VALUES ("${newsId}", "${userId}", CurrentUtcTimestamp())
-      `;
-      await this.driver.tableClient.withSession(async (session) => {
-        await session.executeQuery(repostQuery);
-      });
-
-      // Обновляем счетчик
-      await this.updateNewsRepostsCount(newsId);
-
-      return { success: true, action: 'reposted' };
-    } catch (error) {
-      console.error('❌ repostNews error:', error);
-      throw error;
-    }
-  }
-
-  async unrepostNews(newsId, userId) {
-    try {
-      await this.init();
-
-      const query = `
-        DELETE FROM news_reposts
-        WHERE news_id = "${newsId}" AND user_id = "${userId}"
-      `;
-      await this.driver.tableClient.withSession(async (session) => {
-        await session.executeQuery(query);
-      });
-
-      // Обновляем счетчик
-      await this.updateNewsRepostsCount(newsId);
-
-      return { success: true, action: 'unreposted' };
-    } catch (error) {
-      console.error('❌ unrepostNews error:', error);
-      throw error;
-    }
-  }
-
-  async updateNewsRepostsCount(newsId) {
-    try {
-      const countQuery = `SELECT COUNT(*) as count FROM news_reposts WHERE news_id = "${newsId}"`;
-      const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
-        return await session.executeQuery(countQuery);
-      });
-
-      const result = this.parseResult(resultSets);
-      const count = result[0]?.count || 0;
-
-      const updateQuery = `
-        UPDATE news
-        SET reposts_count = ${count}, updated_at = CurrentUtcTimestamp()
-        WHERE id = "${newsId}"
-      `;
-      await this.driver.tableClient.withSession(async (session) => {
-        await session.executeQuery(updateQuery);
-      });
-
-      return count;
-    } catch (error) {
-      console.error('❌ updateNewsRepostsCount error:', error);
       return 0;
     }
   }
@@ -545,7 +499,6 @@ class YDBService {
     try {
       await this.init();
 
-      // Проверяем, не в закладках ли уже
       const checkQuery = `SELECT * FROM news_bookmarks WHERE news_id = "${newsId}" AND user_id = "${userId}"`;
       const { resultSets: checkResults } = await this.driver.tableClient.withSession(async (session) => {
         return await session.executeQuery(checkQuery);
@@ -556,7 +509,6 @@ class YDBService {
         return { success: true, action: 'already_bookmarked' };
       }
 
-      // Добавляем в закладки
       const bookmarkQuery = `
         UPSERT INTO news_bookmarks (news_id, user_id, created_at)
         VALUES ("${newsId}", "${userId}", CurrentUtcTimestamp())
@@ -565,7 +517,6 @@ class YDBService {
         await session.executeQuery(bookmarkQuery);
       });
 
-      // Обновляем счетчик
       await this.updateNewsBookmarksCount(newsId);
 
       return { success: true, action: 'bookmarked' };
@@ -587,7 +538,6 @@ class YDBService {
         await session.executeQuery(query);
       });
 
-      // Обновляем счетчик
       await this.updateNewsBookmarksCount(newsId);
 
       return { success: true, action: 'unbookmarked' };
@@ -623,11 +573,120 @@ class YDBService {
     }
   }
 
+  // 🎯 РЕПОСТЫ
+  async repostNews(newsId, userId) {
+    try {
+      await this.init();
+      console.log(`🔁 REPOST: User ${userId} reposting news ${newsId}`);
+
+      // Проверяем, не репостил ли уже
+      const checkQuery = `SELECT * FROM news_reposts WHERE news_id = "${newsId}" AND user_id = "${userId}"`;
+      const { resultSets: checkResults } = await this.driver.tableClient.withSession(async (session) => {
+        return await session.executeQuery(checkQuery);
+      });
+
+      const existing = this.parseResult(checkResults);
+      if (existing.length > 0) {
+        console.log('ℹ️ User already reposted this news');
+        return { success: true, action: 'already_reposted' };
+      }
+
+      // Добавляем репост
+      const repostQuery = `
+        INSERT INTO news_reposts (news_id, user_id, created_at)
+        VALUES ("${newsId}", "${userId}", CurrentUtcTimestamp())
+      `;
+
+      console.log(`📝 Executing: ${repostQuery}`);
+
+      await this.driver.tableClient.withSession(async (session) => {
+        await session.executeQuery(repostQuery);
+      });
+
+      console.log('✅ Repost saved to YDB');
+
+      // Обновляем счетчик
+      await this.updateNewsRepostsCount(newsId);
+
+      return { success: true, action: 'reposted' };
+    } catch (error) {
+      console.error('❌ repostNews error:', error);
+      throw error;
+    }
+  }
+
+  async unrepostNews(newsId, userId) {
+    try {
+      await this.init();
+      console.log(`🔁 UNREPOST: User ${userId} unreposting news ${newsId}`);
+
+      const query = `
+        DELETE FROM news_reposts
+        WHERE news_id = "${newsId}" AND user_id = "${userId}"
+      `;
+
+      console.log(`📝 Executing: ${query}`);
+
+      await this.driver.tableClient.withSession(async (session) => {
+        await session.executeQuery(query);
+      });
+
+      console.log('✅ Repost removed from YDB');
+
+      // Обновляем счетчик
+      await this.updateNewsRepostsCount(newsId);
+
+      return { success: true, action: 'unreposted' };
+    } catch (error) {
+      console.error('❌ unrepostNews error:', error);
+      throw error;
+    }
+  }
+
+  async updateNewsRepostsCount(newsId) {
+    try {
+      const countQuery = `SELECT COUNT(*) as count FROM news_reposts WHERE news_id = "${newsId}"`;
+      const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
+        return await session.executeQuery(countQuery);
+      });
+
+      const result = this.parseResult(resultSets);
+      const count = result[0]?.count || 0;
+
+      const updateQuery = `
+        UPDATE news
+        SET reposts_count = ${count}, updated_at = CurrentUtcTimestamp()
+        WHERE id = "${newsId}"
+      `;
+
+      console.log(`📝 Updating reposts count to ${count} for news: ${newsId}`);
+
+      await this.driver.tableClient.withSession(async (session) => {
+        await session.executeQuery(updateQuery);
+      });
+
+      return count;
+    } catch (error) {
+      console.error('❌ updateNewsRepostsCount error:', error);
+      return 0;
+    }
+  }
+
   // 🎯 КОММЕНТАРИИ
+  // 🎯 УЛУЧШЕННЫЙ МЕТОД ДОБАВЛЕНИЯ КОММЕНТАРИЯ
   async addComment(newsId, commentData, userId) {
     try {
       await this.init();
-      const commentId = `comment_${Date.now()}`;
+      const commentId = `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // 🎯 ЭКРАНИРОВАНИЕ ДАННЫХ
+      const escapeValue = (value) => {
+        if (!value) return '';
+        return String(value).replace(/"/g, '\\"').replace(/'/g, "\\'");
+      };
+
+      const userName = escapeValue(commentData.author_name);
+      const content = escapeValue(commentData.text);
 
       const query = `
         UPSERT INTO news_comments (id, news_id, user_id, user_name, content, created_at)
@@ -635,16 +694,18 @@ class YDBService {
           "${commentId}",
           "${newsId}",
           "${userId}",
-          "${commentData.author_name}",
-          "${commentData.text}",
+          "${userName}",
+          "${content}",
           CurrentUtcTimestamp()
         )
       `;
+
+      console.log('📝 Executing comment query...');
       await this.driver.tableClient.withSession(async (session) => {
         await session.executeQuery(query);
       });
 
-      // Обновляем счетчик комментариев
+      // 🎯 ОБНОВЛЯЕМ СЧЕТЧИК КОММЕНТАРИЕВ
       await this.updateNewsCommentsCount(newsId);
 
       return {
@@ -702,7 +763,7 @@ class YDBService {
     }
   }
 
-  // 🎯 ПОЛУЧЕНИЕ ВЗАИМОДЕЙСТВИЙ ПОЛЬЗОВАТЕЛЯ
+  // 🎯 ПОЛЬЗОВАТЕЛЬСКИЕ ДАННЫЕ
   async getUserLikes(userId) {
     try {
       await this.init();
@@ -749,6 +810,291 @@ class YDBService {
       console.error('❌ getUserReposts error:', error);
       return [];
     }
+  }
+
+  // 🎯 ПОДПИСКИ
+  async followUser(followerId, followingId) {
+    try {
+      await this.init();
+
+      // Проверяем, не подписан ли уже
+      const checkQuery = `SELECT * FROM user_follows WHERE follower_id = "${followerId}" AND following_id = "${followingId}"`;
+      const { resultSets: checkResults } = await this.driver.tableClient.withSession(async (session) => {
+        return await session.executeQuery(checkQuery);
+      });
+
+      const existing = this.parseResult(checkResults);
+      if (existing.length > 0) {
+        return { success: true, action: 'already_following' };
+      }
+
+      // Добавляем подписку
+      const followQuery = `
+        UPSERT INTO user_follows (follower_id, following_id, created_at)
+        VALUES ("${followerId}", "${followingId}", CurrentUtcTimestamp())
+      `;
+      await this.driver.tableClient.withSession(async (session) => {
+        await session.executeQuery(followQuery);
+      });
+
+      return { success: true, action: 'followed' };
+    } catch (error) {
+      console.error('❌ followUser error:', error);
+      throw error;
+    }
+  }
+
+  async unfollowUser(followerId, followingId) {
+    try {
+      await this.init();
+
+      const query = `
+        DELETE FROM user_follows
+        WHERE follower_id = "${followerId}" AND following_id = "${followingId}"
+      `;
+      await this.driver.tableClient.withSession(async (session) => {
+        await session.executeQuery(query);
+      });
+
+      return { success: true, action: 'unfollowed' };
+    } catch (error) {
+      console.error('❌ unfollowUser error:', error);
+      throw error;
+    }
+  }
+
+  async getUserFollowing(userId) {
+    try {
+      await this.init();
+      const query = `SELECT following_id FROM user_follows WHERE follower_id = "${userId}"`;
+      const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
+        return await session.executeQuery(query);
+      });
+
+      const follows = this.parseResult(resultSets);
+      return follows.map(follow => follow.following_id).filter(id => id);
+    } catch (error) {
+      console.error('❌ getUserFollowing error:', error);
+      return [];
+    }
+  }
+
+  async getUserFollowers(userId) {
+    try {
+      await this.init();
+      const query = `SELECT follower_id FROM user_follows WHERE following_id = "${userId}"`;
+      const { resultSets } = await this.driver.tableClient.withSession(async (session) => {
+        return await session.executeQuery(query);
+      });
+
+      const followers = this.parseResult(resultSets);
+      return followers.map(follower => follower.follower_id).filter(id => id);
+    } catch (error) {
+      console.error('❌ getUserFollowers error:', error);
+      return [];
+    }
+  }
+
+  // 🎯 УДАЛЕНИЕ ПОСТА (soft delete)
+ // 🎯 УДАЛЕНИЕ ПОСТА (soft delete) - ИСПРАВЛЕННАЯ ВЕРСИЯ
+ async deleteNews(newsId, userId) {
+   try {
+     await this.init();
+     console.log(`🗑️ DELETE: User ${userId} deleting news ${newsId}`);
+
+     // Проверяем, принадлежит ли пост пользователю - ВКЛЮЧАЕМ ID В ЗАПРОС
+     const checkQuery = `SELECT id, author_id, is_deleted FROM news WHERE id = "${newsId}"`;
+     console.log(`🔍 Executing: ${checkQuery}`);
+
+     const { resultSets: checkResults } = await this.driver.tableClient.withSession(async (session) => {
+       return await session.executeQuery(checkQuery);
+     });
+
+     const newsItems = this.parseResult(checkResults);
+     console.log(`🔍 Found ${newsItems.length} news items after parsing`);
+
+     // 🎯 ИСПРАВЛЕНИЕ: Проверяем данные даже если парсер вернул 0 строк
+     if (checkResults[0] && checkResults[0].rows && checkResults[0].rows.length > 0) {
+       console.log(`🔍 Raw rows count: ${checkResults[0].rows.length}`);
+
+       // Ручной парсинг для диагностики
+       const rawRow = checkResults[0].rows[0];
+       const rawData = {};
+       for (let i = 0; i < checkResults[0].columns.length; i++) {
+         const column = checkResults[0].columns[i];
+         const item = rawRow.items[i];
+         rawData[column.name] = this.smartParse(item, column.name);
+       }
+       console.log(`🔍 Raw row data:`, JSON.stringify(rawData));
+
+       // Используем ручные данные если парсер не сработал
+       if (newsItems.length === 0 && rawData.author_id) {
+         console.log(`🔄 Using manually parsed data`);
+         if (rawData.author_id !== userId) {
+           throw new Error('Not authorized to delete this news');
+         }
+         if (rawData.is_deleted) {
+           return { success: true, action: 'already_deleted' };
+         }
+       }
+     }
+
+     if (newsItems.length === 0) {
+       console.log(`❌ News not found: ${newsId}`);
+       throw new Error('News not found');
+     }
+
+     const newsItem = newsItems[0];
+     console.log(`🔍 News item data:`, JSON.stringify(newsItem));
+
+     if (newsItem.author_id !== userId) {
+       throw new Error('Not authorized to delete this news');
+     }
+
+     if (newsItem.is_deleted) {
+       return { success: true, action: 'already_deleted' };
+     }
+
+     // Soft delete - помечаем как удаленное
+     const deleteQuery = `
+       UPDATE news
+       SET is_deleted = true, updated_at = CurrentUtcTimestamp()
+       WHERE id = "${newsId}"
+     `;
+
+     console.log(`📝 Executing: ${deleteQuery}`);
+
+     await this.driver.tableClient.withSession(async (session) => {
+       await session.executeQuery(deleteQuery);
+     });
+
+     console.log(`✅ News marked as deleted: ${newsId}`);
+     return { success: true, action: 'deleted' };
+   } catch (error) {
+     console.error('❌ deleteNews error:', error);
+     throw error;
+   }
+ }
+
+  // 🎯 РЕДАКТИРОВАНИЕ ПОСТА
+  // 🎯 РЕДАКТИРОВАНИЕ ПОСТА - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  async updateNews(newsId, userId, updateData) {
+    try {
+      await this.init();
+
+      // Проверяем права на редактирование - ВКЛЮЧАЕМ ID В ЗАПРОС
+      const checkQuery = `SELECT id, author_id, is_deleted FROM news WHERE id = "${newsId}"`;
+      console.log(`🔍 Executing: ${checkQuery}`);
+
+      const { resultSets: checkResults } = await this.driver.tableClient.withSession(async (session) => {
+        return await session.executeQuery(checkQuery);
+      });
+
+      const newsItems = this.parseResult(checkResults);
+      console.log(`🔍 Found ${newsItems.length} news items after parsing`);
+
+      // 🎯 ИСПРАВЛЕНИЕ: Проверяем данные даже если парсер вернул 0 строк
+      let newsItem = null;
+
+      if (checkResults[0] && checkResults[0].rows && checkResults[0].rows.length > 0) {
+        console.log(`🔍 Raw rows count: ${checkResults[0].rows.length}`);
+
+        // Ручной парсинг для диагностики
+        const rawRow = checkResults[0].rows[0];
+        const rawData = {};
+        for (let i = 0; i < checkResults[0].columns.length; i++) {
+          const column = checkResults[0].columns[i];
+          const item = rawRow.items[i];
+          rawData[column.name] = this.smartParse(item, column.name);
+        }
+        console.log(`🔍 Raw row data:`, JSON.stringify(rawData));
+
+        // Используем ручные данные если парсер не сработал
+        if (newsItems.length === 0 && rawData.author_id) {
+          console.log(`🔄 Using manually parsed data`);
+          newsItem = rawData;
+        }
+      }
+
+      if (!newsItem && newsItems.length === 0) {
+        throw new Error('News not found');
+      }
+
+      if (!newsItem) {
+        newsItem = newsItems[0];
+      }
+
+      console.log(`🔍 Final news item:`, JSON.stringify(newsItem));
+
+      if (newsItem.author_id !== userId) {
+        throw new Error('Not authorized to edit this news');
+      }
+
+      if (newsItem.is_deleted) {
+        throw new Error('Cannot edit deleted news');
+      }
+
+      // Формируем SET часть запроса
+      const updates = [];
+      if (updateData.title !== undefined) updates.push(`title = "${this.escapeValue(updateData.title)}"`);
+      if (updateData.content !== undefined) updates.push(`content = "${this.escapeValue(updateData.content)}"`);
+      if (updateData.hashtags !== undefined) {
+        const hashtagsJson = JSON.stringify(updateData.hashtags || []);
+        updates.push(`hashtags = '${hashtagsJson}'`);
+      }
+
+      if (updates.length === 0) {
+        return { success: true, action: 'no_changes' };
+      }
+
+      updates.push('updated_at = CurrentUtcTimestamp()');
+
+      const updateQuery = `
+        UPDATE news
+        SET ${updates.join(', ')}
+        WHERE id = "${newsId}"
+      `;
+
+      console.log(`📝 Executing: ${updateQuery}`);
+
+      await this.driver.tableClient.withSession(async (session) => {
+        await session.executeQuery(updateQuery);
+      });
+
+      return { success: true, action: 'updated' };
+    } catch (error) {
+      console.error('❌ updateNews error:', error);
+      throw error;
+    }
+  }
+
+  // 🎯 ПОДЕЛИТЬСЯ (ШАРИНГ)
+  async shareNews(newsId) {
+    try {
+      await this.init();
+
+      const shareQuery = `
+        UPDATE news
+        SET share_count = IF(share_count IS NULL, 1, share_count + 1),
+            updated_at = CurrentUtcTimestamp()
+        WHERE id = "${newsId}"
+      `;
+
+      await this.driver.tableClient.withSession(async (session) => {
+        await session.executeQuery(shareQuery);
+      });
+
+      return { success: true, action: 'shared' };
+    } catch (error) {
+      console.error('❌ shareNews error:', error);
+      throw error;
+    }
+  }
+
+  // 🎯 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+  escapeValue(value) {
+    if (!value) return '';
+    return String(value).replace(/"/g, '\\"').replace(/'/g, "\\'");
   }
 }
 

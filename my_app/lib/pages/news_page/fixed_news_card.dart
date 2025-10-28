@@ -1,10 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert';
 import '../../providers/news_providers/news_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
-import '../../services/auth_service.dart';
 
 class FixedNewsCard extends StatefulWidget {
   final Map<String, dynamic> news;
@@ -13,10 +12,11 @@ class FixedNewsCard extends StatefulWidget {
   final VoidCallback? onRepost;
   final Function(String)? onComment;
   final VoidCallback? onFollow;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
+
+  // 🆕 ОБНОВЛЕННЫЕ ТИПЫ
+  final Future<void> Function(Map<String, dynamic>)? onEdit;
+  final Future<void> Function()? onDelete;
   final VoidCallback? onShare;
-  final Function(String, String, Color)? onTagEdit;
   final String Function(String) formatDate;
   final String Function(String) getTimeAgo;
   final ScrollController scrollController;
@@ -33,7 +33,6 @@ class FixedNewsCard extends StatefulWidget {
     this.onEdit,
     this.onDelete,
     this.onShare,
-    this.onTagEdit,
     required this.formatDate,
     required this.getTimeAgo,
     required this.scrollController,
@@ -44,54 +43,90 @@ class FixedNewsCard extends StatefulWidget {
   State<FixedNewsCard> createState() => _FixedNewsCardState();
 }
 
-class _FixedNewsCardState extends State<FixedNewsCard> with SingleTickerProviderStateMixin {
-  // 🎯 КЭШ КОММЕНТАРИЕВ ДЛЯ ИЗБЕЖАНИЯ ПОВТОРНЫХ ЗАПРОСОВ
+class _FixedNewsCardState extends State<FixedNewsCard>
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+
+  // 🎯 КОНСТАНТЫ ДЛЯ ОПТИМИЗАЦИИ
+  static const int _MAX_CACHE_SIZE = 50;
+  static const int _COMMENT_PREVIEW_LENGTH = 150;
+  static const int _CONTENT_PREVIEW_LENGTH = 250;
+
+  // 🎯 ОПТИМИЗИРОВАННЫЙ КЭШ КОММЕНТАРИЕВ (LRU)
   static final Map<String, List<Map<String, dynamic>>> _commentsCache = {};
+  static final List<String> _cacheAccessOrder = [];
   static final Map<String, bool> _loadingStates = {};
 
-  // 🎯 СОСТОЯНИЕ ДЛЯ ОТОБРАЖЕНИЯ КОММЕНТАРИЕВ ПОД КАРТОЧКОЙ
+  // 🎯 СОСТОЯНИЕ КОММЕНТАРИЕВ
   bool _showComments = false;
   String? _currentNewsId;
+  bool _isFollowing = false;
+  bool _isWritingComment = false;
+  bool _isExpanded = false;
+  final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
 
-  // 🎯 АНИМАЦИЯ ДЛЯ ВЫЕЗЖАНИЯ КОММЕНТАРИЕВ
+  // 🎯 ОПТИМИЗИРОВАННАЯ АНИМАЦИЯ
   late AnimationController _animationController;
   late Animation<double> _heightAnimation;
   late Animation<double> _opacityAnimation;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
 
-    // Инициализация анимации
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
 
-    _heightAnimation = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(
+    _heightAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
-    ));
+    );
 
-    _opacityAnimation = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(
+    _opacityAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeIn,
-    ));
+    );
+
+    _commentFocusNode.addListener(_onCommentFocusChange);
+    _commentController.addListener(_onCommentTextChange);
+
+    _isFollowing = _getBoolValue(widget.news['isFollowing']) ?? false;
+  }
+
+  void _onCommentFocusChange() {
+    if (!_commentFocusNode.hasFocus && _commentController.text.isEmpty) {
+      setState(() {
+        _isWritingComment = false;
+      });
+    }
+  }
+
+  void _onCommentTextChange() {
+    setState(() {});
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _commentController.dispose();
+    _commentFocusNode.removeListener(_onCommentFocusChange);
+    _commentFocusNode.dispose();
     super.dispose();
   }
 
-  // 🎯 БЕЗОПАСНОЕ ПРЕОБРАЗОВАНИЕ ТИПОВ
+  // 🎯 ОПТИМИЗИРОВАННЫЕ ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+  bool _isCurrentUserAuthor() {
+    final userProvider = context.read<UserProvider>();
+    final safeNews = _ensureStringMap(widget.news);
+    final postAuthorId = safeNews['author_id']?.toString() ?? '';
+    return postAuthorId == userProvider.userId;
+  }
+
   Map<String, dynamic> _ensureStringMap(dynamic data) {
     if (data == null) return <String, dynamic>{};
     if (data is Map<String, dynamic>) return data;
@@ -134,7 +169,24 @@ class _FixedNewsCardState extends State<FixedNewsCard> with SingleTickerProvider
     return '';
   }
 
-  // 🎯 ПОЛУЧЕНИЕ ХЕШТЕГОВ
+  // 🎯 ОПТИМИЗИРОВАННЫЕ СТРОКОВЫЕ ОПЕРАЦИИ
+  String _truncateText(String text, {int maxLength = _CONTENT_PREVIEW_LENGTH}) {
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength)}...';
+  }
+
+  String _truncateAuthorName(String name, {int maxLength = 20}) {
+    if (name.length <= maxLength) return name;
+    return '${name.substring(0, maxLength)}...';
+  }
+
+  String _formatCount(int count) {
+    if (count < 1000) return count.toString();
+    if (count < 1000000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return '${(count / 1000000).toStringAsFixed(1)}M';
+  }
+
+  // 🎯 ОПТИМИЗИРОВАННОЕ ПОЛУЧЕНИЕ ХЕШТЕГОВ
   List<String> _getHashtags() {
     try {
       final safeNews = _ensureStringMap(widget.news);
@@ -153,332 +205,300 @@ class _FixedNewsCardState extends State<FixedNewsCard> with SingleTickerProvider
             return hashtags.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList();
           }
         } catch (e) {
-          print('❌ Error parsing hashtags: $e');
-          return [];
+          return [hashtags];
         }
       }
 
       return [];
     } catch (e) {
-      print('❌ Error getting hashtags: $e');
       return [];
     }
   }
 
-  // 🎯 КРАСИВЫЙ ДИАЛОГ ДОБАВЛЕНИЯ КОММЕНТАРИЯ
-  void _showAddCommentDialog(BuildContext context, String newsId) {
-    final TextEditingController commentController = TextEditingController();
+  // 🎯 ОПТИМИЗИРОВАННОЕ УПРАВЛЕНИЕ КЭШЕМ КОММЕНТАРИЕВ
+  void _updateCacheAccess(String newsId) {
+    _cacheAccessOrder.remove(newsId);
+    _cacheAccessOrder.add(newsId);
+
+    // 🎯 LRU EVICTION
+    if (_cacheAccessOrder.length > _MAX_CACHE_SIZE) {
+      final removedId = _cacheAccessOrder.removeAt(0);
+      _commentsCache.remove(removedId);
+      _loadingStates.remove(removedId);
+    }
+  }
+
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА ПОДПИСКИ
+  void _handleFollow() async {
+    final newsProvider = context.read<NewsProvider>();
+    final safeNews = _ensureStringMap(widget.news);
+    final authorId = safeNews['author_id']?.toString() ?? '';
+
+    if (authorId.isEmpty) return;
+
+    try {
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
+
+      await newsProvider.toggleFollow(authorId);
+    } catch (e) {
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
+    }
+  }
+
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА ШАРИНГА
+  void _handleShare() async {
+    final safeNews = _ensureStringMap(widget.news);
+    final postId = safeNews['id']?.toString() ?? '';
+
+    if (postId.isEmpty) return;
+
+    try {
+      final newsProvider = context.read<NewsProvider>();
+      await newsProvider.shareNews(postId);
+    } catch (e) {
+      // Ошибка уже обработана в провайдере
+    }
+  }
+
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА УДАЛЕНИЯ
+  void _handleDelete() async {
+    final safeNews = _ensureStringMap(widget.news);
+    final postId = safeNews['id']?.toString() ?? '';
+
+    if (postId.isEmpty) return;
+
+    // 🎯 СОХРАНЯЕМ КОНТЕКСТ ДО АСИНХРОННЫХ ОПЕРАЦИЙ
+    final currentContext = context;
+    if (!mounted) return;
 
     showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+      context: currentContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить пост?'),
+        content: const Text('Вы уверены, что хотите удалить этот пост? Это действие нельзя отменить.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Заголовок
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF7E57C2),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.chat_rounded, color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Добавить комментарий',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
 
-              // Контент
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Text(
-                      'Что вы думаете об этом посте?',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: TextField(
-                        controller: commentController,
-                        decoration: const InputDecoration(
-                          hintText: 'Напишите ваш комментарий...',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.all(16),
-                          hintStyle: TextStyle(color: Colors.grey),
-                        ),
-                        maxLines: 4,
-                        maxLength: 500,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Кнопки
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
+              // 🎯 ПОКАЗЫВАЕМ ИНДИКАТОР УДАЛЕНИЯ С ПРОВЕРКОЙ mounted
+              if (!mounted) return;
+              final scaffoldMessenger = ScaffoldMessenger.of(currentContext);
+              final snackBar = scaffoldMessenger.showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(width: 10),
+                      Text('Удаляем пост...'),
+                    ],
                   ),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 5),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        child: Text(
-                          'Отмена',
-                          style: TextStyle(
-                            color: Colors.grey[700],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+              );
+
+              try {
+                // 🎯 ВЫЗЫВАЕМ КОЛБЭК БЕЗ AWAIT ЕСЛИ ОН NULL
+                if (widget.onDelete != null) {
+                  await widget.onDelete!();
+                } else {
+                  // 🎯 ЕСЛИ КОЛБЭК НЕ ПЕРЕДАН, ИСПОЛЬЗУЕМ ПРЯМОЙ ВЫЗОВ
+                  final newsProvider = currentContext.read<NewsProvider>();
+                  await newsProvider.deleteNews(postId);
+                }
+
+                // 🎯 СКРЫВАЕМ ИНДИКАТОР И ПОКАЗЫВАЕМ УСПЕХ С ПРОВЕРКОЙ
+                if (mounted) {
+                  scaffoldMessenger.hideCurrentSnackBar();
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Пост успешно удален!'),
+                      backgroundColor: Colors.green,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          final text = commentController.text.trim();
-                          if (text.isNotEmpty) {
-                            Navigator.pop(context);
-                            if (widget.onComment != null) {
-                              widget.onComment!(text);
-                            } else {
-                              await _addCommentDirectly(context, newsId, text);
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF7E57C2),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                          shadowColor: Colors.transparent,
-                        ),
-                        child: const Text(
-                          'Отправить',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  scaffoldMessenger.hideCurrentSnackBar();
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Ошибка при удалении: $e'),
+                      backgroundColor: Colors.red,
                     ),
-                  ],
-                ),
-              ),
-            ],
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Удалить'),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  // 🎯 ПРЯМОЕ ДОБАВЛЕНИЕ КОММЕНТАРИЯ ЧЕРЕЗ API
-  Future<void> _addCommentDirectly(BuildContext context, String newsId, String text) async {
-    try {
-      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final userName = userProvider.userName.isNotEmpty ? userProvider.userName : 'Пользователь';
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА РЕДАКТИРОВАНИЯ
+  void _handleEdit() async {
+    final safeNews = _ensureStringMap(widget.news);
+    final postId = safeNews['id']?.toString() ?? '';
 
-      // Показываем индикатор загрузки
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(width: 12),
-              Text('Отправка комментария...'),
-            ],
-          ),
-          backgroundColor: Color(0xFF7E57C2),
-          duration: Duration(seconds: 10),
+    if (postId.isEmpty) return;
+
+    final currentContext = context;
+    if (!mounted) return;
+
+    try {
+      final result = await showDialog<Map<String, dynamic>>(
+        context: currentContext,
+        builder: (context) => _EditPostDialog(
+          currentTitle: safeNews['title']?.toString() ?? '',
+          currentContent: safeNews['content']?.toString() ?? '',
+          currentHashtags: _getHashtags(),
         ),
       );
 
-      // Вызываем API для добавления комментария
-      final result = await ApiService.addComment(newsId, text, userName);
+      if (result != null && result.isNotEmpty && mounted) {
+        // 🎯 ПРАВИЛЬНАЯ ПЕРЕДАЧА ДАННЫХ ДЛЯ ОБНОВЛЕНИЯ
+        final updateData = {
+          'title': result['title']?.toString() ?? '',
+          'content': result['content']?.toString() ?? '',
+          'hashtags': result['hashtags'] is List ? result['hashtags'] : [],
+        };
 
-      // Скрываем индикатор
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        print('✏️ Sending update data: $updateData');
 
-      if (result.containsKey('id')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Комментарий добавлен!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-
-        // 🎯 ВАЖНО: ОЧИЩАЕМ КЭШ КОММЕНТАРИЕВ ДЛЯ ЭТОГО ПОСТА
-        _commentsCache.remove(newsId);
-        _loadingStates.remove(newsId);
-
-        // 🎯 ОБНОВЛЯЕМ СЧЕТЧИК КОММЕНТАРИЕВ В ПРОВАЙДЕРЕ
-        newsProvider.updatePostCommentsCount(newsId);
-
-        // 🎯 ПРИНУДИТЕЛЬНО ЗАГРУЖАЕМ ОБНОВЛЕННЫЕ КОММЕНТАРИИ
-        await _getCommentsFromAPI(newsId, forceRefresh: true);
-
-        // 🎯 ОБНОВЛЯЕМ ОТОБРАЖЕНИЕ КОММЕНТАРИЕВ ЕСЛИ ОНИ ОТКРЫТЫ
-        if (_showComments && _currentNewsId == newsId) {
-          setState(() {});
+        if (widget.onEdit != null) {
+          await widget.onEdit!(updateData);
+        } else {
+          final newsProvider = currentContext.read<NewsProvider>();
+          await newsProvider.updateNews(postId, updateData);
         }
-
-      } else {
-        throw Exception('Не удалось добавить комментарий');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка: $e'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      print('❌ Edit error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при редактировании: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  // 🎯 ПОЛУЧЕНИЕ КОММЕНТАРИЕВ ИЗ API
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОТПРАВКА КОММЕНТАРИЯ
+  Future<void> _sendComment(String newsId) async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
+
+    try {
+      final newsProvider = context.read<NewsProvider>();
+
+      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ
+      final newComment = {
+        'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        'text': text,
+        'author_name': newsProvider.userProvider.userName.isNotEmpty
+            ? newsProvider.userProvider.userName
+            : 'Пользователь',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      if (!_commentsCache.containsKey(newsId)) {
+        _commentsCache[newsId] = [];
+      }
+      _commentsCache[newsId]!.insert(0, newComment);
+      _updateCacheAccess(newsId);
+
+      setState(() {});
+
+      // 🎯 ОЧИСТКА И ОТПРАВКА
+      _commentController.clear();
+      _commentFocusNode.unfocus();
+      setState(() {
+        _isWritingComment = false;
+      });
+
+      // 🎯 ФОНОВАЯ СИНХРОНИЗАЦИЯ
+      await newsProvider.addComment(newsId, text);
+      await _getCommentsFromAPI(newsId, forceRefresh: true);
+
+    } catch (e) {
+      // Ошибка уже обработана в провайдере
+    }
+  }
+
+  // 🎯 ОПТИМИЗИРОВАННОЕ ПОЛУЧЕНИЕ КОММЕНТАРИЕВ
   Future<List<Map<String, dynamic>>> _getCommentsFromAPI(String newsId, {bool forceRefresh = false}) async {
     try {
-      // Проверяем кэш (если не принудительное обновление)
       if (!forceRefresh && _commentsCache.containsKey(newsId)) {
+        _updateCacheAccess(newsId);
         return _commentsCache[newsId]!;
       }
 
-      print('💬 Loading comments from API for post: $newsId');
-
-      // Устанавливаем состояние загрузки
       _loadingStates[newsId] = true;
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
 
       final comments = await ApiService.getComments(newsId);
-
-      // 🎯 ПРАВИЛЬНЫЙ ПАРСИНГ КОММЕНТАРИЕВ
       final parsedComments = comments.map((comment) {
         final safeComment = _ensureStringMap(comment);
-
         return {
           'id': _getStringValue(safeComment['id']),
           'text': _getStringValue(safeComment['text']),
           'author_name': _getStringValue(safeComment['author_name']),
           'timestamp': _getStringValue(safeComment['timestamp'] ?? safeComment['created_at']),
-          'created_at': _getStringValue(safeComment['created_at']),
         };
       }).toList();
 
-      // Сохраняем в кэш
       _commentsCache[newsId] = parsedComments;
-
-      // Сбрасываем состояние загрузки
+      _updateCacheAccess(newsId);
       _loadingStates[newsId] = false;
-      if (mounted) {
-        setState(() {});
-      }
 
+      if (mounted) setState(() {});
       return parsedComments;
     } catch (e) {
-      print('❌ Error loading comments from API: $e');
-
-      // Сбрасываем состояние загрузки
       _loadingStates[newsId] = false;
-      if (mounted) {
-        setState(() {});
-      }
-
+      if (mounted) setState(() {});
       return [];
     }
   }
 
-  // 🎯 ПЕРЕКЛЮЧЕНИЕ ОТОБРАЖЕНИЯ КОММЕНТАРИЕВ ПОД КАРТОЧКОЙ
+  // 🎯 ОПТИМИЗИРОВАННОЕ ПЕРЕКЛЮЧЕНИЕ КОММЕНТАРИЕВ
   void _toggleComments(String newsId) async {
     if (_showComments && _currentNewsId == newsId) {
-      // Закрываем комментарии с анимацией
       await _animationController.reverse();
       setState(() {
         _showComments = false;
         _currentNewsId = null;
+        _isWritingComment = false;
+        _commentController.clear();
+        _commentFocusNode.unfocus();
       });
     } else {
-      // Открываем комментарии
       setState(() {
         _showComments = true;
         _currentNewsId = newsId;
       });
-
-      // Запускаем анимацию
       _animationController.forward();
-
-      // 🎯 ВСЕГДА ЗАГРУЖАЕМ СВЕЖИЕ КОММЕНТАРИИ ПРИ ОТКРЫТИИ
       await _getCommentsFromAPI(newsId, forceRefresh: true);
     }
   }
 
-  // 🎯 КРАСИВЫЙ ВИДЖЕТ ДЛЯ ОТОБРАЖЕНИЯ КОММЕНТАРИЕВ ПОД КАРТОЧКОЙ
-  Widget _buildCommentsSection(String newsId, String title) {
+  // 🎯 ОПТИМИЗИРОВАННЫЕ ВИДЖЕТЫ КОММЕНТАРИЕВ
+  Widget _buildCommentsSection(String newsId) {
     final comments = _commentsCache[newsId] ?? [];
     final isLoading = _loadingStates[newsId] == true;
 
@@ -487,96 +507,28 @@ class _FixedNewsCardState extends State<FixedNewsCard> with SingleTickerProvider
       builder: (context, child) {
         return Opacity(
           opacity: _opacityAnimation.value,
-          child: Transform.translate(
-            offset: Offset(0, (1 - _heightAnimation.value) * -20),
-            child: Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.all(0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF7E57C2).withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-                border: Border.all(
-                  color: const Color(0xFF7E57C2).withOpacity(0.1),
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Column(
-                  children: [
-                    // Заголовок секции комментариев
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF7E57C2),
-                            const Color(0xFF667eea),
-                          ],
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              'Комментарии',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 18, color: Colors.white),
-                              onPressed: () => _toggleComments(newsId),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Контент комментариев
-                    Container(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.4,
-                      ),
-                      child: isLoading
-                          ? _buildLoadingIndicator()
-                          : comments.isEmpty
-                          ? _buildEmptyComments(newsId)
-                          : _buildCommentsList(comments, newsId),
-                    ),
-                  ],
-                ),
-              ),
+          child: Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildCommentsHeader(newsId, comments.length),
+                const SizedBox(height: 12),
+                if (isLoading)
+                  _buildLoadingIndicator()
+                else if (comments.isEmpty)
+                  _buildEmptyComments()
+                else
+                  _buildCommentsList(comments),
+                const SizedBox(height: 12),
+                _buildCommentInput(newsId),
+              ],
             ),
           ),
         );
@@ -584,256 +536,246 @@ class _FixedNewsCardState extends State<FixedNewsCard> with SingleTickerProvider
     );
   }
 
-  Widget _buildLoadingIndicator() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF7E57C2)),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Загрузка комментариев...',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyComments(String newsId) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline_rounded, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(
-            'Пока нет комментариев',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Будьте первым, кто оставит комментарий!',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => _showAddCommentDialog(context, newsId),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7E57C2),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.add_comment_rounded, size: 18),
-                SizedBox(width: 8),
-                Text('Добавить комментарий'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommentsList(List<Map<String, dynamic>> comments, String newsId) {
-    return Column(
+  Widget _buildCommentsHeader(String newsId, int commentCount) {
+    return Row(
       children: [
-        // Список комментариев
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            shrinkWrap: true,
-            physics: const BouncingScrollPhysics(),
-            itemCount: comments.length,
-            itemBuilder: (context, index) {
-              final comment = comments[index];
-              final commentAuthor = _getStringValue(comment['author_name']);
-              final commentText = _getStringValue(comment['text']);
-              final commentDate = _getStringValue(comment['timestamp'] ?? comment['created_at']);
-              final authorAvatar = commentAuthor.isNotEmpty ? commentAuthor[0].toUpperCase() : '?';
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Аватар автора
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF667eea), Color(0xFF7E57C2)],
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF7E57C2).withOpacity(0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          authorAvatar,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Текст комментария
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    commentAuthor,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      color: Color(0xFF2D3748),
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Text(
-                                  widget.getTimeAgo(commentDate),
-                                  style: TextStyle(
-                                    color: Colors.grey[500],
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              commentText.isNotEmpty ? commentText : '[Текст комментария отсутствует]',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[700],
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-
-        // Кнопка добавления комментария
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            border: Border(
-              top: BorderSide(color: Colors.grey[200]!),
+        const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Color(0xFF7E57C2)),
+        const SizedBox(width: 8),
+        const Text('Комментарии', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        const Spacer(),
+        Text('$commentCount', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => _toggleComments(newsId),
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: const BoxDecoration(
+              color: Colors.grey,
+              shape: BoxShape.circle,
             ),
-          ),
-          child: ElevatedButton(
-            onPressed: () => _showAddCommentDialog(context, newsId),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7E57C2),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_comment_rounded, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Добавить комментарий',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+            child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
           ),
         ),
       ],
     );
   }
 
-  // 🎯 ВИДЖЕТ КНОПКИ ДЕЙСТВИЙ
-  Widget _buildActionButton(IconData icon, String count, Color color, VoidCallback onPressed, {bool isComment = false}) {
+  Widget _buildCommentInput(String newsId) {
+    if (!_isWritingComment) {
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            _isWritingComment = true;
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _commentFocusNode.requestFocus();
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.add_comment_rounded, size: 16, color: Color(0xFF7E57C2)),
+              SizedBox(width: 8),
+              Text('Добавить комментарий...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final hasText = _commentController.text.trim().isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF7E57C2).withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: TextField(
+                controller: _commentController,
+                focusNode: _commentFocusNode,
+                decoration: const InputDecoration(
+                  hintText: 'Напишите комментарий...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                maxLines: 3,
+                minLines: 1,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (text) => _sendComment(newsId),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: hasText ? () => _sendComment(newsId) : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: hasText ? const Color(0xFF7E57C2) : Colors.grey[300],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.send_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF7E57C2)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyComments() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: const Column(
+        children: [
+          Icon(Icons.chat_bubble_outline_rounded, size: 32, color: Colors.grey),
+          SizedBox(height: 8),
+          Text('Пока нет комментариев', style: TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentsList(List<Map<String, dynamic>> comments) {
+    return Column(
+      children: comments.map((comment) {
+        final author = _getStringValue(comment['author_name']);
+        final text = _getStringValue(comment['text']);
+        final date = _getStringValue(comment['timestamp']);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF667eea), Color(0xFF7E57C2)],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    author.isNotEmpty ? author[0].toUpperCase() : '?',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _truncateAuthorName(author),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.getTimeAgo(date),
+                          style: TextStyle(color: Colors.grey[500], fontSize: 9),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _truncateText(text, maxLength: _COMMENT_PREVIEW_LENGTH),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // 🎯 ОПТИМИЗИРОВАННЫЕ КНОПКИ ДЕЙСТВИЙ
+  Widget _buildActionButton(IconData icon, String count, Color color, VoidCallback onPressed) {
+    final displayCount = count.isNotEmpty && count != '0' ? _formatCount(int.parse(count)) : '';
+
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey[200]!),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: color),
-            if (count.isNotEmpty) ...[
-              const SizedBox(width: 6),
+            Icon(icon, size: 16, color: color),
+            if (displayCount.isNotEmpty) ...[
+              const SizedBox(width: 4),
               Text(
-                count,
+                displayCount,
                 style: TextStyle(
                   color: color,
-                  fontSize: 14,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -844,187 +786,288 @@ class _FixedNewsCardState extends State<FixedNewsCard> with SingleTickerProvider
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // 🎯 ПОЛУЧАЕМ АКТУАЛЬНЫЕ ДАННЫЕ ИЗ PROVIDER
-    final newsProvider = Provider.of<NewsProvider>(context, listen: true);
-
-    // Находим актуальный пост в провайдере
-    final currentPost = newsProvider.news.firstWhere(
-          (post) {
-        final safePost = _ensureStringMap(post);
-        final safeNews = _ensureStringMap(widget.news);
-        return safePost['id'] == safeNews['id'];
-      },
-      orElse: () => widget.news,
+  // 🎯 ОПТИМИЗИРОВАННЫЙ ВИДЖЕТ КНОПКИ ПОДПИСКИ
+  Widget _buildFollowButton() {
+    return GestureDetector(
+      onTap: _handleFollow,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          gradient: _isFollowing
+              ? LinearGradient(colors: [Colors.grey[400]!, Colors.grey[600]!])
+              : const LinearGradient(colors: [Color(0xFF667eea), Color(0xFF7E57C2)]),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: _isFollowing ? Colors.grey.withOpacity(0.2) : const Color(0xFF7E57C2).withOpacity(0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Icon(
+          _isFollowing ? Icons.check : Icons.add,
+          size: 16,
+          color: Colors.white,
+        ),
+      ),
     );
+  }
 
-    // Безопасное преобразование данных для отображения
-    final safeNews = _ensureStringMap(currentPost);
-    final newsId = _getStringValue(safeNews['id']);
-    final authorName = _getStringValue(safeNews['author_name']);
-    final title = _getStringValue(safeNews['title']);
-    final content = _getStringValue(safeNews['content']); // 🎯 ИСПРАВЛЕНО: используем content вместо description
-    final isRepost = _getBoolValue(safeNews['is_repost']) ?? false;
-    final hashtags = _getHashtags();
-    final createdAt = _getStringValue(safeNews['created_at']);
+  // 🎯 ОПТИМИЗИРОВАННЫЙ ВИДЖЕТ КНОПКИ МЕНЮ
+  Widget _buildMenuButton() {
+    return GestureDetector(
+      onTap: () => _showMenu(context),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          Icons.more_vert_rounded,
+          size: 18,
+          color: Colors.grey[600],
+        ),
+      ),
+    );
+  }
 
-    // 🎯 АКТУАЛЬНЫЕ ДАННЫЕ ИЗ PROVIDER
-    final isLiked = _getBoolValue(safeNews['isLiked']) ?? false;
-    final isBookmarked = _getBoolValue(safeNews['isBookmarked']) ?? false;
-    final isReposted = _getBoolValue(safeNews['isReposted']) ?? false;
-    final likesCount = _getIntValue(safeNews['likes_count']) ?? _getIntValue(safeNews['likes']) ?? 0;
-    final repostsCount = _getIntValue(safeNews['reposts_count']) ?? _getIntValue(safeNews['reposts']) ?? 0;
-    final commentsCount = _getIntValue(safeNews['comments_count']) ?? 0;
+  // 🎯 ОПТИМИЗИРОВАННОЕ МЕНЮ
+  void _showMenu(BuildContext context) {
+    final isCurrentUserAuthor = _isCurrentUserAuthor();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.share_rounded, color: Colors.blue),
+              title: const Text('Поделиться'),
+              onTap: () {
+                Navigator.pop(context);
+                _handleShare();
+              },
+            ),
+            if (isCurrentUserAuthor) ...[
+              ListTile(
+                leading: const Icon(Icons.edit_rounded, color: Color(0xFF7E57C2)),
+                title: const Text('Редактировать'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleEdit();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_rounded, color: Colors.red),
+                title: const Text('Удалить'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleDelete();
+                },
+              ),
+            ],
+            Container(
+              margin: const EdgeInsets.all(16),
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[200],
+                  foregroundColor: Colors.grey[700],
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text('Отмена'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🎯 ОПТИМИЗИРОВАННЫЙ ВИДЖЕТ КОНТЕНТА
+  Widget _buildContentWithExpand(String content) {
+    final isLongText = content.length > _CONTENT_PREVIEW_LENGTH;
+    final displayText = _isExpanded ? content : _truncateText(content);
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Card(
+        Text(
+          displayText,
+          style: const TextStyle(
+            fontSize: 15,
+            color: Colors.grey,
+            height: 1.4,
+          ),
+          textAlign: TextAlign.left,
+        ),
+        if (isLongText) ...[
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  _isExpanded ? 'Свернуть' : 'Читать далее',
+                  style: const TextStyle(
+                    color: Color(0xFF7E57C2),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  transformAlignment: Alignment.center,
+                  transform: Matrix4.rotationZ(_isExpanded ? 3.14159 : 0),
+                  child: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: Color(0xFF7E57C2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
+    return Consumer<NewsProvider>(
+      builder: (context, newsProvider, child) {
+        final currentPost = newsProvider.news.firstWhere(
+              (post) => _ensureStringMap(post)['id'] == _ensureStringMap(widget.news)['id'],
+          orElse: () => widget.news,
+        );
+
+        final safeNews = _ensureStringMap(currentPost);
+        final newsId = _getStringValue(safeNews['id']);
+        final authorName = _getStringValue(safeNews['author_name']);
+        final title = _getStringValue(safeNews['title']);
+        final content = _getStringValue(safeNews['content']);
+        final hashtags = _getHashtags();
+        final createdAt = _getStringValue(safeNews['created_at']);
+
+        final isLiked = _getBoolValue(safeNews['isLiked']) ?? false;
+        final isBookmarked = _getBoolValue(safeNews['isBookmarked']) ?? false;
+        final isReposted = _getBoolValue(safeNews['isReposted']) ?? false;
+        final likesCount = _getIntValue(safeNews['likes_count']) ?? 0;
+        final repostsCount = _getIntValue(safeNews['reposts_count']) ?? 0;
+        final commentsCount = _getIntValue(safeNews['comments_count']) ?? 0;
+
+        final isCurrentUserAuthor = _isCurrentUserAuthor();
+
+        return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          shadowColor: Colors.black.withOpacity(0.1),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  Colors.grey[50]!,
-                ],
+                colors: [Colors.white, Colors.grey[50]!],
               ),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Шапка с автором
+                  // ШАПКА КАРТОЧКИ
                   Row(
                     children: [
                       Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF667eea), Color(0xFF7E57C2)],
-                          ),
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(colors: [Color(0xFF667eea), Color(0xFF7E57C2)]),
                           shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF7E57C2).withOpacity(0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
+                          boxShadow: [BoxShadow(color: Color(0xFF7E57C2), blurRadius: 4)],
                         ),
                         child: Center(
                           child: Text(
                             authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              authorName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                                color: Color(0xFF2D3748),
-                              ),
+                              _truncateAuthorName(authorName),
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            Text(
-                              widget.getTimeAgo(createdAt),
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
+                            Text(widget.getTimeAgo(createdAt),
+                                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
                           ],
                         ),
                       ),
-                      if (isRepost)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.green.shade100,
-                                Colors.green.shade50,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.green.withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.repeat_rounded, size: 14, color: Colors.green.shade700),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Репост',
-                                style: TextStyle(
-                                  color: Colors.green.shade700,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      _buildMenuButton(),
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-                  // Заголовок
-                  if (title.isNotEmpty)
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                        color: Color(0xFF1A202C),
-                      ),
-                    ),
-
-                  // 🎯 КОНТЕНТ (основной текст поста)
+                  // КОНТЕНТ
+                  if (title.isNotEmpty) Text(
+                    _truncateText(title, maxLength: 120),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (content.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      content,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                        height: 1.5,
-                      ),
-                    ),
+                    const SizedBox(height: 8),
+                    _buildContentWithExpand(content),
                   ],
 
-                  // Хештеги
+                  // ХЕШТЕГИ
                   if (hashtags.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
+                      spacing: 6,
+                      runSpacing: 4,
                       children: hashtags.map((tag) {
+                        final cleanTag = tag.replaceAll('#', '').trim();
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -1032,11 +1075,11 @@ class _FixedNewsCardState extends State<FixedNewsCard> with SingleTickerProvider
                                 const Color(0xFF667eea).withOpacity(0.1),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: const Color(0xFF7E57C2).withOpacity(0.3)),
                           ),
                           child: Text(
-                            '#$tag',
+                            '#$cleanTag',
                             style: const TextStyle(
                               color: Color(0xFF7E57C2),
                               fontSize: 12,
@@ -1048,49 +1091,554 @@ class _FixedNewsCardState extends State<FixedNewsCard> with SingleTickerProvider
                     ),
                   ],
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // Действия
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildActionButton(
-                        isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                        likesCount.toString(),
-                        isLiked ? Colors.red : Colors.grey[700]!,
-                        widget.onLike ?? () {},
-                      ),
-                      _buildActionButton(
-                        Icons.chat_bubble_outline_rounded,
-                        commentsCount.toString(),
-                        _showComments && _currentNewsId == newsId ? const Color(0xFF7E57C2) : Colors.grey[700]!,
-                            () => _toggleComments(newsId),
-                        isComment: true,
-                      ),
-                      _buildActionButton(
-                        Icons.repeat_rounded,
-                        repostsCount.toString(),
-                        isReposted ? Colors.green : Colors.grey[700]!,
-                        widget.onRepost ?? () {},
-                      ),
-                      _buildActionButton(
-                        isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
-                        '',
-                        isBookmarked ? Colors.amber : Colors.grey[700]!,
-                        widget.onBookmark ?? () {},
-                      ),
-                    ],
+                  // КНОПКИ ДЕЙСТВИЙ
+                  SizedBox(
+                    width: double.infinity,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildActionButton(
+                          isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                          likesCount.toString(),
+                          isLiked ? Colors.red : Colors.grey[700]!,
+                          widget.onLike ?? () {},
+                        ),
+                        _buildActionButton(
+                          Icons.chat_bubble_outline_rounded,
+                          commentsCount.toString(),
+                          _showComments && _currentNewsId == newsId ? const Color(0xFF7E57C2) : Colors.grey[700]!,
+                              () => _toggleComments(newsId),
+                        ),
+                        _buildActionButton(
+                          Icons.repeat_rounded,
+                          repostsCount.toString(),
+                          isReposted ? Colors.green : Colors.grey[700]!,
+                          widget.onRepost ?? () {},
+                        ),
+                        _buildActionButton(
+                          isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                          '',
+                          isBookmarked ? Colors.amber : Colors.grey[700]!,
+                          widget.onBookmark ?? () {},
+                        ),
+                        if (!isCurrentUserAuthor)
+                          _buildFollowButton(),
+                      ],
+                    ),
                   ),
+
+                  // КОММЕНТАРИИ
+                  if (_showComments && _currentNewsId == newsId)
+                    _buildCommentsSection(newsId),
                 ],
               ),
             ),
           ),
-        ),
-
-        // 🎯 АНИМИРОВАННОЕ ОТОБРАЖЕНИЕ КОММЕНТАРИЕВ ПОД КАРТОЧКОЙ
-        if (_showComments && _currentNewsId == newsId)
-          _buildCommentsSection(newsId, title),
-      ],
+        );
+      },
     );
+  }
+}
+
+// 🎯 ВЫНЕСЕННЫЙ ДИАЛОГ РЕДАКТИРОВАНИЯ
+class _EditPostDialog extends StatefulWidget {
+  final String currentTitle;
+  final String currentContent;
+  final List<String> currentHashtags;
+
+  const _EditPostDialog({
+    required this.currentTitle,
+    required this.currentContent,
+    required this.currentHashtags,
+  });
+
+  @override
+  State<_EditPostDialog> createState() => _EditPostDialogState();
+}
+
+class _EditPostDialogState extends State<_EditPostDialog> {
+  late TextEditingController _titleController;
+  late TextEditingController _contentController;
+  late TextEditingController _hashtagsController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.currentTitle);
+    _contentController = TextEditingController(text: widget.currentContent);
+    _hashtagsController =
+        TextEditingController(text: widget.currentHashtags.join(' '));
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    _hashtagsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenHeight = MediaQuery
+        .of(context)
+        .size
+        .height;
+    final isSmallScreen = screenHeight < 700;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: screenHeight * 0.85,
+          maxWidth: 500,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 25,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 🎯 ЗАГОЛОВОК С ГРАДИЕНТОМ
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF7E57C2), Color(0xFF667eea)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                        Icons.edit_rounded, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Редактировать пост',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 🎯 СОДЕРЖИМОЕ С ВОЗМОЖНОСТЬЮ ПРОКРУТКИ
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 🎯 СТАТУС ВАЛИДАЦИИ
+                    _buildValidationStatus(),
+                    const SizedBox(height: 16),
+
+                    // 🎯 ПОЛЕ ЗАГОЛОВКА (75 символов)
+                    TextField(
+                      controller: _titleController,
+                      decoration: InputDecoration(
+                        labelText: 'Заголовок*',
+                        hintText: 'Введите заголовок поста...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF7E57C2),
+                              width: 2),
+                        ),
+                        prefixIcon: Container(
+                          margin: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7E57C2).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.title_rounded,
+                              color: Color(0xFF7E57C2), size: 20),
+                        ),
+                        suffixIcon: _buildCharCounter(_titleController, 75),
+                        counterText: '',
+                      ),
+                      maxLines: 2,
+                      maxLength: 75,
+                      onChanged: (value) => setState(() {}),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 🎯 ПОЛЕ ОПИСАНИЯ (435 символов)
+                    TextField(
+                      controller: _contentController,
+                      decoration: InputDecoration(
+                        labelText: 'Описание*',
+                        hintText: 'Введите описание поста...',
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF7E57C2),
+                              width: 2),
+                        ),
+                        prefixIcon: Container(
+                          margin: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7E57C2).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.description_rounded,
+                              color: Color(0xFF7E57C2), size: 20),
+                        ),
+                        suffixIcon: _buildCharCounter(_contentController, 435),
+                        counterText: '',
+                      ),
+                      maxLines: isSmallScreen ? 3 : 4,
+                      maxLength: 435,
+                      onChanged: (value) => setState(() {}),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 🎯 ПОЛЕ ХЕШТЕГОВ (60 символов)
+                    TextField(
+                      controller: _hashtagsController,
+                      decoration: InputDecoration(
+                        labelText: 'Хештеги',
+                        hintText: 'введите хештеги через пробел...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF7E57C2),
+                              width: 2),
+                        ),
+                        prefixIcon: Container(
+                          margin: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7E57C2).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.tag_rounded,
+                              color: Color(0xFF7E57C2), size: 20),
+                        ),
+                        suffixIcon: _buildCharCounter(_hashtagsController, 60),
+                        counterText: '',
+                      ),
+                      maxLines: 1,
+                      maxLength: 60,
+                      onChanged: (value) => setState(() {}),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 🎯 ПОДСКАЗКА ДЛЯ ХЕШТЕГОВ
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline_rounded, size: 16,
+                              color: Colors.blue.shade600),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Вводите хештеги через пробел',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Максимум 60 символов',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blue.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 🎯 КНОПКИ ДЕЙСТВИЙ
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade200),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: BorderSide(color: Colors.grey.shade400),
+                      ),
+                      child: const Text(
+                        'Отмена',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _canSave() ? _saveChanges : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7E57C2),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                        shadowColor: const Color(0xFF7E57C2).withOpacity(0.3),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Сохранить',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+// 🎯 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+
+  Widget _buildCharCounter(TextEditingController controller, int maxLength) {
+    final currentLength = controller.text.length;
+    final isOverLimit = currentLength > maxLength;
+
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Text(
+        '$currentLength/$maxLength',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: isOverLimit ? Colors.red : Colors.grey,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildValidationStatus() {
+    final titleLength = _titleController.text.length;
+    final contentLength = _contentController.text.length;
+    final hashtagsLength = _hashtagsController.text.length;
+
+    final hasTitleError = titleLength == 0 || titleLength > 75;
+    final hasContentError = contentLength == 0 || contentLength > 435;
+    final hasHashtagsError = hashtagsLength > 60;
+
+    if (!hasTitleError && !hasContentError && !hasHashtagsError) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle_rounded, size: 16,
+                color: Colors.green.shade600),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Все поля заполнены корректно',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.green.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 16,
+                  color: Colors.orange.shade600),
+              const SizedBox(width: 8),
+              Text(
+                'Проверьте заполнение полей:',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.orange.shade600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (titleLength == 0)
+            Text(
+              '• Заголовок обязателен для заполнения',
+              style: TextStyle(fontSize: 11, color: Colors.orange.shade600),
+            ),
+          if (titleLength > 75)
+            Text(
+              '• Заголовок слишком длинный (${titleLength}/75)',
+              style: TextStyle(fontSize: 11, color: Colors.orange.shade600),
+            ),
+          if (contentLength == 0)
+            Text(
+              '• Описание обязательно для заполнения',
+              style: TextStyle(fontSize: 11, color: Colors.orange.shade600),
+            ),
+          if (contentLength > 435)
+            Text(
+              '• Описание слишком длинное (${contentLength}/435)',
+              style: TextStyle(fontSize: 11, color: Colors.orange.shade600),
+            ),
+          if (hashtagsLength > 60)
+            Text(
+              '• Хештеги слишком длинные (${hashtagsLength}/60)',
+              style: TextStyle(fontSize: 11, color: Colors.orange.shade600),
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool _canSave() {
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    final hashtags = _hashtagsController.text;
+
+    return title.isNotEmpty &&
+        content.isNotEmpty &&
+        title.length <= 75 &&
+        content.length <= 435 &&
+        hashtags.length <= 60;
+  }
+
+  void _saveChanges() {
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    final hashtagsText = _hashtagsController.text.trim();
+
+    final hashtags = hashtagsText.isEmpty
+        ? []
+        : hashtagsText.split(' ')
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .map((tag) => tag.startsWith('#') ? tag.substring(1) : tag)
+        .toList();
+
+    Navigator.pop(context, {
+      'title': title,
+      'content': content,
+      'hashtags': hashtags,
+    });
   }
 }

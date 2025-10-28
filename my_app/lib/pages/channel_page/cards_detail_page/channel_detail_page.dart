@@ -1637,7 +1637,7 @@ class _ChannelDetailContentState extends State<_ChannelDetailContent> {
       };
 
       postsProvider.addPostToChannel(widget.channel.id, newPost);
-      newsProvider.addNews(newPost);
+
 
       _showSuccessSnackbar(context, 'Новость успешно создана и опубликована на Стене!');
     } catch (e) {

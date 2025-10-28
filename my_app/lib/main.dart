@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/providers/communities_provider%20/communities_provider.dart';
+import 'package:my_app/providers/communities_provider%20/community_state_provider.dart';
 import 'package:provider/provider.dart';
 
 // Импорты провайдеров
-import 'providers/communities_provider /communities_provider.dart';
-import 'providers/communities_provider /community_state_provider.dart';
 import 'providers/room_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/news_providers/news_provider.dart';
@@ -24,6 +24,9 @@ import 'services/room_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 🎯 ИНИЦИАЛИЗАЦИЯ ГЛОБАЛЬНОГО КЛЮЧА ДЛЯ NewsProvider
+  NewsProvider.navigatorKey = GlobalKey<NavigatorState>();
+
   // Простая инициализация
   final isLoggedIn = await AuthService.isLoggedIn();
   print('App started - logged in: $isLoggedIn');
@@ -42,11 +45,18 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool _isLoggedIn = false;
+  late UserProvider _userProvider;
+  late NewsProvider _newsProvider;
 
   @override
   void initState() {
     super.initState();
     _isLoggedIn = widget.initialLoggedIn;
+
+    // 🎯 СОЗДАЕМ ПРОВАЙДЕРЫ ВРУЧНУЮ ДЛЯ ПРАВИЛЬНОЙ СВЯЗИ
+    _userProvider = UserProvider();
+    _newsProvider = NewsProvider(userProvider: _userProvider);
+
     print('MyApp initialized - logged in: $_isLoggedIn');
   }
 
@@ -67,15 +77,16 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Основные провайдеры
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => NewsProvider(userProvider: UserProvider())),
+        // 🎯 ПЕРЕДАЕМ УЖЕ СОЗДАННЫЕ ПРОВАЙДЕРЫ
+        ChangeNotifierProvider<UserProvider>.value(value: _userProvider),
+        ChangeNotifierProvider<NewsProvider>.value(value: _newsProvider),
+
         ChangeNotifierProvider(create: (_) => ChannelStateProvider()),
         ChangeNotifierProvider(create: (_) => ChannelPostsProvider()),
         ChangeNotifierProvider(create: (_) => ArticlesProvider()),
         ChangeNotifierProvider(create: (_) => UserTagsProvider()),
         ChangeNotifierProvider(create: (_) => StateSyncProvider()),
-        ChangeNotifierProvider(create: (_) =>  CommuninitiesProvider()),
+        ChangeNotifierProvider(create: (_) => CommuninitiesProvider()),
         ChangeNotifierProvider(create: (_) => CommunityStateProvider()),
 
         // RoomProvider с зависимостью от UserProvider
@@ -98,6 +109,8 @@ class _MyAppState extends State<MyApp> {
           primarySwatch: Colors.blue,
           useMaterial3: true,
         ),
+        // 🎯 ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛЮЧ ДЛЯ NewsProvider
+        navigatorKey: NewsProvider.navigatorKey,
         home: _isLoggedIn
             ? Consumer<UserProvider>(
           builder: (context, userProvider, child) {

@@ -15,11 +15,20 @@ class NewsProvider with ChangeNotifier {
   bool _isRefreshing = false;
   DateTime? _lastUpdate;
 
+  // 🆕 УМНОЕ КЕШИРОВАНИЕ
+  List<dynamic> _cachedNews = [];
+  DateTime _lastCacheTime = DateTime.now();
+  bool _showSyncingIndicator = false;
+
   // 🆕 ПАГИНАЦИЯ
   int _currentPage = 0;
   int _itemsPerPage = 20;
   bool _hasMoreNews = true;
   bool _isLoadingMore = false;
+
+  // 🆕 ИСПРАВЛЕНИЕ: Трекер для предотвращения дублирования действий
+  final Set<String> _pendingActions = {};
+  final Map<String, Completer<void>> _actionCompleters = {};
 
   final UserProvider userProvider;
 
@@ -29,8 +38,7 @@ class NewsProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get serverAvailable => _serverAvailable;
   DateTime? get lastUpdate => _lastUpdate;
-
-  // 🆕 ГЕТТЕРЫ ДЛЯ ПАГИНАЦИИ
+  bool get showSyncingIndicator => _showSyncingIndicator;
   bool get hasMoreNews => _hasMoreNews;
   bool get isLoadingMore => _isLoadingMore;
   int get currentPage => _currentPage;
@@ -47,13 +55,14 @@ class NewsProvider with ChangeNotifier {
     await loadNews();
   }
 
-  // 🆕 ОСНОВНОЙ МЕТОД ЗАГРУЗКИ С ПАГИНАЦИЕЙ
+  // 🟢 ОСНОВНОЙ МЕТОД ЗАГРУЗКИ С УМНЫМ КЕШИРОВАНИЕМ
   Future<void> loadNews({bool refresh = false}) async {
     try {
       if (refresh) {
         _resetPagination();
-        _news.clear();
-        print('🔄 Refresh requested - resetting pagination');
+        _showSyncingIndicator = true;
+        _safeNotifyListeners();
+        print('🔄 Refresh requested - keeping cached data');
       }
 
       if (!_hasMoreNews) {
@@ -62,24 +71,34 @@ class NewsProvider with ChangeNotifier {
       }
 
       _setLoading(true);
-      _setError(null);
 
-      print('🌐 Loading news page $_currentPage ($_itemsPerPage items) for user: ${userProvider.userName}');
+      // 🎯 ПРОВЕРКА КЕША: если есть кеш младше 5 минут - показываем сразу
+      if (_cachedNews.isNotEmpty &&
+          DateTime.now().difference(_lastCacheTime).inMinutes < 5 &&
+          !refresh) {
+        _news = List.from(_cachedNews);
+        _safeNotifyListeners();
+        print('⚡ Showing cached news from ${_lastCacheTime}');
+      }
+
+      print('🌐 Loading news page $_currentPage ($_itemsPerPage items)');
 
       _serverAvailable = await ApiService.testConnection();
       print('🔗 Server available: $_serverAvailable');
 
       if (_serverAvailable) {
         if (userProvider.isLoggedIn) {
-          print('👤 Pre-syncing user data...');
           await userProvider.syncWithServer();
         }
 
-        // 🆕 ЗАГРУЗКА С ПАГИНАЦИЕЙ
+        // 🆕 ЗАГРУЗКА С ТАЙМАУТОМ
         final news = await ApiService.getNews(
             page: _currentPage,
             limit: _itemsPerPage
-        );
+        ).timeout(Duration(seconds: 7), onTimeout: () {
+          print('⏰ News loading timeout, using cached data');
+          return [];
+        });
 
         await _processServerNews(news, refresh: refresh);
       } else {
@@ -88,74 +107,41 @@ class NewsProvider with ChangeNotifier {
       }
 
     } catch (e) {
-      print('❌ Failed to load news from YDB: $e');
+      print('❌ Failed to load news: $e');
       await _loadLocalNews();
-      _setError('Ошибка загрузки данных: ${e.toString()}');
     } finally {
       _setLoading(false);
-    }
-  }
-
-  // 🆕 ЗАГРУЗКА СЛЕДУЮЩЕЙ СТРАНИЦЫ
-  Future<void> loadMoreNews() async {
-    if (_isLoadingMore || !_hasMoreNews || _isLoading) {
-      print('⏹️ Skip loadMore: isLoadingMore=$_isLoadingMore, hasMore=$_hasMoreNews, isLoading=$_isLoading');
-      return;
-    }
-
-    try {
-      _isLoadingMore = true;
-      _safeNotifyListeners();
-
-      print('📄 Loading more news... Page ${_currentPage + 1}');
-
-      _serverAvailable = await ApiService.testConnection();
-
-      if (_serverAvailable) {
-        final news = await ApiService.getNews(
-            page: _currentPage,
-            limit: _itemsPerPage
-        );
-
-        await _processServerNews(news, refresh: false);
-      } else {
-        print('⚠️ Server unavailable during loadMore');
-      }
-
-    } catch (e) {
-      print('❌ Load more news error: $e');
-    } finally {
-      _isLoadingMore = false;
+      _showSyncingIndicator = false;
       _safeNotifyListeners();
     }
   }
 
-  // 🆕 ОБРАБОТКА НОВОСТЕЙ С ПАГИНАЦИЕЙ
+  // 🟢 УЛУЧШЕННАЯ ОБРАБОТКА НОВОСТЕЙ С YDB
   Future<void> _processServerNews(List<dynamic> serverNews, {bool refresh = false}) async {
     try {
       print('🔄 Processing ${serverNews.length} news items from YDB');
 
-      if (serverNews.isEmpty) {
-        _hasMoreNews = false;
-        print('⏹️ No more news available - server returned empty list');
+      // 🎯 ЕСЛИ СЕРВЕР ВЕРНУЛ ПУСТОЙ СПИСОК - ИСПОЛЬЗУЕМ FALLBACK
+      List<dynamic> newsToProcess = serverNews;
+      if (serverNews.isEmpty && _news.isEmpty) {
+        print('⚠️ Server returned empty list, using fallback data');
+        newsToProcess = _getFallbackNews();
+      }
 
-        if (refresh && _news.isEmpty) {
-          _setError('Новостей пока нет');
-        }
+      if (newsToProcess.isEmpty) {
+        _hasMoreNews = false;
         return;
       }
-      _correctPostTimes(serverNews);
-      // Проверяем, есть ли еще новости
-      if (serverNews.length < _itemsPerPage) {
+
+      if (newsToProcess.length < _itemsPerPage) {
         _hasMoreNews = false;
-        print('⏹️ Last page reached - fewer items than requested');
       }
 
       _validateAndFixPostTimes();
 
       final List<Map<String, dynamic>> updatedNews = [];
 
-      for (final item in serverNews) {
+      for (final item in newsToProcess) {
         try {
           final safeItem = _ensureSafeTypes(item);
           final processedItem = await _processSingleNewsItem(safeItem);
@@ -166,18 +152,25 @@ class NewsProvider with ChangeNotifier {
         }
       }
 
-      // Сортировка по времени (новые сначала)
+      // 🎯 СОРТИРОВКА ПО ДАТЕ (НОВЫЕ СНАЧАЛА)
       updatedNews.sort((a, b) {
         final timeA = DateTime.parse(a['created_at']);
         final timeB = DateTime.parse(b['created_at']);
         return timeB.compareTo(timeA);
       });
 
-      if (refresh) {
+      if (refresh || _news.isEmpty) {
         _news = updatedNews;
       } else {
-        _news.addAll(updatedNews);
+        // 🎯 ИСКЛЮЧАЕМ ДУБЛИКАТЫ ПРИ ДОБАВЛЕНИИ
+        final existingIds = _news.map((n) => n['id']).toSet();
+        final newItems = updatedNews.where((item) => !existingIds.contains(item['id'])).toList();
+        _news.addAll(newItems);
       }
+
+      // 🎯 СОХРАНЯЕМ В КЕШ
+      _cachedNews = List.from(_news);
+      _lastCacheTime = DateTime.now();
 
       _currentPage++;
       _lastUpdate = DateTime.now();
@@ -185,49 +178,136 @@ class NewsProvider with ChangeNotifier {
       await _saveNewsToLocal(_news);
       _safeNotifyListeners();
 
-      print('✅ Processed ${updatedNews.length} news items. Total: ${_news.length}, Has more: $_hasMoreNews');
+      print('✅ Processed ${updatedNews.length} news items. Total: ${_news.length}');
 
     } catch (e) {
-      print('❌ Error processing news from YDB: $e');
-      if (refresh) {
-        _news = <Map<String, dynamic>>[];
+      print('❌ Error processing news: $e');
+      if (refresh || _news.isEmpty) {
+        _news = _getFallbackNews();
         await _saveNewsToLocal(_news);
         _safeNotifyListeners();
       }
     }
   }
 
-  // 🆕 ПРИОРИТЕТНАЯ ЗАГРУЗКА НОВЫХ ПОСТОВ (ДЛЯ ОБНОВЛЕНИЯ)
+  // 🟢 FALLBACK ДАННЫЕ ДЛЯ МГНОВЕННОГО ПОКАЗА
+  List<Map<String, dynamic>> _getFallbackNews() {
+    return [
+      {
+        'id': 'fallback_1',
+        'title': 'Добро пожаловать в Akort Media!',
+        'content': 'Это ваша лента новостей. Здесь будут появляться посты от пользователей, на которых вы подписаны.',
+        'author_id': 'system_1',
+        'author_name': 'Система',
+        'author_avatar': '',
+        'hashtags': ['добро пожаловать'],
+        'likes_count': 0,
+        'comments_count': 0,
+        'reposts_count': 0,
+        'bookmarks_count': 0,
+        'share_count': 0,
+        'isLiked': false,
+        'isBookmarked': false,
+        'isReposted': false,
+        'isFollowing': false,
+        'is_repost': false,
+        'original_author_id': 'system_1',
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+        'comments': [],
+        'source': 'FALLBACK'
+      },
+      {
+        'id': 'fallback_2',
+        'title': 'Как пользоваться приложением',
+        'content': '• Нажимайте + для создания поста\n• Лайкайте интересные посты\n• Комментируйте и делитесь мнением\n• Подписывайтесь на авторов',
+        'author_id': 'system_2',
+        'author_name': 'Помощник',
+        'author_avatar': '',
+        'hashtags': ['инструкция', 'помощь'],
+        'likes_count': 0,
+        'comments_count': 0,
+        'reposts_count': 0,
+        'bookmarks_count': 0,
+        'share_count': 0,
+        'isLiked': false,
+        'isBookmarked': false,
+        'isReposted': false,
+        'isFollowing': false,
+        'is_repost': false,
+        'original_author_id': 'system_2',
+        'created_at': DateTime.now().subtract(Duration(hours: 1)).toIso8601String(),
+        'updated_at': DateTime.now().subtract(Duration(hours: 1)).toIso8601String(),
+        'comments': [],
+        'source': 'FALLBACK'
+      }
+    ];
+  }
+
+  // 🟢 ЗАГРУЗКА СЛЕДУЮЩЕЙ СТРАНИЦЫ
+  Future<void> loadMoreNews() async {
+    if (_isLoadingMore || !_hasMoreNews || _isLoading) return;
+
+    try {
+      _isLoadingMore = true;
+      _safeNotifyListeners();
+
+      _serverAvailable = await ApiService.testConnection();
+
+      if (_serverAvailable) {
+        final news = await ApiService.getNews(
+            page: _currentPage,
+            limit: _itemsPerPage
+        ).timeout(Duration(seconds: 7), onTimeout: () {
+          return [];
+        });
+
+        await _processServerNews(news, refresh: false);
+      } else {
+        _hasMoreNews = false;
+      }
+
+    } catch (e) {
+      print('❌ Load more news error: $e');
+      _hasMoreNews = false;
+    } finally {
+      _isLoadingMore = false;
+      _safeNotifyListeners();
+    }
+  }
+
+  // 🟢 ПРИОРИТЕТНАЯ ЗАГРУЗКА НОВЫХ НОВОСТЕЙ
   Future<void> loadLatestNews() async {
     try {
-      print('🆕 Loading latest news with priority...');
-
       _resetPagination();
 
-      final news = await ApiService.getNews(page: 0, limit: _itemsPerPage);
+      final news = await ApiService.getNews(page: 0, limit: _itemsPerPage)
+          .timeout(Duration(seconds: 5), onTimeout: () {
+        return [];
+      });
 
       await _processServerNews(news, refresh: true);
-      print('✅ Latest news loaded: ${_news.length} items');
 
     } catch (e) {
       print('❌ Error loading latest news: $e');
     }
   }
 
-  // 🆕 СБРОС ПАГИНАЦИИ
+  // 🟢 СБРОС ПАГИНАЦИИ
   void _resetPagination() {
     _currentPage = 0;
     _hasMoreNews = true;
     _isLoadingMore = false;
-    print('🔄 Pagination reset');
   }
 
+  // 🟢 УЛУЧШЕННЫЙ REFRESH - НЕ ЧИСТИТ ДАННЫЕ
   Future<void> refreshNews() async {
     if (_isRefreshing) return;
 
     try {
-      _setRefreshing(true);
-      print('🔄 Manual refresh triggered for user: ${userProvider.userId}');
+      _isRefreshing = true;
+      _showSyncingIndicator = true;
+      _safeNotifyListeners();
 
       _serverAvailable = await ApiService.testConnection();
 
@@ -239,79 +319,42 @@ class NewsProvider with ChangeNotifier {
       }
     } catch (e) {
       print('❌ Refresh failed: $e');
-      _setError('Ошибка обновления данных: ${e.toString()}');
     } finally {
-      _setRefreshing(false);
+      _isRefreshing = false;
+      _showSyncingIndicator = false;
+      _safeNotifyListeners();
     }
   }
 
-  DateTime _parseDateTime(dynamic dateValue) {
-    try {
-      if (dateValue == null) return DateTime.now();
-
-      if (dateValue is String) {
-        final parsed = DateTime.tryParse(dateValue);
-        if (parsed != null && parsed.year > 2000) {
-          return parsed;
-        }
-
-        final timestamp = int.tryParse(dateValue);
-        if (timestamp != null) {
-          return _parseTimestamp(timestamp);
-        }
-      }
-
-      if (dateValue is int) {
-        return _parseTimestamp(dateValue);
-      }
-
-      return DateTime.now();
-    } catch (e) {
-      return DateTime.now();
-    }
-  }
-
-
-  DateTime _parseTimestamp(int timestamp) {
-    try {
-      if (timestamp > 1000000000000) {
-        return DateTime.fromMillisecondsSinceEpoch(timestamp);
-      } else if (timestamp > 1000000000) {
-        return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-      } else {
-        return DateTime.fromMillisecondsSinceEpoch((timestamp / 1000).round());
-      }
-    } catch (e) {
-      return DateTime.now();
-    }
-  }
-
-  Future<void> _syncSinglePost(String postId) async {
-    try {
-      if (!_serverAvailable) return;
-
-      print('🔄 Syncing single post: $postId');
-      await refreshNews();
-    } catch (e) {
-      print('❌ Sync single post error: $e');
-    }
-  }
-
+  // 🟢 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ ЛАЙКОВ С ПРЕДОТВРАЩЕНИЕМ ДУБЛИРОВАНИЯ
   Future<void> toggleLike(String postId) async {
+    // 🆕 ПРОВЕРКА: предотвращение дублирования действий
+    final actionKey = 'like_$postId';
+    if (_pendingActions.contains(actionKey)) {
+      print('⏳ Like action already in progress for $postId, skipping');
+      return;
+    }
+
     final int index = _findNewsIndexById(postId);
     if (index == -1) {
-      print('❌ Post not found in YDB: $postId');
+      print('❌ Post not found for like: $postId');
       return;
     }
 
     try {
+      // 🆕 БЛОКИРОВКА ДЕЙСТВИЯ
+      _pendingActions.add(actionKey);
+      final completer = Completer<void>();
+      _actionCompleters[actionKey] = completer;
+
       final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
       final bool isLiked = _getSafeBool(post['isLiked']);
-      final int currentLikes = _getSafeInt(post['likes_count'] ?? post['likes']);
+      final int currentLikes = _getSafeInt(post['likes_count']);
 
-      print('🎯 Toggle like in YDB: $postId, current: $isLiked, likes: $currentLikes');
+      // 🎯 СОХРАНЯЕМ ИСХОДНОЕ СОСТОЯНИЕ ДЛЯ ВОЗМОЖНОСТИ ОТКАТА
+      final Map<String, dynamic> originalPost = Map<String, dynamic>.from(post);
 
-      // Оптимистичное обновление
+      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ
       _news[index] = <String, dynamic>{
         ...post,
         'isLiked': !isLiked,
@@ -324,32 +367,61 @@ class NewsProvider with ChangeNotifier {
       _showSnackBar(!isLiked ? 'Лайк добавлен!' : 'Лайк удален',
           !isLiked ? Colors.red : Colors.grey);
 
+      // 🎯 СИНХРОНИЗАЦИЯ С YDB
       if (_serverAvailable) {
         try {
           if (!isLiked) {
             await ApiService.likeNews(postId);
-            await _syncSinglePost(postId);
+            // 🆕 ОБНОВЛЯЕМ UserProvider
+            userProvider.addLike(postId);
           } else {
             await ApiService.unlikeNews(postId);
-            await _syncSinglePost(postId);
+            // 🆕 ОБНОВЛЯЕМ UserProvider
+            userProvider.removeLike(postId);
           }
+          print('✅ Like sync with YDB successful for $postId');
         } catch (e) {
-          _showSnackBar('Действие сохранено локально', Colors.orange);
+          print('❌ Like sync error: $e');
+
+          // 🆕 ВОССТАНАВЛИВАЕМ ИСХОДНОЕ СОСТОЯНИЕ ПРИ ОШИБКЕ
+          _news[index] = originalPost;
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+
+          _showSnackBar('Ошибка синхронизации с сервером', Colors.orange);
+          rethrow;
         }
       }
     } catch (e) {
       print('❌ Toggle like error: $e');
+    } finally {
+      // 🆕 РАЗБЛОКИРОВКА ДЕЙСТВИЯ
+      _pendingActions.remove(actionKey);
+      _actionCompleters.remove(actionKey)?.complete();
     }
   }
 
+  // 🟢 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ ЗАКЛАДОК
   Future<void> toggleBookmark(String postId) async {
+    final actionKey = 'bookmark_$postId';
+    if (_pendingActions.contains(actionKey)) {
+      print('⏳ Bookmark action already in progress for $postId, skipping');
+      return;
+    }
+
     final int index = _findNewsIndexById(postId);
     if (index == -1) return;
 
     try {
+      _pendingActions.add(actionKey);
+      final completer = Completer<void>();
+      _actionCompleters[actionKey] = completer;
+
       final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
       final bool isBookmarked = _getSafeBool(post['isBookmarked']);
+      final Map<String, dynamic> originalPost = Map<String, dynamic>.from(post);
 
+      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ
       _news[index] = <String, dynamic>{
         ...post,
         'isBookmarked': !isBookmarked,
@@ -361,36 +433,61 @@ class NewsProvider with ChangeNotifier {
       _showSnackBar(!isBookmarked ? 'В закладках!' : 'Убрано из закладок',
           !isBookmarked ? Colors.amber : Colors.grey);
 
+      // 🎯 СИНХРОНИЗАЦИЯ С YDB
       if (_serverAvailable) {
         try {
           if (!isBookmarked) {
             await ApiService.bookmarkNews(postId);
-            await _syncSinglePost(postId);
+            userProvider.addBookmark(postId);
           } else {
             await ApiService.unbookmarkNews(postId);
-            await _syncSinglePost(postId);
+            userProvider.removeBookmark(postId);
           }
+          print('✅ Bookmark sync with YDB successful');
         } catch (e) {
+          print('❌ Bookmark sync error: $e');
+
+          // ОТКАТ ПРИ ОШИБКЕ
+          _news[index] = originalPost;
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+
           _showSnackBar('Действие сохранено локально', Colors.orange);
         }
       }
     } catch (e) {
       print('❌ Toggle bookmark error: $e');
+    } finally {
+      _pendingActions.remove(actionKey);
+      _actionCompleters.remove(actionKey)?.complete();
     }
   }
 
+  // 🟢 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ РЕПОСТОВ
   Future<void> toggleRepost(String postId) async {
+    final actionKey = 'repost_$postId';
+    if (_pendingActions.contains(actionKey)) {
+      print('⏳ Repost action already in progress for $postId, skipping');
+      return;
+    }
+
     final int index = _findNewsIndexById(postId);
     if (index == -1) return;
 
     try {
+      _pendingActions.add(actionKey);
+      final completer = Completer<void>();
+      _actionCompleters[actionKey] = completer;
+
       final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
       final bool isReposted = _getSafeBool(post['isReposted']);
-      final int currentReposts = _getSafeInt(post['reposts_count'] ?? post['reposts']);
+      final int currentReposts = _getSafeInt(post['reposts_count']);
+      final Map<String, dynamic> originalPost = Map<String, dynamic>.from(post);
 
       final bool newRepostedState = !isReposted;
       final int newRepostsCount = newRepostedState ? currentReposts + 1 : currentReposts - 1;
 
+      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ
       _news[index] = <String, dynamic>{
         ...post,
         'isReposted': newRepostedState,
@@ -403,27 +500,48 @@ class NewsProvider with ChangeNotifier {
       _showSnackBar(newRepostedState ? 'Репост выполнен!' : 'Репост отменен',
           newRepostedState ? Colors.green : Colors.grey);
 
+      // 🎯 СИНХРОНИЗАЦИЯ С YDB
       if (_serverAvailable) {
         try {
           if (newRepostedState) {
             await ApiService.repostNews(postId);
-            await _syncSinglePost(postId);
+            userProvider.addRepost(postId);
           } else {
             await ApiService.unrepostNews(postId);
-            await _syncSinglePost(postId);
+            userProvider.removeRepost(postId);
           }
+          print('✅ Repost sync with YDB successful');
         } catch (e) {
+          print('❌ Repost sync error: $e');
+
+          // ОТКАТ ПРИ ОШИБКЕ
+          _news[index] = originalPost;
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+
           _showSnackBar('Репост сохранен локально', Colors.orange);
         }
       }
     } catch (e) {
       print('❌ Toggle repost error: $e');
+    } finally {
+      _pendingActions.remove(actionKey);
+      _actionCompleters.remove(actionKey)?.complete();
     }
   }
 
+  // 🟢 ПОДПИСКИ С ИНТЕГРАЦИЕЙ YDB
   Future<void> toggleFollow(String authorId) async {
+    final actionKey = 'follow_$authorId';
+    if (_pendingActions.contains(actionKey)) {
+      print('⏳ Follow action already in progress for $authorId, skipping');
+      return;
+    }
+
     try {
-      print('👥 Toggle follow in YDB: $authorId');
+      _pendingActions.add(actionKey);
+      final completer = Completer<void>();
+      _actionCompleters[actionKey] = completer;
 
       final authorPosts = _news.where((post) {
         final safePost = _ensureSafeTypes(post);
@@ -436,6 +554,16 @@ class NewsProvider with ChangeNotifier {
 
       final bool newFollowingState = !isCurrentlyFollowing;
 
+      // 🎯 СОХРАНЯЕМ ИСХОДНЫЕ СОСТОЯНИЯ ДЛЯ ВОЗМОЖНОСТИ ОТКАТА
+      final List<Map<String, dynamic>> originalPosts = [];
+      for (final post in _news) {
+        final safePost = _ensureSafeTypes(post);
+        if (safePost['author_id'] == authorId) {
+          originalPosts.add(Map<String, dynamic>.from(safePost));
+        }
+      }
+
+      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ ВСЕХ ПОСТОВ АВТОРА
       for (int i = 0; i < _news.length; i++) {
         final post = _ensureSafeTypes(_news[i]);
         if (post['author_id'] == authorId) {
@@ -452,79 +580,85 @@ class NewsProvider with ChangeNotifier {
       _showSnackBar(newFollowingState ? 'Подписка оформлена!' : 'Вы отписались',
           newFollowingState ? Colors.green : Colors.grey);
 
+      // 🎯 СИНХРОНИЗАЦИЯ С YDB
       if (_serverAvailable) {
         try {
           if (newFollowingState) {
-            await _followUser(authorId);
+            await ApiService.followUser(authorId);
+            userProvider.followUser(authorId);
           } else {
-            await _unfollowUser(authorId);
+            await ApiService.unfollowUser(authorId);
+            userProvider.unfollowUser(authorId);
           }
-          await _syncAuthorPosts(authorId);
+          print('✅ Follow sync with YDB successful');
         } catch (e) {
+          print('❌ Follow sync error: $e');
+
+          // ОТКАТ ПРИ ОШИБКЕ
+          for (int i = 0; i < _news.length; i++) {
+            final post = _ensureSafeTypes(_news[i]);
+            if (post['author_id'] == authorId) {
+              final originalPost = originalPosts.firstWhere(
+                    (p) => p['id'] == post['id'],
+                orElse: () => post,
+              );
+              _news[i] = originalPost;
+            }
+          }
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+
           _showSnackBar('Действие сохранено локально', Colors.orange);
         }
       }
     } catch (e) {
       print('❌ Toggle follow error: $e');
+    } finally {
+      _pendingActions.remove(actionKey);
+      _actionCompleters.remove(actionKey)?.complete();
     }
   }
 
-  Future<void> _followUser(String authorId) async {
+  // 🟢 КОММЕНТАРИИ С ИНТЕГРАЦИЕЙ YDB
+  Future<void> addComment(String postId, String text) async {
+    final int index = _findNewsIndexById(postId);
+    if (index == -1) return;
+
     try {
-      final token = await ApiService.getToken();
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
+      final int currentCommentsCount = _getSafeInt(post['comments_count']);
+
+      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ
+      _news[index] = <String, dynamic>{
+        ...post,
+        'comments_count': currentCommentsCount + 1,
       };
 
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
+      _safeNotifyListeners();
+      await _saveNewsToLocal(_news);
+
+      _showSnackBar('Комментарий добавлен!', Colors.green);
+
+      // 🎯 СИНХРОНИЗАЦИЯ С YDB
+      if (_serverAvailable) {
+        try {
+          await ApiService.addComment(
+            postId,
+            text,
+            userProvider.userName.isNotEmpty ? userProvider.userName : 'Пользователь',
+          );
+          print('✅ Comment sync with YDB successful');
+        } catch (e) {
+          print('❌ Comment sync error: $e');
+          _showSnackBar('Комментарий сохранен локально', Colors.orange);
+        }
       }
-
-      final requestData = {'targetUserId': authorId};
-
-      final response = await http.post(
-        Uri.parse('${ApiService.baseUrl}/follow'),
-        headers: headers,
-        body: json.encode(requestData),
-      ).timeout(const Duration(seconds: ApiService.timeoutSeconds));
-
-      _handleHttpResponse(response);
-      print('✅ User followed successfully in YDB: $authorId');
     } catch (e) {
-      print('❌ Follow user error: $e');
-      rethrow;
+      print('❌ Add comment error: $e');
     }
   }
 
-  Future<void> _unfollowUser(String authorId) async {
-    try {
-      final token = await ApiService.getToken();
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
-      final requestData = {'targetUserId': authorId};
-
-      final response = await http.post(
-        Uri.parse('${ApiService.baseUrl}/unfollow'),
-        headers: headers,
-        body: json.encode(requestData),
-      ).timeout(const Duration(seconds: ApiService.timeoutSeconds));
-
-      _handleHttpResponse(response);
-      print('✅ User unfollowed successfully in YDB: $authorId');
-    } catch (e) {
-      print('❌ Unfollow user error: $e');
-      rethrow;
-    }
-  }
-
+  // 🟢 СОЗДАНИЕ НОВОСТИ С ИНТЕГРАЦИЕЙ YDB
   Future<void> addNews(Map<String, dynamic> newsData) async {
     try {
       if (!userProvider.isLoggedIn) {
@@ -538,15 +672,9 @@ class NewsProvider with ChangeNotifier {
 
       await userProvider.syncWithServer();
 
-      print('🎯 Creating post in YDB as: ${userProvider.userName}');
-
       final String authorName = userProvider.userName.isNotEmpty
           ? userProvider.userName
           : 'Пользователь';
-
-      // 🆕 ГАРАНТИРУЕМ ТЕКУЩЕЕ ВРЕМЯ ДЛЯ НОВОГО ПОСТА
-      final currentTime = DateTime.now();
-      final currentTimeString = currentTime.toIso8601String();
 
       final Map<String, dynamic> authorData = {
         'author_id': userProvider.userId,
@@ -559,25 +687,19 @@ class NewsProvider with ChangeNotifier {
         'content': content,
         'hashtags': _parseList(newsData['hashtags']),
         ...authorData,
-        // 🆕 ОТПРАВЛЯЕМ ТЕКУЩЕЕ ВРЕМЯ НА СЕРВЕР
-        'created_at': currentTimeString,
-        'updated_at': currentTimeString,
       };
 
       Map<String, dynamic> createdNews;
 
       try {
-        print('🌐 Creating news on YDB server...');
         createdNews = await ApiService.createNews(completeNewsData);
-        print('✅ News created on YDB server: ${createdNews['id']}');
+        print('✅ News created on YDB successfully');
       } catch (serverError) {
-        print('❌ YDB Server creation failed: $serverError');
         throw Exception('Не удалось создать пост на сервере: ${serverError.toString()}');
       }
 
       final Map<String, dynamic> safeNews = _ensureSafeTypes(createdNews);
 
-      // 🆕 ИСПОЛЬЗУЕМ ДАННЫЕ ОТ СЕРВЕРА, НО С ПРАВИЛЬНЫМ ПАРСИНГОМ ВРЕМЕНИ
       final Map<String, dynamic> formattedNews = {
         'id': _getSafeString(safeNews['id']),
         'title': _getSafeString(safeNews['title'] ?? ''),
@@ -597,264 +719,31 @@ class NewsProvider with ChangeNotifier {
         'isFollowing': false,
         'is_repost': false,
         'original_author_id': _getSafeString(safeNews['original_author_id'] ?? userProvider.userId),
-        // 🆕 ПРАВИЛЬНО ПАРСИМ ВРЕМЯ ОТ СЕРВЕРА
         'created_at': _parseDateTime(safeNews['created_at']).toIso8601String(),
         'updated_at': _parseDateTime(safeNews['updated_at']).toIso8601String(),
         'comments': [],
         'source': 'YDB',
       };
 
-      // 🆕 ДОБАВЛЯЕМ В НАЧАЛО СПИСКА И НЕМЕДЛЕННО ОБНОВЛЯЕМ
+      // 🎯 ДОБАВЛЯЕМ В НАЧАЛО ЛЕНТЫ
       _news.insert(0, formattedNews);
       _safeNotifyListeners();
 
       await _saveNewsToLocal(_news);
 
-      // 🆕 НЕМЕДЛЕННОЕ ОБНОВЛЕНИЕ СЧЕТЧИКОВ
       userProvider.updateStats(<String, int>{
         'posts': (userProvider.stats['posts'] ?? 0) + 1,
       });
 
-      print('✅ Post created successfully in YDB with correct time');
+      _showSnackBar('Пост опубликован!', Colors.green);
 
     } catch (e) {
-      print('❌ Error creating news in YDB: $e');
-      throw Exception('Ошибка создания поста в базе данных: ${e.toString()}');
+      print('❌ Error creating news: $e');
+      throw Exception('Ошибка создания поста: ${e.toString()}');
     }
   }
 
-
-  // 🆕 МЕТОД ДЛЯ КОРРЕКЦИИ ВРЕМЕНИ В СУЩЕСТВУЮЩИХ ПОСТАХ
-  void _correctPostTimes(List<dynamic> posts) {
-    final now = DateTime.now();
-    final oneHourAgo = now.subtract(Duration(hours: 1));
-
-    for (int i = 0; i < posts.length; i++) {
-      final post = _ensureSafeTypes(posts[i]);
-      final createdAt = _parseDateTime(post['created_at']);
-
-      // 🆕 ЕСЛИ ПОСТ СОЗДАН В ТЕЧЕНИЕ ПОСЛЕДНЕГО ЧАСА, ДЕЛАЕМ ЕГО "ТОЛЬКО ЧТО"
-      if (createdAt.isAfter(oneHourAgo) && createdAt.isBefore(now)) {
-        posts[i] = {
-          ...post,
-          'created_at': now.toIso8601String(),
-        };
-        print('🕒 Corrected post time to "just now": ${post['id']}');
-      }
-    }
-  }
-
-  void _handleHttpResponse(http.Response response) {
-    print('🔧 HTTP Response: ${response.statusCode}');
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      try {
-        final Map<String, dynamic> data = json.decode(response.body);
-
-        if (data.containsKey('success') && data['success'] == true) {
-          return;
-        } else if (data.containsKey('error')) {
-          throw HttpException(data['error'] ?? 'Unknown error');
-        }
-
-        return;
-      } catch (e) {
-        print('❌ JSON Parse Error: $e');
-        throw HttpException('Invalid response format');
-      }
-    } else {
-      _handleHttpErrorResponse(response);
-    }
-  }
-
-  void _handleHttpErrorResponse(http.Response response) {
-    switch (response.statusCode) {
-      case 401:
-        throw HttpException('Authentication required');
-      case 403:
-        throw HttpException('Access denied');
-      case 404:
-        throw HttpException('Resource not found');
-      case 429:
-        throw HttpException('Too many requests');
-      case 500:
-        throw HttpException('Internal server error');
-      case 502:
-        throw HttpException('Bad gateway');
-      case 503:
-        throw HttpException('Service unavailable');
-      default:
-        throw HttpException('HTTP ${response.statusCode}');
-    }
-  }
-
-  Future<void> shareNews(String postId) async {
-    try {
-      print('🔗 Sharing news: $postId');
-
-      final int index = _findNewsIndexById(postId);
-      if (index != -1) {
-        final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
-        final int currentShares = _getSafeInt(post['share_count']);
-
-        _news[index] = <String, dynamic>{
-          ...post,
-          'share_count': currentShares + 1,
-        };
-
-        _safeNotifyListeners();
-        await _saveNewsToLocal(_news);
-      }
-
-      _showSnackBar('Поделились постом!', Colors.blue);
-
-      if (_serverAvailable) {
-        try {
-          await _shareNewsOnServer(postId);
-          await _syncSinglePost(postId);
-          print('✅ Share sent to YDB: $postId');
-        } catch (e) {
-          print('❌ Share sync error with YDB: $e');
-          _showSnackBar('Шаринг сохранен локально', Colors.orange);
-        }
-      }
-
-    } catch (e) {
-      print('❌ Share error: $e');
-      throw Exception('Не удалось поделиться постом: ${e.toString()}');
-    }
-  }
-
-  Future<void> _shareNewsOnServer(String postId) async {
-    try {
-      final token = await ApiService.getToken();
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
-      final requestData = {'newsId': postId};
-
-      final response = await http.post(
-        Uri.parse('${ApiService.baseUrl}/share'),
-        headers: headers,
-        body: json.encode(requestData),
-      ).timeout(const Duration(seconds: ApiService.timeoutSeconds));
-
-      _handleHttpResponse(response);
-      print('✅ News shared successfully in YDB: $postId');
-    } catch (e) {
-      print('❌ Share news error: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> addComment(String postId, String text) async {
-    final int index = _findNewsIndexById(postId);
-    if (index == -1) {
-      print('❌ Post not found in YDB for comment: $postId');
-      return;
-    }
-
-    try {
-      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
-      final int currentCommentsCount = _getSafeInt(post['comments_count']);
-
-      print('💬 Adding comment to YDB post: $postId');
-
-      _news[index] = <String, dynamic>{
-        ...post,
-        'comments_count': currentCommentsCount + 1,
-      };
-
-      _safeNotifyListeners();
-      await _saveNewsToLocal(_news);
-
-      _showSnackBar('Комментарий добавлен!', Colors.green);
-
-      if (_serverAvailable) {
-        try {
-          await ApiService.addComment(
-            postId,
-            text,
-            userProvider.userName.isNotEmpty ? userProvider.userName : 'Пользователь',
-          );
-
-          await _syncSinglePost(postId);
-          print('✅ Comment added successfully to YDB: $postId');
-        } catch (e) {
-          print('❌ Comment sync error with YDB: $e');
-          _showSnackBar('Комментарий сохранен локально', Colors.orange);
-        }
-      }
-    } catch (e) {
-      print('❌ Add comment error: $e');
-      throw Exception('Ошибка при добавлении комментария: ${e.toString()}');
-    }
-  }
-
-  Future<void> deleteNews(String postId) async {
-    try {
-      final int index = _findNewsIndexById(postId);
-      if (index == -1) {
-        throw Exception('Пост не найден');
-      }
-
-      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
-
-      if (post['author_id'] != userProvider.userId) {
-        throw Exception('Вы можете удалять только свои посты');
-      }
-
-      // 🎯 СОХРАНЯЕМ ПОСТ ДЛЯ ВОЗМОЖНОГО ВОССТАНОВЛЕНИЯ
-      final Map<String, dynamic> deletedPost = post;
-
-      // 🎯 ОПТИМИСТИЧЕСКОЕ УДАЛЕНИЕ
-      _news.removeAt(index);
-      _safeNotifyListeners();
-      await _saveNewsToLocal(_news);
-
-      // 🎯 ПРОВЕРЯЕМ mounted ПЕРЕД ПОКАЗОМ SNACKBAR
-      if (navigatorKey.currentState != null && navigatorKey.currentState!.mounted) {
-        _showSnackBar('Пост удален!', Colors.green);
-      }
-
-      // 🎯 СИНХРОНИЗАЦИЯ С СЕРВЕРОМ
-      if (_serverAvailable) {
-        try {
-          await ApiService.deleteNews(postId);
-          print('✅ Post deleted from YDB: $postId');
-        } catch (e) {
-          print('❌ Delete from YDB failed: $e');
-          // 🎯 ВОССТАНАВЛИВАЕМ ПОСТ ПРИ ОШИБКЕ
-          _news.insert(index, deletedPost);
-          _safeNotifyListeners();
-          await _saveNewsToLocal(_news);
-
-          // 🎯 ПРОВЕРЯЕМ mounted ПЕРЕД ПОКАЗОМ ОШИБКИ
-          if (navigatorKey.currentState != null && navigatorKey.currentState!.mounted) {
-            _showSnackBar('Ошибка удаления на сервере', Colors.red);
-          }
-          rethrow;
-        }
-      }
-
-      userProvider.updateStats(<String, int>{
-        'posts': (userProvider.stats['posts'] ?? 1) - 1,
-      });
-
-      print('✅ Post deleted successfully: $postId');
-
-    } catch (e) {
-      print('❌ Error deleting news: $e');
-      throw Exception('Ошибка удаления поста: ${e.toString()}');
-    }
-  }
-
+  // 🟢 ОБНОВЛЕНИЕ НОВОСТИ С ИНТЕГРАЦИЕЙ YDB
   Future<void> updateNews(String postId, Map<String, dynamic> updateData) async {
     try {
       final int index = _findNewsIndexById(postId);
@@ -868,16 +757,12 @@ class NewsProvider with ChangeNotifier {
         throw Exception('Вы можете редактировать только свои посты');
       }
 
-      // 🎯 ПОДГОТОВКА ДАННЫХ ДЛЯ ОБНОВЛЕНИЯ
       final Map<String, dynamic> preparedUpdateData = {
         'title': updateData['title']?.toString() ?? post['title'],
         'content': updateData['content']?.toString() ?? post['content'],
         'hashtags': updateData['hashtags'] is List ? updateData['hashtags'] : _parseList(updateData['hashtags']),
       };
 
-      print('✏️ Updating news: $postId with data: $preparedUpdateData');
-
-      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ
       final Map<String, dynamic> updatedPost = {
         ...post,
         ...preparedUpdateData,
@@ -890,23 +775,15 @@ class NewsProvider with ChangeNotifier {
 
       _showSnackBar('Пост обновлен!', Colors.green);
 
-      // 🎯 СИНХРОНИЗАЦИЯ С СЕРВЕРОМ
+      // 🎯 СИНХРОНИЗАЦИЯ С YDB
       if (_serverAvailable) {
         try {
-          // 🎯 ПРАВИЛЬНЫЙ ВЫЗОВ API
           await ApiService.updateNews(postId, preparedUpdateData);
-
-          // 🎯 ПЕРЕЗАГРУЖАЕМ ДАННЫЕ ДЛЯ ПОДТВЕРЖДЕНИЯ
-          await _syncSinglePost(postId);
-
-          print('✅ Post updated successfully in YDB: $postId');
+          print('✅ News update sync with YDB successful');
         } catch (e) {
-          print('❌ Update in YDB failed: $e');
-          // 🎯 ВОССТАНАВЛИВАЕМ ПРЕЖНЕЕ СОСТОЯНИЕ ПРИ ОШИБКЕ
-          _news[index] = post;
+          _news[index] = post; // Откатываем изменения при ошибке
           _safeNotifyListeners();
           await _saveNewsToLocal(_news);
-
           _showSnackBar('Ошибка синхронизации с сервером', Colors.red);
           rethrow;
         }
@@ -918,66 +795,57 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _updateNewsOnServer(String postId, Map<String, dynamic> updateData) async {
+  // 🟢 УДАЛЕНИЕ НОВОСТИ С ИНТЕГРАЦИЕЙ YDB
+  Future<void> deleteNews(String postId) async {
     try {
-      final token = await ApiService.getToken();
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
+      final int index = _findNewsIndexById(postId);
+      if (index == -1) {
+        throw Exception('Пост не найден');
       }
 
-      // 🎯 ПОДГОТАВЛИВАЕМ ДАННЫЕ ДЛЯ ОБНОВЛЕНИЯ
-      final requestData = {
-        'newsId': postId,
-        'updateData': {
-          'title': updateData['title'],
-          'content': updateData['content'],
-          'hashtags': updateData['hashtags'],
-        },
-      };
+      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
 
-      print('🔗 Updating news on server: $postId');
-      print('📦 Update data: $requestData');
+      if (post['author_id'] != userProvider.userId) {
+        throw Exception('Вы можете удалять только свои посты');
+      }
 
-      final response = await http.post(
-        Uri.parse('${ApiService.baseUrl}/updateNews'),
-        headers: headers,
-        body: json.encode(requestData),
-      ).timeout(const Duration(seconds: ApiService.timeoutSeconds));
+      final Map<String, dynamic> deletedPost = post;
 
-      // 🎯 ПРАВИЛЬНО ОБРАБАТЫВАЕМ ОТВЕТ
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        if (data.containsKey('success') && data['success'] == true) {
-          print('✅ News updated successfully on server');
-          return;
-        } else {
-          throw HttpException(data['error'] ?? 'Unknown error');
+      _news.removeAt(index);
+      _safeNotifyListeners();
+      await _saveNewsToLocal(_news);
+
+      if (navigatorKey.currentState != null && navigatorKey.currentState!.mounted) {
+        _showSnackBar('Пост удален!', Colors.green);
+      }
+
+      // 🎯 СИНХРОНИЗАЦИЯ С YDB
+      if (_serverAvailable) {
+        try {
+          await ApiService.deleteNews(postId);
+          print('✅ News delete sync with YDB successful');
+        } catch (e) {
+          _news.insert(index, deletedPost); // Восстанавливаем при ошибке
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+          if (navigatorKey.currentState != null && navigatorKey.currentState!.mounted) {
+            _showSnackBar('Ошибка удаления на сервере', Colors.red);
+          }
+          rethrow;
         }
-      } else {
-        _handleHttpErrorResponse(response);
       }
+
+      userProvider.updateStats(<String, int>{
+        'posts': (userProvider.stats['posts'] ?? 1) - 1,
+      });
+
     } catch (e) {
-      print('❌ Update news error: $e');
-      rethrow;
+      print('❌ Error deleting news: $e');
+      throw Exception('Ошибка удаления поста: ${e.toString()}');
     }
   }
 
-  Future<void> _syncAuthorPosts(String authorId) async {
-    try {
-      if (!_serverAvailable) return;
-
-      print('🔄 Syncing author posts: $authorId');
-      await refreshNews();
-    } catch (e) {
-      print('❌ Sync author posts error: $e');
-    }
-  }
-
+  // 🟢 ОБРАБОТКА ОДНОЙ НОВОСТИ
   Future<Map<String, dynamic>> _processSingleNewsItem(dynamic item) async {
     final safeItem = _ensureSafeTypes(item);
 
@@ -988,6 +856,12 @@ class NewsProvider with ChangeNotifier {
 
     final authorName = _getSafeString(safeItem['author_name']);
     final finalAuthorName = authorName.isNotEmpty ? authorName : 'Автор';
+
+    // 🆕 ИСПРАВЛЕНИЕ: Синхронизация с UserProvider для актуального состояния
+    final userLikedPosts = userProvider.likedPosts;
+    final userBookmarkedPosts = userProvider.bookmarkedPosts;
+    final userRepostedPosts = userProvider.repostedPosts;
+    final userFollowing = userProvider.following;
 
     return <String, dynamic>{
       'id': id,
@@ -1000,25 +874,27 @@ class NewsProvider with ChangeNotifier {
       'is_repost': _getSafeBool(safeItem['is_repost']),
       'original_author_id': _getSafeString(safeItem['original_author_id']),
 
-      'likes_count': _getSafeInt(safeItem['likes_count'] ?? safeItem['likes']),
+      'likes_count': _getSafeInt(safeItem['likes_count']),
       'comments_count': _getSafeInt(safeItem['comments_count']),
-      'reposts_count': _getSafeInt(safeItem['reposts_count'] ?? safeItem['reposts']),
+      'reposts_count': _getSafeInt(safeItem['reposts_count']),
       'bookmarks_count': _getSafeInt(safeItem['bookmarks_count']),
       'share_count': _getSafeInt(safeItem['share_count']),
 
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
 
-      'isLiked': _getSafeBool(safeItem['isLiked']),
-      'isBookmarked': _getSafeBool(safeItem['isBookmarked']),
-      'isReposted': _getSafeBool(safeItem['isReposted']),
-      'isFollowing': _getSafeBool(safeItem['isFollowing']),
+      // 🆕 ИСПРАВЛЕНИЕ: Используем актуальное состояние из UserProvider
+      'isLiked': userLikedPosts.contains(id),
+      'isBookmarked': userBookmarkedPosts.contains(id),
+      'isReposted': userRepostedPosts.contains(id),
+      'isFollowing': userFollowing.contains(_getSafeString(safeItem['author_id'])),
 
       'comments': [],
       'source': 'YDB',
     };
   }
 
+  // 🟢 ЗАГРУЗКА ЛОКАЛЬНЫХ ДАННЫХ
   Future<void> _loadLocalNews() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1038,28 +914,38 @@ class NewsProvider with ChangeNotifier {
               'updated_at': updatedAt.toIso8601String(),
             };
           }).toList();
-
-          print('✅ Loaded ${_news.length} cached news items');
         } else {
           _news = <Map<String, dynamic>>[];
         }
       } else {
-        _news = <Map<String, dynamic>>[];
-        print('ℹ️ No cached news found');
+        _news = _getFallbackNews();
       }
     } catch (e) {
-      print('❌ Error loading local news: $e');
-      _news = <Map<String, dynamic>>[];
+      _news = _getFallbackNews();
     }
   }
 
+  // 🟢 СОХРАНЕНИЕ ДАННЫХ ЛОКАЛЬНО
   Future<void> _saveNewsToLocal(List<dynamic> news) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('cached_news', json.encode(news));
-      print('💾 Saved ${news.length} news to local storage');
     } catch (e) {
       print('❌ Error saving news to local: $e');
+    }
+  }
+
+  // 🟢 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+  DateTime _parseDateTime(dynamic dateValue) {
+    try {
+      if (dateValue == null) return DateTime.now();
+      if (dateValue is String) {
+        final parsed = DateTime.tryParse(dateValue);
+        if (parsed != null && parsed.year > 2000) return parsed;
+      }
+      return DateTime.now();
+    } catch (e) {
+      return DateTime.now();
     }
   }
 
@@ -1155,17 +1041,69 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  void _setRefreshing(bool refreshing) {
-    if (_isRefreshing != refreshing) {
-      _isRefreshing = refreshing;
-      _safeNotifyListeners();
-    }
-  }
-
   void _setError(String? message) {
     if (_errorMessage != message) {
       _errorMessage = message;
       _safeNotifyListeners();
+    }
+  }
+
+  // 🟢 МЕТОД ДЛЯ ШАРИНГА НОВОСТИ
+  Future<void> shareNews(String postId) async {
+    final actionKey = 'share_$postId';
+    if (_pendingActions.contains(actionKey)) {
+      print('⏳ Share action already in progress for $postId, skipping');
+      return;
+    }
+
+    try {
+      _pendingActions.add(actionKey);
+      final completer = Completer<void>();
+      _actionCompleters[actionKey] = completer;
+
+      final int index = _findNewsIndexById(postId);
+      if (index == -1) return;
+
+      final Map<String, dynamic> post = _ensureSafeTypes(_news[index]);
+      final int currentShareCount = _getSafeInt(post['share_count']);
+      final Map<String, dynamic> originalPost = Map<String, dynamic>.from(post);
+
+      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ
+      _news[index] = <String, dynamic>{
+        ...post,
+        'share_count': currentShareCount + 1,
+      };
+
+      _safeNotifyListeners();
+      await _saveNewsToLocal(_news);
+
+      _showSnackBar('Поделились новостью!', Colors.blue);
+
+      // 🎯 СИНХРОНИЗАЦИЯ С YDB
+      if (_serverAvailable) {
+        try {
+          // Используем существующий метод action для шаринга
+          await ApiService.action({
+            'action': 'share',
+            'newsId': postId,
+          });
+          print('✅ Share sync with YDB successful');
+        } catch (e) {
+          print('❌ Share sync error: $e');
+
+          // ОТКАТ ПРИ ОШИБКЕ
+          _news[index] = originalPost;
+          _safeNotifyListeners();
+          await _saveNewsToLocal(_news);
+
+          _showSnackBar('Действие сохранено локально', Colors.orange);
+        }
+      }
+    } catch (e) {
+      print('❌ Share news error: $e');
+    } finally {
+      _pendingActions.remove(actionKey);
+      _actionCompleters.remove(actionKey)?.complete();
     }
   }
 
@@ -1175,36 +1113,13 @@ class NewsProvider with ChangeNotifier {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  Future<void> clearData() async {
-    _news = <Map<String, dynamic>>[];
-    _errorMessage = null;
-    _safeNotifyListeners();
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('cached_news');
-      print('✅ Cleared news data');
-    } catch (e) {
-      print('❌ Error clearing news data: $e');
-    }
-  }
-
   void _validateAndFixPostTimes() {
     final now = DateTime.now();
-
     for (int i = 0; i < _news.length; i++) {
       final post = _ensureSafeTypes(_news[i]);
       final createdAt = DateTime.parse(_getSafeString(post['created_at']));
-
-      // 🎯 ЕСЛИ ПОСТ БУДУЩЕГО ИЛИ ОЧЕНЬ СТАРЫЙ - ИСПРАВЛЯЕМ
       if (createdAt.isAfter(now.add(Duration(hours: 1))) ||
           createdAt.isBefore(DateTime(2020))) {
-        print('⚠️ Fixing invalid post time: ${post['id']}');
         _news[i] = {
           ...post,
           'created_at': now.toIso8601String(),
@@ -1234,7 +1149,24 @@ class NewsProvider with ChangeNotifier {
 
       _safeNotifyListeners();
       _saveNewsToLocal(_news);
-      print('✅ Updated comments count for post: $postId');
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> clearData() async {
+    _news = <Map<String, dynamic>>[];
+    _errorMessage = null;
+    _safeNotifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('cached_news');
+    } catch (e) {
+      print('❌ Error clearing news data: $e');
     }
   }
 }

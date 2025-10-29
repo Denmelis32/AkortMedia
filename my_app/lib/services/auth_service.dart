@@ -65,36 +65,6 @@ class AuthService {
     }
   }
 
-// 🎯 НОВЫЙ МЕТОД: ПОЛУЧЕНИЕ ПРОФИЛЯ ПОЛЬЗОВАТЕЛЯ ИЗ YDB
-  static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
-    try {
-      print('👤 Getting user profile from YDB: $userId');
-
-      final token = await getToken();
-      if (token == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/getUserProfile?userId=$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: timeoutSeconds));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['data'] != null) {
-          return Map<String, dynamic>.from(data['data']);
-        }
-      }
-
-      return null;
-    } catch (e) {
-      print('❌ Error getting user profile: $e');
-      return null;
-    }
-  }
-
   // 🎯 УЛУЧШЕННОЕ СОХРАНЕНИЕ ТОКЕНА
   static Future<void> saveToken(String token) async {
     try {

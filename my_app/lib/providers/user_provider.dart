@@ -127,7 +127,7 @@ class UserProvider with ChangeNotifier {
     try {
       print('👤 Loading user profile from YDB: $userId');
 
-      final profile = await AuthService.getUserProfile(userId);
+      final profile = await ApiService.getUserProfile(userId);
       if (profile != null) {
         await setUserData(
           profile['name'] ?? _userName,
@@ -223,12 +223,12 @@ class UserProvider with ChangeNotifier {
       print('👥 Syncing follows with YDB...');
 
       // Получаем подписки с сервера
-      final following = await ApiService.syncUserFollowing();
-      final followers = await ApiService.syncUserFollowers();
+      final following = await ApiService.getUserFollowing();
+      final followers = await ApiService.getUserFollowers();
 
-      // Обновляем локальные данные
-      _following = following.toSet();
-      _followers = followers.toSet();
+      // 🆕 ИСПРАВЛЕНИЕ: Явное приведение типов
+      _following = _convertToSet<String>(following);
+      _followers = _convertToSet<String>(followers);
 
       // Обновляем статистику
       _stats['following'] = _following.length;
@@ -251,14 +251,14 @@ class UserProvider with ChangeNotifier {
       print('🔄 Syncing interactions with YDB...');
 
       // Получаем взаимодействия с сервера
-      final likes = await ApiService.syncUserLikes();
-      final bookmarks = await ApiService.syncUserBookmarks();
-      final reposts = await ApiService.syncUserReposts();
+      final likes = await ApiService.getUserLikes();
+      final bookmarks = await ApiService.getUserBookmarks();
+      final reposts = await ApiService.getUserReposts();
 
-      // Обновляем локальные данные
-      _likedPosts = likes.toSet();
-      _bookmarkedPosts = bookmarks.toSet();
-      _repostedPosts = reposts.toSet();
+      // 🆕 ИСПРАВЛЕНИЕ: Явное приведение типов
+      _likedPosts = _convertToSet<String>(likes);
+      _bookmarkedPosts = _convertToSet<String>(bookmarks);
+      _repostedPosts = _convertToSet<String>(reposts);
 
       // Обновляем статистику
       _stats['likes'] = _likedPosts.length;
@@ -270,6 +270,11 @@ class UserProvider with ChangeNotifier {
     } catch (e) {
       print('❌ Sync interactions error: $e');
     }
+  }
+
+  // 🆕 ВСПОМОГАТЕЛЬНЫЙ МЕТОД ДЛЯ ПРЕОБРАЗОВАНИЯ В SET С ЯВНЫМ ТИПОМ
+  Set<T> _convertToSet<T>(List<dynamic> list) {
+    return list.map((item) => item as T).toSet();
   }
 
   // 🆕 УПРАВЛЕНИЕ ПОДПИСКАМИ
@@ -288,8 +293,8 @@ class UserProvider with ChangeNotifier {
 
       // Синхронизация с сервером
       try {
-        await ApiService.followUser(targetUserId); // ✅ ТЕПЕРЬ РАБОТАЕТ
-        print('✅ User followed successfully');
+        await ApiService.followUser(targetUserId);
+        print('✅ User followed successfully in YDB');
       } catch (e) {
         print('⚠️ Follow action saved locally: $e');
       }
@@ -314,8 +319,8 @@ class UserProvider with ChangeNotifier {
 
       // Синхронизация с сервером
       try {
-        await ApiService.unfollowUser(targetUserId); // ✅ ТЕПЕРЬ РАБОТАЕТ
-        print('✅ User unfollowed successfully');
+        await ApiService.unfollowUser(targetUserId);
+        print('✅ User unfollowed successfully in YDB');
       } catch (e) {
         print('⚠️ Unfollow action saved locally: $e');
       }

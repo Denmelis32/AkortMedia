@@ -4,62 +4,48 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  // 🎯 БАЗОВЫЕ КОНСТАНТЫ
   static const String baseUrl = 'https://d5ddp236ffmgophlrs5s.cmxivbes.apigw.yandexcloud.net';
-  static const int timeoutSeconds = 15;
+  static const int timeoutSeconds = 10;
 
-  // 🎯 ПОЛУЧЕНИЕ ТОКЕНА
   static String? _cachedToken;
+
   static Future<String?> getToken() async {
     if (_cachedToken != null) return _cachedToken;
-
     try {
       final prefs = await SharedPreferences.getInstance();
       _cachedToken = prefs.getString('auth_token');
-      print('🔑 Token from storage: ${_cachedToken != null ? _cachedToken!.substring(0, 20) + '...' : 'null'}');
       return _cachedToken;
     } catch (e) {
-      print('❌ Error getting token: $e');
       return null;
     }
   }
 
-  // 🎯 ЗАГОЛОВКИ
   static Future<Map<String, String>> _getHeaders() async {
     final token = await getToken();
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'User-Agent': 'Akort-Media-App/1.0',
     };
 
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
-      print('🔑 Adding auth token to headers');
-    } else {
-      print('⚠️ No auth token available');
     }
 
     return headers;
   }
 
-  // 🎯 ОБРАБОТКА ОТВЕТОВ
   static dynamic _handleResponse(http.Response response) {
-    print('🔧 API Response: ${response.statusCode}');
-    print('📦 Response body: ${response.body}');
-
     if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
         final Map<String, dynamic> data = json.decode(response.body);
-
         if (data.containsKey('success') && data['success'] == true) {
           return data.containsKey('data') ? data['data'] : data;
         } else if (data.containsKey('error')) {
           throw HttpException(data['error'] ?? 'Unknown error');
         }
-
         return data;
       } catch (e) {
-        print('❌ JSON Parse Error: $e');
         throw HttpException('Invalid response format');
       }
     } else {
@@ -68,651 +54,22 @@ class ApiService {
   }
 
   static void _handleErrorResponse(http.Response response) {
-    print('❌ HTTP Error ${response.statusCode}: ${response.body}');
-
     switch (response.statusCode) {
-      case 401:
-        throw HttpException('Authentication required');
-      case 403:
-        throw HttpException('Access denied');
-      case 404:
-        throw HttpException('Resource not found');
-      case 429:
-        throw HttpException('Too many requests');
-      case 500:
-        throw HttpException('Internal server error');
-      case 502:
-        throw HttpException('Bad gateway');
-      case 503:
-        throw HttpException('Service unavailable');
-      default:
-        throw HttpException('HTTP ${response.statusCode}: ${response.body}');
+      case 400: throw HttpException('Bad request');
+      case 401: throw HttpException('Authentication required');
+      case 403: throw HttpException('Access denied');
+      case 404: throw HttpException('Resource not found');
+      case 429: throw HttpException('Too many requests');
+      case 500: throw HttpException('Internal server error');
+      case 502: throw HttpException('Bad gateway');
+      case 503: throw HttpException('Service unavailable');
+      default: throw HttpException('HTTP ${response.statusCode}');
     }
   }
 
-  // 🎯 ПРОВЕРКА ПОДКЛЮЧЕНИЯ
-  static Future<bool> testConnection() async {
-    try {
-      print('🌐 Testing connection to: $baseUrl');
-      final response = await http
-          .get(
-        Uri.parse('$baseUrl/health'),
-        headers: {'Content-Type': 'application/json'},
-      )
-          .timeout(const Duration(seconds: 10));
-
-      final isConnected = response.statusCode == 200;
-      print('🔗 Connection test: ${isConnected ? 'SUCCESS' : 'FAILED'}');
-      return isConnected;
-    } catch (e) {
-      print('❌ Connection test failed: $e');
-      return false;
-    }
-  }
-
-  // ========== НОВОСТИ С ПАГИНАЦИЕЙ ==========
-
-  // 🆕 ПОЛУЧЕНИЕ НОВОСТЕЙ С ПАГИНАЦИЕЙ
-  static Future<List<dynamic>> getNews({
-    int page = 0,
-    int limit = 20,
-    String? category
-  }) async {
-    try {
-      print('🌐 Loading news from YDB API - Page: $page, Limit: $limit');
-
-      final headers = await _getHeaders();
-
-      // 🆕 ДОБАВЛЯЕМ ПАРАМЕТРЫ ПАГИНАЦИИ
-      final queryParams = {
-        'page': page.toString(),
-        'limit': limit.toString(),
-        if (category != null) 'category': category
-      };
-
-      final uri = Uri.parse('$baseUrl/getNews').replace(queryParameters: queryParams);
-
-      print('🔗 Request: GET $uri');
-      print('🔑 Headers: $headers');
-
-      final response = await http
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      final result = _handleResponse(response);
-
-      List<dynamic> newsList = [];
-
-      if (result is List) {
-        newsList = result;
-        print('✅ Direct list with ${newsList.length} items');
-      } else if (result is Map && result.containsKey('news')) {
-        newsList = result['news'] is List ? result['news'] : [];
-        print('✅ News from data field: ${newsList.length} items');
-      } else {
-        newsList = [];
-        print('⚠️ No news data received');
-      }
-
-      // 🎯 ФОРМАТИРОВАНИЕ ДЛЯ YDB
-      final formattedNews = newsList.map((news) {
-        return _formatNewsItem(news);
-      }).toList();
-
-      print('✅ FINAL: Loaded ${formattedNews.length} news items from YDB (Page: $page)');
-
-      return formattedNews;
-    } catch (e) {
-      print('❌ getNews error: $e');
-      return [];
-    }
-  }
-
-  // 🎯 СОЗДАНИЕ НОВОСТИ
-  static Future<Map<String, dynamic>> createNews(Map<String, dynamic> newsData) async {
-    try {
-      // 🎯 ПРОВЕРКА ОБЯЗАТЕЛЬНОГО ПОЛЯ
-      if (newsData['content'] == null || newsData['content'].toString().trim().isEmpty) {
-        throw HttpException('Описание новости обязательно для заполнения');
-      }
-
-      print('🌐 Creating news in YDB with content: ${newsData['content']?.length ?? 0} символов');
-
-      // 🎯 ПОДГОТОВКА ДАННЫХ С ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ ДЛЯ НЕОБЯЗАТЕЛЬНЫХ ПОЛЕЙ
-      final preparedData = {
-        'title': newsData['title']?.toString().trim() ?? '', // 🆕 ПУСТАЯ СТРОКА ВМЕСТО "НОВАЯ НОВОСТЬ"
-        'content': newsData['content'].toString().trim(), // 🎯 ОБЯЗАТЕЛЬНОЕ ПОЛЕ
-        'author_id': newsData['author_id']?.toString() ?? '',
-        'author_name': newsData['author_name']?.toString() ?? 'Неизвестный автор',
-        'author_avatar': newsData['author_avatar']?.toString() ?? '',
-        'hashtags': newsData['hashtags'] ?? [],
-      };
-
-      final headers = await _getHeaders();
-
-      print('🔗 Request: POST $baseUrl/createNews');
-      print('📦 Data: ${json.encode(preparedData)}');
-
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl/createNews'),
-        headers: headers,
-        body: json.encode(preparedData),
-      )
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      print('🔧 API Response: ${response.statusCode}');
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final result = _handleResponse(response);
-        dynamic createdNews;
-
-        if (result is Map) {
-          createdNews = result.containsKey('news') ? result['news'] : result;
-        } else {
-          createdNews = result;
-        }
-
-        if (createdNews != null) {
-          final formattedNews = _formatNewsItem(createdNews);
-          return formattedNews;
-        }
-      }
-
-      throw Exception('Failed to create news: ${response.body}');
-    } catch (e) {
-      print('❌ Create news error: $e');
-      rethrow;
-    }
-  }
-
-  // 🎯 УДАЛЕНИЕ НОВОСТИ
-  static Future<bool> deleteNews(String newsId) async {
-    try {
-      print('🗑️ Deleting news from YDB: $newsId');
-
-      final headers = await _getHeaders();
-      final requestData = {'newsId': newsId};
-
-      print('🔗 Request: POST $baseUrl/deleteNews');
-      print('📦 Data: ${json.encode(requestData)}');
-
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl/deleteNews'),
-        headers: headers,
-        body: json.encode(requestData),
-      )
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      _handleResponse(response);
-
-      return true;
-    } catch (e) {
-      print('❌ Delete news error: $e');
-      rethrow;
-    }
-  }
-
-  // ========== ВЗАИМОДЕЙСТВИЯ ==========
-
-  static Future<Map<String, dynamic>> likeNews(String newsId) async {
-    return _handleUniversalAction('like', newsId);
-  }
-
-  static Future<Map<String, dynamic>> unlikeNews(String newsId) async {
-    return _handleUniversalAction('unlike', newsId);
-  }
-
-  static Future<Map<String, dynamic>> bookmarkNews(String newsId) async {
-    return _handleUniversalAction('bookmark', newsId);
-  }
-
-  static Future<Map<String, dynamic>> unbookmarkNews(String newsId) async {
-    return _handleUniversalAction('unbookmark', newsId);
-  }
-
-  static Future<Map<String, dynamic>> repostNews(String newsId) async {
-    return _handleUniversalAction('repost', newsId);
-  }
-
-  static Future<Map<String, dynamic>> unrepostNews(String newsId) async {
-    return _handleUniversalAction('unrepost', newsId);
-  }
-
-  // 🆕 МЕТОДЫ ДЛЯ ПОДПИСОК
-  static Future<Map<String, dynamic>> followUser(String targetUserId) async {
-    try {
-      print('👥 API followUser: $targetUserId');
-
-      final headers = await _getHeaders();
-      final requestData = {'targetUserId': targetUserId};
-
-      print('🔗 Request: POST $baseUrl/follow');
-      print('📦 Data: ${json.encode(requestData)}');
-
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl/follow'),
-        headers: headers,
-        body: json.encode(requestData),
-      )
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      final result = _handleResponse(response);
-      final resultMap = _ensureStringMap(result);
-
-      return resultMap;
-    } catch (e) {
-      print('❌ followUser error: $e');
-      rethrow;
-    }
-  }
-
-  static Future<Map<String, dynamic>> unfollowUser(String targetUserId) async {
-    try {
-      print('👥 API unfollowUser: $targetUserId');
-
-      final headers = await _getHeaders();
-      final requestData = {'targetUserId': targetUserId};
-
-      print('🔗 Request: POST $baseUrl/unfollow');
-      print('📦 Data: ${json.encode(requestData)}');
-
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl/unfollow'),
-        headers: headers,
-        body: json.encode(requestData),
-      )
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      final result = _handleResponse(response);
-      final resultMap = _ensureStringMap(result);
-
-      return resultMap;
-    } catch (e) {
-      print('❌ unfollowUser error: $e');
-      rethrow;
-    }
-  }
-
-  static Future<Map<String, dynamic>> _handleUniversalAction(String action, String newsId) async {
-    try {
-      print('🎯 API $action: $newsId');
-
-      final headers = await _getHeaders();
-      final requestData = {'action': action, 'newsId': newsId};
-
-      print('🔗 Request: POST $baseUrl/action');
-      print('📦 Data: ${json.encode(requestData)}');
-
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl/action'),
-        headers: headers,
-        body: json.encode(requestData),
-      )
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      final result = _handleResponse(response);
-      final resultMap = _ensureStringMap(result);
-
-      return resultMap;
-    } catch (e) {
-      print('❌ Action $action error: $e');
-      rethrow;
-    }
-  }
-
-  // ========== КОММЕНТАРИИ ==========
-
-  static Future<List<dynamic>> getComments(String newsId) async {
-    try {
-      print('💬 Getting comments from YDB for news: $newsId');
-
-      final headers = await _getHeaders();
-      final requestData = {'action': 'getComments', 'newsId': newsId};
-
-      print('🔗 Request: POST $baseUrl/action');
-      print('📦 Data: ${json.encode(requestData)}');
-
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl/action'),
-        headers: headers,
-        body: json.encode(requestData),
-      )
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      final result = _handleResponse(response);
-      print('🔍 Raw comments response: $result');
-
-      List<dynamic> comments = [];
-
-      if (result is Map && result.containsKey('comments') && result['comments'] is List) {
-        comments = (result['comments'] as List).map((comment) => _formatComment(comment)).toList();
-      } else if (result is List) {
-        comments = result.map((comment) => _formatComment(comment)).toList();
-      }
-
-      print('✅ Found ${comments.length} comments for news: $newsId');
-      return comments;
-    } catch (e) {
-      print('❌ Get comments error: $e');
-      return [];
-    }
-  }
-
-  static Future<Map<String, dynamic>> addComment(
-      String newsId, String text, String userName) async {
-    try {
-      print('💬 Adding comment to YDB news: $newsId');
-
-      final headers = await _getHeaders();
-      final requestData = {
-        'action': 'comment',
-        'newsId': newsId,
-        'text': text.trim(),
-        'author_name': userName,
-      };
-
-      print('🔗 Request: POST $baseUrl/action');
-      print('📦 Data: ${json.encode(requestData)}');
-
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl/action'),
-        headers: headers,
-        body: json.encode(requestData),
-      )
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      final result = _handleResponse(response);
-      dynamic commentData;
-
-      if (result is Map && result.containsKey('comment')) {
-        commentData = result['comment'];
-      } else {
-        commentData = result;
-      }
-
-      return _formatComment(commentData);
-    } catch (e) {
-      print('❌ Add comment error: $e');
-      rethrow;
-    }
-  }
-
-  // ========== ПОЛЬЗОВАТЕЛЬСКИЕ ВЗАИМОДЕЙСТВИЯ ==========
-
-  static Future<List<String>> syncUserLikes() async {
-    return _getUserInteractions('$baseUrl/user/likes');
-  }
-
-  static Future<List<String>> syncUserBookmarks() async {
-    return _getUserInteractions('$baseUrl/user/bookmarks');
-  }
-
-  static Future<List<String>> syncUserReposts() async {
-    return _getUserInteractions('$baseUrl/user/reposts');
-  }
-
-  static Future<List<String>> syncUserFollowing() async {
-    return _getUserInteractions('$baseUrl/user/following');
-  }
-
-  static Future<List<String>> syncUserFollowers() async {
-    return _getUserInteractions('$baseUrl/user/followers');
-  }
-
-  static Future<List<String>> _getUserInteractions(String url) async {
-    try {
-      final headers = await _getHeaders();
-
-      print('🔗 Request: GET $url');
-      print('🔑 Headers: $headers');
-
-      final response = await http
-          .get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      final result = _handleResponse(response);
-
-      if (result is List) {
-        final ids = result.map((item) => item.toString()).toList();
-        print('✅ Got ${ids.length} items from $url');
-        return ids;
-      }
-
-      return [];
-    } catch (e) {
-      print('❌ Get user interactions error: $e');
-      return [];
-    }
-  }
-
-  // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
-
-  static Map<String, dynamic> _formatNewsItem(dynamic news) {
-    final newsMap = _ensureStringMap(news);
-
-    final authorName = _getSafeString(newsMap['author_name']);
-    final finalAuthorName = authorName.isNotEmpty ? authorName : 'Автор';
-
-    // 🎯 ИСПРАВЛЕНИЕ: НЕ ГЕНЕРИРУЕМ ЗАГОЛОВОК ИЗ КОНТЕНТА
-    final title = _getSafeString(newsMap['title']);
-    // Оставляем заголовок как есть (может быть пустым)
-    final finalTitle = title;
-
-    final createdAt = _parseDateTime(newsMap['created_at']);
-    final updatedAt = _parseDateTime(newsMap['updated_at']);
-
-    return {
-      'id': _getSafeString(newsMap['id']),
-      'title': finalTitle, // 🆕 МОЖЕТ БЫТЬ ПУСТОЙ СТРОКОЙ
-      'content': _getSafeString(newsMap['content']) ?? '',
-      'author_name': finalAuthorName,
-      'author_id': _getSafeString(newsMap['author_id']) ?? 'unknown',
-      'author_avatar': _getSafeString(newsMap['author_avatar']) ?? '',
-      'hashtags': _parseList(newsMap['hashtags']),
-
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-
-      'likes': _parseInt(newsMap['likes']) ?? 0,
-      'likes_count': _parseInt(newsMap['likes_count']) ?? _parseInt(newsMap['likes']) ?? 0,
-      'reposts': _parseInt(newsMap['reposts']) ?? 0,
-      'reposts_count': _parseInt(newsMap['reposts_count']) ?? _parseInt(newsMap['reposts']) ?? 0,
-      'comments_count': _parseInt(newsMap['comments_count']) ?? 0,
-      'bookmarks_count': _parseInt(newsMap['bookmarks_count']) ?? 0,
-      'share_count': _parseInt(newsMap['share_count']) ?? 0,
-
-      'is_deleted': _getSafeBool(newsMap['is_deleted']) ?? false,
-      'is_repost': _getSafeBool(newsMap['is_repost']) ?? false,
-      'original_author_id': _getSafeString(newsMap['original_author_id']) ?? _getSafeString(newsMap['author_id']),
-
-      'isLiked': _getSafeBool(newsMap['isLiked']) ?? false,
-      'isBookmarked': _getSafeBool(newsMap['isBookmarked']) ?? false,
-      'isReposted': _getSafeBool(newsMap['isReposted']) ?? false,
-      'isFollowing': _getSafeBool(newsMap['isFollowing']) ?? false,
-
-      'comments': [],
-      'source': 'YDB'
-    };
-  }
-
-  static DateTime _parseDateTime(dynamic dateValue) {
-    try {
-      if (dateValue == null) {
-        return DateTime.now();
-      }
-
-      if (dateValue is String) {
-        // 🆕 ПРЯМОЙ ПАРСИНГ ISO СТРОКИ
-        final parsed = DateTime.tryParse(dateValue);
-        if (parsed != null && parsed.year > 2000) {
-          // 🆕 ПРОВЕРЯЕМ ЧТО ВРЕМЯ НЕ БУДУЩЕЕ
-          final now = DateTime.now();
-          if (parsed.isAfter(now.add(Duration(hours: 1)))) {
-            print('⚠️ Future time detected, correcting to now');
-            return now;
-          }
-          return parsed;
-        }
-
-        // 🆕 ПРОВЕРЯЕМ MICROSECONDS ИЗ YDB
-        final timestamp = int.tryParse(dateValue);
-        if (timestamp != null) {
-          // YDB возвращает время в микросекундах
-          if (timestamp > 1000000000000000) { // Это микросекунды
-            final date = DateTime.fromMicrosecondsSinceEpoch(timestamp);
-            // Проверяем реалистичность даты
-            if (date.year > 2000 && date.year < 2030) {
-              return date;
-            }
-          } else if (timestamp > 1000000000000) { // Миллисекунды
-            final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-            if (date.year > 2000 && date.year < 2030) {
-              return date;
-            }
-          } else if (timestamp > 1000000000) { // Секунды
-            final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-            if (date.year > 2000 && date.year < 2030) {
-              return date;
-            }
-          }
-        }
-      }
-
-      if (dateValue is int) {
-        // 🆕 ОБРАБОТКА ЧИСЛОВЫХ TIMESTAMP ИЗ YDB
-        if (dateValue > 1000000000000000) { // Микросекунды
-          final date = DateTime.fromMicrosecondsSinceEpoch(dateValue);
-          if (date.year > 2000 && date.year < 2030) {
-            return date;
-          }
-        } else if (dateValue > 1000000000000) { // Миллисекунды
-          final date = DateTime.fromMillisecondsSinceEpoch(dateValue);
-          if (date.year > 2000 && date.year < 2030) {
-            return date;
-          }
-        } else if (dateValue > 1000000000) { // Секунды
-          final date = DateTime.fromMillisecondsSinceEpoch(dateValue * 1000);
-          if (date.year > 2000 && date.year < 2030) {
-            return date;
-          }
-        }
-      }
-
-      // 🆕 ЕСЛИ НИЧЕГО НЕ СРАБОТАЛО - ТЕКУЩЕЕ ВРЕМЯ
-      print('⚠️ Could not parse date: $dateValue, using current time');
-      return DateTime.now();
-    } catch (e) {
-      print('❌ Date parsing error: $e, using current time');
-      return DateTime.now();
-    }
-  }
-
-  // 🎯 ОБНОВЛЕНИЕ НОВОСТИ
-  static Future<Map<String, dynamic>> updateNews(String newsId, Map<String, dynamic> updateData) async {
-    try {
-      print('✏️ Updating news in YDB: $newsId');
-
-      final headers = await _getHeaders();
-
-      // 🎯 ПРАВИЛЬНАЯ СТРУКТУРА ДАННЫХ ДЛЯ СЕРВЕРА С НЕОБЯЗАТЕЛЬНЫМИ ПОЛЯМИ
-      final requestData = {
-        'newsId': newsId,
-        'updateData': {
-          if (updateData['title'] != null) 'title': updateData['title'],
-          if (updateData['content'] != null) 'content': updateData['content'],
-          'hashtags': updateData['hashtags'] ?? [],
-        },
-      };
-
-      print('🔗 Request: POST $baseUrl/updateNews');
-      print('📦 Data: ${json.encode(requestData)}');
-
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl/updateNews'),
-        headers: headers,
-        body: json.encode(requestData),
-      )
-          .timeout(const Duration(seconds: timeoutSeconds));
-
-      print('🔧 API Response: ${response.statusCode}');
-      print('📦 Response body: ${response.body}');
-
-      final result = _handleResponse(response);
-      return _ensureStringMap(result);
-    } catch (e) {
-      print('❌ Update news error: $e');
-      rethrow;
-    }
-  }
-
-  static DateTime _parseTimestamp(int timestamp) {
-    try {
-      if (timestamp > 1000000000000) {
-        return DateTime.fromMillisecondsSinceEpoch(timestamp);
-      } else if (timestamp > 1000000000) {
-        return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-      } else {
-        return DateTime.fromMillisecondsSinceEpoch((timestamp / 1000).round());
-      }
-    } catch (e) {
-      return DateTime.now();
-    }
-  }
-
-  static Map<String, dynamic> _formatComment(dynamic comment) {
-    final commentMap = _ensureStringMap(comment);
-
-    final text = commentMap['text'] ??
-        commentMap['content'] ??
-        commentMap['message'] ??
-        '';
-
-    final authorName = commentMap['author_name'] ??
-        commentMap['user_name'] ??
-        commentMap['author'] ??
-        'Пользователь';
-
-    final result = {
-      'id': commentMap['id']?.toString() ?? 'unknown',
-      'text': text,
-      'content': text,
-      'author_name': authorName,
-      'author_avatar': commentMap['author_avatar']?.toString() ?? '',
-      'author_id': commentMap['author_id']?.toString() ?? commentMap['user_id']?.toString() ?? 'unknown',
-      'news_id': commentMap['news_id']?.toString() ?? 'unknown',
-      'timestamp': commentMap['timestamp']?.toString() ??
-          commentMap['created_at']?.toString() ??
-          DateTime.now().toIso8601String(),
-    };
-
-    return result;
-  }
-
-  // 🎯 БАЗОВЫЕ УТИЛИТЫ
-  static Map<String, dynamic> _ensureStringMap(dynamic data) {
-    if (data == null) return <String, dynamic>{};
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map<dynamic, dynamic>) {
-      return data.cast<String, dynamic>();
-    }
-    return <String, dynamic>{};
-  }
-
-
-  // ========== АВТОРИЗАЦИЯ ==========
-
+  // 🟢 АВТОРИЗАЦИЯ И РЕГИСТРАЦИЯ
   static Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      print('🔑 Attempting login: $email');
-
       final response = await http
           .post(
         Uri.parse('$baseUrl/login'),
@@ -731,7 +88,7 @@ class ApiService {
         if (result.containsKey('user')) {
           await AuthService.saveUser(Map<String, dynamic>.from(result['user']));
         }
-        print('✅ Login successful, token saved');
+        _cachedToken = result['token']; // Кэшируем токен
       }
 
       return result is Map<String, dynamic> ? result : {'success': true};
@@ -743,8 +100,6 @@ class ApiService {
 
   static Future<Map<String, dynamic>> register(String name, String email, String password) async {
     try {
-      print('🎯 Attempting registration: $name ($email)');
-
       final response = await http
           .post(
         Uri.parse('$baseUrl/register'),
@@ -764,6 +119,7 @@ class ApiService {
         if (result.containsKey('user')) {
           await AuthService.saveUser(Map<String, dynamic>.from(result['user']));
         }
+        _cachedToken = result['token']; // Кэшируем токен
       }
 
       return result is Map<String, dynamic> ? result : {'success': true};
@@ -771,6 +127,586 @@ class ApiService {
       print('❌ Registration error: $e');
       rethrow;
     }
+  }
+
+  // 🟢 НОВОСТИ
+  static Future<List<dynamic>> getNews({
+    int page = 0,
+    int limit = 20,
+    String? authorId,
+    bool refresh = false,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+
+      final queryParams = {
+        'page': page.toString(),
+        'limit': limit.toString(),
+        if (authorId != null) 'authorId': authorId,
+        if (refresh) 'refresh': 'true',
+      };
+
+      final uri = Uri.parse('$baseUrl/getNews').replace(queryParameters: queryParams);
+
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+
+      List<dynamic> newsList = [];
+
+      if (result is Map && result.containsKey('news')) {
+        newsList = result['news'] is List ? result['news'] : [];
+      } else if (result is List) {
+        newsList = result;
+      }
+
+      final formattedNews = newsList.map((news) {
+        return _formatNewsItem(news);
+      }).toList();
+
+      return formattedNews;
+    } catch (e) {
+      print('❌ getNews error: $e');
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> createNews(Map<String, dynamic> newsData) async {
+    try {
+      if (newsData['content'] == null || newsData['content'].toString().trim().isEmpty) {
+        throw HttpException('Content is required');
+      }
+
+      final preparedData = {
+        'title': newsData['title']?.toString().trim() ?? 'Без названия',
+        'content': newsData['content'].toString().trim(),
+        'author_name': newsData['author_name']?.toString() ?? 'Пользователь',
+        'author_avatar': newsData['author_avatar']?.toString() ?? '',
+        'hashtags': newsData['hashtags'] is List ? newsData['hashtags'] : [],
+      };
+
+      final headers = await _getHeaders();
+
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/createNews'),
+        headers: headers,
+        body: json.encode(preparedData),
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+      dynamic createdNews;
+
+      if (result is Map) {
+        createdNews = result.containsKey('news') ? result['news'] : result;
+      } else {
+        createdNews = result;
+      }
+
+      if (createdNews != null) {
+        return _formatNewsItem(createdNews);
+      }
+
+      throw Exception('Failed to create news');
+    } catch (e) {
+      print('❌ Create news error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateNews(String newsId, Map<String, dynamic> updateData) async {
+    try {
+      final headers = await _getHeaders();
+
+      final requestData = {
+        'newsId': newsId,
+        'updateData': {
+          if (updateData['title'] != null) 'title': updateData['title'],
+          if (updateData['content'] != null) 'content': updateData['content'],
+          if (updateData['hashtags'] != null) 'hashtags': updateData['hashtags'],
+        },
+      };
+
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/updateNews'),
+        headers: headers,
+        body: json.encode(requestData),
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+      return _formatNewsItem(result);
+    } catch (e) {
+      print('❌ Update news error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<bool> deleteNews(String newsId) async {
+    try {
+      final headers = await _getHeaders();
+      final requestData = {'newsId': newsId};
+
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/deleteNews'),
+        headers: headers,
+        body: json.encode(requestData),
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      _handleResponse(response);
+      return true;
+    } catch (e) {
+      print('❌ Delete news error: $e');
+      rethrow;
+    }
+  }
+
+  // 🟢 СОЦИАЛЬНЫЕ ВЗАИМОДЕЙСТВИЯ
+  static Future<Map<String, dynamic>> likeNews(String newsId) async {
+    return _handleAction('like', newsId);
+  }
+
+  static Future<Map<String, dynamic>> unlikeNews(String newsId) async {
+    return _handleAction('unlike', newsId);
+  }
+
+  static Future<Map<String, dynamic>> bookmarkNews(String newsId) async {
+    return _handleAction('bookmark', newsId);
+  }
+
+  static Future<Map<String, dynamic>> unbookmarkNews(String newsId) async {
+    return _handleAction('unbookmark', newsId);
+  }
+
+  static Future<Map<String, dynamic>> repostNews(String newsId) async {
+    return _handleAction('repost', newsId);
+  }
+
+  static Future<Map<String, dynamic>> unrepostNews(String newsId) async {
+    return _handleAction('unrepost', newsId);
+  }
+
+  static Future<Map<String, dynamic>> checkLike(String newsId) async {
+    return _handleAction('check_like', newsId);
+  }
+
+  static Future<Map<String, dynamic>> _handleAction(String action, String newsId) async {
+    try {
+      final headers = await _getHeaders();
+      final requestData = {'action': action, 'newsId': newsId};
+
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/action'),
+        headers: headers,
+        body: json.encode(requestData),
+      )
+          .timeout(const Duration(seconds: 5));
+
+      final result = _handleResponse(response);
+      return _ensureStringMap(result);
+    } catch (e) {
+      print('❌ Action $action error: $e');
+      rethrow;
+    }
+  }
+
+  // 🟢 КОММЕНТАРИИ - ОБНОВЛЕННЫЙ МЕТОД
+  static Future<Map<String, dynamic>> addComment(
+      String newsId, String text, String userName) async {
+    try {
+      final headers = await _getHeaders();
+      final requestData = {
+        'action': 'comment',
+        'newsId': newsId,
+        'text': text.trim(),
+        'author_name': userName,
+      };
+
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/action'),
+        headers: headers,
+        body: json.encode(requestData),
+      )
+          .timeout(const Duration(seconds: 5));
+
+      final result = _handleResponse(response);
+      dynamic commentData;
+
+      if (result is Map && result.containsKey('comment')) {
+        commentData = result['comment'];
+      } else {
+        commentData = result;
+      }
+
+      return _formatComment(commentData);
+    } catch (e) {
+      print('❌ Add comment error: $e');
+      rethrow;
+    }
+  }
+
+  // 🟢 ПОЛУЧЕНИЕ КОММЕНТАРИЕВ - ОБНОВЛЕННЫЙ МЕТОД
+  static Future<List<dynamic>> getComments(String newsId) async {
+    try {
+      final headers = await _getHeaders();
+
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/getComments?newsId=$newsId'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: 5));
+
+      final result = _handleResponse(response);
+
+      if (result is Map && result.containsKey('comments')) {
+        final comments = result['comments'] is List ? result['comments'] : [];
+        return comments.map((comment) => _formatComment(comment)).toList();
+      }
+
+      print('✅ Got empty comments list from server');
+      return [];
+    } catch (e) {
+      print('❌ Get comments error, returning empty list: $e');
+      // 🎯 ВОЗВРАЩАЕМ ПУСТОЙ СПИСОК ВМЕСТО ОШИБКИ
+      return [];
+    }
+  }
+
+  // 🟢 ПОДПИСКИ
+  static Future<Map<String, dynamic>> followUser(String targetUserId) async {
+    try {
+      final headers = await _getHeaders();
+      final requestData = {'targetUserId': targetUserId};
+
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/follow'),
+        headers: headers,
+        body: json.encode(requestData),
+      )
+          .timeout(const Duration(seconds: 5));
+
+      return _handleResponse(response);
+    } catch (e) {
+      print('❌ Follow user error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> unfollowUser(String targetUserId) async {
+    try {
+      final headers = await _getHeaders();
+      final requestData = {'targetUserId': targetUserId};
+
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/unfollow'),
+        headers: headers,
+        body: json.encode(requestData),
+      )
+          .timeout(const Duration(seconds: 5));
+
+      return _handleResponse(response);
+    } catch (e) {
+      print('❌ Unfollow user error: $e');
+      rethrow;
+    }
+  }
+
+  // 🟢 ПОЛЬЗОВАТЕЛИ
+  static Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/getUserProfile').replace(queryParameters: {
+        'userId': userId,
+      });
+
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+      return _formatUserProfile(result);
+    } catch (e) {
+      print('❌ Get user profile error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserByPath(String userId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/users/$userId'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+      return _formatUserProfile(result);
+    } catch (e) {
+      print('❌ Get user by path error: $e');
+      rethrow;
+    }
+  }
+
+  // 🟢 ПОЛУЧЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ
+  static Future<List<dynamic>> getUserLikes() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/user/likes'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+
+      if (result is Map && result.containsKey('likes')) {
+        return result['likes'] is List ? result['likes'] : [];
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ Get user likes error: $e');
+      return [];
+    }
+  }
+
+  static Future<List<dynamic>> getUserBookmarks() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/user/bookmarks'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+
+      if (result is Map && result.containsKey('bookmarks')) {
+        return result['bookmarks'] is List ? result['bookmarks'] : [];
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ Get user bookmarks error: $e');
+      return [];
+    }
+  }
+
+  static Future<List<dynamic>> getUserReposts() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/user/reposts'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+
+      if (result is Map && result.containsKey('reposts')) {
+        return result['reposts'] is List ? result['reposts'] : [];
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ Get user reposts error: $e');
+      return [];
+    }
+  }
+
+  static Future<List<dynamic>> getUserFollowing() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/user/following'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+
+      if (result is Map && result.containsKey('following')) {
+        return result['following'] is List ? result['following'] : [];
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ Get user following error: $e');
+      return [];
+    }
+  }
+
+  static Future<List<dynamic>> getUserFollowers() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/user/followers'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final result = _handleResponse(response);
+
+      if (result is Map && result.containsKey('followers')) {
+        return result['followers'] is List ? result['followers'] : [];
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ Get user followers error: $e');
+      return [];
+    }
+  }
+
+  // 🟢 СИСТЕМНЫЕ ФУНКЦИИ
+  static Future<bool> testConnection() async {
+    try {
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/health'),
+        headers: {'Content-Type': 'application/json'},
+      )
+          .timeout(const Duration(seconds: 5));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>> getSystemMetrics() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http
+          .get(
+        Uri.parse('$baseUrl/metrics'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      return _handleResponse(response);
+    } catch (e) {
+      print('❌ Get metrics error: $e');
+      rethrow;
+    }
+  }
+
+  // 🟢 ФОРМАТИРОВАНИЕ ДАННЫХ
+  static Map<String, dynamic> _formatNewsItem(dynamic news) {
+    final newsMap = _ensureStringMap(news);
+
+    return {
+      'id': _getSafeString(newsMap['id']),
+      'title': _getSafeString(newsMap['title']) ?? 'Без названия',
+      'content': _getSafeString(newsMap['content']) ?? '',
+      'author_name': _getSafeString(newsMap['author_name']) ?? 'Автор',
+      'author_id': _getSafeString(newsMap['author_id']) ?? 'unknown',
+      'author_avatar': _getSafeString(newsMap['author_avatar']) ?? '',
+      'hashtags': _parseList(newsMap['hashtags']),
+
+      'created_at': _parseDateTime(newsMap['created_at']).toIso8601String(),
+      'updated_at': _parseDateTime(newsMap['updated_at']).toIso8601String(),
+
+      'likes_count': _parseInt(newsMap['likes_count']) ?? 0,
+      'reposts_count': _parseInt(newsMap['reposts_count']) ?? 0,
+      'comments_count': _parseInt(newsMap['comments_count']) ?? 0,
+      'bookmarks_count': _parseInt(newsMap['bookmarks_count']) ?? 0,
+
+      'is_deleted': _getSafeBool(newsMap['is_deleted']) ?? false,
+      'is_repost': _getSafeBool(newsMap['is_repost']) ?? false,
+      'original_author_id': _getSafeString(newsMap['original_author_id']) ?? _getSafeString(newsMap['author_id']),
+
+      'isLiked': _getSafeBool(newsMap['isLiked']) ?? false,
+      'isBookmarked': _getSafeBool(newsMap['isBookmarked']) ?? false,
+      'isReposted': _getSafeBool(newsMap['isReposted']) ?? false,
+
+      'source': 'YDB_HYPER_OPTIMIZED'
+    };
+  }
+
+  // 🟢 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ДЕЙСТВИЙ
+  static Future<Map<String, dynamic>> action(Map<String, dynamic> data) async {
+    try {
+      final headers = await _getHeaders();
+
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/action'),
+        headers: headers,
+        body: json.encode(data),
+      )
+          .timeout(const Duration(seconds: 5));
+
+      return _handleResponse(response);
+    } catch (e) {
+      print('❌ Action error: $e');
+      rethrow;
+    }
+  }
+
+  static Map<String, dynamic> _formatUserProfile(dynamic user) {
+    final userMap = _ensureStringMap(user);
+
+    return {
+      'id': _getSafeString(userMap['id']),
+      'name': _getSafeString(userMap['name']) ?? 'Пользователь',
+      'email': _getSafeString(userMap['email']) ?? '',
+      'avatar': _getSafeString(userMap['avatar']) ?? '',
+      'created_at': _parseDateTime(userMap['created_at']).toIso8601String(),
+      'updated_at': _parseDateTime(userMap['updated_at']).toIso8601String(),
+    };
+  }
+
+  static Map<String, dynamic> _formatComment(dynamic comment) {
+    final commentMap = _ensureStringMap(comment);
+
+    return {
+      'id': _getSafeString(commentMap['id']),
+      'text': _getSafeString(commentMap['content'] ?? commentMap['text']),
+      'author_name': _getSafeString(commentMap['user_name'] ?? commentMap['author_name']) ?? 'Пользователь',
+      'author_id': _getSafeString(commentMap['user_id'] ?? commentMap['author_id']),
+      'news_id': _getSafeString(commentMap['news_id']),
+      'created_at': _parseDateTime(commentMap['created_at'] ?? commentMap['timestamp']).toIso8601String(),
+    };
+  }
+
+  // 🟢 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+  static DateTime _parseDateTime(dynamic dateValue) {
+    try {
+      if (dateValue == null) return DateTime.now();
+      if (dateValue is String) {
+        final parsed = DateTime.tryParse(dateValue);
+        if (parsed != null) return parsed;
+      }
+      return DateTime.now();
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+
+  static Map<String, dynamic> _ensureStringMap(dynamic data) {
+    if (data == null) return <String, dynamic>{};
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map<dynamic, dynamic>) return data.cast<String, dynamic>();
+    return <String, dynamic>{};
   }
 
   static String _getSafeString(dynamic value) {
@@ -802,9 +738,6 @@ class ApiService {
         final parsed = json.decode(value);
         if (parsed is List) return parsed;
       } catch (e) {
-        if (value.contains(',')) {
-          return value.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList();
-        }
         return value.isNotEmpty ? [value] : [];
       }
     }

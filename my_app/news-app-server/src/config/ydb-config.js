@@ -1,37 +1,37 @@
+// src/config/ydb-config.js
 const { Driver, getCredentialsFromEnv } = require('ydb-sdk');
 
 class YDBConfig {
   constructor() {
     this.driver = null;
-    this.database = '/ru-central1/b1gt6fjmjnejpscls6e8/etng2uemrr7ivj80tldm';
-    this.endpoint = 'grpcs://ydb.serverless.yandexcloud.net:2135';
     this.initialized = false;
   }
 
   async init() {
-    if (this.initialized) {
-      return this.driver;
-    }
+    if (this.initialized) return;
 
     try {
-      console.log('🔌 Initializing YDB connection...');
+      console.log('🔄 Initializing YDB driver...');
+
+      const authService = getCredentialsFromEnv();
 
       this.driver = new Driver({
-        endpoint: this.endpoint,
-        database: this.database,
-        authService: getCredentialsFromEnv(),
+        endpoint: process.env.YDB_ENDPOINT || 'grpcs://ydb.serverless.yandexcloud.net:2135',
+        database: process.env.YDB_DATABASE || '/ru-central1/b1gt6fjmjnejpscls6e8/etng2uemrr7ivj80tldm',
+        authService,
       });
 
+      console.log('🔄 Connecting to YDB...');
       const ready = await this.driver.ready(10000);
+
       if (!ready) {
-        throw new Error('YDB driver is not ready');
+        throw new Error('YDB driver not ready');
       }
 
       this.initialized = true;
-      console.log('✅ YDB connection established successfully');
-      return this.driver;
+      console.log('✅ YDB driver initialized successfully');
     } catch (error) {
-      console.error('❌ YDB connection failed:', error);
+      console.error('❌ YDB driver initialization failed:', error);
       throw error;
     }
   }
@@ -43,11 +43,11 @@ class YDBConfig {
     return this.driver;
   }
 
-  async close() {
+  async destroy() {
     if (this.driver) {
       await this.driver.destroy();
       this.initialized = false;
-      console.log('🔌 YDB connection closed');
+      console.log('✅ YDB driver destroyed');
     }
   }
 }

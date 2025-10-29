@@ -13,7 +13,7 @@ class FixedNewsCard extends StatefulWidget {
   final Function(String)? onComment;
   final VoidCallback? onFollow;
 
-  // 🆕 ОБНОВЛЕННЫЕ ТИПЫ
+  // 🆕 ОПТИМИЗИРОВАННЫЕ ТИПЫ ДЛЯ YDB
   final Future<void> Function(Map<String, dynamic>)? onEdit;
   final Future<void> Function()? onDelete;
   final VoidCallback? onShare;
@@ -46,12 +46,13 @@ class FixedNewsCard extends StatefulWidget {
 class _FixedNewsCardState extends State<FixedNewsCard>
     with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
 
-  // 🎯 КОНСТАНТЫ ДЛЯ ОПТИМИЗАЦИИ
+  // 🎯 КОНСТАНТЫ ДЛЯ ОПТИМИЗАЦИИ YDB
   static const int _MAX_CACHE_SIZE = 50;
   static const int _COMMENT_PREVIEW_LENGTH = 150;
   static const int _CONTENT_PREVIEW_LENGTH = 250;
+  static const Duration _ANIMATION_DURATION = Duration(milliseconds: 300);
 
-  // 🎯 ОПТИМИЗИРОВАННЫЙ КЭШ КОММЕНТАРИЕВ (LRU)
+  // 🎯 ОПТИМИЗИРОВАННЫЙ КЭШ КОММЕНТАРИЕВ (LRU) ДЛЯ YDB
   static final Map<String, List<Map<String, dynamic>>> _commentsCache = {};
   static final List<String> _cacheAccessOrder = [];
   static final Map<String, bool> _loadingStates = {};
@@ -78,7 +79,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     super.initState();
 
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: _ANIMATION_DURATION,
       vsync: this,
     );
 
@@ -119,7 +120,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     super.dispose();
   }
 
-  // 🎯 ОПТИМИЗИРОВАННЫЕ ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+  // 🎯 ОПТИМИЗИРОВАННЫЕ ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ YDB
   bool _isCurrentUserAuthor() {
     final userProvider = context.read<UserProvider>();
     final safeNews = _ensureStringMap(widget.news);
@@ -169,7 +170,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     return '';
   }
 
-  // 🎯 ОПТИМИЗИРОВАННЫЕ СТРОКОВЫЕ ОПЕРАЦИИ
+  // 🎯 ОПТИМИЗИРОВАННЫЕ СТРОКОВЫЕ ОПЕРАЦИИ ДЛЯ YDB
   String _truncateText(String text, {int maxLength = _CONTENT_PREVIEW_LENGTH}) {
     if (text.length <= maxLength) return text;
     return '${text.substring(0, maxLength)}...';
@@ -186,7 +187,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     return '${(count / 1000000).toStringAsFixed(1)}M';
   }
 
-  // 🎯 ОПТИМИЗИРОВАННОЕ ПОЛУЧЕНИЕ ХЕШТЕГОВ
+  // 🎯 ОПТИМИЗИРОВАННОЕ ПОЛУЧЕНИЕ ХЕШТЕГОВ ИЗ YDB
   List<String> _getHashtags() {
     try {
       final safeNews = _ensureStringMap(widget.news);
@@ -215,7 +216,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     }
   }
 
-  // 🎯 ОПТИМИЗИРОВАННОЕ УПРАВЛЕНИЕ КЭШЕМ КОММЕНТАРИЕВ
+  // 🎯 ОПТИМИЗИРОВАННОЕ УПРАВЛЕНИЕ КЭШЕМ КОММЕНТАРИЕВ ДЛЯ YDB
   void _updateCacheAccess(String newsId) {
     _cacheAccessOrder.remove(newsId);
     _cacheAccessOrder.add(newsId);
@@ -228,7 +229,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     }
   }
 
-  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА ПОДПИСКИ
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА ПОДПИСКИ С YDB
   void _handleFollow() async {
     final newsProvider = context.read<NewsProvider>();
     final safeNews = _ensureStringMap(widget.news);
@@ -249,7 +250,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     }
   }
 
-  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА ШАРИНГА
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА ШАРИНГА С YDB
   void _handleShare() async {
     final safeNews = _ensureStringMap(widget.news);
     final postId = safeNews['id']?.toString() ?? '';
@@ -264,14 +265,13 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     }
   }
 
-  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА УДАЛЕНИЯ
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА УДАЛЕНИЯ С YDB
   void _handleDelete() async {
     final safeNews = _ensureStringMap(widget.news);
     final postId = safeNews['id']?.toString() ?? '';
 
     if (postId.isEmpty) return;
 
-    // 🎯 СОХРАНЯЕМ КОНТЕКСТ ДО АСИНХРОННЫХ ОПЕРАЦИЙ
     final currentContext = context;
     if (!mounted) return;
 
@@ -289,7 +289,6 @@ class _FixedNewsCardState extends State<FixedNewsCard>
             onPressed: () async {
               Navigator.pop(context);
 
-              // 🎯 ПОКАЗЫВАЕМ ИНДИКАТОР УДАЛЕНИЯ С ПРОВЕРКОЙ mounted
               if (!mounted) return;
               final scaffoldMessenger = ScaffoldMessenger.of(currentContext);
               final snackBar = scaffoldMessenger.showSnackBar(
@@ -307,16 +306,13 @@ class _FixedNewsCardState extends State<FixedNewsCard>
               );
 
               try {
-                // 🎯 ВЫЗЫВАЕМ КОЛБЭК БЕЗ AWAIT ЕСЛИ ОН NULL
                 if (widget.onDelete != null) {
                   await widget.onDelete!();
                 } else {
-                  // 🎯 ЕСЛИ КОЛБЭК НЕ ПЕРЕДАН, ИСПОЛЬЗУЕМ ПРЯМОЙ ВЫЗОВ
                   final newsProvider = currentContext.read<NewsProvider>();
                   await newsProvider.deleteNews(postId);
                 }
 
-                // 🎯 СКРЫВАЕМ ИНДИКАТОР И ПОКАЗЫВАЕМ УСПЕХ С ПРОВЕРКОЙ
                 if (mounted) {
                   scaffoldMessenger.hideCurrentSnackBar();
                   scaffoldMessenger.showSnackBar(
@@ -349,7 +345,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     );
   }
 
-  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА РЕДАКТИРОВАНИЯ
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОБРАБОТКА РЕДАКТИРОВАНИЯ С YDB
   void _handleEdit() async {
     final safeNews = _ensureStringMap(widget.news);
     final postId = safeNews['id']?.toString() ?? '';
@@ -370,14 +366,13 @@ class _FixedNewsCardState extends State<FixedNewsCard>
       );
 
       if (result != null && result.isNotEmpty && mounted) {
-        // 🎯 ПРАВИЛЬНАЯ ПЕРЕДАЧА ДАННЫХ ДЛЯ ОБНОВЛЕНИЯ
         final updateData = {
           'title': result['title']?.toString() ?? '',
           'content': result['content']?.toString() ?? '',
           'hashtags': result['hashtags'] is List ? result['hashtags'] : [],
         };
 
-        print('✏️ Sending update data: $updateData');
+        print('✏️ Sending update data to YDB: $updateData');
 
         if (widget.onEdit != null) {
           await widget.onEdit!(updateData);
@@ -387,7 +382,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
         }
       }
     } catch (e) {
-      print('❌ Edit error: $e');
+      print('❌ Edit error with YDB: $e');
       if (mounted) {
         ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
@@ -399,7 +394,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     }
   }
 
-  // 🎯 ОПТИМИЗИРОВАННАЯ ОТПРАВКА КОММЕНТАРИЯ
+  // 🎯 ОПТИМИЗИРОВАННАЯ ОТПРАВКА КОММЕНТАРИЯ В YDB
   Future<void> _sendComment(String newsId) async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
@@ -407,7 +402,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     try {
       final newsProvider = context.read<NewsProvider>();
 
-      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ
+      // 🎯 ОПТИМИСТИЧЕСКОЕ ОБНОВЛЕНИЕ ДЛЯ YDB
       final newComment = {
         'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
         'text': text,
@@ -425,23 +420,23 @@ class _FixedNewsCardState extends State<FixedNewsCard>
 
       setState(() {});
 
-      // 🎯 ОЧИСТКА И ОТПРАВКА
       _commentController.clear();
       _commentFocusNode.unfocus();
       setState(() {
         _isWritingComment = false;
       });
 
-      // 🎯 ФОНОВАЯ СИНХРОНИЗАЦИЯ
+      // 🎯 ФОНОВАЯ СИНХРОНИЗАЦИЯ С YDB
       await newsProvider.addComment(newsId, text);
       await _getCommentsFromAPI(newsId, forceRefresh: true);
 
     } catch (e) {
-      // Ошибка уже обработана в провайдере
+      print('❌ Comment sync error with YDB: $e');
     }
   }
 
-  // 🎯 ОПТИМИЗИРОВАННОЕ ПОЛУЧЕНИЕ КОММЕНТАРИЕВ
+  // 🎯 ОПТИМИЗИРОВАННОЕ ПОЛУЧЕНИЕ КОММЕНТАРИЕВ ИЗ YDB
+  // 🎯 ОПТИМИЗИРОВАННОЕ ПОЛУЧЕНИЕ КОММЕНТАРИЕВ ИЗ YDB
   Future<List<Map<String, dynamic>>> _getCommentsFromAPI(String newsId, {bool forceRefresh = false}) async {
     try {
       if (!forceRefresh && _commentsCache.containsKey(newsId)) {
@@ -453,14 +448,26 @@ class _FixedNewsCardState extends State<FixedNewsCard>
       if (mounted) setState(() {});
 
       final comments = await ApiService.getComments(newsId);
+
+      // 🎯 ДОБАВЛЕНА ПРОВЕРКА НА ОШИБКИ
       final parsedComments = comments.map((comment) {
-        final safeComment = _ensureStringMap(comment);
-        return {
-          'id': _getStringValue(safeComment['id']),
-          'text': _getStringValue(safeComment['text']),
-          'author_name': _getStringValue(safeComment['author_name']),
-          'timestamp': _getStringValue(safeComment['timestamp'] ?? safeComment['created_at']),
-        };
+        try {
+          final safeComment = _ensureStringMap(comment);
+          return {
+            'id': _getStringValue(safeComment['id']),
+            'text': _getStringValue(safeComment['text'] ?? safeComment['content']),
+            'author_name': _getStringValue(safeComment['author_name'] ?? 'Пользователь'),
+            'timestamp': _getStringValue(safeComment['timestamp'] ?? safeComment['created_at'] ?? DateTime.now().toIso8601String()),
+          };
+        } catch (e) {
+          print('⚠️ Error parsing comment: $e');
+          return {
+            'id': 'error_${DateTime.now().millisecondsSinceEpoch}',
+            'text': 'Ошибка загрузки комментария',
+            'author_name': 'Система',
+            'timestamp': DateTime.now().toIso8601String(),
+          };
+        }
       }).toList();
 
       _commentsCache[newsId] = parsedComments;
@@ -470,8 +477,11 @@ class _FixedNewsCardState extends State<FixedNewsCard>
       if (mounted) setState(() {});
       return parsedComments;
     } catch (e) {
+      print('❌ Get comments from API error: $e');
       _loadingStates[newsId] = false;
       if (mounted) setState(() {});
+
+      // 🎯 ВОЗВРАЩАЕМ ПУСТОЙ СПИСОК ПРИ ЛЮБОЙ ОШИБКЕ
       return [];
     }
   }
@@ -745,7 +755,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
     );
   }
 
-  // 🎯 ОПТИМИЗИРОВАННЫЕ КНОПКИ ДЕЙСТВИЙ
+  // 🎯 ОПТИМИЗИРОВАННЫЕ КНОПКИ ДЕЙСТВИЙ ДЛЯ YDB
   Widget _buildActionButton(IconData icon, String count, Color color, VoidCallback onPressed) {
     final displayCount = count.isNotEmpty && count != '0' ? _formatCount(int.parse(count)) : '';
 
@@ -964,7 +974,7 @@ class _FixedNewsCardState extends State<FixedNewsCard>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    super.build(context);
 
     return Consumer<NewsProvider>(
       builder: (context, newsProvider, child) {

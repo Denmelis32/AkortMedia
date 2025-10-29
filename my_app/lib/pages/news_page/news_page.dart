@@ -23,7 +23,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   final ScrollController _scrollController = ScrollController();
   bool _isCreatingPost = false;
 
-  // 🎯 КАТЕГОРИИ ЛЕНТЫ - ОБНОВЛЕННЫЙ ПОРЯДОК
+  // 🎯 КАТЕГОРИИ ЛЕНТЫ - ОПТИМИЗИРОВАННЫЕ ДЛЯ YDB
   int _currentCategoryIndex = 0;
   final List<String> _categories = ['Лента', 'Репосты', 'Подписки', 'Избранное'];
   final List<IconData> _categoryIcons = [
@@ -45,7 +45,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
 
-    // 🆕 СЛУШАТЕЛЬ ДЛЯ БЕСКОНЕЧНОГО СКРОЛЛА
+    // 🆕 СЛУШАТЕЛЬ ДЛЯ БЕСКОНЕЧНОГО СКРОЛЛА С YDB
     _scrollController.addListener(_scrollListener);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -53,7 +53,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     });
   }
 
-  // 🆕 СЛУШАТЕЛЬ СКРОЛЛА ДЛЯ ПАГИНАЦИИ
+  // 🆕 СЛУШАТЕЛЬ СКРОЛЛА ДЛЯ ПАГИНАЦИИ YDB
   void _scrollListener() {
     if (_scrollController.offset >= _scrollController.position.maxScrollExtent - 200 &&
         !_scrollController.position.outOfRange) {
@@ -64,38 +64,38 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   void _loadMoreNews() {
     final newsProvider = context.read<NewsProvider>();
     if (newsProvider.hasMoreNews && !newsProvider.isLoadingMore && !newsProvider.isLoading) {
-      print('🔄 Auto-loading more news...');
+      print('🔄 Auto-loading more news from YDB...');
       newsProvider.loadMoreNews();
     }
   }
 
   void _initializeApp() async {
-    print('🚀 Initializing app...');
+    print('🚀 Initializing app with YDB...');
 
     final newsProvider = context.read<NewsProvider>();
     final userProvider = context.read<UserProvider>();
 
-    // Проверяем авторизацию и синхронизируем данные с сервером
+    // 🎯 ПРОВЕРКА АВТОРИЗАЦИИ И СИНХРОНИЗАЦИЯ С YDB
     if (userProvider.isLoggedIn) {
       print('✅ User is logged in: ${userProvider.userName} (ID: ${userProvider.userId})');
 
       // Синхронизируем с сервером перед загрузкой новостей
       await userProvider.syncWithServer();
-      print('🔄 User data synced with server');
+      print('🔄 User data synced with YDB');
     } else {
       print('⚠️ User not logged in, checking auth status...');
       final isAuthenticated = await userProvider.checkAuthStatus();
       if (isAuthenticated) {
         await userProvider.syncWithServer();
-        print('🔄 User data synced after auth check');
+        print('🔄 User data synced with YDB after auth check');
       }
     }
 
-    // Загружаем новости с пагинацией
+    // Загружаем новости с пагинацией из YDB
     await newsProvider.loadNews();
   }
 
-  // 🎯 БЕЗОПАСНОЕ ПРЕОБРАЗОВАНИЕ ТИПОВ
+  // 🎯 БЕЗОПАСНОЕ ПРЕОБРАЗОВАНИЕ ТИПОВ ДЛЯ YDB
   Map<String, dynamic> _ensureStringMap(dynamic data) {
     if (data == null) return <String, dynamic>{};
     if (data is Map<String, dynamic>) return data;
@@ -109,7 +109,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     return <String, dynamic>{};
   }
 
-  // 🆕 УЛУЧШЕННЫЙ МЕТОД ДЛЯ ОБРАБОТКИ ХЕШТЕГОВ (через пробел)
+  // 🆕 УЛУЧШЕННЫЙ МЕТОД ДЛЯ ОБРАБОТКИ ХЕШТЕГОВ ДЛЯ YDB
   List<String> _parseHashtags(String hashtagsText) {
     if (hashtagsText.trim().isEmpty) return [];
 
@@ -134,7 +134,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     final newsProvider = context.read<NewsProvider>();
     final userProvider = context.read<UserProvider>();
 
-    // 🆕 ПРОВЕРКА АВТОРИЗАЦИИ И ДАННЫХ
+    // 🆕 ПРОВЕРКА АВТОРИЗАЦИИ И ДАННЫХ ДЛЯ YDB
     if (!userProvider.isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -145,7 +145,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       return;
     }
 
-    // 🆕 ПРОВЕРКА ЧТО ИМЯ ПОЛЬЗОВАТЕЛЯ ЗАГРУЖЕНО
+    // 🆕 ПРОВЕРКА ЧТО ИМЯ ПОЛЬЗОВАТЕЛЯ ЗАГРУЖЕНО ИЗ YDB
     if (userProvider.userName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -153,11 +153,11 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
           backgroundColor: Colors.orange,
         ),
       );
-      await userProvider.syncWithServer(); // Попробуем синхронизировать
+      await userProvider.syncWithServer(); // Попробуем синхронизировать с YDB
       return;
     }
 
-    // 🎯 ПРОВЕРКА ОГРАНИЧЕНИЙ
+    // 🎯 ПРОВЕРКА ОГРАНИЧЕНИЙ ДЛЯ YDB
     final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
 
@@ -218,10 +218,10 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     setState(() => _isCreatingPost = true);
 
     try {
-      // 🆕 ПАРСИМ ХЕШТЕГИ (через пробел)
+      // 🆕 ПАРСИМ ХЕШТЕГИ (через пробел) ДЛЯ YDB
       final hashtags = _parseHashtags(_hashtagsController.text);
 
-      // Используем данные из UserProvider
+      // Используем данные из UserProvider для YDB
       final newsData = {
         'title': title,
         'content': description,
@@ -230,12 +230,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         'author_name': userProvider.userName,
       };
 
-      print('🎯 Creating post as: ${userProvider.userName} (ID: ${userProvider.userId})');
+      print('🎯 Creating post in YDB as: ${userProvider.userName} (ID: ${userProvider.userId})');
       print('📝 Title: $title (${title.length}/75 символов)');
       print('📋 Content: ${description.length}/435 символов)');
       print('🏷️ Hashtags: $hashtags');
 
-      // Создаем пост через NewsProvider
+      // Создаем пост через NewsProvider с YDB
       await newsProvider.addNews(newsData);
 
       // Очищаем поля
@@ -244,16 +244,16 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       // Показываем успешное сообщение
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Пост успешно создан!'),
+          content: Text('Пост успешно создан в YDB!'),
           backgroundColor: Colors.green,
         ),
       );
 
     } catch (e) {
-      print('❌ Error creating post: $e');
+      print('❌ Error creating post in YDB: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ошибка: $e'),
+          content: Text('Ошибка создания поста: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -265,7 +265,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   void _showCreatePostDialog() {
     final userProvider = context.read<UserProvider>();
 
-    // 🆕 ПРОВЕРКА АВТОРИЗАЦИИ
+    // 🆕 ПРОВЕРКА АВТОРИЗАЦИИ ДЛЯ YDB
     if (!userProvider.isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -318,73 +318,73 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     }
   }
 
-  // 🎯 ОБРАБОТЧИКИ ВЗАИМОДЕЙСТВИЙ
+  // 🎯 ОБРАБОТЧИКИ ВЗАИМОДЕЙСТВИЙ С YDB
   void _handleLike(String postId) {
-    print('🎯 HANDLE LIKE: $postId');
+    print('🎯 HANDLE LIKE in YDB: $postId');
     final newsProvider = context.read<NewsProvider>();
     newsProvider.toggleLike(postId);
   }
 
   void _handleBookmark(String postId) {
-    print('🎯 HANDLE BOOKMARK: $postId');
+    print('🎯 HANDLE BOOKMARK in YDB: $postId');
     final newsProvider = context.read<NewsProvider>();
     newsProvider.toggleBookmark(postId);
   }
 
   void _handleRepost(String postId) {
-    print('🎯 HANDLE REPOST: $postId');
+    print('🎯 HANDLE REPOST in YDB: $postId');
     final newsProvider = context.read<NewsProvider>();
     newsProvider.toggleRepost(postId);
   }
 
   void _handleFollow(String authorId) {
-    print('👥 HANDLE FOLLOW: $authorId');
+    print('👥 HANDLE FOLLOW in YDB: $authorId');
     final newsProvider = context.read<NewsProvider>();
     newsProvider.toggleFollow(authorId);
   }
 
   void _handleShare(String postId) {
-    print('📤 HANDLE SHARE: $postId');
+    print('📤 HANDLE SHARE in YDB: $postId');
     final newsProvider = context.read<NewsProvider>();
     newsProvider.shareNews(postId);
   }
 
-  // 🎯 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ КОММЕНТАРИЕВ
+  // 🎯 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ КОММЕНТАРИЕВ В YDB
   void _handleComment(String postId, String text) {
-    print('🎯 HANDLE COMMENT: $postId - "$text"');
+    print('🎯 HANDLE COMMENT in YDB: $postId - "$text"');
     final newsProvider = context.read<NewsProvider>();
     newsProvider.addComment(postId, text);
   }
 
-  // 🎯 ПРОВЕРКА ЯВЛЯЕТСЯ ЛИ ПОЛЬЗОВАТЕЛЬ АВТОРОМ ПОСТА
+  // 🎯 ПРОВЕРКА ЯВЛЯЕТСЯ ЛИ ПОЛЬЗОВАТЕЛЬ АВТОРОМ ПОСТА ИЗ YDB
   bool _isCurrentUserAuthor(Map<String, dynamic> post) {
     final userProvider = context.read<UserProvider>();
     final postAuthorId = post['author_id']?.toString() ?? '';
     return postAuthorId == userProvider.userId;
   }
 
-  // 🎯 ФИЛЬТРАЦИЯ ПО КАТЕГОРИЯМ - ОБНОВЛЕННАЯ
+  // 🎯 ФИЛЬТРАЦИЯ ПО КАТЕГОРИЯМ - ОПТИМИЗИРОВАННАЯ ДЛЯ YDB
   List<dynamic> _getFilteredNews(List<dynamic> allNews) {
     final userProvider = context.read<UserProvider>();
     final userId = userProvider.userId;
 
     switch (_currentCategoryIndex) {
-      case 0: // Лента - все посты
+      case 0: // Лента - все посты из YDB
         return allNews;
 
-      case 1: // Репосты - посты, которые пользователь репостнул
+      case 1: // Репосты - посты, которые пользователь репостнул в YDB
         return allNews.where((post) {
           final safePost = _ensureStringMap(post);
           return safePost['isReposted'] == true;
         }).toList();
 
-      case 2: // Подписки - посты от авторов, на которых подписан пользователь
+      case 2: // Подписки - посты от авторов, на которых подписан пользователь в YDB
         return allNews.where((post) {
           final safePost = _ensureStringMap(post);
           return safePost['isFollowing'] == true;
         }).toList();
 
-      case 3: // Избранное - посты, добавленные в закладки
+      case 3: // Избранное - посты, добавленные в закладки в YDB
         return allNews.where((post) {
           final safePost = _ensureStringMap(post);
           return safePost['isBookmarked'] == true;
@@ -405,7 +405,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
           ),
           SizedBox(height: 16),
           Text(
-            'Загрузка новостей...',
+            'Загрузка новостей из YDB...',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey,
@@ -416,7 +416,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     );
   }
 
-  // 🆕 ИНДИКАТОР ЗАГРУЗКИ ДОПОЛНИТЕЛЬНЫХ НОВОСТЕЙ
+  // 🆕 ИНДИКАТОР ЗАГРУЗКИ ДОПОЛНИТЕЛЬНЫХ НОВОСТЕЙ ИЗ YDB
   Widget _buildLoadMoreIndicator(NewsProvider newsProvider) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 20),
@@ -429,7 +429,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
               ),
             SizedBox(height: 8),
             Text(
-              newsProvider.isLoadingMore ? 'Загружаем еще новости...' : 'Больше новостей нет',
+              newsProvider.isLoadingMore ? 'Загружаем еще новости из YDB...' : 'Больше новостей нет',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey,
@@ -470,7 +470,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
               textAlign: TextAlign.center,
             ),
           ),
-          // 🆕 УБИРАЕМ КНОПКУ ИЗ ПУСТОГО СОСТОЯНИЯ, Т.К. ЕСТЬ FAB
         ],
       ),
     );
@@ -529,7 +528,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
           Icon(Icons.error_outline_rounded, size: 80, color: Colors.orange),
           SizedBox(height: 20),
           Text(
-            'Ошибка загрузки',
+            'Ошибка загрузки из YDB',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -562,8 +561,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     );
   }
 
-  // 🎯 ОТДЕЛЬНЫЙ ВИДЖЕТ ДЛЯ КАТЕГОРИЙ - ТЕПЕРЬ В СКРОЛЛЕ
-  // 🎯 АЛЬТЕРНАТИВНЫЙ ВАРИАНТ - СУПЕР КОМПАКТНЫЙ
+  // 🎯 ОТДЕЛЬНЫЙ ВИДЖЕТ ДЛЯ КАТЕГОРИЙ
   Widget _buildCategoriesSection() {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -641,12 +639,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
 
     return NotificationListener<ScrollNotification>(
       onNotification: (scrollNotification) {
-        // 🆕 БЕСКОНЕЧНЫЙ СКРОЛЛ
+        // 🆕 БЕСКОНЕЧНЫЙ СКРОЛЛ ДЛЯ YDB
         if (scrollNotification is ScrollEndNotification &&
             scrollNotification.metrics.pixels == scrollNotification.metrics.maxScrollExtent &&
             newsProvider.hasMoreNews &&
             !newsProvider.isLoadingMore) {
-          print('🔄 Reached bottom, loading more news...');
+          print('🔄 Reached bottom, loading more news from YDB...');
           newsProvider.loadMoreNews();
         }
         return false;
@@ -658,7 +656,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-            // 🆕 ИНДИКАТОР СТАТУСА СЕРВЕРА
+            // 🆕 ИНДИКАТОР СТАТУСА СЕРВЕРА YDB
             if (!newsProvider.serverAvailable)
               SliverToBoxAdapter(
                 child: Container(
@@ -685,7 +683,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                 ),
               ),
 
-            // 🆕 ИНДИКАТОР ОШИБКИ
+            // 🆕 ИНДИКАТОР ОШИБКИ YDB
             if (newsProvider.errorMessage != null)
               SliverToBoxAdapter(
                 child: Container(
@@ -717,12 +715,12 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                 ),
               ),
 
-            // 🎯 КАТЕГОРИИ ТЕПЕРЬ В СКРОЛЛЕ
+            // 🎯 КАТЕГОРИИ В СКРОЛЛЕ
             SliverToBoxAdapter(
               child: _buildCategoriesSection(),
             ),
 
-            // 🎯 СПИСОК НОВОСТЕЙ
+            // 🎯 СПИСОК НОВОСТЕЙ ИЗ YDB
             SliverList(
               delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -732,7 +730,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                   }
 
                   final post = filteredNews[index];
-                  // Безопасное преобразование данных
                   final safePost = _ensureStringMap(post);
                   final postId = safePost['id']?.toString() ?? '';
                   final isCurrentUserAuthor = _isCurrentUserAuthor(safePost);
@@ -744,9 +741,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
                     onBookmark: () => _handleBookmark(postId),
                     onRepost: () => _handleRepost(postId),
                     onComment: (text) => _handleComment(postId, text),
-                    // 🎯 КНОПКА ПОДПИСКИ ТОЛЬКО ДЛЯ ЧУЖИХ ПОСТОВ
                     onFollow: isCurrentUserAuthor ? null : () => _handleFollow(safePost['author_id']?.toString() ?? ''),
-                    // 🎯 РЕДАКТИРОВАНИЕ И УДАЛЕНИЕ ТОЛЬКО ДЛЯ СВОИХ ПОСТОВ
                     onEdit: isCurrentUserAuthor ? (updateData) => _handleEdit(postId, updateData) : null,
                     onDelete: isCurrentUserAuthor ? () => _handleDelete(postId) : null,
                     onShare: () => _handleShare(postId),
@@ -765,9 +760,9 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
     );
   }
 
-  // 🎯 ОБРАБОТЧИКИ РЕДАКТИРОВАНИЯ И УДАЛЕНИЯ
+  // 🎯 ОБРАБОТЧИКИ РЕДАКТИРОВАНИЯ И УДАЛЕНИЯ С YDB
   Future<void> _handleEdit(String postId, Map<String, dynamic> updateData) async {
-    print('✏️ Редактирование поста: $postId с данными: $updateData');
+    print('✏️ Редактирование поста в YDB: $postId с данными: $updateData');
 
     try {
       final snackBar = ScaffoldMessenger.of(context).showSnackBar(
@@ -776,7 +771,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
             children: [
               CircularProgressIndicator(color: Colors.white),
               SizedBox(width: 10),
-              Text('Обновляем пост...'),
+              Text('Обновляем пост в YDB...'),
             ],
           ),
           backgroundColor: Colors.blue,
@@ -790,7 +785,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Пост успешно обновлен!'),
+          content: Text('Пост успешно обновлен в YDB!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -798,7 +793,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ошибка при редактировании: $e'),
+          content: Text('Ошибка при редактировании в YDB: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -806,7 +801,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _handleDelete(String postId) async {
-    print('🗑️ Удаление поста: $postId');
+    print('🗑️ Удаление поста из YDB: $postId');
 
     try {
       final snackBar = ScaffoldMessenger.of(context).showSnackBar(
@@ -815,7 +810,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
             children: [
               CircularProgressIndicator(color: Colors.white),
               SizedBox(width: 10),
-              Text('Удаляем пост...'),
+              Text('Удаляем пост из YDB...'),
             ],
           ),
           backgroundColor: Colors.orange,
@@ -829,7 +824,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Пост успешно удален!'),
+          content: Text('Пост успешно удален из YDB!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -837,7 +832,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ошибка при удалении: $e'),
+          content: Text('Ошибка при удалении из YDB: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -896,7 +891,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
             builder: (context, newsProvider, child) {
               return Row(
                 children: [
-                  // 🆕 ИНДИКАТОР СТАТУСА СЕРВЕРА В APP BAR
+                  // 🆕 ИНДИКАТОР СТАТУСА СЕРВЕРА YDB В APP BAR
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -950,7 +945,6 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
           } else if (filteredNews.isEmpty) {
             return Column(
               children: [
-                // 🎯 КАТЕГОРИИ ДАЖЕ ПРИ ПУСТОМ СОСТОЯНИИ
                 _buildCategoriesSection(),
                 Expanded(
                   child: _buildEmptyState(_getEmptyStateMessage(_categories[_currentCategoryIndex])),
@@ -996,7 +990,7 @@ class _NewsPageState extends State<NewsPage> with SingleTickerProviderStateMixin
   }
 }
 
-// 🎯 НОВЫЙ КЛАСС ДЛЯ ДИАЛОГА СОЗДАНИЯ ПОСТА
+// 🎯 НОВЫЙ КЛАСС ДЛЯ ДИАЛОГА СОЗДАНИЯ ПОСТА С YDB
 class _CreatePostDialog extends StatefulWidget {
   final TextEditingController titleController;
   final TextEditingController descriptionController;
@@ -1089,7 +1083,7 @@ class _CreatePostDialogState extends State<_CreatePostDialog> {
               ),
             ),
 
-            // 🎯 ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ
+            // 🎯 ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ ИЗ YDB
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1129,7 +1123,7 @@ class _CreatePostDialogState extends State<_CreatePostDialog> {
                           maxLines: 1,
                         ),
                         Text(
-                          'Создать новый пост',
+                          'Создать новый пост в YDB',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -1158,7 +1152,7 @@ class _CreatePostDialogState extends State<_CreatePostDialog> {
                     TextField(
                       controller: widget.titleController,
                       decoration: InputDecoration(
-                        labelText: 'Заголовок', // 🆕 БЕЗ ЗВЕЗДОЧКИ
+                        labelText: 'Заголовок',
                         hintText: 'Введите заголовок поста (необязательно)...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -1194,7 +1188,7 @@ class _CreatePostDialogState extends State<_CreatePostDialog> {
                     TextField(
                       controller: widget.descriptionController,
                       decoration: InputDecoration(
-                        labelText: 'Описание*', // 🆕 СО ЗВЕЗДОЧКОЙ
+                        labelText: 'Описание*',
                         hintText: 'Расскажите о вашем посте...',
                         alignLabelWithHint: true,
                         border: OutlineInputBorder(
